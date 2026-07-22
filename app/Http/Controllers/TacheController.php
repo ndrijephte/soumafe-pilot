@@ -31,6 +31,15 @@ class TacheController extends Controller
         ]);
     }
 
+    /** Détail tâche : blocages, commentaires, métadonnées. */
+    public function show(Request $r, Tache $tache)
+    {
+        abort_unless($tache->user_id === $r->user()->id || $r->user()->aRole('administrateur', 'direction', 'chef_projet'), 403);
+        $tache->load(['projet', 'sprint', 'blocages', 'commentaires.user']);
+        $blocagesActifs = $tache->blocages->whereNull('date_levee')->count();
+        return view('taches.show', compact('tache', 'blocagesActifs'));
+    }
+
     /** US-06 : création rapide — valeurs par défaut intelligentes. */
     public function store(TacheRequest $r)
     {

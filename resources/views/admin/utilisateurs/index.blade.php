@@ -14,8 +14,8 @@
 .btn.sm{padding:4px 10px;font-size:11.5px;border-radius:6px}
 .btn.danger{background:var(--ko)}
 .badge-role{padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600}
-.r-admin{background:#dbeafe;color:#1d4ed8}.r-direction{background:#fef3c7;color:#b45309}
-.r-chef{background:#e0e7ff;color:#4338ca}.r-collab{background:#e2e8f0;color:#475569}
+.r-administrateur{background:#dbeafe;color:#1d4ed8}.r-direction{background:#fef3c7;color:#b45309}
+.r-chef_projet{background:#e0e7ff;color:#4338ca}.r-collaborateur{background:#e2e8f0;color:#475569}
 .r-invite{background:#f1f5f9;color:#94a3b8}
 .actif-oui{color:var(--ok)}.actif-non{color:var(--ko)}
 .pagination-w{display:flex;gap:4px;margin-top:14px;font-size:12px}
@@ -24,6 +24,18 @@
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 .alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
+
+@media(max-width:900px){
+    .filtres{flex-direction:column}
+    .admin-tbl{font-size:12px}
+    .admin-tbl th:nth-child(2),.admin-tbl td:nth-child(2),
+    .admin-tbl th:nth-child(5),.admin-tbl td:nth-child(5){display:none}
+    .btn.sm{padding:4px 8px;font-size:10.5px}
+}
+@media(max-width:500px){
+    .admin-tbl th:nth-child(3),.admin-tbl td:nth-child(3),
+    .admin-tbl th:nth-child(6),.admin-tbl td:nth-child(6){display:none}
+}
 </style>
 @endpush
 @section('contenu')
@@ -56,7 +68,7 @@
     <td><strong>{{ $u->name }}</strong> {{ $u->prenom }}</td>
     <td>{{ $u->email }}</td>
     <td>{{ $u->pole?->libelle ?? '—' }}</td>
-    <td><span class="badge-role r-{{ explode('_',$u->role)[0] ?? 'collab' }}">{{ ucfirst(str_replace('_',' ',$u->role)) }}</span></td>
+    <td><span class="badge-role r-{{ $u->role }}">{{ ucfirst(str_replace('_',' ',$u->role)) }}</span></td>
     <td>{{ ucfirst($u->profil_mesure) }}</td>
     <td class="{{ $u->actif ? 'actif-oui' : 'actif-non' }}">{{ $u->actif ? 'Oui' : 'Non' }}</td>
     <td style="white-space:nowrap">

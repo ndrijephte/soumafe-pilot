@@ -11,12 +11,29 @@
     .tache .meta{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--gris)}
     .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer}
     .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
-    .barre-outils{display:flex;gap:8px;margin-bottom:14px;align-items:center}
-    dialog{border:1px solid var(--bord);border-radius:12px;padding:20px;width:430px}
+    .barre-outils{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+    dialog{border:none;border-radius:14px;padding:24px;width:430px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
     dialog::backdrop{background:rgba(22,56,92,.35)}
     dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px}
-    dialog input,dialog select{width:100%;padding:7px;border:1px solid var(--bord);border-radius:7px;font-size:13px}
+    dialog input,dialog select{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px}
+    dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
     .toast{position:fixed;bottom:18px;right:18px;background:#16385C;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;display:none;z-index:50}
+
+    /* Selects élégants */
+    .filtre-select{appearance:none;-webkit-appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;padding:7px 30px 7px 12px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;color:#1e293b;cursor:pointer;min-width:130px}
+    .filtre-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
+    .filtre-select:hover{border-color:var(--accent)}
+
+    .echeance-info{font-size:10.5px;color:var(--gris);font-style:italic}
+
+    @media(max-width:900px){
+        .kanban{grid-template-columns:1fr 1fr}
+        .barre-outils{flex-direction:column;align-items:stretch}
+        .barre-outils form[method="GET"]{margin-left:0}
+    }
+    @media(max-width:500px){
+        .kanban{grid-template-columns:1fr}
+    }
 </style>
 @endpush
 
@@ -30,14 +47,16 @@
     <form method="POST" action="{{ route('taches.dupliquer-veille') }}">@csrf
         <button class="btn sec">Reprendre la veille</button>
     </form>
-    <form method="GET" style="margin-left:auto;display:flex;gap:6px">
-        <select name="projet" onchange="this.form.submit()">
-            <option value="">Tous les projets</option>
+    <form method="GET" style="margin-left:auto;display:flex;gap:8px">
+        <select name="projet" class="filtre-select" onchange="this.form.submit()">
+            <option value="">Projet : tous</option>
             @foreach($projets as $p)<option value="{{ $p->id }}" @selected(request('projet')==$p->id)>{{ $p->libelle }}</option>@endforeach
         </select>
-        <select name="type" onchange="this.form.submit()">
-            <option value="">Tous types</option>
-            @foreach(['T1','T2','T3'] as $t)<option @selected(request('type')==$t)>{{ $t }}</option>@endforeach
+        <select name="type" class="filtre-select" onchange="this.form.submit()">
+            <option value="">Type : tous</option>
+            <option value="T1" @selected(request('type')=='T1')>T1 — Sprint</option>
+            <option value="T2" @selected(request('type')=='T2')>T2 — Opérationnelle</option>
+            <option value="T3" @selected(request('type')=='T3')>T3 — Urgente</option>
         </select>
     </form>
 </div>
@@ -49,7 +68,7 @@
         @foreach($taches[$code] ?? [] as $t)
         <div class="tache {{ $t->echeance?->isPast() && $code !== 'termine' ? 'retard' : '' }}"
              draggable="true" ondragstart="event.dataTransfer.setData('id',{{ $t->id }})">
-            <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span>{{ $t->intitule }}
+            <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
             <div class="meta">
                 <span>{{ $t->projet?->libelle ?? $t->activite ?? '—' }}</span>
                 <span>{{ $t->echeance?->format('d/m') ?? 'sans échéance' }}</span>
@@ -62,7 +81,7 @@
 
 {{-- US-06 : formulaire 3 clics --}}
 <dialog id="dlg-tache">
-    <h3 style="color:var(--bleu)">Nouvelle tâche</h3>
+    <h3 style="color:var(--bleu);margin-bottom:4px">Nouvelle tâche</h3>
     <form method="POST" action="{{ route('taches.store') }}">@csrf
         <label>Intitulé *</label><input name="intitule" required autofocus>
         <label>Type *</label>
@@ -83,7 +102,8 @@
         <label>Priorité</label>
         <select name="priorite"><option value="moyenne">Moyenne</option><option value="haute">Haute</option><option value="basse">Basse</option></select>
         <label>Début</label><input type="date" name="date_debut" value="{{ today()->toDateString() }}">
-        <label>Échéance</label><input type="date" name="echeance">
+        <label>Échéance <small class="echeance-info" id="echeance-hint">obligatoire pour T1 et T2</small></label>
+        <input type="date" name="echeance" id="inp-echeance">
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn">Enregistrer</button>
@@ -97,8 +117,17 @@
 @push('scripts')
 <script>
 function basculeT1(){
-    document.getElementById('champs-t1').style.display =
-        document.getElementById('sel-type').value === 'T1' ? 'block' : 'none';
+    const type = document.getElementById('sel-type').value;
+    document.getElementById('champs-t1').style.display = type === 'T1' ? 'block' : 'none';
+    const inp = document.getElementById('inp-echeance');
+    const hint = document.getElementById('echeance-hint');
+    if (type === 'T3') {
+        inp.required = false;
+        hint.textContent = 'optionnelle pour les urgences';
+    } else {
+        inp.required = true;
+        hint.textContent = 'obligatoire pour T1 et T2';
+    }
 }
 function toast(msg){
     const t = document.getElementById('toast');

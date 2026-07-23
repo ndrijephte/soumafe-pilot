@@ -65,13 +65,15 @@
 </div>
 <div class="carte" style="padding:0;overflow-x:auto">
 <table class="tbl">
-<thead><tr><th>Collaborateur</th><th>P&ocirc;le</th><th>Total</th><th>P&eacute;riode</th><th>Retard</th><th>Bloq.</th><th>Taux</th><th>Assiduit&eacute;</th></tr></thead>
+<thead><tr><th>Collaborateur</th><th>P&ocirc;le</th><th>Total</th><th>P&eacute;riode</th><th>Retard</th><th>Bloq.</th><th>Taux</th><th>Objectifs</th><th>Assiduit&eacute;</th></tr></thead>
 <tbody>
 @foreach($collaborateurs as $c)
 @php
     $s = $c->stats;
     $coulBar = $s['taux'] >= 70 ? 'bar-ok' : ($s['taux'] >= 40 ? 'bar-warn' : 'bar-ko');
     $coulAss = $s['assiduite'] >= 80 ? 'b-ok' : ($s['assiduite'] >= 50 ? 'b-warn' : 'b-ko');
+    $sObj = $s['score_objectifs'];
+    $coulObj = $sObj === null ? 'b-warn' : ($sObj >= 70 ? 'b-ok' : ($sObj >= 40 ? 'b-warn' : 'b-ko'));
 @endphp
 <tr>
     <td><strong>{{ $c->nomComplet() }}</strong></td>
@@ -86,6 +88,7 @@
             <span style="font-size:11px;font-weight:600">{{ $s['taux'] }}%</span>
         </div>
     </td>
+    <td><span class="badge {{ $coulObj }}">{{ $sObj !== null ? $sObj.'%' : '—' }}</span></td>
     <td><span class="badge {{ $coulAss }}">{{ $s['assiduite'] }}%</span></td>
 </tr>
 @endforeach

@@ -1,10 +1,13 @@
 @extends('layouts.app')
-@section('titre', 'Objectifs individuels')
+@section('titre', 'Objectifs')
 @push('styles')
 <style>
 .filtres{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
 .filtres select{padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
-.filtres .btn{padding:6px 14px;font-size:12px}
+.tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--bord)}
+.tab{padding:8px 18px;font-size:13px;font-weight:600;color:var(--gris);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab.actif{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none}.tab-panel.actif{display:block}
 .collab-section{margin-bottom:20px}
 .collab-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:linear-gradient(135deg,#f0f4f8,#e2e8f0);border-radius:10px 10px 0 0;border:1px solid var(--bord);border-bottom:none}
 .collab-header h4{font-size:14px;color:var(--bleu);margin:0}
@@ -18,7 +21,7 @@
 .bar-fill{height:100%;border-radius:4px}
 .bar-ok{background:var(--ok)}.bar-warn{background:var(--warn)}.bar-ko{background:var(--ko)}.bar-accent{background:var(--accent)}
 .badge{padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600}
-.b-ok{background:#dcfce7;color:var(--ok)}.b-warn{background:#fef3c7;color:#b45309}.b-ko{background:#fee2e2;color:var(--ko)}.b-att{background:#e2e8f0;color:#475569}
+.b-ok{background:#dcfce7;color:var(--ok)}.b-warn{background:#fef3c7;color:#b45309}.b-ko{background:#fee2e2;color:var(--ko)}.b-att{background:#e2e8f0;color:#475569}.b-accent{background:#dbeafe;color:#1d4ed8}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
 .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
 .btn.sm{padding:4px 10px;font-size:11px}
@@ -26,33 +29,46 @@
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 .alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
-dialog{border:none;border-radius:14px;padding:24px;width:500px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
-dialog::backdrop{background:rgba(22,56,92,.35)}
-dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px;font-weight:600;text-transform:uppercase}
-dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px}
-dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
+.form-card{background:var(--carte);border:1px solid var(--accent);border-radius:12px;padding:16px;margin-bottom:16px}
+.form-card h3{font-size:14px;color:var(--bleu);margin:0 0 10px}
+.form-card label{display:block;font-size:12px;font-weight:600;color:var(--gris);text-transform:uppercase;margin:10px 0 4px}
+.form-card label:first-of-type{margin-top:0}
+.form-card input,.form-card select,.form-card textarea{width:100%;max-width:400px;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px}
+.form-card input:focus,.form-card select:focus,.form-card textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
+.form-actions{display:flex;gap:8px;margin-top:12px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .req{color:var(--ko)}
 .score-global{display:flex;gap:12px;align-items:center;margin-bottom:16px;padding:12px 16px;background:var(--carte);border:1px solid var(--bord);border-radius:12px}
 .score-global .val{font-size:22px;font-weight:700;color:var(--bleu)}
 .score-global .lab{font-size:11px;color:var(--gris);text-transform:uppercase}
+.import-card{background:var(--carte);border:1px dashed var(--bord);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.import-card h4{font-size:13px;color:var(--gris);margin:0 0 8px}
+.hint{font-size:10.5px;color:var(--gris);margin-top:2px}
+.projet-tag{background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:600;margin-left:4px}
+.eval-badge{padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600}
+.eval-atteint{background:#dcfce7;color:var(--ok)}.eval-partiel{background:#fef3c7;color:#b45309}.eval-non_atteint{background:#fee2e2;color:var(--ko)}.eval-en_cours{background:#e2e8f0;color:#475569}
+.echeance-past{color:var(--ko);font-weight:600}
 @media(max-width:768px){.form-row{grid-template-columns:1fr}}
 </style>
 @endpush
 @section('contenu')
-<h2>Objectifs individuels</h2>
-<div class="crumb">Suivi &rsaquo; Objectifs par collaborateur</div>
+<h2>Objectifs</h2>
+<div class="crumb">Suivi &rsaquo; Objectifs individuels &amp; projets</div>
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
+@if($errors->any())
+<div class="alerte ko">
+    <ul style="margin:0;padding-left:16px">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+</div>
+@endif
 
+{{-- Filtres --}}
 <form class="filtres" method="GET" action="{{ route('objectifs.index') }}">
     <select name="periode">
-        @forelse($periodes as $p)
-        <option value="{{ $p }}" {{ $periode === $p ? 'selected' : '' }}>{{ $p }}</option>
-        @empty
-        <option value="{{ now()->format('Y-\TQ') }}">{{ now()->format('Y-\TQ') }}</option>
-        @endforelse
+        @foreach($periodesMenu as $val => $label)
+        <option value="{{ $val }}" {{ $periode === $val ? 'selected' : '' }}>{{ $label }}</option>
+        @endforeach
     </select>
     @if(auth()->user()->estPilote() && isset($collaborateurs))
     <select name="user_id">
@@ -61,50 +77,202 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
         <option value="{{ $c->id }}" {{ ($filtreUser ?? '') == $c->id ? 'selected' : '' }}>{{ $c->nomComplet() }}</option>
         @endforeach
     </select>
+    <select name="projet_id">
+        <option value="">Tous les projets</option>
+        @foreach($projets as $p)
+        <option value="{{ $p->id }}" {{ ($filtreProjet ?? '') == $p->id ? 'selected' : '' }}>{{ $p->libelle }}</option>
+        @endforeach
+    </select>
     @endif
-    <button class="btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer">Filtrer</button>
+    <button class="btn">Filtrer</button>
 </form>
 
 @if(auth()->user()->estPilote())
-{{-- Vue pilote : par collaborateur --}}
-<div style="margin-bottom:14px;display:flex;gap:8px">
-    <button class="btn" onclick="document.getElementById('dlg-obj').showModal()">+ Ajouter un objectif</button>
+{{-- ==================== VUE PILOTE ==================== --}}
+
+{{-- Score équipe --}}
+<div class="score-global">
+    <div><div class="val">{{ $scoreEquipe }}%</div><div class="lab">Score &eacute;quipe (p&eacute;riode)</div></div>
+    <div class="bar-wrap" style="flex:1;height:12px"><div class="bar-fill bar-accent" style="width:{{ $scoreEquipe }}%"></div></div>
+    <form method="POST" action="{{ route('objectifs.evaluer') }}" style="margin:0">
+        @csrf
+        <input type="hidden" name="periode" value="{{ $periode }}">
+        <button class="btn sm sec" title="Lancer l'&eacute;valuation automatique des objectifs de cette p&eacute;riode">&#x2713; &Eacute;valuer la p&eacute;riode</button>
+    </form>
 </div>
 
+{{-- Onglets --}}
+<div class="tabs">
+    <div class="tab actif" onclick="switchTab('indiv')">Objectifs individuels</div>
+    <div class="tab" onclick="switchTab('projet')">Objectifs projet</div>
+</div>
+
+{{-- Formulaire ajout/modification --}}
+<div class="form-card" id="formSection">
+    <h3 id="formTitre">Ajouter un objectif</h3>
+    <form method="POST" id="formObj" action="{{ route('objectifs.store') }}">
+        @csrf
+        <input type="hidden" name="_editing" id="fEditing" value="">
+
+        <div class="form-row">
+            <div>
+                <label>Type <span class="req">*</span></label>
+                <select name="type" id="fType" onchange="toggleType()">
+                    <option value="individuel">Individuel (collaborateur)</option>
+                    <option value="projet">Projet (&eacute;quipe)</option>
+                </select>
+            </div>
+            <div id="wrapUser">
+                <label>Collaborateur <span class="req">*</span></label>
+                <select name="user_id" id="fUser">
+                    <option value="">— Choisir —</option>
+                    @foreach($collaborateurs as $c)
+                    <option value="{{ $c->id }}">{{ $c->nomComplet() }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <label>Objectif <span class="req">*</span></label>
+        <input name="libelle" id="fLib" required maxlength="255" placeholder="Ex : Livrer le module facturation">
+
+        <div class="form-row">
+            <div>
+                <label>Projet</label>
+                <select name="projet_id" id="fProjet">
+                    <option value="">— Aucun —</option>
+                    @foreach($projets as $p)
+                    <option value="{{ $p->id }}">{{ $p->libelle }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label>P&eacute;riode <span class="req">*</span></label>
+                <select name="periode" id="fPeriode" required>
+                    @foreach($periodesMenu as $val => $label)
+                    <option value="{{ $val }}" {{ $periode === $val ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label>Pond&eacute;ration (%) <span class="req">*</span></label>
+                <input type="number" name="ponderation" id="fPond" min="0" max="100" required value="20">
+            </div>
+            <div>
+                <label>&Eacute;ch&eacute;ance</label>
+                <input type="date" name="date_echeance" id="fEcheance">
+            </div>
+        </div>
+
+        <div id="editFields" style="display:none">
+            <div class="form-row">
+                <div>
+                    <label>Avancement (%)</label>
+                    <input type="number" name="avancement" id="fAvanc" min="0" max="100" value="0">
+                </div>
+                <div>
+                    <label>&Eacute;valuation</label>
+                    <select name="evaluation" id="fEval">
+                        <option value="">— Auto —</option>
+                        <option value="en_cours">En cours</option>
+                        <option value="atteint">Atteint</option>
+                        <option value="partiel">Partiel</option>
+                        <option value="non_atteint">Non atteint</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div>
+                    <label>Validation</label>
+                    <select name="statut_validation" id="fStatut">
+                        <option value="en_attente">En attente</option>
+                        <option value="valide">Valid&eacute;</option>
+                        <option value="rejete">Rejet&eacute;</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Commentaire pilote</label>
+                    <textarea name="commentaire_pilote" id="fComm" rows="2" maxlength="500" style="max-width:100%"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn" id="btnSubmit">Ajouter</button>
+            <button type="button" class="btn sec" onclick="resetForm()">Annuler</button>
+        </div>
+    </form>
+</div>
+
+{{-- Import xlsx --}}
+<div class="import-card">
+    <h4>Importer des objectifs (xlsx)</h4>
+    <form method="POST" action="{{ route('objectifs.importer') }}" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+        @csrf
+        <div>
+            <label style="font-size:11px;color:var(--gris);display:block;margin-bottom:3px">Fichier xlsx</label>
+            <input type="file" name="fichier" accept=".xlsx" required style="font-size:12px;padding:4px">
+        </div>
+        <div>
+            <label style="font-size:11px;color:var(--gris);display:block;margin-bottom:3px">P&eacute;riode cible</label>
+            <select name="periode_import" style="padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
+                @foreach($periodesMenu as $val => $label)
+                <option value="{{ $val }}" {{ $periode === $val ? 'selected' : '' }}>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+        <button class="btn sm">Importer</button>
+    </form>
+    <div class="hint">Colonnes : Collaborateur, Objectif, Pond&eacute;ration, Projet, &Eacute;ch&eacute;ance (optionnels)</div>
+</div>
+
+{{-- ===== PANEL INDIVIDUEL ===== --}}
+<div class="tab-panel actif" id="panel-indiv">
 @if(isset($parCollab) && $parCollab->count() > 0)
 @foreach($parCollab as $userId => $objs)
 @php
     $collab = $objs->first()->user;
     $sommePond = $objs->sum('ponderation');
-    $scoreGlobal = $sommePond > 0 ? round($objs->sum(fn($o) => $o->avancement * $o->ponderation / 100)) : 0;
+    $score = \App\Models\Objectif::scoreGroupe($objs);
     $pondClass = $sommePond === 100 ? 'pond-ok' : ($sommePond > 100 ? 'pond-ko' : 'pond-warn');
 @endphp
 <div class="collab-section">
     <div class="collab-header">
-        <h4>{{ $collab->nomComplet() }} <span style="font-size:11px;color:var(--gris);font-weight:400">— Score global : {{ $scoreGlobal }}%</span></h4>
-        <span class="pond-total {{ $pondClass }}">Pond&eacute;ration : {{ $sommePond }}%</span>
+        <h4>{{ $collab->nomComplet() }} <span style="font-size:11px;color:var(--gris);font-weight:400">— Score : {{ $score }}%</span></h4>
+        <span class="pond-total {{ $pondClass }}">Pond. : {{ $sommePond }}%</span>
     </div>
     <table class="obj-table">
-    <thead><tr><th>Objectif</th><th>Pond.</th><th>Avancement</th><th>Statut</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Objectif</th><th>Projet</th><th>Pond.</th><th>Avancement</th><th>&Eacute;ch&eacute;ance</th><th>&Eacute;val.</th><th>Statut</th><th>Actions</th></tr></thead>
     <tbody>
     @foreach($objs as $o)
     @php
         $barClass = $o->avancement >= 80 ? 'bar-ok' : ($o->avancement >= 40 ? 'bar-warn' : 'bar-ko');
         $statutBadge = match($o->statut_validation) { 'valide' => 'b-ok', 'rejete' => 'b-ko', default => 'b-att' };
+        $evalClass = 'eval-' . ($o->evaluation ?? 'en_cours');
+        $echPast = $o->date_echeance && $o->date_echeance->isPast() && $o->avancement < 100;
     @endphp
     <tr>
-        <td><strong>{{ $o->libelle }}</strong>@if($o->commentaire_pilote)<br><span style="font-size:11px;color:var(--gris)">{{ $o->commentaire_pilote }}</span>@endif</td>
+        <td>
+            <strong>{{ $o->libelle }}</strong>
+            @if($o->commentaire_pilote)<br><span style="font-size:11px;color:var(--gris)">{{ $o->commentaire_pilote }}</span>@endif
+        </td>
+        <td>@if($o->projet)<span class="projet-tag">{{ $o->projet->libelle }}</span>@else — @endif</td>
         <td style="font-weight:600">{{ $o->ponderation }}%</td>
         <td>
             <div style="display:flex;align-items:center;gap:6px">
-                <div class="bar-wrap" style="width:80px"><div class="bar-fill {{ $barClass }}" style="width:{{ $o->avancement }}%"></div></div>
+                <div class="bar-wrap" style="width:60px"><div class="bar-fill {{ $barClass }}" style="width:{{ $o->avancement }}%"></div></div>
                 <span style="font-size:11px;font-weight:600">{{ $o->avancement }}%</span>
             </div>
         </td>
+        <td>@if($o->date_echeance)<span class="{{ $echPast ? 'echeance-past' : '' }}">{{ $o->date_echeance->format('d/m') }}</span>@else — @endif</td>
+        <td><span class="eval-badge {{ $evalClass }}">{{ ucfirst(str_replace('_', ' ', $o->evaluation ?? 'en cours')) }}</span></td>
         <td><span class="badge {{ $statutBadge }}">{{ ucfirst(str_replace('_', ' ', $o->statut_validation)) }}</span></td>
         <td style="white-space:nowrap">
-            <button class="btn sm sec" onclick="editObj({{ $o->id }}, {{ json_encode($o->libelle) }}, {{ $o->ponderation }}, {{ $o->avancement }}, '{{ $o->statut_validation }}', {{ json_encode($o->commentaire_pilote ?? '') }})">Modifier</button>
-            <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return confirm('Supprimer cet objectif ?')">@csrf <input type="hidden" name="_method" value="DELETE"><button class="btn sm danger">Suppr.</button></form>
+            <button class="btn sm sec" onclick="editObj({{ $o->id }}, 'individuel', {{ $o->user_id }}, {{ json_encode($o->libelle) }}, '{{ $o->projet_id ?? '' }}', {{ $o->ponderation }}, {{ $o->avancement }}, '{{ $o->date_echeance ? $o->date_echeance->format('Y-m-d') : '' }}', '{{ $o->evaluation ?? '' }}', '{{ $o->statut_validation }}', {{ json_encode($o->commentaire_pilote ?? '') }})">Modifier</button>
+            <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')<button class="btn sm danger">Suppr.</button></form>
         </td>
     </tr>
     @endforeach
@@ -113,43 +281,100 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 </div>
 @endforeach
 @else
-<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif pour cette p&eacute;riode.</div>
+<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif individuel pour cette p&eacute;riode.</div>
 @endif
+</div>
+
+{{-- ===== PANEL PROJET ===== --}}
+<div class="tab-panel" id="panel-projet">
+@if(isset($parProjet) && $parProjet->count() > 0)
+@foreach($parProjet as $projetId => $objs)
+@php
+    $proj = $objs->first()->projet;
+    $scoreProj = \App\Models\Objectif::scoreGroupe($objs);
+@endphp
+<div class="collab-section">
+    <div class="collab-header">
+        <h4>{{ $proj?->libelle ?? 'Sans projet' }} <span style="font-size:11px;color:var(--gris);font-weight:400">— Score projet : {{ $scoreProj }}%</span></h4>
+    </div>
+    <table class="obj-table">
+    <thead><tr><th>Objectif</th><th>Pond.</th><th>Avancement</th><th>&Eacute;ch&eacute;ance</th><th>&Eacute;val.</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach($objs as $o)
+    @php
+        $barClass = $o->avancement >= 80 ? 'bar-ok' : ($o->avancement >= 40 ? 'bar-warn' : 'bar-ko');
+        $evalClass = 'eval-' . ($o->evaluation ?? 'en_cours');
+        $echPast = $o->date_echeance && $o->date_echeance->isPast() && $o->avancement < 100;
+    @endphp
+    <tr>
+        <td><strong>{{ $o->libelle }}</strong>@if($o->commentaire_pilote)<br><span style="font-size:11px;color:var(--gris)">{{ $o->commentaire_pilote }}</span>@endif</td>
+        <td style="font-weight:600">{{ $o->ponderation }}%</td>
+        <td>
+            <div style="display:flex;align-items:center;gap:6px">
+                <div class="bar-wrap" style="width:60px"><div class="bar-fill {{ $barClass }}" style="width:{{ $o->avancement }}%"></div></div>
+                <span style="font-size:11px;font-weight:600">{{ $o->avancement }}%</span>
+            </div>
+        </td>
+        <td>@if($o->date_echeance)<span class="{{ $echPast ? 'echeance-past' : '' }}">{{ $o->date_echeance->format('d/m') }}</span>@else — @endif</td>
+        <td><span class="eval-badge {{ $evalClass }}">{{ ucfirst(str_replace('_', ' ', $o->evaluation ?? 'en cours')) }}</span></td>
+        <td style="white-space:nowrap">
+            <button class="btn sm sec" onclick="editObj({{ $o->id }}, 'projet', {{ $o->user_id }}, {{ json_encode($o->libelle) }}, '{{ $o->projet_id ?? '' }}', {{ $o->ponderation }}, {{ $o->avancement }}, '{{ $o->date_echeance ? $o->date_echeance->format('Y-m-d') : '' }}', '{{ $o->evaluation ?? '' }}', '{{ $o->statut_validation }}', {{ json_encode($o->commentaire_pilote ?? '') }})">Modifier</button>
+            <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')<button class="btn sm danger">Suppr.</button></form>
+        </td>
+    </tr>
+    @endforeach
+    </tbody>
+    </table>
+</div>
+@endforeach
+@else
+<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif projet pour cette p&eacute;riode.</div>
+@endif
+</div>
 
 @else
-{{-- Vue collaborateur --}}
-@if($objectifs->count() > 0)
+{{-- ==================== VUE COLLABORATEUR ==================== --}}
+
+{{-- Mes objectifs individuels --}}
+@if(isset($mesIndiv) && $mesIndiv->count() > 0)
 @php
-    $sommePond = $objectifs->sum('ponderation');
-    $scoreGlobal = $sommePond > 0 ? round($objectifs->sum(fn($o) => $o->avancement * $o->ponderation / 100)) : 0;
+    $scoreIndiv = \App\Models\Objectif::scoreGroupe($mesIndiv);
 @endphp
 <div class="score-global">
-    <div><div class="val">{{ $scoreGlobal }}%</div><div class="lab">Score global</div></div>
-    <div class="bar-wrap" style="flex:1;height:12px"><div class="bar-fill bar-accent" style="width:{{ $scoreGlobal }}%"></div></div>
+    <div><div class="val">{{ $scoreIndiv }}%</div><div class="lab">Mon score individuel</div></div>
+    <div class="bar-wrap" style="flex:1;height:12px"><div class="bar-fill bar-accent" style="width:{{ $scoreIndiv }}%"></div></div>
 </div>
+
+<h3 style="font-size:14px;color:var(--bleu);margin-bottom:8px">Mes objectifs individuels</h3>
 <div class="carte" style="padding:0;overflow-x:auto">
 <table class="obj-table" style="border:none">
-<thead><tr><th>Objectif</th><th>Pond.</th><th>Avancement</th><th>Statut</th><th>Action</th></tr></thead>
+<thead><tr><th>Objectif</th><th>Projet</th><th>Pond.</th><th>Avancement</th><th>&Eacute;ch&eacute;ance</th><th>&Eacute;val.</th><th>Action</th></tr></thead>
 <tbody>
-@foreach($objectifs as $o)
+@foreach($mesIndiv as $o)
 @php
     $barClass = $o->avancement >= 80 ? 'bar-ok' : ($o->avancement >= 40 ? 'bar-warn' : 'bar-ko');
-    $statutBadge = match($o->statut_validation) { 'valide' => 'b-ok', 'rejete' => 'b-ko', default => 'b-att' };
+    $evalClass = 'eval-' . ($o->evaluation ?? 'en_cours');
+    $echPast = $o->date_echeance && $o->date_echeance->isPast() && $o->avancement < 100;
 @endphp
 <tr>
-    <td><strong>{{ $o->libelle }}</strong>@if($o->commentaire_pilote)<br><span style="font-size:11px;color:var(--gris)">Note : {{ $o->commentaire_pilote }}</span>@endif</td>
+    <td>
+        <strong>{{ $o->libelle }}</strong>
+        @if($o->commentaire_pilote)<br><span style="font-size:11px;color:var(--gris)">Note : {{ $o->commentaire_pilote }}</span>@endif
+    </td>
+    <td>@if($o->projet)<span class="projet-tag">{{ $o->projet->libelle }}</span>@else — @endif</td>
     <td style="font-weight:600">{{ $o->ponderation }}%</td>
     <td>
         <div style="display:flex;align-items:center;gap:6px">
-            <div class="bar-wrap" style="width:80px"><div class="bar-fill {{ $barClass }}" style="width:{{ $o->avancement }}%"></div></div>
+            <div class="bar-wrap" style="width:60px"><div class="bar-fill {{ $barClass }}" style="width:{{ $o->avancement }}%"></div></div>
             <span style="font-size:11px;font-weight:600">{{ $o->avancement }}%</span>
         </div>
     </td>
-    <td><span class="badge {{ $statutBadge }}">{{ ucfirst(str_replace('_', ' ', $o->statut_validation)) }}</span></td>
+    <td>@if($o->date_echeance)<span class="{{ $echPast ? 'echeance-past' : '' }}">{{ $o->date_echeance->format('d/m/Y') }}</span>@else — @endif</td>
+    <td><span class="eval-badge {{ $evalClass }}">{{ ucfirst(str_replace('_', ' ', $o->evaluation ?? 'en cours')) }}</span></td>
     <td>
         @if($o->statut_validation !== 'rejete')
         <form method="POST" action="{{ route('objectifs.update', $o) }}" style="display:flex;gap:4px;align-items:center">
-            @csrf <input type="hidden" name="_method" value="PUT">
+            @csrf @method('PUT')
             <input type="number" name="avancement" value="{{ $o->avancement }}" min="0" max="100" style="width:60px;padding:4px 6px;border:1px solid var(--bord);border-radius:6px;font-size:12px">
             <button class="btn sm">OK</button>
         </form>
@@ -163,82 +388,105 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 </table>
 </div>
 @else
-<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif d&eacute;fini pour cette p&eacute;riode.</div>
-@endif
+<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif individuel pour cette p&eacute;riode.</div>
 @endif
 
-@if(auth()->user()->estPilote())
-{{-- Dialog ajout objectif --}}
-<dialog id="dlg-obj">
-    <h3 style="color:var(--bleu);margin-bottom:4px">Ajouter un objectif</h3>
-    <form method="POST" action="{{ route('objectifs.store') }}">@csrf
-        <label>Collaborateur <span class="req">*</span></label>
-        <select name="user_id" required>
-            <option value="">— Choisir —</option>
-            @foreach($collaborateurs as $c)<option value="{{ $c->id }}">{{ $c->nomComplet() }}</option>@endforeach
-        </select>
-        <label>Objectif <span class="req">*</span></label>
-        <input name="libelle" required placeholder="Ex : Finaliser le module facturation">
-        <div class="form-row">
-            <div>
-                <label>Pond&eacute;ration (%) <span class="req">*</span></label>
-                <input type="number" name="ponderation" min="0" max="100" required value="20">
-            </div>
-            <div>
-                <label>P&eacute;riode <span class="req">*</span></label>
-                <input name="periode" required value="{{ $periode }}" placeholder="Ex : 2026-T3">
-            </div>
+{{-- Objectifs de mes projets --}}
+@if(isset($objProjets) && $objProjets->count() > 0)
+<h3 style="font-size:14px;color:var(--bleu);margin:20px 0 8px">Objectifs de mes projets</h3>
+<div class="carte" style="padding:0;overflow-x:auto">
+<table class="obj-table" style="border:none">
+<thead><tr><th>Projet</th><th>Objectif</th><th>Pond.</th><th>Avancement</th><th>&Eacute;ch&eacute;ance</th><th>&Eacute;val.</th></tr></thead>
+<tbody>
+@foreach($objProjets as $o)
+@php
+    $barClass = $o->avancement >= 80 ? 'bar-ok' : ($o->avancement >= 40 ? 'bar-warn' : 'bar-ko');
+    $evalClass = 'eval-' . ($o->evaluation ?? 'en_cours');
+@endphp
+<tr>
+    <td><span class="projet-tag">{{ $o->projet?->libelle ?? '—' }}</span></td>
+    <td><strong>{{ $o->libelle }}</strong></td>
+    <td style="font-weight:600">{{ $o->ponderation }}%</td>
+    <td>
+        <div style="display:flex;align-items:center;gap:6px">
+            <div class="bar-wrap" style="width:60px"><div class="bar-fill {{ $barClass }}" style="width:{{ $o->avancement }}%"></div></div>
+            <span style="font-size:11px;font-weight:600">{{ $o->avancement }}%</span>
         </div>
-        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
-            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
-            <button class="btn">Ajouter</button>
-        </div>
-    </form>
-</dialog>
+    </td>
+    <td>@if($o->date_echeance){{ $o->date_echeance->format('d/m/Y') }}@else — @endif</td>
+    <td><span class="eval-badge {{ $evalClass }}">{{ ucfirst(str_replace('_', ' ', $o->evaluation ?? 'en cours')) }}</span></td>
+</tr>
+@endforeach
+</tbody>
+</table>
+</div>
+@endif
 
-{{-- Dialog modifier objectif --}}
-<dialog id="dlg-edit">
-    <h3 style="color:var(--bleu);margin-bottom:4px">Modifier l'objectif</h3>
-    <form method="POST" id="form-edit">@csrf <input type="hidden" name="_method" value="PUT">
-        <label>Objectif <span class="req">*</span></label>
-        <input name="libelle" id="ed-libelle" required>
-        <div class="form-row">
-            <div>
-                <label>Pond&eacute;ration (%) <span class="req">*</span></label>
-                <input type="number" name="ponderation" id="ed-pond" min="0" max="100" required>
-            </div>
-            <div>
-                <label>Avancement (%)</label>
-                <input type="number" name="avancement" id="ed-avanc" min="0" max="100">
-            </div>
-        </div>
-        <label>Validation</label>
-        <select name="statut_validation" id="ed-statut">
-            <option value="en_attente">En attente</option>
-            <option value="valide">Valid&eacute;</option>
-            <option value="rejete">Rejet&eacute;</option>
-        </select>
-        <label>Commentaire pilote</label>
-        <textarea name="commentaire_pilote" id="ed-comm" rows="2" placeholder="Observation, feedback..."></textarea>
-        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
-            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
-            <button class="btn">Enregistrer</button>
-        </div>
-    </form>
-</dialog>
 @endif
 @endsection
 
 @push('scripts')
 <script>
-function editObj(id, libelle, pond, avanc, statut, comm) {
-    document.getElementById('form-edit').action = '/objectifs/' + id;
-    document.getElementById('ed-libelle').value = libelle;
-    document.getElementById('ed-pond').value = pond;
-    document.getElementById('ed-avanc').value = avanc;
-    document.getElementById('ed-statut').value = statut;
-    document.getElementById('ed-comm').value = comm;
-    document.getElementById('dlg-edit').showModal();
+function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('actif'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('actif'); });
+    document.getElementById('panel-' + tab).classList.add('actif');
+    event.target.classList.add('actif');
+}
+
+function toggleType() {
+    var t = document.getElementById('fType').value;
+    document.getElementById('wrapUser').style.display = t === 'individuel' ? '' : 'none';
+    if (t === 'projet') {
+        document.getElementById('fUser').removeAttribute('required');
+    } else {
+        document.getElementById('fUser').setAttribute('required', 'required');
+    }
+}
+
+function editObj(id, type, userId, libelle, projetId, pond, avanc, echeance, evaluation, statut, comm) {
+    document.getElementById('formTitre').textContent = 'Modifier l\'objectif';
+    document.getElementById('formObj').action = '{{ url("objectifs") }}/' + id;
+    document.getElementById('fEditing').value = id;
+    document.getElementById('fType').value = type;
+    toggleType();
+    document.getElementById('fUser').value = userId;
+    document.getElementById('fLib').value = libelle;
+    document.getElementById('fProjet').value = projetId;
+    document.getElementById('fPond').value = pond;
+    document.getElementById('fAvanc').value = avanc;
+    document.getElementById('fEcheance').value = echeance;
+    document.getElementById('fEval').value = evaluation;
+    document.getElementById('fStatut').value = statut;
+    document.getElementById('fComm').value = comm;
+    document.getElementById('editFields').style.display = '';
+    document.getElementById('btnSubmit').textContent = 'Enregistrer';
+    var mf = document.querySelector('#formObj input[name="_method"]');
+    if (!mf) { mf = document.createElement('input'); mf.type='hidden'; mf.name='_method'; document.getElementById('formObj').appendChild(mf); }
+    mf.value = 'PUT';
+    document.getElementById('formSection').scrollIntoView({behavior:'smooth'});
+    document.getElementById('fLib').focus();
+}
+
+function resetForm() {
+    document.getElementById('formTitre').textContent = 'Ajouter un objectif';
+    document.getElementById('formObj').action = '{{ route("objectifs.store") }}';
+    document.getElementById('fEditing').value = '';
+    document.getElementById('fType').value = 'individuel';
+    toggleType();
+    document.getElementById('fUser').value = '';
+    document.getElementById('fLib').value = '';
+    document.getElementById('fProjet').value = '';
+    document.getElementById('fPond').value = '20';
+    document.getElementById('fAvanc').value = '0';
+    document.getElementById('fEcheance').value = '';
+    document.getElementById('fEval').value = '';
+    document.getElementById('fStatut').value = 'en_attente';
+    document.getElementById('fComm').value = '';
+    document.getElementById('editFields').style.display = 'none';
+    document.getElementById('btnSubmit').textContent = 'Ajouter';
+    var mf = document.querySelector('#formObj input[name="_method"]');
+    if (mf) mf.remove();
 }
 </script>
 @endpush

@@ -10,7 +10,8 @@ class Tache extends Model
     use SoftDeletes;
     protected $table = 'taches';
     protected $fillable = ['user_id', 'type', 'intitule', 'projet_id', 'sprint_id', 'activite',
-        'priorite', 'date_debut', 'echeance', 'date_fin_reelle', 'points', 'statut'];
+        'priorite', 'date_debut', 'echeance', 'date_fin_reelle', 'points', 'statut',
+        'qualification', 'effort_volontaire', 'justification_requise'];
     protected $casts = ['date_debut' => 'date', 'echeance' => 'date', 'date_fin_reelle' => 'date'];
 
     public function user(): BelongsTo { return $this->belongsTo(User::class); }

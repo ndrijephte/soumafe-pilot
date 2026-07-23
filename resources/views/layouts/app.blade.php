@@ -110,10 +110,6 @@
     @endif
     <a href="{{ route('objectifs.index') }}" data-tip="Objectifs" class="{{ request()->routeIs('objectifs.*') ? 'actif' : '' }}">
         {!! $svg('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>') !!}<span class="txt">Objectifs</span></a>
-    @if($u?->estPilote())
-    <a href="{{ route('registres.index') }}" data-tip="Registres" class="{{ request()->routeIs('registres.*') ? 'actif' : '' }}">
-        {!! $svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>') !!}<span class="txt">Registres</span></a>
-    @endif
     <a href="{{ route('reporting.index') }}" data-tip="Reporting" class="{{ request()->routeIs('reporting.*') ? 'actif' : '' }}">
         {!! $svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>') !!}<span class="txt">Reporting</span></a>
     @if($u?->estAdmin())

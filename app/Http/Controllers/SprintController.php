@@ -1,8 +1,8 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Projet, Sprint, Tache, User};
-use App\Services\LecteurXlsx;
+use App\Models\{NotificationApp, Projet, Sprint, Tache, User};
+use App\Services\{ClotureService, LecteurXlsx};
 use Illuminate\Http\Request;
 
 class SprintController extends Controller
@@ -52,6 +52,53 @@ class SprintController extends Controller
         ]);
         $sprint->update($r->only(['objectif', 'date_debut', 'date_fin', 'engagement_points', 'statut']));
         return back()->with('succes', 'Sprint mis à jour.');
+    }
+
+    /** Clôturer un sprint : qualifier toutes les tâches et passer en terminé. */
+    public function cloturer(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        if ($sprint->statut === 'termine') return back()->with('erreur', 'Ce sprint est déjà clôturé.');
+
+        $cloture = new ClotureService();
+        $taches = $sprint->taches()->whereIn('statut', ['a_faire', 'en_cours', 'bloque', 'termine'])->get();
+
+        $stats = ['a_temps' => 0, 'en_retard' => 0, 'anticipee' => 0, 'non_termine' => 0, 'total' => $taches->count()];
+
+        foreach ($taches as $t) {
+            if ($t->statut === 'termine') {
+                // Qualifier si pas encore fait
+                if (!$t->qualification) {
+                    $cloture->cloturer($t, $t->date_fin_reelle);
+                }
+                $stats[$t->qualification] = ($stats[$t->qualification] ?? 0) + 1;
+            } else {
+                // Tâche non terminée à la clôture → marquée en retard
+                $t->update([
+                    'qualification' => 'non_termine_sprint',
+                    'justification_requise' => true,
+                ]);
+                $stats['non_termine']++;
+            }
+        }
+
+        $sprint->update(['statut' => 'termine']);
+
+        // Résumé
+        $pointsLivres = $sprint->pointsLivres();
+        $engagement = $sprint->engagement_points ?? 0;
+        $velocite = $engagement > 0 ? round(($pointsLivres / $engagement) * 100) : 0;
+
+        // Notifier le responsable projet
+        if ($sprint->projet?->responsable_projet_id) {
+            NotificationApp::create([
+                'user_id' => $sprint->projet->responsable_projet_id,
+                'type' => 'sprint_cloture',
+                'contenu' => "Sprint {$sprint->numero} clôturé — {$stats['a_temps']} à temps, {$stats['en_retard']} en retard, {$stats['non_termine']} non terminée(s). Vélocité : {$velocite}%.",
+            ]);
+        }
+
+        return back()->with('succes', "Sprint clôturé. {$pointsLivres}/{$engagement} pts livrés. {$stats['a_temps']} à temps, {$stats['en_retard']} en retard, {$stats['non_termine']} non terminée(s).");
     }
 
     /** API JSON : sprints d'un projet (pour le select dynamique T1). */

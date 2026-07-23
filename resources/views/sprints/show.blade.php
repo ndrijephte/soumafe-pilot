@@ -87,6 +87,12 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 <div class="actions-bar">
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Ajouter une t&acirc;che</button>
     <button class="btn sec" onclick="document.getElementById('dlg-import').showModal()">Importer (.xlsx)</button>
+    @if($sprint->statut !== 'termine')
+    <form method="POST" action="{{ route('sprints.cloturer', $sprint) }}" style="margin:0" onsubmit="return confirm('Clôturer ce sprint ? Les tâches non terminées seront marquées en retard.')">
+        @csrf
+        <button class="btn" style="background:var(--ko)">Cl&ocirc;turer le sprint</button>
+    </form>
+    @endif
 </div>
 @endif
 

@@ -108,8 +108,14 @@
     <a href="{{ route('export.index') }}" data-tip="Exports" class="{{ request()->routeIs('export.*') ? 'actif' : '' }}">
         {!! $svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>') !!}<span class="txt">Exports</span></a>
     @endif
-    <span class="lien-off">{!! $svg('<circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M1 12h4M19 12h4M4.2 19.8L7 17M17 7l2.8-2.8"/>') !!}<span class="txt">Opérations — lot 3</span></span>
-    <span class="lien-off">{!! $svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>') !!}<span class="txt">Reporting — lot 3</span></span>
+    <a href="{{ route('objectifs.index') }}" data-tip="Objectifs" class="{{ request()->routeIs('objectifs.*') ? 'actif' : '' }}">
+        {!! $svg('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>') !!}<span class="txt">Objectifs</span></a>
+    @if($u?->estPilote())
+    <a href="{{ route('registres.index') }}" data-tip="Registres" class="{{ request()->routeIs('registres.*') ? 'actif' : '' }}">
+        {!! $svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>') !!}<span class="txt">Registres</span></a>
+    @endif
+    <a href="{{ route('reporting.index') }}" data-tip="Reporting" class="{{ request()->routeIs('reporting.*') ? 'actif' : '' }}">
+        {!! $svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>') !!}<span class="txt">Reporting</span></a>
     @if($u?->estAdmin())
     <a href="{{ route('admin.utilisateurs.index') }}" data-tip="Administration" class="{{ request()->is('admin*') ? 'actif' : '' }}">
         {!! $svg('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>') !!}<span class="txt">Administration</span></a>

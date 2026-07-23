@@ -1,7 +1,7 @@
 <?php
 use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController};
-use App\Http\Controllers\ExportController;
+use App\Http\Controllers\{ExportController, ObjectifController, RegistreController, ReportingController};
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('dashboard'));
@@ -30,6 +30,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sprints', [SprintController::class, 'store'])->name('sprints.store');
     Route::get('/sprints/{sprint}', [SprintController::class, 'show'])->name('sprints.show');
     Route::put('/sprints/{sprint}', [SprintController::class, 'update'])->name('sprints.update');
+    Route::post('/sprints/{sprint}/cloturer', [SprintController::class, 'cloturer'])->name('sprints.cloturer');
     Route::get('/api/projets/{projet}/sprints', [SprintController::class, 'parProjet'])->name('api.sprints');
     Route::post('/sprints/{sprint}/taches', [SprintController::class, 'ajouterTache'])->name('sprints.ajouter-tache');
     Route::post('/sprints/importer', [SprintController::class, 'importerTaches'])->name('sprints.importer');
@@ -54,6 +55,23 @@ Route::middleware(['auth'])->group(function () {
     // Profil & changement mot de passe
     Route::get('/profil', [ProfilController::class, 'index'])->name('profil.index');
     Route::patch('/profil/mot-de-passe', [ProfilController::class, 'updateMotDePasse'])->name('profil.password');
+
+    // Objectifs individuels
+    Route::get('/objectifs', [ObjectifController::class, 'index'])->name('objectifs.index');
+    Route::post('/objectifs', [ObjectifController::class, 'store'])->name('objectifs.store');
+    Route::put('/objectifs/{objectif}', [ObjectifController::class, 'update'])->name('objectifs.update');
+    Route::delete('/objectifs/{objectif}', [ObjectifController::class, 'destroy'])->name('objectifs.destroy');
+
+    // Registres opérationnels (pilotes)
+    Route::get('/registres', [RegistreController::class, 'index'])->name('registres.index');
+    Route::post('/registres', [RegistreController::class, 'store'])->name('registres.store');
+    Route::get('/registres/{registre}', [RegistreController::class, 'show'])->name('registres.show');
+    Route::delete('/registres/{registre}', [RegistreController::class, 'destroy'])->name('registres.destroy');
+    Route::post('/registres/{registre}/entrees', [RegistreController::class, 'storeEntree'])->name('registres.entrees.store');
+    Route::delete('/registres/entrees/{entree}', [RegistreController::class, 'destroyEntree'])->name('registres.entrees.destroy');
+
+    // Reporting (pilotes)
+    Route::get('/reporting', [ReportingController::class, 'index'])->name('reporting.index');
 
     // Exports xlsx (pilotes : direction, charge_operations, admin)
     Route::get('/exports', [ExportController::class, 'index'])->name('export.index');

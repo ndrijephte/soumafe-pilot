@@ -69,9 +69,12 @@ dialog textarea{min-height:70px;resize:vertical}
         <h2><span class="typ {{ strtolower($tache->type) }}">{{ $tache->type }}</span> {{ $tache->intitule }}</h2>
         <div class="crumb">Mes activités &rsaquo; Détail</div>
     </div>
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
         <a href="{{ route('taches.index') }}" class="btn sec">Retour au kanban</a>
-        @if($tache->statut !== 'bloque')
+        @if(in_array($tache->statut, ['a_faire', 'en_cours']))
+        <button class="btn ok" id="btn-terminer" onclick="marquerTermine()">Marquer comme terminé</button>
+        @endif
+        @if($tache->statut !== 'bloque' && $tache->statut !== 'termine' && $tache->statut !== 'a_valider')
         <button class="btn danger" onclick="document.getElementById('dlg-blocage').showModal()">Signaler un blocage</button>
         @endif
     </div>
@@ -208,4 +211,29 @@ dialog textarea{min-height:70px;resize:vertical}
         </div>
     </form>
 </dialog>
+
+@push('scripts')
+<script>
+async function marquerTermine() {
+    const btn = document.getElementById('btn-terminer');
+    btn.disabled = true;
+    btn.textContent = 'En cours…';
+    try {
+        const rep = await fetch('{{ route("taches.statut", $tache) }}', {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'},
+            body: JSON.stringify({statut: 'termine'})
+        });
+        const d = await rep.json();
+        if (d.ok) {
+            location.reload();
+        } else {
+            btn.textContent = 'Erreur';
+        }
+    } catch(e) {
+        btn.textContent = 'Erreur réseau';
+    }
+}
+</script>
+@endpush
 @endsection

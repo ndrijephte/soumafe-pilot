@@ -83,18 +83,19 @@
 <dialog id="dlg-tache">
     <h3 style="color:var(--bleu);margin-bottom:4px">Nouvelle tâche</h3>
     <form method="POST" action="{{ route('taches.store') }}">@csrf
-        <label>Intitulé <span class="req">*</span></label><input name="intitule" required autofocus>
         <label>Type <span class="req">*</span></label>
-        <select name="type" id="sel-type" onchange="basculeT1()">
+        <select name="type" id="sel-type" onchange="basculeType()">
             <option value="T2">T2 — Opérationnelle planifiée</option>
             <option value="T1">T1 — Tâche de sprint</option>
             <option value="T3">T3 — Urgente non planifiée</option>
         </select>
-        <div id="champs-t1" style="display:none">
-            <label>Projet <span class="req">*</span></label>
-            <select name="projet_id" id="sel-projet" onchange="chargerSprints()"><option value="">—</option>
-                @foreach($projets as $p)<option value="{{ $p->id }}">{{ $p->libelle }}</option>@endforeach
-            </select>
+        <label>Intitulé <span class="req">*</span></label><input name="intitule" required autofocus>
+        <label>Projet</label>
+        <select name="projet_id" id="sel-projet" onchange="chargerSprints()">
+            <option value="">— Aucun projet —</option>
+            @foreach($projets as $p)<option value="{{ $p->id }}">{{ $p->libelle }}</option>@endforeach
+        </select>
+        <div id="champs-sprint" style="display:none">
             <label>Sprint <span class="req">*</span></label>
             <select name="sprint_id" id="sel-sprint"><option value="">— Choisir un projet d'abord —</option></select>
             <label>Points <span class="req">*</span></label><input name="points" type="number" min="1" max="21">
@@ -116,9 +117,9 @@
 
 @push('scripts')
 <script>
-function basculeT1(){
+function basculeType(){
     const type = document.getElementById('sel-type').value;
-    document.getElementById('champs-t1').style.display = type === 'T1' ? 'block' : 'none';
+    document.getElementById('champs-sprint').style.display = type === 'T1' ? 'block' : 'none';
     const inp = document.getElementById('inp-echeance');
     const star = document.getElementById('echeance-star');
     if (type === 'T3') {

@@ -59,7 +59,7 @@ class TacheController extends Controller
 
     public function update(TacheRequest $r, Tache $tache)
     {
-        abort_unless((int) $tache->user_id === (int) $r->user()->id, 403);
+        abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
         $tache->update($r->validated());
         return back()->with('succes', 'Tâche mise à jour.');
     }

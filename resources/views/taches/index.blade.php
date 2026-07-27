@@ -3,10 +3,15 @@
 
 @push('styles')
 <style>
-    .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
-    .col{background:#eef2f7;border-radius:10px;padding:10px;min-height:200px}
-    .col h4{font-size:12px;color:var(--gris);text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between}
-    .tache{background:#fff;border:1px solid var(--bord);border-radius:8px;padding:9px 10px;margin-bottom:8px;font-size:12.5px;cursor:grab}
+    .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .col{background:#eef2f7;border-radius:10px;padding:12px;min-height:260px;transition:background .15s}
+    .col[data-statut="termine"]{background:#f0fdf4}
+    .col[data-statut="bloque"]{background:#fef2f2}
+    .col:hover{background:#e8edf4}
+    .col h4{font-size:11px;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+    .col h4 span{background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
+    .tache{background:#fff;border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;cursor:grab;transition:box-shadow .15s,transform .1s}
+    .tache:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-1px)}
     .tache.retard{border-left:3px solid var(--ko)}
     .tache .meta{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--gris)}
     .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer}
@@ -31,7 +36,7 @@
         .barre-outils{flex-direction:column;align-items:stretch}
         .barre-outils form[method="GET"]{margin-left:0}
     }
-    @media(max-width:500px){
+    @media(max-width:600px){
         .kanban{grid-template-columns:1fr}
     }
 </style>
@@ -66,9 +71,9 @@
     <div class="col" data-statut="{{ $code }}" ondragover="event.preventDefault()" ondrop="deposer(event,'{{ $code }}')">
         <h4>{{ $libelle }} <span>{{ ($taches[$code] ?? collect())->count() }}</span></h4>
         @foreach($taches[$code] ?? [] as $t)
-        @php $peutDrag = ($code !== 'a_valider' || auth()->user()->estPilote()) && $code !== 'termine'; @endphp
+        @php $peutDrag = $code !== 'termine'; @endphp
         <div class="tache {{ $t->echeance?->isPast() && $code !== 'termine' ? 'retard' : '' }}"
-             draggable="{{ $peutDrag ? 'true' : 'false' }}" @if($peutDrag)ondragstart="event.dataTransfer.setData('id',{{ $t->id }})"@endif style="{{ !$peutDrag ? 'cursor:default;opacity:.85' : '' }}"
+             draggable="{{ $peutDrag ? 'true' : 'false' }}" @if($peutDrag)ondragstart="event.dataTransfer.setData('id',{{ $t->id }})"@endif style="{{ !$peutDrag ? 'cursor:default;opacity:.85' : '' }}">
             <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
             <div class="meta">
                 <span>{{ $t->projet?->libelle ?? $t->activite ?? '—' }}</span>
@@ -147,8 +152,6 @@ async function chargerSprints(){
         }
     } catch(e) { sel.innerHTML = '<option value="">Erreur de chargement</option>'; }
 }
-const estPilote = {{ auth()->user()->estPilote() ? 'true' : 'false' }};
-
 function toast(msg, type){
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -158,15 +161,7 @@ function toast(msg, type){
 }
 async function deposer(ev, statut){
     const id = ev.dataTransfer.getData('id');
-
-    // Collaborateur ne peut pas glisser vers "a_valider" manuellement
-    if (statut === 'a_valider' && !estPilote) {
-        toast('Le statut « En cours de validation » est automatique — terminez la tâche.', 'warn');
-        return;
-    }
-
-    // Collaborateur ne peut pas glisser vers "termine" une tâche déjà en a_valider
-    // (le serveur gère, mais on prévient côté client)
+    if (!id) return;
 
     try {
         const rep = await fetch(`/taches/${id}/statut`, {
@@ -181,9 +176,7 @@ async function deposer(ev, statut){
             return;
         }
         const d = await rep.json();
-        if (d.a_valider) {
-            toast(d.message, 'warn');
-        } else if (d.justification_requise) {
+        if (d.justification_requise) {
             toast(d.message + ' → ouvrez la tâche pour commenter.', 'warn');
         } else {
             toast(d.message);

@@ -47,6 +47,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/saisie/{tache}/confirmer', [SaisieController::class, 'confirmer'])->name('saisie.confirmer');
     Route::post('/saisie/evenement', [SaisieController::class, 'evenement'])->name('saisie.evenement');
     Route::patch('/saisie/{jour}/justifier', [SaisieController::class, 'justifier'])->name('saisie.justifier');
+    Route::post('/saisie/rappeler', [SaisieController::class, 'rappeler'])->name('saisie.rappeler');
 
     // US-21 : Notifications in-app (JSON)
     Route::get('/api/notifications', [NotificationController::class, 'nonLues'])->name('api.notifications');

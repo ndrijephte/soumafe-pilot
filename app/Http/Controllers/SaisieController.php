@@ -1,15 +1,17 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Commentaire, ConfirmationTache, Evenement, JourFerie, JourSaisie, Tache, TypeEvenement};
+use App\Models\{Commentaire, ConfirmationTache, Evenement, JourFerie, JourSaisie, NotificationApp, Tache, TypeEvenement, User};
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class SaisieController extends Controller
 {
     /** Page de saisie quotidienne : confirmation tâches + événements + historique. */
     public function index(Request $r)
     {
-        $userId = $r->user()->id;
+        $user = $r->user();
+        $userId = $user->id;
 
         // Tâches planifiées du jour (T1 sprint + T2 datées) non terminées
         $tachesDuJour = Tache::with(['projet', 'sprint'])
@@ -50,9 +52,28 @@ class SaisieController extends Controller
             ? TypeEvenement::orderBy('libelle')->get()
             : collect();
 
+        // === Section pilote : collaborateurs sans saisie hier + justifications en attente ===
+        $sanseSaisie = collect();
+        $justificationsEnAttente = collect();
+        if ($user->estPilote()) {
+            $hier = today()->subDay();
+            if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
+                $actifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->get();
+                $saisisHier = JourSaisie::whereDate('date', $hier)
+                    ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->toArray();
+                $sanseSaisie = $actifs->filter(fn ($u) => !in_array($u->id, $saisisHier));
+            }
+
+            // Justifications soumises en attente de validation pilote
+            $justificationsEnAttente = JourSaisie::with('user')
+                ->where('statut', 'justifie')
+                ->orderByDesc('date')->limit(20)->get();
+        }
+
         return view('saisie.index', compact(
             'tachesDuJour', 'confirmations', 'jours', 'evenementsDuJour',
-            'historique', 'evenementsRecents', 'typesEvenement'
+            'historique', 'evenementsRecents', 'typesEvenement',
+            'sanseSaisie', 'justificationsEnAttente'
         ));
     }
 
@@ -120,12 +141,22 @@ class SaisieController extends Controller
     public function justifier(Request $r, JourSaisie $jour)
     {
         abort_unless($jour->user_id === $r->user()->id, 403);
-        $r->validate(['justification' => 'required|string|max:500']);
+        $r->validate([
+            'justification' => 'required|string|max:500',
+            'motif_type'    => 'nullable|string|in:conge,mission,maladie,autre',
+        ]);
+
+        $type = match($r->motif_type) {
+            'conge'   => 'Congé',
+            'mission' => 'Mission',
+            'maladie' => 'Maladie',
+            default   => 'Autre',
+        };
 
         $com = Commentaire::create([
             'tache_id' => null,
-            'user_id' => $r->user()->id,
-            'contenu' => "[Justification saisie {$jour->date->format('d/m/Y')}] {$r->justification}",
+            'user_id'  => $r->user()->id,
+            'contenu'  => "[{$type} — {$jour->date->format('d/m/Y')}] {$r->justification}",
         ]);
 
         $jour->update([
@@ -133,6 +164,23 @@ class SaisieController extends Controller
             'justification_commentaire_id' => $com->id,
         ]);
 
-        return back()->with('succes', "Jour du {$jour->date->format('d/m/Y')} justifié.");
+        return back()->with('succes', "Jour du {$jour->date->format('d/m/Y')} justifié ({$type}).");
+    }
+
+    /** Pilote : envoyer un rappel de saisie à un collaborateur. */
+    public function rappeler(Request $r)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['user_id' => 'required|exists:users,id']);
+
+        $cible = User::findOrFail($r->user_id);
+        NotificationApp::create([
+            'user_id' => $cible->id,
+            'type'    => 'rappel',
+            'contenu' => 'Rappel : merci de mettre à jour votre saisie quotidienne. — ' . $r->user()->nomComplet(),
+            'lu'      => false,
+        ]);
+
+        return back()->with('succes', "Rappel envoyé à {$cible->nomComplet()}.");
     }
 }

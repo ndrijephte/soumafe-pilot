@@ -35,9 +35,18 @@ class TacheController extends Controller
     public function show(Request $r, Tache $tache)
     {
         abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
-        $tache->load(['user', 'projet', 'sprint', 'blocages', 'commentaires.user']);
+        $tache->load(['user', 'projet', 'sprint', 'blocages.tacheLiee', 'commentaires.user']);
         $blocagesActifs = $tache->blocages->whereNull('date_levee')->count();
-        return view('taches.show', compact('tache', 'blocagesActifs'));
+
+        // Tâches actives du même projet/sprint pour le dropdown "tâche liée"
+        $tachesLiables = Tache::where('id', '!=', $tache->id)
+            ->whereIn('statut', ['a_faire', 'en_cours', 'bloque', 'a_valider'])
+            ->when($tache->sprint_id, fn ($q) => $q->where('sprint_id', $tache->sprint_id))
+            ->when(!$tache->sprint_id && $tache->projet_id, fn ($q) => $q->where('projet_id', $tache->projet_id))
+            ->orderBy('intitule')
+            ->get(['id', 'intitule', 'type']);
+
+        return view('taches.show', compact('tache', 'blocagesActifs', 'tachesLiables'));
     }
 
     /** US-06 : création rapide — valeurs par défaut intelligentes. */
@@ -108,9 +117,10 @@ class TacheController extends Controller
 
             // Commentaire auto de validation
             $tache->commentaires()->create([
-                'user_id' => $r->user()->id,
-                'contenu' => '✓ Tâche validée par ' . $r->user()->nomComplet()
+                'user_id'  => $r->user()->id,
+                'contenu'  => '✓ Tâche validée par ' . $r->user()->nomComplet()
                     . ($r->motif ? ' — ' . $r->motif : ''),
+                'contexte' => 'validation',
             ]);
 
             // Notifier le collaborateur
@@ -134,8 +144,9 @@ class TacheController extends Controller
         $motif = $r->motif ?? 'Aucun motif précisé';
 
         $tache->commentaires()->create([
-            'user_id' => $r->user()->id,
-            'contenu' => '✗ Validation rejetée par ' . $r->user()->nomComplet() . ' — ' . $motif,
+            'user_id'  => $r->user()->id,
+            'contenu'  => '✗ Validation rejetée par ' . $r->user()->nomComplet() . ' — ' . $motif,
+            'contexte' => 'rejet',
         ]);
 
         \App\Models\NotificationApp::create([

@@ -102,8 +102,22 @@ dialog textarea{min-height:70px;resize:vertical}
     <h3><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Blocages ({{ $blocagesActifs }})</h3>
     @forelse($tache->blocages->sortByDesc('created_at') as $b)
     <div class="blocage-card {{ $b->date_levee ? 'leve' : '' }}">
-        <strong>{{ $b->motif }}</strong>
-        @if($b->leveur_pressenti)<br><small>Leveur pressenti : {{ $b->leveur_pressenti }}</small>@endif
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+            <strong>{{ $b->motif }}</strong>
+            @if($b->type)<span class="pill" style="background:#f1f5f9;color:#475569;font-size:10px">{{ \App\Models\Blocage::TYPES[$b->type] ?? $b->type }}</span>@endif
+        </div>
+        @if($b->tacheLiee)
+        <div style="font-size:11.5px;margin-top:4px;color:#1d4ed8">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            Lié à : <a href="{{ route('taches.show', $b->tacheLiee) }}" style="color:#1d4ed8;text-decoration:underline">{{ $b->tacheLiee->intitule }}</a>
+        </div>
+        @endif
+        @if($b->recommandation)
+        <div style="font-size:12px;margin-top:4px;color:#475569;background:#f8fafc;padding:6px 8px;border-radius:6px">
+            <strong style="font-size:10px;text-transform:uppercase;color:var(--gris)">Recommandation</strong><br>{{ $b->recommandation }}
+        </div>
+        @endif
+        @if($b->leveur_pressenti)<div style="font-size:11.5px;margin-top:3px;color:var(--gris)">Leveur pressenti : {{ $b->leveur_pressenti }}</div>@endif
         <div class="meta-b">
             <span>Signalé le {{ $b->date_blocage->format('d/m/Y H:i') }}</span>
             @if($b->date_levee)
@@ -120,18 +134,24 @@ dialog textarea{min-height:70px;resize:vertical}
     @endforelse
 </div>
 
-{{-- Commentaires --}}
+{{-- Journal d'activité --}}
 <div class="section">
-    <h3><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Commentaires ({{ $tache->commentaires->count() }})</h3>
+    <h3><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Journal d'activité ({{ $tache->commentaires->count() }})</h3>
     <div class="carte" style="padding:10px 16px">
         @forelse($tache->commentaires->sortByDesc('created_at') as $c)
-        <div class="com">
-            <span class="auteur">{{ $c->user->nomComplet() }}</span>
-            <span class="date">{{ $c->created_at->format('d/m/Y H:i') }}</span>
+        @php
+            $ctx = $c->contexte ? (\App\Models\Commentaire::CONTEXTES[$c->contexte] ?? null) : null;
+        @endphp
+        <div class="com" style="{{ $ctx ? 'border-left:3px solid '.$ctx['color'].';padding-left:12px' : '' }}">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                @if($ctx)<span style="font-size:11px;font-weight:700;color:{{ $ctx['color'] }}">{{ $ctx['icon'] }} {{ $ctx['label'] }}</span>@endif
+                <span class="auteur">{{ $c->user?->nomComplet() ?? 'Système' }}</span>
+                <span class="date">{{ $c->created_at->format('d/m/Y H:i') }}</span>
+            </div>
             <div class="contenu">{{ $c->contenu }}</div>
         </div>
         @empty
-        <p style="color:var(--gris);font-size:13px;padding:8px 0">Aucun commentaire.</p>
+        <p style="color:var(--gris);font-size:13px;padding:8px 0">Aucune activité enregistrée.</p>
         @endforelse
 
         <form method="POST" action="{{ route('commentaires.store', $tache) }}" class="form-inline">@csrf
@@ -161,8 +181,25 @@ dialog textarea{min-height:70px;resize:vertical}
 <dialog id="dlg-blocage">
     <h3 style="color:var(--ko);margin-bottom:4px">Signaler un blocage</h3>
     <form method="POST" action="{{ route('blocages.store', $tache) }}">@csrf
-        <label>Motif du blocage *</label>
+        <label>Type de blocage <span style="color:var(--ko)">*</span></label>
+        <select name="type" required style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
+            @foreach(\App\Models\Blocage::TYPES as $val => $lbl)
+            <option value="{{ $val }}">{{ $lbl }}</option>
+            @endforeach
+        </select>
+        <label>Motif du blocage <span style="color:var(--ko)">*</span></label>
         <textarea name="motif" required placeholder="Décrivez ce qui vous bloque…"></textarea>
+        @if(isset($tachesLiables) && $tachesLiables->count() > 0)
+        <label>Tâche liée (optionnel)</label>
+        <select name="tache_liee_id" style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
+            <option value="">— Aucune —</option>
+            @foreach($tachesLiables as $tl)
+            <option value="{{ $tl->id }}">{{ $tl->type }} — {{ $tl->intitule }}</option>
+            @endforeach
+        </select>
+        @endif
+        <label>Recommandation (optionnel)</label>
+        <textarea name="recommandation" placeholder="Suggestion pour résoudre ce blocage…" style="min-height:50px"></textarea>
         <label>Qui pourrait débloquer ? (optionnel)</label>
         <input name="leveur_pressenti" placeholder="Nom ou rôle">
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">

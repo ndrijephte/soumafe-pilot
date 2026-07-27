@@ -125,11 +125,17 @@ dialog textarea{min-height:60px;resize:vertical}
         @if($jours->count() > 0)
         <div class="carte">
             @foreach($jours as $j)
-            <form method="POST" action="{{ route('saisie.justifier', $j) }}" style="display:flex;gap:8px;align-items:flex-end;padding:8px 0;border-bottom:1px solid #f1f5f9">
+            <form method="POST" action="{{ route('saisie.justifier', $j) }}" style="display:flex;gap:8px;align-items:flex-end;padding:8px 0;border-bottom:1px solid #f1f5f9;flex-wrap:wrap">
                 @csrf
                 @method('PATCH')
                 <div style="flex:none;font-size:13px;font-weight:600;min-width:70px">{{ $j->date->format('d/m/Y') }}</div>
-                <input name="justification" placeholder="Motif..." required style="flex:1;padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
+                <select name="motif_type" style="flex:none;width:110px;padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
+                    <option value="autre">Autre</option>
+                    <option value="conge">Cong&eacute;</option>
+                    <option value="mission">Mission</option>
+                    <option value="maladie">Maladie</option>
+                </select>
+                <input name="justification" placeholder="Précisez..." required style="flex:1;padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
                 <button class="btn sm">Justifier</button>
             </form>
             @endforeach
@@ -139,6 +145,26 @@ dialog textarea{min-height:60px;resize:vertical}
         @endif
     </div>
 </div>
+
+@if(auth()->user()->estPilote() && isset($sanseSaisie) && $sanseSaisie->count() > 0)
+<div class="section">
+    <div class="section-titre">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        Collaborateurs sans saisie hier ({{ $sanseSaisie->count() }})
+    </div>
+    <div class="carte">
+        @foreach($sanseSaisie as $u)
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px">
+            <span style="font-weight:600">{{ $u->nomComplet() }}</span>
+            <form method="POST" action="{{ route('saisie.rappeler') }}" style="display:inline">@csrf
+                <input type="hidden" name="user_id" value="{{ $u->id }}">
+                <button class="btn sm" style="background:var(--accent)">Envoyer un rappel</button>
+            </form>
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
 
 <div class="section">
     <div class="section-titre">Historique (30 derniers jours)</div>

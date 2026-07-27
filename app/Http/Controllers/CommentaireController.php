@@ -11,8 +11,9 @@ class CommentaireController extends Controller
     {
         $r->validate(['contenu' => 'required|string|max:2000']);
         $tache->commentaires()->create([
-            'user_id' => $r->user()->id,
-            'contenu' => $r->contenu,
+            'user_id'  => $r->user()->id,
+            'contenu'  => $r->contenu,
+            'contexte' => 'suivi',
         ]);
 
         // Notifier le collaborateur assigné si c'est un pilote/DG qui commente

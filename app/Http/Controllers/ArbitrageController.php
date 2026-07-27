@@ -1,8 +1,9 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{ArbitrageT3, Evenement, NotificationApp, Tache};
+use App\Models\{ArbitrageT3, Blocage, Evenement, NotificationApp, Tache};
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class ArbitrageController extends Controller
 {
@@ -43,7 +44,16 @@ class ArbitrageController extends Controller
             ->orderByDesc('date')->orderByDesc('created_at')
             ->limit(30)->get();
 
-        return view('arbitrages.index', compact('arbitrages', 'evenements'));
+        // Blocages actifs nécessitant une action pilote
+        $blocages = collect();
+        if (Schema::hasTable('blocages')) {
+            $blocages = Blocage::with(['tache.user', 'tache.projet', 'intervenant'])
+                ->whereNull('date_levee')
+                ->orderByDesc('date_blocage')
+                ->get();
+        }
+
+        return view('arbitrages.index', compact('arbitrages', 'evenements', 'blocages'));
     }
 
     /** DG décide. */

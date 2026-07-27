@@ -15,15 +15,11 @@
 .dec-refuse{background:#fee2e2;color:var(--ko)}
 .dec-attente{background:#fef3c7;color:#b45309}
 .vide{text-align:center;padding:40px;color:var(--gris);font-size:14px}
-.section-titre{font-size:16px;font-weight:700;color:var(--bleu);margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--bord)}
-.section-titre:first-of-type{margin-top:0}
 .evt-card{background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:16px;margin-bottom:10px}
 .evt-type{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
-.evt-interruption_service{background:#fee2e2;color:var(--ko)}.evt-absence{background:#fef3c7;color:#b45309}
-.evt-condoleance{background:#e2e8f0;color:#475569}.evt-reunion_exceptionnelle{background:#dbeafe;color:#1d4ed8}
-.evt-autre{background:#f1f5f9;color:#64748b}
 .evt-traite{opacity:.7;border-left:3px solid var(--ok)}
-.evt-non-traite{border-left:3px solid var(--warn)}
+.evt-non-traite{border-left:3px solid #f59e0b}
+.bloc-card{background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:16px;margin-bottom:10px;border-left:3px solid var(--ko)}
 .reco-zone{margin-top:10px;padding-top:10px;border-top:1px solid var(--bord)}
 .reco-texte{background:#f0fdf4;border-radius:8px;padding:8px 12px;font-size:12px;color:#1e293b;margin-top:6px}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
@@ -34,16 +30,20 @@ dialog::backdrop{background:rgba(22,56,92,.35)}
 dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px;font-weight:600;text-transform:uppercase}
 dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;min-height:80px;resize:vertical}
 .typ{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px}
-.t3{background:#fee2e2;color:#b91c1c}
-.onglets{display:flex;gap:6px;margin-bottom:16px}
-.onglet{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none}
+.t1{background:#dbeafe;color:#1d4ed8}.t2{background:#e2e8f0;color:#475569}.t3{background:#fee2e2;color:#b91c1c}
+.onglets{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.onglet{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;position:relative}
 .onglet.actif{background:var(--accent);color:#fff}
 .onglet:not(.actif){background:#e2e8f0;color:var(--gris)}
+.badge-onglet{position:absolute;top:-4px;right:-4px;background:var(--ko);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+.duree-bloc{font-size:11px;padding:2px 8px;border-radius:6px;font-weight:600}
+.duree-court{background:#fef3c7;color:#b45309}
+.duree-long{background:#fee2e2;color:var(--ko)}
 </style>
 @endpush
 @section('contenu')
-<h2>Arbitrages &amp; Faits marquants</h2>
-<div class="crumb">Pilotage &rsaquo; Arbitrages T3 &amp; &eacute;v&eacute;nements</div>
+<h2>Arbitrages &amp; Actions requises</h2>
+<div class="crumb">Pilotage &rsaquo; Arbitrages, blocages &amp; &eacute;v&eacute;nements</div>
 
 @if(session('succes'))
 <div style="background:#dcfce7;color:var(--ok);padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px">{{ session('succes') }}</div>
@@ -52,13 +52,113 @@ dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-
 <div style="background:#fee2e2;color:var(--ko);padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px">{{ session('erreur') }}</div>
 @endif
 
+@php
+    $nbArbAttente = $arbitrages->where('decision','en_attente')->count();
+    $nbBlocActifs = isset($blocages) ? $blocages->count() : 0;
+    $nbEvtNonTraites = $evenements->filter(fn($e) => !$e->estTraite())->count();
+@endphp
+
 <div class="onglets">
-    <button class="onglet actif" onclick="showTab('arb',this)">Arbitrages T3 ({{ $arbitrages->where('decision','en_attente')->count() }})</button>
-    <button class="onglet" onclick="showTab('evt',this)">&Eacute;v&eacute;nements ({{ $evenements->where('recommandation',null)->count() }} &agrave; traiter)</button>
+    <button class="onglet actif" onclick="showTab('bloc',this)">
+        Blocages actifs
+        @if($nbBlocActifs > 0)<span class="badge-onglet">{{ $nbBlocActifs }}</span>@endif
+    </button>
+    <button class="onglet" onclick="showTab('evt',this)">
+        &Eacute;v&eacute;nements
+        @if($nbEvtNonTraites > 0)<span class="badge-onglet">{{ $nbEvtNonTraites }}</span>@endif
+    </button>
+    <button class="onglet" onclick="showTab('arb',this)">
+        Arbitrages T3
+        @if($nbArbAttente > 0)<span class="badge-onglet">{{ $nbArbAttente }}</span>@endif
+    </button>
 </div>
 
-{{-- TAB Arbitrages --}}
-<div id="tab-arb">
+{{-- TAB Blocages actifs --}}
+<div id="tab-bloc">
+@if(isset($blocages) && $blocages->count() > 0)
+    @foreach($blocages as $b)
+    @php
+        $heures = round($b->date_blocage->diffInHours(now()), 1);
+        $dureeClass = $heures > 24 ? 'duree-long' : 'duree-court';
+    @endphp
+    <div class="bloc-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
+                <div style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <span class="typ {{ strtolower($b->tache->type ?? '') }}">{{ $b->tache->type ?? '—' }}</span>
+                    <a href="{{ route('taches.show', $b->tache) }}" style="font-weight:600;font-size:14px;color:#1e293b;text-decoration:none">{{ $b->tache->intitule }}</a>
+                    <span class="duree-bloc {{ $dureeClass }}">{{ $heures }}h bloqu&eacute;</span>
+                </div>
+                <div style="font-size:13px;margin-bottom:4px"><strong>Motif :</strong> {{ $b->motif }}</div>
+                @if($b->recommandation)
+                <div style="font-size:12px;color:var(--gris);margin-bottom:2px"><strong>Recommandation :</strong> {{ $b->recommandation }}</div>
+                @endif
+                <div style="font-size:12px;color:var(--gris)">
+                    Assign&eacute; &agrave; <strong>{{ $b->tache->user->nomComplet() }}</strong>
+                    @if($b->tache->projet) &middot; {{ $b->tache->projet->libelle }} @endif
+                    @if($b->intervenant) &middot; Intervenant : {{ $b->intervenant->nomComplet() }} @endif
+                    &middot; {{ $b->date_blocage->format('d/m/Y H:i') }}
+                </div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+                <a href="{{ route('taches.show', $b->tache) }}" class="btn sm">Voir la t&acirc;che</a>
+                <form method="POST" action="{{ route('blocages.lever', $b) }}" style="display:inline">
+                    @csrf @method('PATCH')
+                    <button class="btn-arb btn-ok">Lever le blocage</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endforeach
+@else
+    <div class="carte vide">Aucun blocage actif.</div>
+@endif
+</div>
+
+{{-- TAB Événements --}}
+<div id="tab-evt" style="display:none">
+@forelse($evenements as $e)
+@php $c = $e->couleurType(); @endphp
+<div class="evt-card {{ $e->estTraite() ? 'evt-traite' : 'evt-non-traite' }}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+            <div style="margin-bottom:4px">
+                <span class="evt-type" style="background:{{ $c['fond'] }};color:{{ $c['texte'] }}">{{ $e->labelType() }}</span>
+                <span style="font-size:12px;color:var(--gris);margin-left:8px">{{ $e->date->format('d/m/Y') }}</span>
+            </div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px">{{ $e->description }}</div>
+            @if($e->action_engagee)
+            <div style="font-size:12px;color:#1e293b;margin-bottom:4px"><strong>Action engag&eacute;e :</strong> {{ $e->action_engagee }}</div>
+            @endif
+            <div style="font-size:12px;color:var(--gris)">
+                Signal&eacute; par <strong>{{ $e->user->nomComplet() }}</strong>
+                @if($e->impact) &middot; Impact : {{ $e->impact }} @endif
+            </div>
+        </div>
+        <div>
+            @if($e->estTraite())
+                <span class="dec dec-accorde">Trait&eacute;</span>
+            @else
+                <button class="btn sm" onclick="ouvrirReco({{ $e->id }}, {{ Js::from($e->description) }})">R&eacute;agir</button>
+            @endif
+        </div>
+    </div>
+    @if($e->estTraite())
+    <div class="reco-zone">
+        <div style="font-size:11px;color:var(--gris);font-weight:600">
+            Recommandation de {{ $e->traitePar->nomComplet() }} &mdash; {{ $e->traite_le->format('d/m/Y H:i') }}
+        </div>
+        <div class="reco-texte">{{ $e->recommandation }}</div>
+    </div>
+    @endif
+</div>
+@empty
+<div class="carte vide">Aucun &eacute;v&eacute;nement signal&eacute;.</div>
+@endforelse
+</div>
+
+{{-- TAB Arbitrages T3 --}}
+<div id="tab-arb" style="display:none">
 @forelse($arbitrages as $a)
 <div class="arb-card">
     <div class="arb-info">
@@ -90,49 +190,7 @@ dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-
     </div>
 </div>
 @empty
-<div class="carte vide">Aucune demande d'arbitrage T3 pour le moment.</div>
-@endforelse
-</div>
-
-{{-- TAB Événements --}}
-<div id="tab-evt" style="display:none">
-@forelse($evenements as $e)
-@php $c = $e->couleurType(); @endphp
-<div class="evt-card {{ $e->estTraite() ? 'evt-traite' : 'evt-non-traite' }}">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px">
-            <div style="margin-bottom:4px">
-                <span class="evt-type" style="background:{{ $c['fond'] }};color:{{ $c['texte'] }}">{{ $e->labelType() }}</span>
-                <span style="font-size:12px;color:var(--gris);margin-left:8px">{{ $e->date->format('d/m/Y') }}</span>
-            </div>
-            <div style="font-size:14px;font-weight:600;margin-bottom:4px">{{ $e->description }}</div>
-            @if($e->action_engagee)
-            <div style="font-size:12px;color:#1e293b;margin-bottom:4px"><strong>Action engag&eacute;e :</strong> {{ $e->action_engagee }}</div>
-            @endif
-            <div style="font-size:12px;color:var(--gris)">
-                Signal&eacute; par <strong>{{ $e->user->nomComplet() }}</strong>
-                @if($e->impact) &middot; Impact : {{ $e->impact }} @endif
-            </div>
-        </div>
-        <div>
-            @if($e->estTraite())
-                <span class="dec dec-accorde">Trait&eacute;</span>
-            @else
-                <button class="btn sm" onclick="ouvrirReco({{ $e->id }}, '{{ addslashes($e->description) }}')">R&eacute;agir</button>
-            @endif
-        </div>
-    </div>
-    @if($e->estTraite())
-    <div class="reco-zone">
-        <div style="font-size:11px;color:var(--gris);font-weight:600">
-            Recommandation de {{ $e->traitePar->nomComplet() }} &mdash; {{ $e->traite_le->format('d/m/Y H:i') }}
-        </div>
-        <div class="reco-texte">{{ $e->recommandation }}</div>
-    </div>
-    @endif
-</div>
-@empty
-<div class="carte vide">Aucun &eacute;v&eacute;nement signal&eacute;.</div>
+<div class="carte vide">Aucune demande d'arbitrage T3.</div>
 @endforelse
 </div>
 
@@ -156,6 +214,7 @@ dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-
 function showTab(tab, btn) {
     document.getElementById('tab-arb').style.display = tab === 'arb' ? '' : 'none';
     document.getElementById('tab-evt').style.display = tab === 'evt' ? '' : 'none';
+    document.getElementById('tab-bloc').style.display = tab === 'bloc' ? '' : 'none';
     document.querySelectorAll('.onglet').forEach(o => o.classList.remove('actif'));
     btn.classList.add('actif');
 }

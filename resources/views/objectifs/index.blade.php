@@ -29,13 +29,11 @@
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 .alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
-.form-card{background:var(--carte);border:1px solid var(--accent);border-radius:12px;padding:16px;margin-bottom:16px}
-.form-card h3{font-size:14px;color:var(--bleu);margin:0 0 10px}
-.form-card label{display:block;font-size:12px;font-weight:600;color:var(--gris);text-transform:uppercase;margin:10px 0 4px}
-.form-card label:first-of-type{margin-top:0}
-.form-card input,.form-card select,.form-card textarea{width:100%;max-width:400px;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px}
-.form-card input:focus,.form-card select:focus,.form-card textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
-.form-actions{display:flex;gap:8px;margin-top:12px}
+dialog{border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
+dialog::backdrop{background:rgba(22,56,92,.35)}
+dialog label{display:block;font-size:12px;font-weight:600;color:var(--gris);text-transform:uppercase;margin:10px 0 4px}
+dialog input,dialog select{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px}
+dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .req{color:var(--ko)}
 .score-global{display:flex;gap:12px;align-items:center;margin-bottom:16px;padding:12px 16px;background:var(--carte);border:1px solid var(--bord);border-radius:12px}
@@ -102,121 +100,14 @@
     </form>
 </div>
 
-{{-- Onglets --}}
-<div class="tabs">
-    <div class="tab actif" onclick="switchTab('indiv')">Objectifs individuels</div>
-    <div class="tab" onclick="switchTab('projet')">Objectifs projet</div>
+{{-- Onglets + bouton ajout --}}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div class="tabs" style="margin-bottom:0">
+        <div class="tab actif" onclick="switchTab('indiv')">Objectifs individuels</div>
+        <div class="tab" onclick="switchTab('projet')">Objectifs projet</div>
+    </div>
+    <button class="btn" onclick="resetForm();document.getElementById('dlg-obj').showModal()">+ Assigner un objectif</button>
 </div>
-
-{{-- Formulaire ajout/modification --}}
-<div class="form-card" id="formSection">
-    <h3 id="formTitre">Ajouter un objectif</h3>
-    <form method="POST" id="formObj" action="{{ route('objectifs.store') }}">
-        @csrf
-        <input type="hidden" name="_editing" id="fEditing" value="">
-
-        <div class="form-row">
-            <div>
-                <label>Type <span class="req">*</span></label>
-                <select name="type" id="fType" onchange="toggleType()">
-                    <option value="individuel">Individuel (collaborateur)</option>
-                    <option value="projet">Projet (&eacute;quipe)</option>
-                </select>
-            </div>
-            <div id="wrapUser">
-                <label>Collaborateur <span class="req">*</span></label>
-                <select name="user_id" id="fUser" required>
-                    <option value="">— Choisir —</option>
-                    @foreach($collaborateurs as $c)
-                    <option value="{{ $c->id }}">{{ $c->nomComplet() }}</option>
-                    @endforeach
-                </select>
-            </div>
-        </div>
-
-        <label>Objectif <span class="req">*</span></label>
-        <input name="libelle" id="fLib" required maxlength="255" placeholder="Ex : Livrer le module facturation">
-
-        <div class="form-row">
-            <div id="wrapProjet">
-                <label id="labelProjet">Projet</label>
-                <select name="projet_id" id="fProjet">
-                    <option value="">— Aucun —</option>
-                    @foreach($projets as $p)
-                    <option value="{{ $p->id }}">{{ $p->libelle }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div>
-                <label>Mois de r&eacute;f&eacute;rence <span class="req">*</span></label>
-                <select name="periode" id="fPeriode" required>
-                    @foreach($moisMenu as $val => $label)
-                    <option value="{{ $val }}" {{ $periode === $val ? 'selected' : '' }}>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div>
-                <label>Pond&eacute;ration (%) <span class="req">*</span></label>
-                <input type="number" name="ponderation" id="fPond" min="0" max="100" required value="20">
-            </div>
-            <div>&nbsp;</div>
-        </div>
-
-        <div class="form-row">
-            <div>
-                <label>Date de d&eacute;but <span class="req">*</span></label>
-                <input type="date" name="date_debut" id="fDebut" required value="{{ now()->format('Y-m-d') }}">
-            </div>
-            <div>
-                <label>&Eacute;ch&eacute;ance <span class="req">*</span></label>
-                <input type="date" name="date_echeance" id="fEcheance" required>
-            </div>
-        </div>
-
-        <div id="editFields" style="display:none">
-            <div class="form-row">
-                <div>
-                    <label>Avancement (%)</label>
-                    <input type="number" name="avancement" id="fAvanc" min="0" max="100" value="0">
-                </div>
-                <div>
-                    <label>&Eacute;valuation</label>
-                    <select name="evaluation" id="fEval">
-                        <option value="">— Auto —</option>
-                        <option value="en_cours">En cours</option>
-                        <option value="atteint">Atteint</option>
-                        <option value="partiel">Partiel</option>
-                        <option value="non_atteint">Non atteint</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-row">
-                <div>
-                    <label>Validation</label>
-                    <select name="statut_validation" id="fStatut">
-                        <option value="en_attente">En attente</option>
-                        <option value="valide">Valid&eacute;</option>
-                        <option value="rejete">Rejet&eacute;</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Commentaire pilote</label>
-                    <textarea name="commentaire_pilote" id="fComm" rows="2" maxlength="500" style="max-width:100%"></textarea>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-actions">
-            <button class="btn" id="btnSubmit">Ajouter</button>
-            <button type="button" class="btn sec" onclick="resetForm()">Annuler</button>
-        </div>
-    </form>
-</div>
-
-{{-- Import xlsx retiré — la saisie via formulaire est privilégiée --}}
 
 {{-- ===== PANEL INDIVIDUEL ===== --}}
 <div class="tab-panel actif" id="panel-indiv">
@@ -440,6 +331,115 @@
 @endif
 
 @endif
+
+@if(auth()->user()->estPilote())
+<dialog id="dlg-obj" style="width:540px">
+    <h3 id="formTitre" style="color:var(--bleu);margin-bottom:8px">Assigner un objectif</h3>
+    <form method="POST" id="formObj" action="{{ route('objectifs.store') }}">
+        @csrf
+        <input type="hidden" name="_editing" id="fEditing" value="">
+
+        <div class="form-row">
+            <div>
+                <label>Type <span class="req">*</span></label>
+                <select name="type" id="fType" onchange="toggleType()">
+                    <option value="individuel">Individuel</option>
+                    <option value="projet">Projet</option>
+                </select>
+            </div>
+            <div id="wrapUser">
+                <label>Collaborateur <span class="req">*</span></label>
+                <select name="user_id" id="fUser" required>
+                    <option value="">— Choisir —</option>
+                    @foreach($collaborateurs as $c)
+                    <option value="{{ $c->id }}">{{ $c->nomComplet() }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <label>Objectif <span class="req">*</span></label>
+        <input name="libelle" id="fLib" required maxlength="255" placeholder="Ex : Livrer le module facturation" style="width:100%">
+
+        <div class="form-row">
+            <div id="wrapProjet">
+                <label id="labelProjet">Projet</label>
+                <select name="projet_id" id="fProjet">
+                    <option value="">— Aucun —</option>
+                    @foreach($projets as $p)
+                    <option value="{{ $p->id }}">{{ $p->libelle }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label>P&eacute;riode <span class="req">*</span></label>
+                <select name="periode" id="fPeriode" required>
+                    @foreach($moisMenu as $val => $label)
+                    <option value="{{ $val }}" {{ $periode === $val ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label>Pond&eacute;ration (%) <span class="req">*</span></label>
+                <input type="number" name="ponderation" id="fPond" min="0" max="100" required value="20">
+            </div>
+            <div>
+                <label>Date de d&eacute;but <span class="req">*</span></label>
+                <input type="date" name="date_debut" id="fDebut" required value="{{ now()->format('Y-m-d') }}">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label>&Eacute;ch&eacute;ance <span class="req">*</span></label>
+                <input type="date" name="date_echeance" id="fEcheance" required>
+            </div>
+            <div>&nbsp;</div>
+        </div>
+
+        <div id="editFields" style="display:none">
+            <div class="form-row">
+                <div>
+                    <label>Avancement (%)</label>
+                    <input type="number" name="avancement" id="fAvanc" min="0" max="100" value="0">
+                </div>
+                <div>
+                    <label>&Eacute;valuation</label>
+                    <select name="evaluation" id="fEval">
+                        <option value="">— Auto —</option>
+                        <option value="en_cours">En cours</option>
+                        <option value="atteint">Atteint</option>
+                        <option value="partiel">Partiel</option>
+                        <option value="non_atteint">Non atteint</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div>
+                    <label>Validation</label>
+                    <select name="statut_validation" id="fStatut">
+                        <option value="en_attente">En attente</option>
+                        <option value="valide">Valid&eacute;</option>
+                        <option value="rejete">Rejet&eacute;</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Commentaire pilote</label>
+                    <textarea name="commentaire_pilote" id="fComm" rows="2" maxlength="500" style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;resize:vertical"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="document.getElementById('dlg-obj').close()">Annuler</button>
+            <button class="btn" id="btnSubmit">Ajouter</button>
+        </div>
+    </form>
+</dialog>
+@endif
 @endsection
 
 @push('scripts')
@@ -499,7 +499,7 @@ function editObj(id, type, userId, libelle, projetId, pond, avanc, debut, echean
     var mf = document.querySelector('#formObj input[name="_method"]');
     if (!mf) { mf = document.createElement('input'); mf.type='hidden'; mf.name='_method'; document.getElementById('formObj').appendChild(mf); }
     mf.value = 'PUT';
-    document.getElementById('formSection').scrollIntoView({behavior:'smooth'});
+    document.getElementById('dlg-obj').showModal();
     document.getElementById('fLib').focus();
 }
 

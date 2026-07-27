@@ -9,7 +9,7 @@ class ArbitrageController extends Controller
     /** Collaborateur demande un arbitrage T3 (interruption sprint). */
     public function demander(Request $r, Tache $tache)
     {
-        abort_unless($tache->user_id === $r->user()->id && $tache->type === 'T3', 403);
+        abort_unless((int) $tache->user_id === (int) $r->user()->id && $tache->type === 'T3', 403);
         if ($tache->arbitrage) return back()->with('erreur', 'Un arbitrage est déjà en cours pour cette tâche.');
 
         $tache->arbitrage()->create([

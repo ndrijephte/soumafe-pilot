@@ -11,7 +11,7 @@ class BlocageController extends Controller
     /** Signaler un blocage sur une tâche. */
     public function store(Request $r, Tache $tache)
     {
-        abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
+        abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
         $r->validate([
             'motif'             => 'required|string|max:500',
             'type'              => 'nullable|string|max:50',
@@ -68,7 +68,7 @@ class BlocageController extends Controller
     public function lever(Request $r, Blocage $blocage)
     {
         $tache = $blocage->tache;
-        abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
+        abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
         $blocage->update(['date_levee' => now()]);
         // Repasser en cours si plus aucun blocage actif
         if (!$tache->blocages()->whereNull('date_levee')->exists()) {

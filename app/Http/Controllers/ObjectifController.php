@@ -129,7 +129,7 @@ class ObjectifController extends Controller
         $hasEval = Schema::hasColumn('objectifs', 'evaluation');
 
         if (!$user->estPilote()) {
-            abort_unless($objectif->user_id === $user->id, 403);
+            abort_unless((int) $objectif->user_id === (int) $user->id, 403);
             $r->validate(['avancement' => 'required|integer|min:0|max:100']);
             $avanc = (int) $r->avancement;
             $objectif->update(['avancement' => $avanc]);

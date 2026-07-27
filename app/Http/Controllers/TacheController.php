@@ -28,14 +28,14 @@ class TacheController extends Controller
             'taches'  => $taches,
             'vue'     => $r->get('vue', 'kanban'),
             'projets' => Projet::orderBy('libelle')->get(),
-            'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'a_valider' => 'En cours de validation', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
+            'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
         ]);
     }
 
     /** Détail tâche : blocages, commentaires, métadonnées. */
     public function show(Request $r, Tache $tache)
     {
-        abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
+        abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
         $tache->load(['user', 'projet', 'sprint', 'blocages.intervenant', 'commentaires.user']);
         $blocagesActifs = $tache->blocages->whereNull('date_levee')->count();
 
@@ -59,7 +59,7 @@ class TacheController extends Controller
 
     public function update(TacheRequest $r, Tache $tache)
     {
-        abort_unless($tache->user_id === $r->user()->id, 403);
+        abort_unless((int) $tache->user_id === (int) $r->user()->id, 403);
         $tache->update($r->validated());
         return back()->with('succes', 'Tâche mise à jour.');
     }
@@ -70,32 +70,10 @@ class TacheController extends Controller
         if ((int) $tache->user_id !== (int) $r->user()->id && !$r->user()->estPilote()) {
             return response()->json(['ok' => false, 'message' => 'Vous n\'êtes pas autorisé à modifier cette tâche.'], 403);
         }
-        $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,a_valider,reporte']);
-
-        // Seul un pilote peut modifier une tâche déjà en a_valider
-        if ($tache->statut === 'a_valider' && !$r->user()->estPilote()) {
-            return response()->json(['ok' => false, 'message' => 'Tâche en cours de validation — seul le pilote peut intervenir.'], 403);
-        }
+        $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,reporte']);
 
         if ($r->statut === 'termine') {
-            // T1 (sprint) → passe en a_valider au lieu de termine (sauf si c'est un pilote qui change)
-            if ($tache->type === 'T1' && !$r->user()->estPilote()) {
-                $tache->update(['statut' => 'a_valider']);
-                // Notifier les pilotes
-                $pilotes = \App\Models\User::where('actif', true)
-                    ->whereIn('role', ['administrateur', 'charge_operations', 'direction'])->get();
-                foreach ($pilotes as $p) {
-                    \App\Models\NotificationApp::create([
-                        'user_id' => $p->id, 'type' => 'validation',
-                        'contenu' => $tache->user->nomComplet() . ' demande la validation de « ' . \Illuminate\Support\Str::limit($tache->intitule, 40) . ' »',
-                        'lu' => false,
-                    ]);
-                }
-                return response()->json(['ok' => true, 'a_valider' => true,
-                    'message' => 'Tâche soumise à validation. Le pilote sera notifié.']);
-            }
-
-            // T2/T3 ou pilote → clôture directe
+            // V1 : clôture directe pour tous les types (T1, T2, T3)
             $this->cloture->cloturer($tache);
             $msg = match ($tache->qualification) {
                 'a_temps'   => 'Tâche terminée à temps — bravo.',

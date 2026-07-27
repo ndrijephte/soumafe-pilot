@@ -19,7 +19,7 @@ class NotificationController extends Controller
     /** Marquer une notification comme lue. */
     public function lire(Request $r, NotificationApp $notification)
     {
-        abort_unless($notification->user_id === $r->user()->id, 403);
+        abort_unless((int) $notification->user_id === (int) $r->user()->id, 403);
         $notification->update(['lu' => true]);
         return response()->json(['ok' => true]);
     }

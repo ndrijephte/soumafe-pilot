@@ -94,21 +94,8 @@ class SaisieController extends Controller
 
         // Mettre à jour le statut de la tâche
         if ($r->statut === 'confirmee') {
-            // T1 (sprint) par un collaborateur → circuit de validation
-            if ($tache->type === 'T1' && !$r->user()->estPilote()) {
-                $tache->update(['statut' => 'a_valider']);
-                // Notifier les pilotes
-                $pilotes = User::where('actif', true)->whereIn('role', ['administrateur', 'charge_operations', 'direction'])->get();
-                foreach ($pilotes as $p) {
-                    NotificationApp::create([
-                        'user_id' => $p->id, 'type' => 'validation',
-                        'contenu' => $r->user()->nomComplet() . ' a confirmé « ' . Str::limit($tache->intitule, 40) . ' » — en attente de validation.',
-                        'lu' => false,
-                    ]);
-                }
-            } else {
-                $tache->update(['statut' => 'termine', 'date_fin_reelle' => today()]);
-            }
+            // V1 : clôture directe pour tous les types (T1, T2, T3)
+            $tache->update(['statut' => 'termine', 'date_fin_reelle' => today()]);
         }
         // Si infirmée, la tâche reste en l'état (en_cours ou a_faire)
 
@@ -119,9 +106,7 @@ class SaisieController extends Controller
         );
 
         if ($r->statut === 'confirmee') {
-            $msg = ($tache->type === 'T1' && !$r->user()->estPilote())
-                ? 'Tâche soumise à validation par le pilote.'
-                : 'Tâche confirmée comme réalisée.';
+            $msg = 'Tâche confirmée comme réalisée.';
         } else {
             $msg = 'Tâche infirmée — motif enregistré.';
         }
@@ -160,7 +145,7 @@ class SaisieController extends Controller
     /** Justifier un jour manquant. */
     public function justifier(Request $r, JourSaisie $jour)
     {
-        abort_unless($jour->user_id === $r->user()->id, 403);
+        abort_unless((int) $jour->user_id === (int) $r->user()->id, 403);
         $r->validate([
             'justification' => 'required|string|max:500',
             'motif_type'    => 'nullable|string|in:conge,mission,maladie,autre',

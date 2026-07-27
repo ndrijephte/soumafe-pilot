@@ -144,9 +144,22 @@ dialog textarea{min-height:60px;resize:vertical}
     <div class="section-titre">Historique (30 derniers jours)</div>
     <div class="carte">
         @forelse($historique as $h)
-        <div class="hist-line">
-            <span>{{ $h->date->translatedFormat('D d/m/Y') }}</span>
+        @php
+            $nbConf = \App\Models\ConfirmationTache::where('user_id', $h->user_id)->whereDate('date', $h->date)->where('statut', 'confirmee')->count();
+            $nbInf = \App\Models\ConfirmationTache::where('user_id', $h->user_id)->whereDate('date', $h->date)->where('statut', 'infirmee')->count();
+            $justif = $h->justification;
+        @endphp
+        <div class="hist-line" style="flex-wrap:wrap">
+            <span style="min-width:110px">{{ $h->date->translatedFormat('D d/m/Y') }}</span>
             <span class="st-{{ $h->statut }}" style="font-weight:600">{{ ucfirst(str_replace('_',' ',$h->statut)) }}</span>
+            <span style="font-size:11px;color:var(--gris);margin-left:auto">
+                @if($nbConf > 0){{ $nbConf }} t&acirc;che(s) r&eacute;alis&eacute;e(s)@endif
+                @if($nbInf > 0) &middot; {{ $nbInf }} infirm&eacute;e(s)@endif
+                @if($nbConf === 0 && $nbInf === 0 && $h->statut === 'saisi')Signal&eacute;@endif
+            </span>
+            @if($justif)
+            <div style="width:100%;font-size:11px;color:var(--accent);margin-top:2px;padding-left:110px">Motif : {{ $justif->contenu }}</div>
+            @endif
         </div>
         @empty
         <div style="text-align:center;color:var(--gris);font-size:13px;padding:16px">Pas encore d'historique.</div>

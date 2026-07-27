@@ -38,9 +38,22 @@ class User extends Authenticatable
     public function peutGererProjet(?int $projetId = null): bool
     {
         if ($this->estPilote()) return true;
-        if ($projetId === null) return false;
+        if ($projetId === null) {
+            // Sans argument : vérifie si responsable d'au moins un projet avec délégation
+            return Projet::where('responsable_projet_id', $this->id)
+                ->where('delegation_sprint', true)->exists();
+        }
         $projet = Projet::find($projetId);
         if (!$projet) return false;
         return $projet->delegation_sprint && $projet->responsable_projet_id === $this->id;
+    }
+
+    /** Retourne les projets que l'utilisateur peut gérer (pour filtrer les selects). */
+    public function projetsGerables()
+    {
+        if ($this->estPilote()) return Projet::where('statut', 'actif')->orderBy('libelle')->get();
+        return Projet::where('responsable_projet_id', $this->id)
+            ->where('delegation_sprint', true)->where('statut', 'actif')
+            ->orderBy('libelle')->get();
     }
 }

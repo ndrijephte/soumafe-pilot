@@ -23,6 +23,8 @@
 .btn.sm{padding:4px 10px;font-size:11.5px;border-radius:6px}
 .btn.danger{background:var(--ko)}
 .btn.ok{background:var(--ok)}
+.pill{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
+.p-ok{background:#dcfce7;color:var(--ok)}.p-cours{background:#dbeafe;color:var(--accent)}.p-bloque{background:#fee2e2;color:var(--ko)}.p-attente{background:#fef3c7;color:#b45309}
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 dialog{border:none;border-radius:14px;padding:24px;width:430px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
@@ -36,6 +38,31 @@ dialog textarea{min-height:70px;resize:vertical}
 @endpush
 @section('contenu')
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
+@if(session('erreur'))<div class="alerte" style="background:#fef2f2;border:1px solid #fecaca;color:var(--ko)">{{ session('erreur') }}</div>@endif
+
+{{-- Bandeau validation pour pilotes --}}
+@if($tache->statut === 'a_valider' && auth()->user()->estPilote())
+<div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:12px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div>
+        <div style="font-weight:700;color:#1d4ed8;font-size:14px">En attente de votre validation</div>
+        <div style="font-size:12px;color:#475569;margin-top:2px">{{ $tache->user?->nomComplet() }} a termin&eacute; cette t&acirc;che de sprint et demande votre validation.</div>
+    </div>
+    <div style="display:flex;gap:8px">
+        <form method="POST" action="{{ route('taches.valider', $tache) }}" style="margin:0">@csrf
+            <input type="hidden" name="decision" value="valider">
+            <button class="btn ok" style="background:var(--ok)">Valider</button>
+        </form>
+        <button class="btn danger" onclick="document.getElementById('dlg-rejet').showModal()">Rejeter</button>
+    </div>
+</div>
+@endif
+
+@if($tache->statut === 'a_valider' && $tache->user_id === auth()->id())
+<div style="background:#fefce8;border:1px solid #fde68a;border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#854d0e;display:flex;align-items:center;gap:10px">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <span>En attente de validation par le pilote ou le DG.</span>
+</div>
+@endif
 
 <div class="detail-header">
     <div>
@@ -52,10 +79,12 @@ dialog textarea{min-height:70px;resize:vertical}
 
 <div class="carte">
     <div class="detail-meta">
+        <div class="item"><div class="lbl">Assign&eacute; &agrave;</div><strong>{{ $tache->user?->nomComplet() ?? '—' }}</strong></div>
         <div class="item"><div class="lbl">Projet</div>{{ $tache->projet?->libelle ?? '—' }}</div>
         <div class="item"><div class="lbl">Sprint</div>{{ $tache->sprint ? 'Sprint ' . $tache->sprint->numero : '—' }}</div>
-        <div class="item"><div class="lbl">Priorité</div>{{ ucfirst($tache->priorite) }}</div>
-        <div class="item"><div class="lbl">Statut</div><span class="pill p-{{ $tache->statut === 'termine' ? 'ok' : ($tache->statut === 'bloque' ? 'bloque' : 'cours') }}">{{ ucfirst(str_replace('_',' ',$tache->statut)) }}</span></div>
+        <div class="item"><div class="lbl">Priorit&eacute;</div>{{ ucfirst($tache->priorite) }}</div>
+        @php $statutPill = match($tache->statut) { 'termine' => 'p-ok', 'bloque' => 'p-bloque', 'a_valider' => 'p-attente', default => 'p-cours' }; @endphp
+        <div class="item"><div class="lbl">Statut</div><span class="pill {{ $statutPill }}">{{ ucfirst(str_replace('_',' ',$tache->statut)) }}</span></div>
         <div class="item"><div class="lbl">Début</div>{{ $tache->date_debut?->format('d/m/Y') ?? '—' }}</div>
         <div class="item"><div class="lbl">Échéance</div>{{ $tache->echeance?->format('d/m/Y') ?? 'Non définie' }}</div>
         @if($tache->date_fin_reelle)
@@ -70,7 +99,7 @@ dialog textarea{min-height:70px;resize:vertical}
 
 {{-- Blocages --}}
 <div class="section">
-    <h3>{!! $svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>') !!} Blocages ({{ $blocagesActifs }})</h3>
+    <h3><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Blocages ({{ $blocagesActifs }})</h3>
     @forelse($tache->blocages->sortByDesc('created_at') as $b)
     <div class="blocage-card {{ $b->date_levee ? 'leve' : '' }}">
         <strong>{{ $b->motif }}</strong>
@@ -93,7 +122,7 @@ dialog textarea{min-height:70px;resize:vertical}
 
 {{-- Commentaires --}}
 <div class="section">
-    <h3>{!! $svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>') !!} Commentaires ({{ $tache->commentaires->count() }})</h3>
+    <h3><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Commentaires ({{ $tache->commentaires->count() }})</h3>
     <div class="carte" style="padding:10px 16px">
         @forelse($tache->commentaires->sortByDesc('created_at') as $c)
         <div class="com">
@@ -111,6 +140,22 @@ dialog textarea{min-height:70px;resize:vertical}
         </form>
     </div>
 </div>
+
+{{-- Dialog rejet validation --}}
+@if($tache->statut === 'a_valider' && auth()->user()->estPilote())
+<dialog id="dlg-rejet">
+    <h3 style="color:var(--ko);margin-bottom:4px">Rejeter la validation</h3>
+    <form method="POST" action="{{ route('taches.valider', $tache) }}">@csrf
+        <input type="hidden" name="decision" value="rejeter">
+        <label>Motif du rejet <span style="color:var(--ko)">*</span></label>
+        <textarea name="motif" required placeholder="Expliquez pourquoi la t&acirc;che n'est pas valid&eacute;e…"></textarea>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn danger">Rejeter</button>
+        </div>
+    </form>
+</dialog>
+@endif
 
 {{-- Dialog blocage --}}
 <dialog id="dlg-blocage">

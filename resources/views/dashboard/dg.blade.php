@@ -78,11 +78,11 @@
 </div>
 
 {{-- Événements / Faits marquants --}}
-@if($evenements->count() > 0)
 <div class="carte" style="margin-bottom:16px">
-    <div class="section-titre">Faits marquants (7 derniers jours)</div>
+    <div class="section-titre">Faits marquants (30 derniers jours)</div>
+    @if($evenements->count() > 0)
     <table class="mini-table">
-        <tr><th>Date</th><th>Type</th><th>Description</th><th>Collaborateur</th><th>Impact</th></tr>
+        <tr><th>Date</th><th>Type</th><th>Description</th><th>Collaborateur</th><th>Impact</th><th>Action</th></tr>
         @foreach($evenements as $e)
         <tr>
             <td style="white-space:nowrap">{{ $e->date->format('d/m') }}</td>
@@ -93,11 +93,14 @@
             <td>{{ $e->description }}</td>
             <td>{{ $e->user->nomComplet() }}</td>
             <td style="font-size:11px;color:var(--gris)">{{ $e->impact ?? '—' }}</td>
+            <td style="font-size:11px;color:var(--gris)">{{ $e->action_engagee ?? '—' }}</td>
         </tr>
         @endforeach
     </table>
+    @else
+    <div style="text-align:center;color:var(--gris);font-size:13px;padding:16px">Aucun fait marquant signal&eacute; sur cette p&eacute;riode.</div>
+    @endif
 </div>
-@endif
 
 {{-- Répartition par projet --}}
 <div class="carte">

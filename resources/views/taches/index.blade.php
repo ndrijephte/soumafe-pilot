@@ -3,7 +3,7 @@
 
 @push('styles')
 <style>
-    .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
     .col{background:#eef2f7;border-radius:10px;padding:10px;min-height:200px}
     .col h4{font-size:12px;color:var(--gris);text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between}
     .tache{background:#fff;border:1px solid var(--bord);border-radius:8px;padding:9px 10px;margin-bottom:8px;font-size:12.5px;cursor:grab}
@@ -152,15 +152,19 @@ function toast(msg){
 }
 async function deposer(ev, statut){
     const id = ev.dataTransfer.getData('id');
+    // T1 vers "termine" → le serveur redirige en a_valider automatiquement
     const rep = await fetch(`/taches/${id}/statut`, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'},
-        body: JSON.stringify({statut})
+        body: JSON.stringify({statut: statut === 'termine' ? 'termine' : statut})
     });
     const d = await rep.json();
     toast(d.message);
     if (d.justification_requise) {
         toast(d.message + ' → ouvrez la tâche pour ajouter votre commentaire.');
+    }
+    if (d.a_valider) {
+        toast(d.message);
     }
     setTimeout(() => location.reload(), 900);
 }

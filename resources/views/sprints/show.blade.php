@@ -175,10 +175,35 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 {{-- Dialog import xlsx --}}
 <dialog id="dlg-import">
     <h3 style="color:var(--bleu);margin-bottom:4px">Importer des t&acirc;ches (.xlsx)</h3>
-    <p style="font-size:12px;color:var(--gris);margin-bottom:12px;line-height:1.5">
-        Colonnes attendues : <strong>Projet, Intitul&eacute;, Assign&eacute; &agrave;, Date d&eacute;but, &Eacute;ch&eacute;ance, Priorit&eacute;, Points</strong>.<br>
-        Les t&acirc;ches seront rattach&eacute;es au <strong>Sprint {{ $sprint->numero }}</strong>.
-    </p>
+    <div style="font-size:12px;color:var(--gris);margin-bottom:14px;line-height:1.6">
+        <p style="margin-bottom:8px">Les t&acirc;ches seront rattach&eacute;es au <strong>Sprint {{ $sprint->numero }}</strong>.</p>
+        <div style="background:var(--fond);border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+            <div style="font-weight:700;color:#1e293b;margin-bottom:4px;font-size:12px">Format attendu du fichier Excel :</div>
+            <table style="width:100%;font-size:11px;border-collapse:collapse">
+                <thead><tr style="background:#e2e8f0">
+                    <th style="padding:4px 6px;text-align:left;border:1px solid var(--bord)">N&deg;</th>
+                    <th style="padding:4px 6px;text-align:left;border:1px solid var(--bord)">Colonne</th>
+                    <th style="padding:4px 6px;text-align:left;border:1px solid var(--bord)">Obligatoire</th>
+                    <th style="padding:4px 6px;text-align:left;border:1px solid var(--bord)">Exemple</th>
+                </tr></thead>
+                <tbody>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">1</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Intitul&eacute;</td><td style="padding:3px 6px;border:1px solid var(--bord);color:var(--ko)">Oui</td><td style="padding:3px 6px;border:1px solid var(--bord)">Int&eacute;gration page login</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">2</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Assign&eacute; &agrave;</td><td style="padding:3px 6px;border:1px solid var(--bord);color:var(--ko)">Oui</td><td style="padding:3px 6px;border:1px solid var(--bord)">YAPO Kouadio</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">3</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Priorit&eacute;</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">Haute / Moyenne / Basse</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">4</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Date d&eacute;but</td><td style="padding:3px 6px;border:1px solid var(--bord);color:var(--ko)">Oui</td><td style="padding:3px 6px;border:1px solid var(--bord)">28/07/2026</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">5</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">&Eacute;ch&eacute;ance</td><td style="padding:3px 6px;border:1px solid var(--bord);color:var(--ko)">Oui</td><td style="padding:3px 6px;border:1px solid var(--bord)">01/08/2026</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">6</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Points</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">3</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">7</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Projet</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">CROU Connect</td></tr>
+                </tbody>
+            </table>
+            <div style="margin-top:6px;font-size:10.5px;color:#64748b">
+                &bull; L'en-t&ecirc;te doit se trouver en <strong>ligne 1</strong> du fichier.<br>
+                &bull; L'ordre des colonnes est <strong>libre</strong> &mdash; le syst&egrave;me reconna&icirc;t les noms.<br>
+                &bull; Si &laquo; Assign&eacute; &agrave; &raquo; ne correspond &agrave; aucun collaborateur, la ligne sera ignor&eacute;e.<br>
+                &bull; Si &laquo; Projet &raquo; est vide, le projet du sprint sera utilis&eacute;.
+            </div>
+        </div>
+    </div>
     <form method="POST" action="{{ route('sprints.importer') }}" enctype="multipart/form-data">@csrf
         <input type="hidden" name="sprint_id" value="{{ $sprint->id }}">
         <label>Fichier Excel (.xlsx) <span class="req">*</span></label>

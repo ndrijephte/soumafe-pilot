@@ -25,6 +25,9 @@
 .sprint-card{background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:14px;margin-bottom:10px}
 .evt-line{padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;gap:8px;align-items:center}
 .evt-line:last-child{border:none}
+.export-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--accent);color:#fff;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;box-shadow:0 2px 6px rgba(46,116,181,.2);transition:transform .15s,box-shadow .15s}
+.export-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(46,116,181,.3)}
+.export-btn:active{transform:translateY(0)}
 </style>
 @endpush
 @section('contenu')
@@ -45,17 +48,23 @@
     <button class="btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer">Actualiser</button>
     <span style="font-size:11px;color:var(--gris);margin-left:8px">{{ $debut->format('d/m/Y') }} &mdash; {{ $fin->format('d/m/Y') }}</span>
 </form>
+<div style="margin-bottom:14px">
+    <a href="{{ route('reporting.imprimer', ['periode' => $periode, 'date_debut' => $debut->format('Y-m-d'), 'date_fin' => $fin->format('Y-m-d')]) }}" class="btn" style="font-size:12px;padding:6px 14px;text-decoration:none" target="_blank">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:middle;margin-right:4px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Imprimer / PDF
+    </a>
+</div>
 
 {{-- KPI globaux --}}
 <div class="kpi-grid">
-    <div class="kpi"><div class="val">{{ $creees }}</div><div class="lab">Cr&eacute;&eacute;es</div></div>
-    <div class="kpi ok"><div class="val">{{ $terminees }}</div><div class="lab">Termin&eacute;es</div></div>
-    <div class="kpi"><div class="val">{{ $aTemps }}</div><div class="lab">&Agrave; temps</div></div>
-    <div class="kpi warn"><div class="val">{{ $anticipees }}</div><div class="lab">Anticip&eacute;es</div></div>
-    <div class="kpi ko"><div class="val">{{ $enRetardClotures }}</div><div class="lab">En retard (cl&ocirc;t.)</div></div>
-    <div class="kpi {{ $enRetardOuvert > 0 ? 'ko' : '' }}"><div class="val">{{ $enRetardOuvert }}</div><div class="lab">Retard ouvert</div></div>
-    <div class="kpi {{ $bloquees > 0 ? 'ko' : '' }}"><div class="val">{{ $bloquees }}</div><div class="lab">Bloqu&eacute;es</div></div>
-    <div class="kpi"><div class="val">{{ $tauxGlobal }}%</div><div class="lab">Compl&eacute;tion</div></div>
+    <div class="kpi"><div class="val">{{ $creees }}</div><div class="lab">T&acirc;ches cr&eacute;&eacute;es</div></div>
+    <div class="kpi ok"><div class="val">{{ $terminees }}</div><div class="lab">T&acirc;ches termin&eacute;es</div></div>
+    <div class="kpi"><div class="val">{{ $aTemps }}</div><div class="lab">T&acirc;ches &agrave; temps</div></div>
+    <div class="kpi warn"><div class="val">{{ $anticipees }}</div><div class="lab">T&acirc;ches anticip&eacute;es</div></div>
+    <div class="kpi ko"><div class="val">{{ $enRetardClotures }}</div><div class="lab">T&acirc;ches en retard (cl&ocirc;t.)</div></div>
+    <div class="kpi {{ $enRetardOuvert > 0 ? 'ko' : '' }}"><div class="val">{{ $enRetardOuvert }}</div><div class="lab">T&acirc;ches en retard (ouvert)</div></div>
+    <div class="kpi {{ $bloquees > 0 ? 'ko' : '' }}"><div class="val">{{ $bloquees }}</div><div class="lab">T&acirc;ches bloqu&eacute;es</div></div>
+    <div class="kpi"><div class="val">{{ $tauxGlobal }}%</div><div class="lab">Taux de compl&eacute;tion</div></div>
 </div>
 
 {{-- Par collaborateur --}}
@@ -177,6 +186,25 @@
     @endforeach
 </div>
 @endif
+{{-- Exports --}}
+<div class="section-titre" style="margin-top:20px">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Exporter les donn&eacute;es
+</div>
+<div class="carte" style="display:flex;gap:12px;flex-wrap:wrap;padding:16px">
+    <a href="{{ route('export.collaborateurs') }}" class="export-btn">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Collaborateurs
+    </a>
+    <a href="{{ route('export.taches') }}" class="export-btn">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        T&acirc;ches
+    </a>
+    <a href="{{ route('export.evenements') }}" class="export-btn">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        &Eacute;v&eacute;nements
+    </a>
+</div>
 @endsection
 
 @push('scripts')

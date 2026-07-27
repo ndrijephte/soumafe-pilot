@@ -134,7 +134,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <label>Projet <span class="req">*</span></label>
         <select name="projet_id" required>
             <option value="">— Choisir —</option>
-            @foreach($projets as $p)<option value="{{ $p->id }}">{{ $p->code }} — {{ $p->libelle }}</option>@endforeach
+            @foreach(auth()->user()->projetsGerables() as $pg)<option value="{{ $pg->id }}">{{ $pg->code }} — {{ $pg->libelle }}</option>@endforeach
         </select>
         <div class="form-row">
             <div><label>N° du sprint <span class="req">*</span></label><input type="number" name="numero" min="1" required></div>
@@ -155,10 +155,13 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 {{-- Dialog import xlsx --}}
 <dialog id="dlg-import">
     <h3 style="color:var(--bleu);margin-bottom:4px">Importer des t&acirc;ches (.xlsx)</h3>
-    <p style="font-size:12px;color:var(--gris);margin-bottom:12px;line-height:1.5">
-        Colonnes attendues : <strong>Projet, Intitul&eacute;, Assign&eacute; &agrave;, Date d&eacute;but, &Eacute;ch&eacute;ance, Priorit&eacute;, Points</strong>.
-        Les t&acirc;ches seront rattach&eacute;es au sprint s&eacute;lectionn&eacute; (optionnel).
-    </p>
+    <div style="font-size:12px;color:var(--gris);margin-bottom:12px;line-height:1.6">
+        <div style="background:var(--fond);border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+            <div style="font-weight:700;color:#1e293b;margin-bottom:4px;font-size:12px">Format attendu (7 colonnes, ordre libre) :</div>
+            <div style="font-size:11px"><strong style="color:var(--ko)">Intitul&eacute;</strong> (obligatoire) &bull; <strong style="color:var(--ko)">Assign&eacute; &agrave;</strong> (obligatoire) &bull; Priorit&eacute; &bull; <strong style="color:var(--ko)">Date d&eacute;but</strong> (obligatoire) &bull; <strong style="color:var(--ko)">&Eacute;ch&eacute;ance</strong> (obligatoire) &bull; Points &bull; Projet</div>
+            <div style="margin-top:4px;font-size:10.5px;color:#64748b">En-t&ecirc;te en ligne 1. L'ordre des colonnes est libre — le syst&egrave;me reconna&icirc;t les noms.</div>
+        </div>
+    </div>
     <form method="POST" action="{{ route('sprints.importer') }}" enctype="multipart/form-data">@csrf
         <label>Sprint (optionnel)</label>
         <select name="sprint_id">

@@ -16,6 +16,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/taches/{tache}', [TacheController::class, 'show'])->name('taches.show');
     Route::put('/taches/{tache}', [TacheController::class, 'update'])->name('taches.update');
     Route::patch('/taches/{tache}/statut', [TacheController::class, 'statut'])->name('taches.statut');
+    Route::post('/taches/{tache}/valider', [TacheController::class, 'valider'])->name('taches.valider');
     Route::post('/taches/dupliquer-veille', [TacheController::class, 'dupliquerVeille'])->name('taches.dupliquer-veille');
 
     // US-09 : Blocages
@@ -61,11 +62,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/objectifs', [ObjectifController::class, 'store'])->name('objectifs.store');
     Route::put('/objectifs/{objectif}', [ObjectifController::class, 'update'])->name('objectifs.update');
     Route::delete('/objectifs/{objectif}', [ObjectifController::class, 'destroy'])->name('objectifs.destroy');
-    Route::post('/objectifs/importer', [ObjectifController::class, 'importer'])->name('objectifs.importer');
     Route::post('/objectifs/evaluer', [ObjectifController::class, 'evaluer'])->name('objectifs.evaluer');
 
     // Reporting (pilotes)
     Route::get('/reporting', [ReportingController::class, 'index'])->name('reporting.index');
+    Route::get('/reporting/imprimer', [ReportingController::class, 'imprimer'])->name('reporting.imprimer');
 
     // Exports xlsx (pilotes : direction, charge_operations, admin)
     Route::get('/exports', [ExportController::class, 'index'])->name('export.index');

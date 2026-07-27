@@ -142,91 +142,192 @@ class SprintController extends Controller
     public function importerTaches(Request $r)
     {
         abort_unless($r->user()->peutGererProjet(), 403);
-        $r->validate([
-            'fichier' => 'required|file|mimes:xlsx',
-            'sprint_id' => 'nullable|exists:sprints,id',
-        ]);
 
-        $lecteur = new LecteurXlsx($r->file('fichier')->getRealPath());
-
-        // Détecter la ligne d'en-tête
-        $brut = $lecteur->lire(1);
-        $ligneEntete = 1;
-        foreach ($brut as $i => $row) {
-            foreach ($row as $cell) {
-                if (is_string($cell) && preg_match('/intitul|tâche|tache/i', $cell)) {
-                    $ligneEntete = $i + 1;
-                    break 2;
-                }
-            }
+        // Vérifier le fichier
+        if (!$r->hasFile('fichier')) {
+            return back()->with('erreur', 'Aucun fichier sélectionné.');
         }
 
-        $data = $lecteur->lire(1, $ligneEntete);
-        $importees = 0;
-        $ignores = 0;
+        $fichier = $r->file('fichier');
+        $ext = strtolower($fichier->getClientOriginalExtension());
+        if ($ext !== 'xlsx') {
+            return back()->with('erreur', 'Format invalide. Seuls les fichiers .xlsx sont acceptés.');
+        }
 
-        foreach ($data as $row) {
-            $intitule = trim($this->chercher($row, ['intitulé', 'intitule', 'tâche', 'tache', 'libellé', 'libelle']) ?? '');
-            $projetStr = trim($this->chercher($row, ['projet']) ?? '');
-            $assigneStr = trim($this->chercher($row, ['assigné', 'assigne', 'assigné_à', 'assigne_a', 'collaborateur', 'responsable']) ?? '');
-            $dateDebut = trim($this->chercher($row, ['date_début', 'date_debut', 'début', 'debut', 'date']) ?? '');
-            $echeance = trim($this->chercher($row, ['échéance', 'echeance', 'date_fin', 'fin']) ?? '');
-            $priorite = trim($this->chercher($row, ['priorité', 'priorite']) ?? '');
-            $points = trim($this->chercher($row, ['points', 'story_points']) ?? '');
+        try {
+            $lecteur = new LecteurXlsx($fichier->getRealPath());
+        } catch (\Throwable $e) {
+            return back()->with('erreur', 'Impossible de lire le fichier Excel : ' . $e->getMessage());
+        }
 
-            if (empty($intitule)) { $ignores++; continue; }
+        try {
+            // Détecter la ligne d'en-tête
+            $brut = $lecteur->lire(1);
+            if (empty($brut)) {
+                return back()->with('erreur', 'Le fichier est vide.');
+            }
 
-            // Trouver le projet
-            $projet = null;
-            if ($projetStr) {
-                $projet = Projet::whereRaw('LOWER(libelle) = ?', [mb_strtolower($projetStr)])->first();
-                if (!$projet) {
-                    $projet = Projet::create([
-                        'code' => \Illuminate\Support\Str::upper(\Illuminate\Support\Str::slug($projetStr, '_')),
-                        'libelle' => $projetStr,
-                        'statut' => 'actif',
+            $ligneEntete = 1;
+            foreach ($brut as $i => $row) {
+                foreach ($row as $cell) {
+                    if (is_string($cell) && preg_match('/intitul|tâche|tache/iu', $cell)) {
+                        $ligneEntete = $i + 1;
+                        break 2;
+                    }
+                }
+            }
+
+            $data = $lecteur->lire(1, $ligneEntete);
+            if (empty($data)) {
+                return back()->with('erreur', 'Aucune ligne de données trouvée après l\'en-tête.');
+            }
+
+            $importees = 0;
+            $ignores = 0;
+            $erreurs = [];
+
+            foreach ($data as $idx => $row) {
+                $numLigne = $idx + $ligneEntete + 1;
+
+                try {
+                    $intitule = trim($this->chercher($row, ['intitulé', 'intitule', 'tâche', 'tache', 'libellé', 'libelle']) ?? '');
+                    if (empty($intitule)) { $ignores++; continue; }
+
+                    $projetStr = trim($this->chercher($row, ['projet']) ?? '');
+                    $assigneStr = trim($this->chercher($row, ['assigné', 'assigne', 'assigné_à', 'assigne_a', 'collaborateur', 'responsable']) ?? '');
+                    $dateDebutStr = trim($this->chercher($row, ['date_début', 'date_debut', 'début', 'debut', 'date']) ?? '');
+                    $echeanceStr = trim($this->chercher($row, ['échéance', 'echeance', 'date_fin', 'fin']) ?? '');
+
+                    // Champs obligatoires : assigné, date début, échéance
+                    $manquants = [];
+                    if (empty($assigneStr)) $manquants[] = 'Assigné à';
+                    if (empty($dateDebutStr)) $manquants[] = 'Date début';
+                    if (empty($echeanceStr)) $manquants[] = 'Échéance';
+                    if (!empty($manquants)) {
+                        $erreurs[] = "Ligne {$numLigne} : champ(s) obligatoire(s) manquant(s) — " . implode(', ', $manquants);
+                        $ignores++;
+                        continue;
+                    }
+                    $priorite = trim($this->chercher($row, ['priorité', 'priorite']) ?? '');
+                    $points = trim($this->chercher($row, ['points', 'story_points']) ?? '');
+
+                    // Trouver le projet
+                    $projetId = null;
+                    if ($projetStr) {
+                        $projet = Projet::whereRaw('LOWER(libelle) = ?', [mb_strtolower($projetStr)])->first();
+                        if (!$projet) {
+                            $projet = Projet::create([
+                                'code' => \Illuminate\Support\Str::upper(\Illuminate\Support\Str::slug($projetStr, '_')),
+                                'libelle' => $projetStr,
+                                'statut' => 'actif',
+                            ]);
+                        }
+                        $projetId = $projet->id;
+                    }
+
+                    // Sprint rattaché → utiliser son projet_id si pas de projet dans le fichier
+                    $sprintId = $r->sprint_id ?: null;
+                    if ($sprintId && !$projetId) {
+                        $sprint = Sprint::find($sprintId);
+                        $projetId = $sprint?->projet_id;
+                    }
+
+                    // Trouver le collaborateur assigné
+                    $userId = $r->user()->id;
+                    if ($assigneStr) {
+                        $parts = preg_split('/\s+/', $assigneStr, 2);
+                        $nom = mb_strtolower($parts[0]);
+                        $prenom = isset($parts[1]) ? mb_strtolower($parts[1]) : null;
+                        $user = User::whereRaw('LOWER(name) = ?', [$nom])->first();
+                        if (!$user && $prenom) {
+                            $user = User::whereRaw('LOWER(prenom) = ?', [$prenom])->first();
+                        }
+                        if ($user) $userId = $user->id;
+                    }
+
+                    // Mapper priorité
+                    $prioMapped = match (mb_strtolower($priorite)) {
+                        'haute', 'élevée', 'high', 'elevee' => 'haute',
+                        'basse', 'faible', 'low' => 'basse',
+                        default => 'moyenne',
+                    };
+
+                    // Parser les dates (gère les dates texte ET les nombres sériels Excel)
+                    $dateDebut = $this->parserDate($dateDebutStr);
+                    $echeance = $this->parserDate($echeanceStr);
+
+                    Tache::create([
+                        'user_id' => $userId,
+                        'projet_id' => $projetId,
+                        'sprint_id' => $sprintId,
+                        'intitule' => $intitule,
+                        'type' => $sprintId ? 'T1' : 'T2',
+                        'statut' => 'a_faire',
+                        'priorite' => $prioMapped,
+                        'date_debut' => $dateDebut ?? today()->format('Y-m-d'),
+                        'echeance' => $echeance,
+                        'points' => is_numeric($points) ? (int) $points : null,
                     ]);
+                    $importees++;
+                } catch (\Throwable $e) {
+                    $erreurs[] = "Ligne {$numLigne} : {$e->getMessage()}";
+                    $ignores++;
+                    if (count($erreurs) >= 5) break;
                 }
             }
 
-            // Trouver le collaborateur assigné
-            $user = null;
-            if ($assigneStr) {
-                $parts = preg_split('/\s+/', $assigneStr, 2);
-                $user = User::whereRaw('LOWER(name) = ?', [mb_strtolower($parts[0])])->first();
+            $msg = "{$importees} tâche(s) importée(s)";
+            if ($ignores > 0) $msg .= ", {$ignores} ignorée(s)";
+            if (!empty($erreurs)) {
+                $msg .= '. Erreurs : ' . implode(' | ', array_slice($erreurs, 0, 3));
+                return back()->with('erreur', $msg);
             }
-
-            // Mapper priorité
-            $prioMapped = match (mb_strtolower($priorite)) {
-                'haute', 'élevée', 'high' => 'haute',
-                'basse', 'faible', 'low' => 'basse',
-                default => 'moyenne',
-            };
-
-            Tache::create([
-                'user_id' => $user?->id ?? $r->user()->id,
-                'projet_id' => $projet?->id,
-                'sprint_id' => $r->sprint_id,
-                'intitule' => $intitule,
-                'type' => $r->sprint_id ? 'T1' : 'T2',
-                'statut' => 'a_faire',
-                'priorite' => $prioMapped,
-                'date_debut' => $dateDebut ? \Carbon\Carbon::parse($dateDebut)->format('Y-m-d') : today()->format('Y-m-d'),
-                'echeance' => $echeance ? \Carbon\Carbon::parse($echeance)->format('Y-m-d') : null,
-                'points' => is_numeric($points) ? (int) $points : null,
-            ]);
-            $importees++;
+            return back()->with('succes', $msg . '.');
+        } catch (\Throwable $e) {
+            return back()->with('erreur', 'Erreur lors de l\'import : ' . $e->getMessage());
         }
-
-        return back()->with('succes', "Import terminé : {$importees} tâche(s) importée(s), {$ignores} ignorée(s).");
     }
 
-    /** Cherche une valeur dans un tableau associatif par clés possibles. */
+    /** Cherche une valeur dans un tableau associatif par clés possibles (accent-insensitive). */
     private function chercher(array $row, array $cles): ?string
     {
+        // Normaliser les clés du row (retirer accents pour comparaison)
+        $normalized = [];
+        foreach ($row as $key => $val) {
+            $normalized[$this->sansAccent($key)] = $val;
+        }
         foreach ($cles as $cle) {
+            $cleSans = $this->sansAccent($cle);
+            // Chercher exact d'abord
             if (isset($row[$cle]) && $row[$cle] !== null) return (string) $row[$cle];
+            // Chercher sans accent
+            if (isset($normalized[$cleSans]) && $normalized[$cleSans] !== null) return (string) $normalized[$cleSans];
         }
         return null;
+    }
+
+    /** Retirer les accents d'une chaîne. */
+    private function sansAccent(string $str): string
+    {
+        $str = mb_strtolower($str);
+        $map = ['é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e', 'à' => 'a', 'â' => 'a',
+                'î' => 'i', 'ï' => 'i', 'ô' => 'o', 'ù' => 'u', 'û' => 'u', 'ü' => 'u', 'ç' => 'c'];
+        return strtr($str, $map);
+    }
+
+    /** Parser une date (texte ou nombre sériel Excel). */
+    private function parserDate(?string $val): ?string
+    {
+        if (!$val || $val === '') return null;
+        // Nombre sériel Excel (ex: 45000 → date)
+        if (is_numeric($val) && (int) $val > 30000 && (int) $val < 80000) {
+            $timestamp = \Carbon\Carbon::createFromDate(1899, 12, 30)->addDays((int) $val);
+            return $timestamp->format('Y-m-d');
+        }
+        try {
+            return \Carbon\Carbon::parse($val)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

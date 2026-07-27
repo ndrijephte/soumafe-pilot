@@ -27,7 +27,7 @@ class TacheController extends Controller
             'taches'  => $taches,
             'vue'     => $r->get('vue', 'kanban'),
             'projets' => Projet::orderBy('libelle')->get(),
-            'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
+            'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'a_valider' => 'À valider', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
         ]);
     }
 
@@ -35,7 +35,7 @@ class TacheController extends Controller
     public function show(Request $r, Tache $tache)
     {
         abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
-        $tache->load(['projet', 'sprint', 'blocages', 'commentaires.user']);
+        $tache->load(['user', 'projet', 'sprint', 'blocages', 'commentaires.user']);
         $blocagesActifs = $tache->blocages->whereNull('date_levee')->count();
         return view('taches.show', compact('tache', 'blocagesActifs'));
     }
@@ -57,10 +57,28 @@ class TacheController extends Controller
     /** Changement de statut (glisser-déposer kanban). Clôture = règles v1.5. */
     public function statut(Request $r, Tache $tache)
     {
-        abort_unless($tache->user_id === $r->user()->id, 403);
-        $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,reporte']);
+        abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
+        $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,a_valider,reporte']);
 
         if ($r->statut === 'termine') {
+            // T1 (sprint) → passe en a_valider au lieu de termine (sauf si c'est un pilote qui change)
+            if ($tache->type === 'T1' && !$r->user()->estPilote()) {
+                $tache->update(['statut' => 'a_valider']);
+                // Notifier les pilotes
+                $pilotes = \App\Models\User::where('actif', true)
+                    ->whereIn('role', ['administrateur', 'charge_operations', 'direction'])->get();
+                foreach ($pilotes as $p) {
+                    \App\Models\NotificationApp::create([
+                        'user_id' => $p->id, 'type' => 'validation',
+                        'contenu' => $tache->user->nomComplet() . ' demande la validation de « ' . \Illuminate\Support\Str::limit($tache->intitule, 40) . ' »',
+                        'lu' => false,
+                    ]);
+                }
+                return response()->json(['ok' => true, 'a_valider' => true,
+                    'message' => 'Tâche soumise à validation. Le pilote sera notifié.']);
+            }
+
+            // T2/T3 ou pilote → clôture directe
             $this->cloture->cloturer($tache);
             $msg = match ($tache->qualification) {
                 'a_temps'   => 'Tâche terminée à temps — bravo.',
@@ -75,6 +93,58 @@ class TacheController extends Controller
 
         $tache->update(['statut' => $r->statut]);
         return response()->json(['ok' => true, 'message' => 'Statut mis à jour.']);
+    }
+
+    /** Validation définitive par un pilote (tâche T1 en a_valider). */
+    public function valider(Request $r, Tache $tache)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        abort_unless($tache->statut === 'a_valider', 422, 'Cette tâche n\'est pas en attente de validation.');
+
+        $r->validate(['decision' => 'required|in:valider,rejeter', 'motif' => 'nullable|string|max:1000']);
+
+        if ($r->decision === 'valider') {
+            $this->cloture->cloturer($tache);
+
+            // Commentaire auto de validation
+            $tache->commentaires()->create([
+                'user_id' => $r->user()->id,
+                'contenu' => '✓ Tâche validée par ' . $r->user()->nomComplet()
+                    . ($r->motif ? ' — ' . $r->motif : ''),
+            ]);
+
+            // Notifier le collaborateur
+            \App\Models\NotificationApp::create([
+                'user_id' => $tache->user_id, 'type' => 'validation',
+                'contenu' => 'Votre tâche « ' . \Illuminate\Support\Str::limit($tache->intitule, 40) . ' » a été validée.',
+                'lu' => false,
+            ]);
+
+            $msg = match ($tache->qualification) {
+                'a_temps'   => 'Validée à temps.',
+                'anticipee' => 'Validée — terminée en avance.',
+                'en_retard' => 'Validée — terminée en retard.',
+                default     => 'Validée.',
+            };
+            return back()->with('succes', $msg);
+        }
+
+        // Rejet → retour en_cours
+        $tache->update(['statut' => 'en_cours']);
+        $motif = $r->motif ?? 'Aucun motif précisé';
+
+        $tache->commentaires()->create([
+            'user_id' => $r->user()->id,
+            'contenu' => '✗ Validation rejetée par ' . $r->user()->nomComplet() . ' — ' . $motif,
+        ]);
+
+        \App\Models\NotificationApp::create([
+            'user_id' => $tache->user_id, 'type' => 'validation',
+            'contenu' => 'Votre tâche « ' . \Illuminate\Support\Str::limit($tache->intitule, 40) . ' » a été rejetée : ' . $motif,
+            'lu' => false,
+        ]);
+
+        return back()->with('erreur', 'Tâche rejetée — renvoyée en cours.');
     }
 
     /** Duplication de la veille (US-08 — anticipée ici tant la demande est fréquente). */

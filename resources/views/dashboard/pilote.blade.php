@@ -229,7 +229,7 @@
             <td style="{{ $prioCls }};font-size:12px">{{ ucfirst($t->priorite) }}</td>
             <td style="font-size:11px;color:var(--gris)">{{ $t->date_debut?->format('d/m') ?? '—' }}</td>
             <td style="font-size:11px;{{ $echeanceCls }}">{{ $t->echeance?->format('d/m') ?? '—' }}</td>
-            <td><span class="badge {{ $statutCls }}">{{ ucfirst(str_replace('_',' ',$t->statut)) }}</span></td>
+            <td><span class="badge {{ $statutCls }}">{{ $t->labelStatut() }}</span></td>
         </tr>
         @endforeach
         </tbody>

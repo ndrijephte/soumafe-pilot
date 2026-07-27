@@ -80,7 +80,7 @@ class SaisieController extends Controller
     /** Confirmer ou infirmer une tâche du jour. */
     public function confirmer(Request $r, Tache $tache)
     {
-        abort_unless($tache->user_id === $r->user()->id, 403);
+        abort_unless((int) $tache->user_id === (int) $r->user()->id, 403);
         $r->validate([
             'statut' => 'required|in:confirmee,infirmee',
             'motif' => 'required_if:statut,infirmee|nullable|string|max:500',

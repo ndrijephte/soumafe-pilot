@@ -28,7 +28,7 @@ class TacheController extends Controller
             'taches'  => $taches,
             'vue'     => $r->get('vue', 'kanban'),
             'projets' => Projet::orderBy('libelle')->get(),
-            'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'a_valider' => 'À valider', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
+            'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'a_valider' => 'En cours de validation', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
         ]);
     }
 
@@ -67,12 +67,14 @@ class TacheController extends Controller
     /** Changement de statut (glisser-déposer kanban). Clôture = règles v1.5. */
     public function statut(Request $r, Tache $tache)
     {
-        abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
+        if ((int) $tache->user_id !== (int) $r->user()->id && !$r->user()->estPilote()) {
+            return response()->json(['ok' => false, 'message' => 'Vous n\'êtes pas autorisé à modifier cette tâche.'], 403);
+        }
         $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,a_valider,reporte']);
 
-        // Seul un pilote peut modifier une tâche en a_valider
+        // Seul un pilote peut modifier une tâche déjà en a_valider
         if ($tache->statut === 'a_valider' && !$r->user()->estPilote()) {
-            return response()->json(['ok' => false, 'message' => 'Seul le pilote ou le DG peut valider cette tâche.'], 403);
+            return response()->json(['ok' => false, 'message' => 'Tâche en cours de validation — seul le pilote peut intervenir.'], 403);
         }
 
         if ($r->statut === 'termine') {

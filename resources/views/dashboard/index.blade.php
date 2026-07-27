@@ -80,7 +80,7 @@
                 <div style="font-size:10.5px;color:var(--gris);margin-top:2px">{{ $t->projet?->libelle ?? '' }} @if($t->priorite === 'haute')&middot; <span style="color:var(--ko);font-weight:600">Haute</span>@endif</div>
             </div>
             <span style="font-size:11px;{{ $echeanceCls }}">{{ $t->echeance?->format('d/m') ?? '' }}</span>
-            <span class="badge {{ $statutCls }}" style="font-size:10px">{{ ucfirst(str_replace('_',' ',$t->statut)) }}</span>
+            <span class="badge {{ $statutCls }}" style="font-size:10px">{{ $t->labelStatut() }}</span>
         </div>
         @empty
         <p style="color:var(--gris);font-size:13px">Aucune t&acirc;che active.</p>

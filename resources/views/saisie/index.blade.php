@@ -16,11 +16,12 @@
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
 .btn.sm{padding:5px 12px;font-size:11.5px}
 .btn.ok{background:var(--ok)}.btn.ko{background:var(--ko)}.btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
-.btn-ic-s{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1.5px solid var(--bord);background:#fff;cursor:pointer;transition:all .15s}
-.btn-ic-s:hover{transform:scale(1.1);box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.btn-ic-s{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:4px 10px;height:30px;border-radius:8px;border:1.5px solid var(--bord);background:#fff;cursor:pointer;transition:all .15s;font-size:11.5px;font-weight:600;white-space:nowrap}
+.btn-ic-s:hover{transform:scale(1.05);box-shadow:0 2px 6px rgba(0,0,0,.1)}
 .btn-ic-s.ok{color:var(--ok);border-color:var(--ok);background:#f0fdf4}
 .btn-ic-s.ko{color:var(--ko);border-color:var(--ko);background:#fef2f2}
 .btn-ic-s.accent{color:var(--accent);border-color:var(--accent);background:#eff6ff}
+.btn-ic-s svg{pointer-events:none;flex:none}
 .badge-done{padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600}
 .badge-confirmee{background:#dcfce7;color:var(--ok)}.badge-infirmee{background:#fee2e2;color:var(--ko)}
 .evt-type{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
@@ -78,12 +79,12 @@ dialog textarea{min-height:60px;resize:vertical}
                         {{ $confirmations->get($t->id) === 'confirmee' ? 'R&eacute;alis&eacute;e' : 'Infirm&eacute;e' }}
                     </span>
                 @else
-                    <form method="POST" action="{{ route('saisie.confirmer', $t) }}" style="display:inline">
+                    <form method="POST" action="{{ route('saisie.confirmer', $t) }}" style="display:inline-block">
                         @csrf
                         <input type="hidden" name="statut" value="confirmee">
-                        <button class="btn-ic-s ok" title="Fait"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+                        <button type="submit" class="btn-ic-s ok"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Fait</button>
                     </form>
-                    <button class="btn-ic-s ko" title="Non fait" onclick="infirmer({{ $t->id }}, '{{ addslashes($t->intitule) }}')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                    <button type="button" class="btn-ic-s ko" onclick="infirmer({{ $t->id }}, {{ Js::from($t->intitule) }})"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Non fait</button>
                 @endif
             </div>
         </div>
@@ -141,7 +142,7 @@ dialog textarea{min-height:60px;resize:vertical}
                     <option value="maladie">Maladie</option>
                 </select>
                 <input name="justification" placeholder="Précisez..." required style="flex:1;padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
-                <button class="btn-ic-s accent" title="Justifier"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+                <button type="submit" class="btn-ic-s accent"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Envoyer</button>
             </form>
             @endforeach
         </div>
@@ -163,7 +164,7 @@ dialog textarea{min-height:60px;resize:vertical}
             <span style="font-weight:600">{{ $u->nomComplet() }}</span>
             <form method="POST" action="{{ route('saisie.rappeler') }}" style="display:inline">@csrf
                 <input type="hidden" name="user_id" value="{{ $u->id }}">
-                <button class="btn-ic-s accent" title="Envoyer un rappel"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></button>
+                <button type="submit" class="btn-ic-s accent"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Rappel</button>
             </form>
         </div>
         @endforeach

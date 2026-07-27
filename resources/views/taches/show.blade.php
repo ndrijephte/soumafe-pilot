@@ -23,8 +23,9 @@
 .btn.sm{padding:4px 10px;font-size:11.5px;border-radius:6px}
 .btn.danger{background:var(--ko)}
 .btn.ok{background:var(--ok)}
-.btn-ic{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;border:1.5px solid var(--bord);background:#fff;cursor:pointer;transition:all .15s}
-.btn-ic:hover{transform:scale(1.08);box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.btn-ic{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:10px;border:1.5px solid var(--bord);background:#fff;cursor:pointer;transition:all .15s;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap}
+.btn-ic:hover{transform:scale(1.03);box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.btn-ic svg{flex:none;pointer-events:none}
 .pill{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
 .p-ok{background:#dcfce7;color:var(--ok)}.p-cours{background:#dbeafe;color:var(--accent)}.p-bloque{background:#fee2e2;color:var(--ko)}.p-attente{background:#fef3c7;color:#b45309}
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
@@ -72,17 +73,17 @@ dialog textarea{min-height:70px;resize:vertical}
         <div class="crumb">Mes activités &rsaquo; Détail</div>
     </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap">
-        <a href="{{ route('taches.index') }}" class="btn-ic" title="Retour au kanban" style="color:var(--accent);border-color:var(--accent)">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <a href="{{ route('taches.index') }}" class="btn-ic" style="color:var(--accent);border-color:var(--accent)">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>Kanban
         </a>
         @if(in_array($tache->statut, ['a_faire', 'en_cours']))
-        <button class="btn-ic" id="btn-terminer" onclick="marquerTermine()" title="Marquer comme terminé" style="color:var(--ok);border-color:var(--ok);background:#f0fdf4">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <button class="btn-ic" id="btn-terminer" onclick="marquerTermine()" style="color:var(--ok);border-color:var(--ok);background:#f0fdf4">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Termin&eacute;
         </button>
         @endif
         @if($tache->statut !== 'bloque' && $tache->statut !== 'termine' && $tache->statut !== 'a_valider')
-        <button class="btn-ic" onclick="document.getElementById('dlg-blocage').showModal()" title="Signaler un blocage" style="color:var(--ko);border-color:var(--ko);background:#fef2f2">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <button class="btn-ic" onclick="document.getElementById('dlg-blocage').showModal()" style="color:var(--ko);border-color:var(--ko);background:#fef2f2">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Blocage
         </button>
         @endif
     </div>
@@ -95,7 +96,7 @@ dialog textarea{min-height:70px;resize:vertical}
         <div class="item"><div class="lbl">Sprint</div>{{ $tache->sprint ? 'Sprint ' . $tache->sprint->numero : '—' }}</div>
         <div class="item"><div class="lbl">Priorit&eacute;</div>{{ ucfirst($tache->priorite) }}</div>
         @php $statutPill = match($tache->statut) { 'termine' => 'p-ok', 'bloque' => 'p-bloque', 'a_valider' => 'p-attente', default => 'p-cours' }; @endphp
-        <div class="item"><div class="lbl">Statut</div><span class="pill {{ $statutPill }}">{{ ucfirst(str_replace('_',' ',$tache->statut)) }}</span></div>
+        <div class="item"><div class="lbl">Statut</div><span class="pill {{ $statutPill }}">{{ $tache->labelStatut() }}</span></div>
         <div class="item"><div class="lbl">Début</div>{{ $tache->date_debut?->format('d/m/Y') ?? '—' }}</div>
         <div class="item"><div class="lbl">Échéance</div>{{ $tache->echeance?->format('d/m/Y') ?? 'Non définie' }}</div>
         @if($tache->date_fin_reelle)

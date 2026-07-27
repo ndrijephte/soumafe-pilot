@@ -161,29 +161,37 @@ async function deposer(ev, statut){
 
     // Collaborateur ne peut pas glisser vers "a_valider" manuellement
     if (statut === 'a_valider' && !estPilote) {
-        toast('Le statut « À valider » est automatique — terminez la tâche.', 'warn');
+        toast('Le statut « En cours de validation » est automatique — terminez la tâche.', 'warn');
         return;
     }
 
     // Collaborateur ne peut pas glisser vers "termine" une tâche déjà en a_valider
     // (le serveur gère, mais on prévient côté client)
 
-    const rep = await fetch(`/taches/${id}/statut`, {
-        method: 'PATCH',
-        headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'},
-        body: JSON.stringify({statut})
-    });
-    if (!rep.ok) {
-        toast('Erreur : action non autorisée.', 'ko');
-        return;
+    try {
+        const rep = await fetch(`/taches/${id}/statut`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json'},
+            body: JSON.stringify({statut})
+        });
+        if (!rep.ok) {
+            let msg = 'Erreur : action non autorisée.';
+            try { const err = await rep.json(); if (err.message) msg = err.message; } catch(e){}
+            toast(msg, 'ko');
+            return;
+        }
+        const d = await rep.json();
+        if (d.a_valider) {
+            toast(d.message, 'warn');
+        } else if (d.justification_requise) {
+            toast(d.message + ' → ouvrez la tâche pour commenter.', 'warn');
+        } else {
+            toast(d.message);
+        }
+        setTimeout(() => location.reload(), 900);
+    } catch(e) {
+        toast('Erreur réseau — réessayez.', 'ko');
     }
-    const d = await rep.json();
-    if (d.justification_requise) {
-        toast(d.message + ' → ouvrez la tâche pour commenter.', 'warn');
-    } else {
-        toast(d.message);
-    }
-    setTimeout(() => location.reload(), 900);
 }
 </script>
 @endpush

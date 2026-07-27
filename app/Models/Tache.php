@@ -23,4 +23,18 @@ class Tache extends Model
 
     public function scopeDuJour($q, $date = null) { return $q->whereDate('date_debut', $date ?? today()); }
     public function scopeEnRetard($q) { return $q->whereNull('date_fin_reelle')->whereDate('echeance', '<', today()); }
+
+    /** Libellé lisible du statut. */
+    public function labelStatut(): string
+    {
+        return match ($this->statut) {
+            'a_faire'    => 'À faire',
+            'en_cours'   => 'En cours',
+            'a_valider'  => 'En cours de validation',
+            'bloque'     => 'Bloqué',
+            'termine'    => 'Terminé',
+            'reporte'    => 'Reporté',
+            default      => ucfirst(str_replace('_', ' ', $this->statut)),
+        };
+    }
 }

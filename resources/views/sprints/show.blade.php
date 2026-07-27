@@ -35,7 +35,10 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .req{color:var(--ko)}
 .vide{text-align:center;padding:40px;color:var(--gris);font-size:14px}
-@media(max-width:768px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}}
+.filtre-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filtre-bar input,.filtre-bar select{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
+.filtre-bar input{min-width:160px}
+@media(max-width:768px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}.filtre-bar{flex-direction:column}}
 </style>
 @endpush
 @section('contenu')
@@ -96,15 +99,38 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </div>
 @endif
 
-<div class="carte" style="padding:0;overflow-x:auto">
 @if($totalTaches > 0)
+<div class="filtre-bar">
+    <input type="text" id="fNom" placeholder="Rechercher une t&acirc;che..." oninput="filtrerSprint()">
+    <select id="fAssigne" onchange="filtrerSprint()">
+        <option value="">Tous les assign&eacute;s</option>
+        @foreach($sprint->taches->pluck('user')->unique('id')->filter()->sortBy('name') as $u)
+        <option value="{{ $u->id }}">{{ $u->nomComplet() }}</option>
+        @endforeach
+    </select>
+    <select id="fPrio" onchange="filtrerSprint()">
+        <option value="">Toutes priorit&eacute;s</option>
+        <option value="haute">Haute</option>
+        <option value="moyenne">Moyenne</option>
+        <option value="basse">Basse</option>
+    </select>
+    <select id="fStatut" onchange="filtrerSprint()">
+        <option value="">Tous statuts</option>
+        <option value="a_faire">&Agrave; faire</option>
+        <option value="en_cours">En cours</option>
+        <option value="a_valider">En cours de validation</option>
+        <option value="bloque">Bloqu&eacute;</option>
+        <option value="termine">Termin&eacute;</option>
+    </select>
+</div>
+<div class="carte" style="padding:0;overflow-x:auto">
 <table class="taches-table">
 <thead>
     <tr><th>T&acirc;che</th><th>Assign&eacute; &agrave;</th><th>Priorit&eacute;</th><th>D&eacute;but</th><th>&Eacute;ch&eacute;ance</th><th>Points</th><th>Statut</th></tr>
 </thead>
 <tbody>
 @foreach($sprint->taches->sortByDesc('priorite') as $t)
-<tr>
+<tr data-row data-nom="{{ strtolower($t->intitule) }}" data-user="{{ $t->user_id }}" data-prio="{{ $t->priorite }}" data-statut="{{ $t->statut }}">
     <td>
         <span class="typ t1">T1</span>
         <a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:#1e293b;font-weight:500">{{ $t->intitule }}</a>
@@ -119,7 +145,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     <td style="text-align:center">{{ $t->points ?? '—' }}</td>
     <td>
         @php $sClasse = match($t->statut) { 'termine' => 'p-ok', 'en_cours' => 'p-cours', 'bloque' => 'p-bloque', default => 'p-attente' }; @endphp
-        <span class="pill {{ $sClasse }}">{{ ucfirst(str_replace('_',' ',$t->statut)) }}</span>
+        <span class="pill {{ $sClasse }}">{{ $t->labelStatut() }}</span>
     </td>
 </tr>
 @endforeach
@@ -216,3 +242,22 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </dialog>
 @endif
 @endsection
+
+@push('scripts')
+<script>
+function filtrerSprint(){
+    const nom=document.getElementById('fNom').value.toLowerCase();
+    const user=document.getElementById('fAssigne').value;
+    const prio=document.getElementById('fPrio').value;
+    const statut=document.getElementById('fStatut').value;
+    document.querySelectorAll('[data-row]').forEach(tr=>{
+        let ok=true;
+        if(nom && !tr.dataset.nom.includes(nom)) ok=false;
+        if(user && tr.dataset.user!==user) ok=false;
+        if(prio && tr.dataset.prio!==prio) ok=false;
+        if(statut && tr.dataset.statut!==statut) ok=false;
+        tr.style.display=ok?'':'none';
+    });
+}
+</script>
+@endpush

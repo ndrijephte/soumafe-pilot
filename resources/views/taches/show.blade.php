@@ -23,6 +23,8 @@
 .btn.sm{padding:4px 10px;font-size:11.5px;border-radius:6px}
 .btn.danger{background:var(--ko)}
 .btn.ok{background:var(--ok)}
+.btn-ic{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;border:1.5px solid var(--bord);background:#fff;cursor:pointer;transition:all .15s}
+.btn-ic:hover{transform:scale(1.08);box-shadow:0 2px 8px rgba(0,0,0,.1)}
 .pill{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
 .p-ok{background:#dcfce7;color:var(--ok)}.p-cours{background:#dbeafe;color:var(--accent)}.p-bloque{background:#fee2e2;color:var(--ko)}.p-attente{background:#fef3c7;color:#b45309}
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
@@ -69,13 +71,19 @@ dialog textarea{min-height:70px;resize:vertical}
         <h2><span class="typ {{ strtolower($tache->type) }}">{{ $tache->type }}</span> {{ $tache->intitule }}</h2>
         <div class="crumb">Mes activités &rsaquo; Détail</div>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <a href="{{ route('taches.index') }}" class="btn sec">Retour au kanban</a>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+        <a href="{{ route('taches.index') }}" class="btn-ic" title="Retour au kanban" style="color:var(--accent);border-color:var(--accent)">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
         @if(in_array($tache->statut, ['a_faire', 'en_cours']))
-        <button class="btn ok" id="btn-terminer" onclick="marquerTermine()">Marquer comme terminé</button>
+        <button class="btn-ic" id="btn-terminer" onclick="marquerTermine()" title="Marquer comme terminé" style="color:var(--ok);border-color:var(--ok);background:#f0fdf4">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
         @endif
         @if($tache->statut !== 'bloque' && $tache->statut !== 'termine' && $tache->statut !== 'a_valider')
-        <button class="btn danger" onclick="document.getElementById('dlg-blocage').showModal()">Signaler un blocage</button>
+        <button class="btn-ic" onclick="document.getElementById('dlg-blocage').showModal()" title="Signaler un blocage" style="color:var(--ko);border-color:var(--ko);background:#fef2f2">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </button>
         @endif
     </div>
 </div>
@@ -107,12 +115,12 @@ dialog textarea{min-height:70px;resize:vertical}
     <div class="blocage-card {{ $b->date_levee ? 'leve' : '' }}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
             <strong>{{ $b->motif }}</strong>
-            @if($b->type)<span class="pill" style="background:#f1f5f9;color:#475569;font-size:10px">{{ \App\Models\Blocage::TYPES[$b->type] ?? $b->type }}</span>@endif
+            @if($b->type)<span class="pill" style="background:#f1f5f9;color:#475569;font-size:10px">{{ $b->type }}</span>@endif
         </div>
-        @if($b->tacheLiee)
+        @if($b->intervenant)
         <div style="font-size:11.5px;margin-top:4px;color:#1d4ed8">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-            Lié à : <a href="{{ route('taches.show', $b->tacheLiee) }}" style="color:#1d4ed8;text-decoration:underline">{{ $b->tacheLiee->intitule }}</a>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4-4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Intervenant proposé : <strong>{{ $b->intervenant->nomComplet() }}</strong>
         </div>
         @endif
         @if($b->recommandation)
@@ -186,25 +194,30 @@ dialog textarea{min-height:70px;resize:vertical}
     <form method="POST" action="{{ route('blocages.store', $tache) }}">@csrf
         <label>Type de blocage <span style="color:var(--ko)">*</span></label>
         <select name="type" required style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
-            @foreach(\App\Models\Blocage::TYPES as $val => $lbl)
-            <option value="{{ $val }}">{{ $lbl }}</option>
-            @endforeach
+            @if(isset($typesBlocage) && $typesBlocage->count() > 0)
+                @foreach($typesBlocage as $tb)
+                <option value="{{ $tb->code }}">{{ $tb->libelle }}</option>
+                @endforeach
+            @else
+                <option value="technique">Technique</option>
+                <option value="ressource">Ressource</option>
+                <option value="dependance">Dépendance</option>
+                <option value="decision">Décision</option>
+                <option value="externe">Externe</option>
+            @endif
         </select>
         <label>Motif du blocage <span style="color:var(--ko)">*</span></label>
         <textarea name="motif" required placeholder="Décrivez ce qui vous bloque…"></textarea>
-        @if(isset($tachesLiables) && $tachesLiables->count() > 0)
-        <label>Tâche liée (optionnel)</label>
-        <select name="tache_liee_id" style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
-            <option value="">— Aucune —</option>
-            @foreach($tachesLiables as $tl)
-            <option value="{{ $tl->id }}">{{ $tl->type }} — {{ $tl->intitule }}</option>
+        <label>Intervenant proposé (optionnel)</label>
+        <select name="intervenant_id" style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
+            <option value="">— Aucun —</option>
+            @foreach($utilisateurs as $u)
+            <option value="{{ $u->id }}">{{ $u->name }}</option>
             @endforeach
         </select>
-        @endif
+        <div style="font-size:10.5px;color:var(--gris);margin-top:2px">L'intervenant sera notifié. Le DG ou le chargé des opérations appuiera la sollicitation.</div>
         <label>Recommandation (optionnel)</label>
         <textarea name="recommandation" placeholder="Suggestion pour résoudre ce blocage…" style="min-height:50px"></textarea>
-        <label>Qui pourrait débloquer ? (optionnel)</label>
-        <input name="leveur_pressenti" placeholder="Nom ou rôle">
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn danger">Signaler</button>

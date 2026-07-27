@@ -12,10 +12,15 @@
 .tache-meta{font-size:11px;color:var(--gris);margin-top:2px}
 .typ{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px}
 .t1{background:#dbeafe;color:#1d4ed8}.t2{background:#e2e8f0;color:#475569}
-.confirm-actions{display:flex;gap:6px;flex:none;align-items:flex-start}
+.confirm-actions{display:flex;gap:5px;flex:none;align-items:center}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
 .btn.sm{padding:5px 12px;font-size:11.5px}
 .btn.ok{background:var(--ok)}.btn.ko{background:var(--ko)}.btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+.btn-ic-s{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1.5px solid var(--bord);background:#fff;cursor:pointer;transition:all .15s}
+.btn-ic-s:hover{transform:scale(1.1);box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.btn-ic-s.ok{color:var(--ok);border-color:var(--ok);background:#f0fdf4}
+.btn-ic-s.ko{color:var(--ko);border-color:var(--ko);background:#fef2f2}
+.btn-ic-s.accent{color:var(--accent);border-color:var(--accent);background:#eff6ff}
 .badge-done{padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600}
 .badge-confirmee{background:#dcfce7;color:var(--ok)}.badge-infirmee{background:#fee2e2;color:var(--ko)}
 .evt-type{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
@@ -76,9 +81,9 @@ dialog textarea{min-height:60px;resize:vertical}
                     <form method="POST" action="{{ route('saisie.confirmer', $t) }}" style="display:inline">
                         @csrf
                         <input type="hidden" name="statut" value="confirmee">
-                        <button class="btn sm ok">&#10003; Fait</button>
+                        <button class="btn-ic-s ok" title="Fait"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
                     </form>
-                    <button class="btn sm ko" onclick="infirmer({{ $t->id }}, this.dataset.label)" data-label="{{ $t->intitule }}">&#10007; Non fait</button>
+                    <button class="btn-ic-s ko" title="Non fait" onclick="infirmer({{ $t->id }}, '{{ addslashes($t->intitule) }}')"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 @endif
             </div>
         </div>
@@ -113,7 +118,7 @@ dialog textarea{min-height:60px;resize:vertical}
             @endforeach
         </div>
         @endif
-        <button class="btn sm" onclick="document.getElementById('dlg-evt').showModal()">+ Signaler un &eacute;v&eacute;nement</button>
+        <button class="btn sm sec" onclick="document.getElementById('dlg-evt').showModal()" style="display:inline-flex;align-items:center;gap:5px;font-size:12px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Signaler</button>
     </div>
     @endif
 
@@ -136,7 +141,7 @@ dialog textarea{min-height:60px;resize:vertical}
                     <option value="maladie">Maladie</option>
                 </select>
                 <input name="justification" placeholder="Précisez..." required style="flex:1;padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
-                <button class="btn sm">Justifier</button>
+                <button class="btn-ic-s accent" title="Justifier"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
             </form>
             @endforeach
         </div>
@@ -158,7 +163,7 @@ dialog textarea{min-height:60px;resize:vertical}
             <span style="font-weight:600">{{ $u->nomComplet() }}</span>
             <form method="POST" action="{{ route('saisie.rappeler') }}" style="display:inline">@csrf
                 <input type="hidden" name="user_id" value="{{ $u->id }}">
-                <button class="btn sm" style="background:var(--accent)">Envoyer un rappel</button>
+                <button class="btn-ic-s accent" title="Envoyer un rappel"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></button>
             </form>
         </div>
         @endforeach

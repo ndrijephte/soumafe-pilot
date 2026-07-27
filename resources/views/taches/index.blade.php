@@ -66,8 +66,9 @@
     <div class="col" data-statut="{{ $code }}" ondragover="event.preventDefault()" ondrop="deposer(event,'{{ $code }}')">
         <h4>{{ $libelle }} <span>{{ ($taches[$code] ?? collect())->count() }}</span></h4>
         @foreach($taches[$code] ?? [] as $t)
+        @php $peutDrag = ($code !== 'a_valider' || auth()->user()->estPilote()) && $code !== 'termine'; @endphp
         <div class="tache {{ $t->echeance?->isPast() && $code !== 'termine' ? 'retard' : '' }}"
-             draggable="true" ondragstart="event.dataTransfer.setData('id',{{ $t->id }})">
+             draggable="{{ $peutDrag ? 'true' : 'false' }}" @if($peutDrag)ondragstart="event.dataTransfer.setData('id',{{ $t->id }})"@endif style="{{ !$peutDrag ? 'cursor:default;opacity:.85' : '' }}"
             <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
             <div class="meta">
                 <span>{{ $t->projet?->libelle ?? $t->activite ?? '—' }}</span>
@@ -146,25 +147,40 @@ async function chargerSprints(){
         }
     } catch(e) { sel.innerHTML = '<option value="">Erreur de chargement</option>'; }
 }
-function toast(msg){
+const estPilote = {{ auth()->user()->estPilote() ? 'true' : 'false' }};
+
+function toast(msg, type){
     const t = document.getElementById('toast');
-    t.textContent = msg; t.style.display = 'block';
+    t.textContent = msg;
+    t.style.background = type === 'warn' ? '#b45309' : type === 'ko' ? 'var(--ko)' : '#16385C';
+    t.style.display = 'block';
     setTimeout(() => t.style.display = 'none', 4500);
 }
 async function deposer(ev, statut){
     const id = ev.dataTransfer.getData('id');
-    // T1 vers "termine" → le serveur redirige en a_valider automatiquement
+
+    // Collaborateur ne peut pas glisser vers "a_valider" manuellement
+    if (statut === 'a_valider' && !estPilote) {
+        toast('Le statut « À valider » est automatique — terminez la tâche.', 'warn');
+        return;
+    }
+
+    // Collaborateur ne peut pas glisser vers "termine" une tâche déjà en a_valider
+    // (le serveur gère, mais on prévient côté client)
+
     const rep = await fetch(`/taches/${id}/statut`, {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}'},
-        body: JSON.stringify({statut: statut === 'termine' ? 'termine' : statut})
+        body: JSON.stringify({statut})
     });
-    const d = await rep.json();
-    toast(d.message);
-    if (d.justification_requise) {
-        toast(d.message + ' → ouvrez la tâche pour ajouter votre commentaire.');
+    if (!rep.ok) {
+        toast('Erreur : action non autorisée.', 'ko');
+        return;
     }
-    if (d.a_valider) {
+    const d = await rep.json();
+    if (d.justification_requise) {
+        toast(d.message + ' → ouvrez la tâche pour commenter.', 'warn');
+    } else {
         toast(d.message);
     }
     setTimeout(() => location.reload(), 900);

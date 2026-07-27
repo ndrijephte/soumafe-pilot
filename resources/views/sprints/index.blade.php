@@ -58,14 +58,12 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 
 {{-- Barre de filtres --}}
 <div class="filtre-bar">
-    <input type="text" id="filtreNom" placeholder="Filtrer par nom de t&acirc;che..." oninput="filtrer()">
-    <input type="date" id="filtreDate" onchange="filtrer()">
+    <input type="text" id="filtreProjet" placeholder="Rechercher un projet..." oninput="filtrer()">
     <select id="filtreStatut" onchange="filtrer()">
-        <option value="">Tous statuts</option>
-        <option value="a_faire">À faire</option>
+        <option value="">Tous statuts sprint</option>
+        <option value="planifie">Planifi&eacute;</option>
         <option value="en_cours">En cours</option>
         <option value="termine">Termin&eacute;</option>
-        <option value="bloque">Bloqu&eacute;</option>
     </select>
 </div>
 
@@ -91,7 +89,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             $terminees = $s->taches->where('statut', 'termine')->count();
             $pct = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
         @endphp
-        <a href="{{ route('sprints.show', $s) }}" class="sprint-card" style="text-decoration:none;color:inherit;display:block">
+        <a href="{{ route('sprints.show', $s) }}" class="sprint-card" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block">
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <span class="sprint-num">Sprint {{ $s->numero }}</span>
                 <span class="pill s-{{ $s->statut }}">{{ ucfirst(str_replace('_',' ',$s->statut)) }}</span>
@@ -186,15 +184,20 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 @push('scripts')
 <script>
 function filtrer(){
-    const nom=document.getElementById('filtreNom').value.toLowerCase();
-    const date=document.getElementById('filtreDate').value;
+    const txt=document.getElementById('filtreProjet').value.toLowerCase();
     const statut=document.getElementById('filtreStatut').value;
-    document.querySelectorAll('[data-tache]').forEach(el=>{
-        let show=true;
-        if(nom && !el.dataset.nom.includes(nom)) show=false;
-        if(date && el.dataset.date!==date) show=false;
-        if(statut && el.dataset.statut!==statut) show=false;
-        el.style.display=show?'':'none';
+    document.querySelectorAll('[data-projet]').forEach(section=>{
+        const nom=section.querySelector('.projet-nom').textContent.toLowerCase();
+        const code=section.querySelector('.projet-code').textContent.toLowerCase();
+        const matchProjet=!txt||nom.includes(txt)||code.includes(txt);
+        if(!matchProjet){section.style.display='none';return;}
+        let anyVisible=false;
+        section.querySelectorAll('[data-sprint]').forEach(card=>{
+            const ok=!statut||card.dataset.statut===statut;
+            card.style.display=ok?'':'none';
+            if(ok) anyVisible=true;
+        });
+        section.style.display=anyVisible?'':'none';
     });
 }
 </script>

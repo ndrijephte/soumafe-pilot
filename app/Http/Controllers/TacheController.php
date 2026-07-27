@@ -2,9 +2,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TacheRequest;
-use App\Models\{Projet, Sprint, Tache};
+use App\Models\{Projet, Sprint, Tache, TypeBlocage, User};
 use App\Services\ClotureService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class TacheController extends Controller
 {
@@ -35,18 +36,18 @@ class TacheController extends Controller
     public function show(Request $r, Tache $tache)
     {
         abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
-        $tache->load(['user', 'projet', 'sprint', 'blocages.tacheLiee', 'commentaires.user']);
+        $tache->load(['user', 'projet', 'sprint', 'blocages.intervenant', 'commentaires.user']);
         $blocagesActifs = $tache->blocages->whereNull('date_levee')->count();
 
-        // Tâches actives du même projet/sprint pour le dropdown "tâche liée"
-        $tachesLiables = Tache::where('id', '!=', $tache->id)
-            ->whereIn('statut', ['a_faire', 'en_cours', 'bloque', 'a_valider'])
-            ->when($tache->sprint_id, fn ($q) => $q->where('sprint_id', $tache->sprint_id))
-            ->when(!$tache->sprint_id && $tache->projet_id, fn ($q) => $q->where('projet_id', $tache->projet_id))
-            ->orderBy('intitule')
-            ->get(['id', 'intitule', 'type']);
+        // Types de blocage paramétrables
+        $typesBlocage = Schema::hasTable('types_blocage')
+            ? TypeBlocage::orderBy('libelle')->get()
+            : collect();
 
-        return view('taches.show', compact('tache', 'blocagesActifs', 'tachesLiables'));
+        // Utilisateurs actifs pour le dropdown intervenant
+        $utilisateurs = User::where('actif', true)->orderBy('name')->get(['id', 'name']);
+
+        return view('taches.show', compact('tache', 'blocagesActifs', 'typesBlocage', 'utilisateurs'));
     }
 
     /** US-06 : création rapide — valeurs par défaut intelligentes. */
@@ -68,6 +69,11 @@ class TacheController extends Controller
     {
         abort_unless($tache->user_id === $r->user()->id || $r->user()->estPilote(), 403);
         $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,a_valider,reporte']);
+
+        // Seul un pilote peut modifier une tâche en a_valider
+        if ($tache->statut === 'a_valider' && !$r->user()->estPilote()) {
+            return response()->json(['ok' => false, 'message' => 'Seul le pilote ou le DG peut valider cette tâche.'], 403);
+        }
 
         if ($r->statut === 'termine') {
             // T1 (sprint) → passe en a_valider au lieu de termine (sauf si c'est un pilote qui change)

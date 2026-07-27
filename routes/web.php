@@ -1,6 +1,6 @@
 <?php
 use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController};
-use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController};
+use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController};
 use App\Http\Controllers\{ExportController, ObjectifController, ReportingController};
 use Illuminate\Support\Facades\Route;
 
@@ -123,6 +123,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/types-evenement', [TypeEvenementController::class, 'store'])->name('types-evenement.store');
         Route::put('/types-evenement/{type}', [TypeEvenementController::class, 'update'])->name('types-evenement.update');
         Route::delete('/types-evenement/{type}', [TypeEvenementController::class, 'destroy'])->name('types-evenement.destroy');
+
+        Route::get('/types-blocage', [TypeBlocageController::class, 'index'])->name('types-blocage.index');
+        Route::post('/types-blocage', [TypeBlocageController::class, 'store'])->name('types-blocage.store');
+        Route::put('/types-blocage/{type}', [TypeBlocageController::class, 'update'])->name('types-blocage.update');
+        Route::delete('/types-blocage/{type}', [TypeBlocageController::class, 'destroy'])->name('types-blocage.destroy');
 
     });
 });

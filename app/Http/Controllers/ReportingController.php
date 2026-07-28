@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Evenement, JourFerie, JourSaisie, Objectif, Projet, Sprint, Tache, User};
+use App\Models\{ConfirmationTache, Evenement, JourFerie, JourSaisie, Objectif, Projet, Sprint, Tache, User};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -234,10 +234,18 @@ class ReportingController extends Controller
         while ($c->lte($endDate)) {
             if (!$c->isWeekend() && !JourFerie::whereDate('date', $c)->exists()) {
                 $ouvres++;
-                if (JourSaisie::where('user_id', $userId)->whereDate('date', $c)
-                    ->whereIn('statut', ['saisi', 'justifie'])->exists()) {
-                    $saisis++;
+                $ok = JourSaisie::where('user_id', $userId)->whereDate('date', $c)
+                    ->whereIn('statut', ['saisi', 'justifie'])->exists();
+
+                if (!$ok && Schema::hasTable('confirmation_taches')) {
+                    $ok = ConfirmationTache::where('user_id', $userId)->whereDate('date', $c)->exists();
                 }
+
+                if (!$ok && Schema::hasTable('absences')) {
+                    $ok = \App\Models\Absence::pourDate($userId, $c)->exists();
+                }
+
+                if ($ok) $saisis++;
             }
             $c->addDay();
         }

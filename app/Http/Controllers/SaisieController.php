@@ -192,6 +192,26 @@ class SaisieController extends Controller
     /** Déclarer une absence (collaborateur pour lui-même ou pilote pour un collab). */
     public function declarerAbsence(Request $r)
     {
+        // Créer la table si la migration n'a pas encore été jouée
+        if (!Schema::hasTable('absences')) {
+            \Illuminate\Support\Facades\DB::statement("
+                CREATE TABLE absences (
+                    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    user_id BIGINT UNSIGNED NOT NULL,
+                    date_debut DATE NOT NULL,
+                    date_fin DATE NOT NULL,
+                    type VARCHAR(30) NOT NULL,
+                    motif VARCHAR(500) NULL,
+                    declare_par BIGINT UNSIGNED NULL,
+                    created_at TIMESTAMP NULL,
+                    updated_at TIMESTAMP NULL,
+                    INDEX absences_user_dates (user_id, date_debut, date_fin),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (declare_par) REFERENCES users(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+        }
+
         $r->validate([
             'user_id' => 'nullable|exists:users,id',
             'date_debut' => 'required|date|after_or_equal:today',
@@ -200,7 +220,7 @@ class SaisieController extends Controller
             'motif' => 'nullable|string|max:500',
         ]);
 
-        $userId = $r->user_id && $r->user()->estPilote() ? $r->user_id : $r->user()->id;
+        $userId = $r->user_id && $r->user()->estPilote() ? (int) $r->user_id : $r->user()->id;
 
         // Vérifier chevauchement
         $chevauchement = Absence::where('user_id', $userId)

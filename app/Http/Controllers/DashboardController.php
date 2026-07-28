@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{ArbitrageT3, Evenement, Projet, Sprint, Tache, JourFerie, JourSaisie, User};
+use App\Models\{ArbitrageT3, ConfirmationTache, Evenement, Projet, Sprint, Tache, JourFerie, JourSaisie, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -248,8 +248,22 @@ class DashboardController extends Controller
         while ($cursor->lte(today())) {
             if (!$cursor->isWeekend() && !JourFerie::whereDate('date', $cursor)->exists()) {
                 $joursOuvres++;
+
+                // 1. JourSaisie existe avec statut saisi/justifie
                 $saisi = JourSaisie::where('user_id', $userId)->whereDate('date', $cursor)
                     ->whereIn('statut', ['saisi', 'justifie'])->exists();
+
+                // 2. Ou le collaborateur a confirmé/infirmé au moins une tâche ce jour
+                if (!$saisi && Schema::hasTable('confirmation_taches')) {
+                    $saisi = ConfirmationTache::where('user_id', $userId)
+                        ->whereDate('date', $cursor)->exists();
+                }
+
+                // 3. Ou une absence déclarée couvre ce jour
+                if (!$saisi && Schema::hasTable('absences')) {
+                    $saisi = \App\Models\Absence::pourDate($userId, $cursor)->exists();
+                }
+
                 if ($saisi) $joursSaisis++;
             }
             $cursor->addDay();

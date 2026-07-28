@@ -118,12 +118,15 @@ class DashboardController extends Controller
         if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
             $totalActifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->count();
             $idsCouverts = JourSaisie::whereDate('date', $hier)
-                ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->toArray();
+                ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->map(fn($v) => (int)$v)->toArray();
             if (Schema::hasTable('confirmation_taches')) {
-                $idsCouverts = array_merge($idsCouverts, ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->toArray());
+                $idsCouverts = array_merge($idsCouverts, ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray());
             }
             if (Schema::hasTable('absences')) {
-                $idsCouverts = array_merge($idsCouverts, \App\Models\Absence::whereDate('date_debut', '<=', $hier)->whereDate('date_fin', '>=', $hier)->pluck('user_id')->toArray());
+                $idsCouverts = array_merge($idsCouverts, \App\Models\Absence::whereDate('date_debut', '<=', $hier)->whereDate('date_fin', '>=', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray());
+            }
+            if (Schema::hasTable('taches')) {
+                $idsCouverts = array_merge($idsCouverts, Tache::where('statut', 'termine')->whereDate('date_fin_reelle', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray());
             }
             $sanseSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
         }
@@ -172,12 +175,15 @@ class DashboardController extends Controller
         if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
             $totalActifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->count();
             $idsCouverts = JourSaisie::whereDate('date', $hier)
-                ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->toArray();
+                ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->map(fn($v) => (int)$v)->toArray();
             if (Schema::hasTable('confirmation_taches')) {
-                $idsCouverts = array_merge($idsCouverts, ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->toArray());
+                $idsCouverts = array_merge($idsCouverts, ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray());
             }
             if (Schema::hasTable('absences')) {
-                $idsCouverts = array_merge($idsCouverts, \App\Models\Absence::whereDate('date_debut', '<=', $hier)->whereDate('date_fin', '>=', $hier)->pluck('user_id')->toArray());
+                $idsCouverts = array_merge($idsCouverts, \App\Models\Absence::whereDate('date_debut', '<=', $hier)->whereDate('date_fin', '>=', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray());
+            }
+            if (Schema::hasTable('taches')) {
+                $idsCouverts = array_merge($idsCouverts, Tache::where('statut', 'termine')->whereDate('date_fin_reelle', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray());
             }
             $sanseSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
         }

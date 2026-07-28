@@ -76,22 +76,29 @@ class SaisieController extends Controller
 
                 // IDs ayant un JourSaisie saisi/justifié hier
                 $saisisHier = JourSaisie::whereDate('date', $hier)
-                    ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->toArray();
+                    ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->map(fn($v) => (int)$v)->toArray();
 
                 // IDs ayant confirmé/infirmé au moins une tâche hier (via saisie ou kanban)
                 if (Schema::hasTable('confirmation_taches')) {
-                    $confirmesHier = ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->unique()->toArray();
-                    $saisisHier = array_unique(array_merge($saisisHier, $confirmesHier));
+                    $confirmesHier = ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->unique()->toArray();
+                    $saisisHier = array_values(array_unique(array_merge($saisisHier, $confirmesHier)));
                 }
 
                 // IDs en absence déclarée hier
                 if (Schema::hasTable('absences')) {
                     $absentsHier = Absence::whereDate('date_debut', '<=', $hier)
-                        ->whereDate('date_fin', '>=', $hier)->pluck('user_id')->toArray();
-                    $saisisHier = array_unique(array_merge($saisisHier, $absentsHier));
+                        ->whereDate('date_fin', '>=', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray();
+                    $saisisHier = array_values(array_unique(array_merge($saisisHier, $absentsHier)));
                 }
 
-                $sanseSaisie = $actifs->filter(fn ($u) => !in_array($u->id, $saisisHier));
+                // Aussi vérifier tâches terminées hier (date_fin_reelle = hier)
+                if (Schema::hasTable('taches')) {
+                    $terminesHier = \App\Models\Tache::where('statut', 'termine')
+                        ->whereDate('date_fin_reelle', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->unique()->toArray();
+                    $saisisHier = array_values(array_unique(array_merge($saisisHier, $terminesHier)));
+                }
+
+                $sanseSaisie = $actifs->filter(fn ($u) => !in_array((int)$u->id, $saisisHier, true));
             }
 
             // Justifications soumises en attente de validation pilote

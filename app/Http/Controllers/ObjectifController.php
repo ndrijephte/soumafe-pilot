@@ -198,6 +198,13 @@ class ObjectifController extends Controller
         return back()->with('succes', "{$nb} objectif(s) évalué(s).");
     }
 
+    public function valider(Request $r, Objectif $objectif)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $objectif->update(['statut_validation' => 'valide']);
+        return back()->with('succes', 'Objectif validé.');
+    }
+
     public function destroy(Request $r, Objectif $objectif)
     {
         abort_unless($r->user()->estPilote(), 403);

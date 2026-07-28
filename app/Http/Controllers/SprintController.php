@@ -101,6 +101,32 @@ class SprintController extends Controller
         return back()->with('succes', "Sprint clôturé. {$pointsLivres}/{$engagement} pts livrés. {$stats['a_temps']} à temps, {$stats['en_retard']} en retard, {$stats['non_termine']} non terminée(s).");
     }
 
+    /** Arrêter un sprint en cours (avec justification obligatoire). */
+    public function arreter(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        if ($sprint->statut !== 'en_cours') return back()->with('erreur', 'Ce sprint n\'est pas en cours.');
+
+        $r->validate(['justification' => 'required|string|max:1000']);
+
+        $sprint->update([
+            'statut' => 'termine',
+            'justification_arret' => $r->justification,
+            'arrete_le' => now(),
+        ]);
+
+        // Notifier le responsable projet
+        if ($sprint->projet?->responsable_projet_id) {
+            NotificationApp::create([
+                'user_id' => $sprint->projet->responsable_projet_id,
+                'type' => 'sprint_arret',
+                'contenu' => "Sprint {$sprint->numero} arrêté par " . $r->user()->nomComplet() . ". Motif : {$r->justification}",
+            ]);
+        }
+
+        return back()->with('succes', "Sprint arrêté. Motif enregistré.");
+    }
+
     /** API JSON : sprints d'un projet (pour le select dynamique T1). */
     public function parProjet(Projet $projet)
     {

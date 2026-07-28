@@ -163,39 +163,6 @@
     </div>
 </div>
 
-{{-- Urgences (T3) --}}
-@if($urgences->count() > 0)
-<div class="section-titre">
-    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    Urgences non planifi&eacute;es — T3 ({{ $urgences->count() }})
-</div>
-<div class="carte" style="padding:0;overflow-x:auto">
-<table class="tbl">
-<thead><tr><th>T&acirc;che</th><th>Projet</th><th>Collaborateur</th><th>Cr&eacute;&eacute;e le</th><th>Statut</th><th>Priorit&eacute;</th></tr></thead>
-<tbody>
-@foreach($urgences as $urg)
-@php
-    $coulSt = match($urg->statut) {
-        'termine' => 'b-ok', 'bloque' => 'b-ko', default => 'b-warn'
-    };
-    $labSt = match($urg->statut) {
-        'termine' => 'Terminée', 'bloque' => 'Bloquée', 'en_cours' => 'En cours', default => 'À faire'
-    };
-@endphp
-<tr>
-    <td><strong>{{ $urg->libelle }}</strong></td>
-    <td style="font-size:11px;color:var(--gris)">{{ $urg->projet->libelle ?? '—' }}</td>
-    <td>{{ $urg->user->nomComplet() ?? '—' }}</td>
-    <td style="font-size:11px">{{ $urg->created_at->format('d/m/Y') }}</td>
-    <td><span class="badge {{ $coulSt }}">{{ $labSt }}</span></td>
-    <td style="font-size:11px">{{ ucfirst($urg->priorite ?? '—') }}</td>
-</tr>
-@endforeach
-</tbody>
-</table>
-</div>
-@endif
-
 {{-- Absences signalées --}}
 @if($absences->count() > 0)
 <div class="section-titre">

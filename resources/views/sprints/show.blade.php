@@ -91,7 +91,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Ajouter une t&acirc;che</button>
     <button class="btn sec" onclick="document.getElementById('dlg-import').showModal()">Importer (.xlsx)</button>
     @if($sprint->statut === 'planifie')
-    <form method="PUT" action="{{ route('sprints.update', $sprint) }}" style="margin:0">
+    <form method="POST" action="{{ route('sprints.update', $sprint) }}" style="margin:0">
         @csrf @method('PUT')
         <input type="hidden" name="objectif" value="{{ $sprint->objectif }}">
         <input type="hidden" name="date_debut" value="{{ $sprint->date_debut->format('Y-m-d') }}">
@@ -102,6 +102,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </form>
     @endif
     @if($sprint->statut === 'en_cours')
+    <button class="btn" style="background:var(--warn);color:#fff" onclick="document.getElementById('dlg-arreter').showModal()">Arr&ecirc;ter le sprint</button>
     <form method="POST" action="{{ route('sprints.cloturer', $sprint) }}" style="margin:0" onsubmit="return confirm('Clôturer ce sprint ? Les tâches non terminées seront marquées en retard.')">
         @csrf
         <button class="btn" style="background:var(--ko)">Cl&ocirc;turer le sprint</button>
@@ -173,6 +174,26 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </div>
 
 @if($canEdit)
+{{-- Dialog arrêt anticipé --}}
+@if($sprint->statut === 'en_cours')
+<dialog id="dlg-arreter">
+    <h3 style="color:var(--ko);margin-bottom:4px">Arr&ecirc;ter le sprint</h3>
+    @if($sprint->date_fin->isFuture())
+    <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e;margin-bottom:12px">
+        La date de fin pr&eacute;vue est le <strong>{{ $sprint->date_fin->format('d/m/Y') }}</strong>. L'arr&ecirc;t anticip&eacute; n&eacute;cessite une justification.
+    </div>
+    @endif
+    <form method="POST" action="{{ route('sprints.arreter', $sprint) }}">@csrf
+        <label>Justification <span class="req">*</span></label>
+        <textarea name="justification" required rows="3" placeholder="Raison de l'arr&ecirc;t anticipé..." style="width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;resize:vertical"></textarea>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn" style="background:var(--ko)">Confirmer l'arr&ecirc;t</button>
+        </div>
+    </form>
+</dialog>
+@endif
+
 {{-- Dialog ajout tâche --}}
 <dialog id="dlg-tache">
     <h3 style="color:var(--bleu);margin-bottom:4px">Ajouter une t&acirc;che au sprint</h3>

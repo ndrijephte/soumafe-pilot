@@ -159,6 +159,9 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <td><span class="badge {{ $statutBadge }}">{{ ucfirst(str_replace('_', ' ', $o->statut_validation)) }}</span></td>
         <td style="white-space:nowrap">
             <button class="btn sm sec" onclick="editObj({{ $o->id }}, 'individuel', {{ $o->user_id }}, {{ json_encode($o->libelle) }}, '{{ $o->projet_id ?? '' }}', {{ $o->ponderation }}, {{ $o->avancement }}, '{{ $o->date_debut ? $o->date_debut->format('Y-m-d') : '' }}', '{{ $o->date_echeance ? $o->date_echeance->format('Y-m-d') : '' }}', '{{ $o->evaluation ?? '' }}', '{{ $o->statut_validation }}', {{ json_encode($o->commentaire_pilote ?? '') }})">Modifier</button>
+            @if($o->statut_validation !== 'valide')
+            <form method="POST" action="{{ route('objectifs.valider', $o) }}" style="display:inline"><button class="btn sm" style="background:var(--ok)">Valider</button>@csrf</form>
+            @endif
             <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')<button class="btn sm danger">Suppr.</button></form>
         </td>
     </tr>
@@ -213,6 +216,9 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <td><span class="eval-badge {{ $evalClass }}">{{ ucfirst(str_replace('_', ' ', $o->evaluation ?? 'en cours')) }}</span></td>
         <td style="white-space:nowrap">
             <button class="btn sm sec" onclick="editObj({{ $o->id }}, 'projet', {{ $o->user_id }}, {{ json_encode($o->libelle) }}, '{{ $o->projet_id ?? '' }}', {{ $o->ponderation }}, {{ $o->avancement }}, '{{ $o->date_debut ? $o->date_debut->format('Y-m-d') : '' }}', '{{ $o->date_echeance ? $o->date_echeance->format('Y-m-d') : '' }}', '{{ $o->evaluation ?? '' }}', '{{ $o->statut_validation }}', {{ json_encode($o->commentaire_pilote ?? '') }})">Modifier</button>
+            @if($o->statut_validation !== 'valide')
+            <form method="POST" action="{{ route('objectifs.valider', $o) }}" style="display:inline"><button class="btn sm" style="background:var(--ok)">Valider</button>@csrf</form>
+            @endif
             <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')<button class="btn sm danger">Suppr.</button></form>
         </td>
     </tr>

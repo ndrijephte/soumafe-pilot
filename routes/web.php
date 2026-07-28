@@ -32,6 +32,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/sprints/{sprint}', [SprintController::class, 'show'])->name('sprints.show');
     Route::put('/sprints/{sprint}', [SprintController::class, 'update'])->name('sprints.update');
     Route::post('/sprints/{sprint}/cloturer', [SprintController::class, 'cloturer'])->name('sprints.cloturer');
+    Route::post('/sprints/{sprint}/arreter', [SprintController::class, 'arreter'])->name('sprints.arreter');
     Route::get('/api/projets/{projet}/sprints', [SprintController::class, 'parProjet'])->name('api.sprints');
     Route::post('/sprints/{sprint}/taches', [SprintController::class, 'ajouterTache'])->name('sprints.ajouter-tache');
     Route::post('/sprints/importer', [SprintController::class, 'importerTaches'])->name('sprints.importer');
@@ -64,6 +65,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/objectifs', [ObjectifController::class, 'index'])->name('objectifs.index');
     Route::post('/objectifs', [ObjectifController::class, 'store'])->name('objectifs.store');
     Route::put('/objectifs/{objectif}', [ObjectifController::class, 'update'])->name('objectifs.update');
+    Route::post('/objectifs/{objectif}/valider', [ObjectifController::class, 'valider'])->name('objectifs.valider');
     Route::delete('/objectifs/{objectif}', [ObjectifController::class, 'destroy'])->name('objectifs.destroy');
     Route::post('/objectifs/evaluer', [ObjectifController::class, 'evaluer'])->name('objectifs.evaluer');
 

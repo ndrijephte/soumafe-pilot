@@ -106,7 +106,6 @@
             <div style="font-size:24px;font-weight:700;color:{{ $couleur }}">{{ $assiduite['taux'] }}%</div>
             <div class="jauge-wrap"><div class="jauge-bar" style="width:{{ $assiduite['taux'] }}%;background:{{ $couleur }}"></div></div>
             <div style="font-size:11px;color:var(--gris);margin-top:4px">{{ $assiduite['jours_saisis'] }} / {{ $assiduite['jours_ouvres'] }} jours ouvr&eacute;s saisis</div>
-            <div style="font-size:10px;color:var(--gris);margin-top:2px;font-style:italic">Confirmer vos t&acirc;ches quotidiennement, justifier les jours manquants ou d&eacute;clarer une absence fait progresser cette jauge.</div>
             <a href="{{ route('saisie.index') }}" style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:600">Voir mon suivi de saisie &rarr;</a>
         </div>
     </div>

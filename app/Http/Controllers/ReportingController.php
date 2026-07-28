@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{ConfirmationTache, Evenement, JourFerie, JourSaisie, Objectif, Projet, Sprint, Tache, User};
+use App\Models\{Absence, ConfirmationTache, Evenement, JourFerie, JourSaisie, Objectif, Projet, Sprint, Tache, User};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -99,6 +99,36 @@ class ReportingController extends Controller
             return $s;
         });
 
+        // ─── Urgences (T3) sur la période ───
+        $urgences = collect();
+        if (Schema::hasTable('taches')) {
+            $urgences = Tache::with(['user', 'projet'])
+                ->where('type', 'T3')
+                ->where(function ($q) use ($debut, $fin) {
+                    $q->whereBetween('created_at', [$debut, $fin])
+                      ->orWhere(function ($q2) use ($debut, $fin) {
+                          $q2->whereIn('statut', ['a_faire', 'en_cours', 'bloque'])
+                              ->whereDate('date_debut', '<=', $fin);
+                      });
+                })
+                ->orderByDesc('created_at')->get();
+        }
+
+        // ─── Absences sur la période ───
+        $absences = collect();
+        if (Schema::hasTable('absences')) {
+            $absences = Absence::with(['user', 'declarant'])
+                ->where(function ($q) use ($debut, $fin) {
+                    $q->whereBetween('date_debut', [$debut, $fin])
+                      ->orWhereBetween('date_fin', [$debut, $fin])
+                      ->orWhere(function ($q2) use ($debut, $fin) {
+                          $q2->whereDate('date_debut', '<=', $debut)
+                              ->whereDate('date_fin', '>=', $fin);
+                      });
+                })
+                ->orderByDesc('date_debut')->get();
+        }
+
         // ─── Événements de la période ───
         $evenements = collect();
         if (Schema::hasTable('evenements')) {
@@ -111,7 +141,7 @@ class ReportingController extends Controller
             'periode', 'debut', 'fin',
             'terminees', 'creees', 'enRetardClotures', 'anticipees', 'aTemps',
             'tauxGlobal', 'bloquees', 'enRetardOuvert',
-            'collaborateurs', 'projets', 'sprints', 'evenements'
+            'collaborateurs', 'projets', 'sprints', 'urgences', 'absences', 'evenements'
         ));
     }
 
@@ -124,7 +154,7 @@ class ReportingController extends Controller
         [$debut, $fin] = $this->bornesPeriode($periode, $r->get('date_debut'), $r->get('date_fin'));
 
         // Sections sélectionnées (par défaut toutes)
-        $sections = $r->get('sections', ['kpi', 'collaborateurs', 'projets', 'sprints', 'evenements']);
+        $sections = $r->get('sections', ['kpi', 'collaborateurs', 'projets', 'sprints', 'urgences', 'absences', 'evenements']);
         if (is_string($sections)) $sections = explode(',', $sections);
 
         // Colonnes collaborateurs sélectionnées
@@ -198,6 +228,34 @@ class ReportingController extends Controller
             return $s;
         });
 
+        $urgences = collect();
+        if (Schema::hasTable('taches')) {
+            $urgences = Tache::with(['user', 'projet'])
+                ->where('type', 'T3')
+                ->where(function ($q) use ($debut, $fin) {
+                    $q->whereBetween('created_at', [$debut, $fin])
+                      ->orWhere(function ($q2) use ($debut, $fin) {
+                          $q2->whereIn('statut', ['a_faire', 'en_cours', 'bloque'])
+                              ->whereDate('date_debut', '<=', $fin);
+                      });
+                })
+                ->orderByDesc('created_at')->get();
+        }
+
+        $absences = collect();
+        if (Schema::hasTable('absences')) {
+            $absences = Absence::with(['user', 'declarant'])
+                ->where(function ($q) use ($debut, $fin) {
+                    $q->whereBetween('date_debut', [$debut, $fin])
+                      ->orWhereBetween('date_fin', [$debut, $fin])
+                      ->orWhere(function ($q2) use ($debut, $fin) {
+                          $q2->whereDate('date_debut', '<=', $debut)
+                              ->whereDate('date_fin', '>=', $fin);
+                      });
+                })
+                ->orderByDesc('date_debut')->get();
+        }
+
         $evenements = collect();
         if (Schema::hasTable('evenements')) {
             $evenements = Evenement::with('user')->whereBetween('date', [$debut, $fin])->orderByDesc('date')->get();
@@ -207,7 +265,7 @@ class ReportingController extends Controller
             'periode', 'debut', 'fin', 'sections', 'colsCollab',
             'terminees', 'creees', 'enRetardClotures', 'anticipees', 'aTemps',
             'tauxGlobal', 'bloquees', 'enRetardOuvert',
-            'collaborateurs', 'projets', 'sprints', 'evenements'
+            'collaborateurs', 'projets', 'sprints', 'urgences', 'absences', 'evenements'
         ));
     }
 

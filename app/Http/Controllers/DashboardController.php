@@ -117,9 +117,15 @@ class DashboardController extends Controller
         $sanseSaisieHier = 0;
         if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
             $totalActifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->count();
-            $joursSaisisHier = JourSaisie::whereDate('date', $hier)
-                ->whereIn('statut', ['saisi', 'justifie'])->distinct('user_id')->count('user_id');
-            $sanseSaisieHier = max(0, $totalActifs - $joursSaisisHier);
+            $idsCouverts = JourSaisie::whereDate('date', $hier)
+                ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->toArray();
+            if (Schema::hasTable('confirmation_taches')) {
+                $idsCouverts = array_merge($idsCouverts, ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->toArray());
+            }
+            if (Schema::hasTable('absences')) {
+                $idsCouverts = array_merge($idsCouverts, \App\Models\Absence::whereDate('date_debut', '<=', $hier)->whereDate('date_fin', '>=', $hier)->pluck('user_id')->toArray());
+            }
+            $sanseSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
         }
 
         $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
@@ -165,9 +171,15 @@ class DashboardController extends Controller
         $sanseSaisieHier = 0;
         if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
             $totalActifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->count();
-            $joursSaisisHier = JourSaisie::whereDate('date', $hier)
-                ->whereIn('statut', ['saisi', 'justifie'])->distinct('user_id')->count('user_id');
-            $sanseSaisieHier = max(0, $totalActifs - $joursSaisisHier);
+            $idsCouverts = JourSaisie::whereDate('date', $hier)
+                ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->toArray();
+            if (Schema::hasTable('confirmation_taches')) {
+                $idsCouverts = array_merge($idsCouverts, ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->toArray());
+            }
+            if (Schema::hasTable('absences')) {
+                $idsCouverts = array_merge($idsCouverts, \App\Models\Absence::whereDate('date_debut', '<=', $hier)->whereDate('date_fin', '>=', $hier)->pluck('user_id')->toArray());
+            }
+            $sanseSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
         }
         if ($sanseSaisieHier > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$sanseSaisieHier} collaborateur(s) sans saisie hier."];
         if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s) sur tous les projets."];
@@ -175,8 +187,14 @@ class DashboardController extends Controller
 
         $arbitragesEnAttente = ArbitrageT3::where('decision', 'en_attente')->count();
 
-        // Sprints en cours
-        $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
+        // Auto-fix ENUM si pas encore migré
+        try {
+            $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::statement("ALTER TABLE sprints MODIFY COLUMN statut VARCHAR(30) NOT NULL DEFAULT 'planifie'");
+            \Illuminate\Support\Facades\DB::table('sprints')->where('statut', 'clos')->update(['statut' => 'termine']);
+            $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
+        }
 
         // Performance par collaborateur
         $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction'])

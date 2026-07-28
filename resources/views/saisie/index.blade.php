@@ -11,7 +11,7 @@
 .tache-intitule{font-size:13px;font-weight:600;color:#1e293b}
 .tache-meta{font-size:11px;color:var(--gris);margin-top:2px}
 .typ{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px}
-.t1{background:#dbeafe;color:#1d4ed8}.t2{background:#e2e8f0;color:#475569}
+.t1{background:#dbeafe;color:#1d4ed8}.t2{background:#e2e8f0;color:#475569}.t3{background:#fee2e2;color:#b91c1c}
 .confirm-actions{display:flex;gap:5px;flex:none;align-items:center}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
 .btn.sm{padding:5px 12px;font-size:11.5px}
@@ -76,7 +76,7 @@ dialog textarea{min-height:60px;resize:vertical}
             <div class="confirm-actions">
                 @if($confirmations->has($t->id))
                     <span class="badge-done badge-{{ $confirmations->get($t->id) }}">
-                        {{ $confirmations->get($t->id) === 'confirmee' ? 'R&eacute;alis&eacute;e' : 'Infirm&eacute;e' }}
+                        {{ $confirmations->get($t->id) === 'confirmee' ? 'Réalisée' : 'Infirmée' }}
                     </span>
                 @else
                     <form method="POST" action="{{ route('saisie.confirmer', $t) }}" style="display:inline-block">

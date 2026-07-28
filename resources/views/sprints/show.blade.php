@@ -90,7 +90,18 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 <div class="actions-bar">
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Ajouter une t&acirc;che</button>
     <button class="btn sec" onclick="document.getElementById('dlg-import').showModal()">Importer (.xlsx)</button>
-    @if($sprint->statut !== 'termine')
+    @if($sprint->statut === 'planifie')
+    <form method="PUT" action="{{ route('sprints.update', $sprint) }}" style="margin:0">
+        @csrf @method('PUT')
+        <input type="hidden" name="objectif" value="{{ $sprint->objectif }}">
+        <input type="hidden" name="date_debut" value="{{ $sprint->date_debut->format('Y-m-d') }}">
+        <input type="hidden" name="date_fin" value="{{ $sprint->date_fin->format('Y-m-d') }}">
+        <input type="hidden" name="engagement_points" value="{{ $sprint->engagement_points }}">
+        <input type="hidden" name="statut" value="en_cours">
+        <button class="btn" style="background:var(--ok)">D&eacute;marrer le sprint</button>
+    </form>
+    @endif
+    @if($sprint->statut === 'en_cours')
     <form method="POST" action="{{ route('sprints.cloturer', $sprint) }}" style="margin:0" onsubmit="return confirm('Clôturer ce sprint ? Les tâches non terminées seront marquées en retard.')">
         @csrf
         <button class="btn" style="background:var(--ko)">Cl&ocirc;turer le sprint</button>

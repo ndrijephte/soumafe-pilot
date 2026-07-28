@@ -163,6 +163,69 @@
     </div>
 </div>
 
+{{-- Urgences (T3) --}}
+@if($urgences->count() > 0)
+<div class="section-titre">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Urgences non planifi&eacute;es — T3 ({{ $urgences->count() }})
+</div>
+<div class="carte" style="padding:0;overflow-x:auto">
+<table class="tbl">
+<thead><tr><th>T&acirc;che</th><th>Projet</th><th>Collaborateur</th><th>Cr&eacute;&eacute;e le</th><th>Statut</th><th>Priorit&eacute;</th></tr></thead>
+<tbody>
+@foreach($urgences as $urg)
+@php
+    $coulSt = match($urg->statut) {
+        'termine' => 'b-ok', 'bloque' => 'b-ko', default => 'b-warn'
+    };
+    $labSt = match($urg->statut) {
+        'termine' => 'Terminée', 'bloque' => 'Bloquée', 'en_cours' => 'En cours', default => 'À faire'
+    };
+@endphp
+<tr>
+    <td><strong>{{ $urg->libelle }}</strong></td>
+    <td style="font-size:11px;color:var(--gris)">{{ $urg->projet->libelle ?? '—' }}</td>
+    <td>{{ $urg->user->nomComplet() ?? '—' }}</td>
+    <td style="font-size:11px">{{ $urg->created_at->format('d/m/Y') }}</td>
+    <td><span class="badge {{ $coulSt }}">{{ $labSt }}</span></td>
+    <td style="font-size:11px">{{ ucfirst($urg->priorite ?? '—') }}</td>
+</tr>
+@endforeach
+</tbody>
+</table>
+</div>
+@endif
+
+{{-- Absences signalées --}}
+@if($absences->count() > 0)
+<div class="section-titre">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Absences signal&eacute;es ({{ $absences->count() }})
+</div>
+<div class="carte" style="padding:0;overflow-x:auto">
+<table class="tbl">
+<thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Motif</th><th>D&eacute;clar&eacute; par</th></tr></thead>
+<tbody>
+@foreach($absences as $abs)
+@php
+    $coulType = match($abs->type) {
+        'conge' => 'b-ok', 'mission' => 'b-warn', 'maladie' => 'b-ko', default => 'b-warn'
+    };
+@endphp
+<tr>
+    <td><strong>{{ $abs->user->nomComplet() ?? '—' }}</strong></td>
+    <td><span class="badge {{ $coulType }}">{{ $abs->labelType() }}</span></td>
+    <td style="font-size:11px">{{ $abs->date_debut->format('d/m/Y') }}</td>
+    <td style="font-size:11px">{{ $abs->date_fin->format('d/m/Y') }}</td>
+    <td style="font-size:11px;color:var(--gris)">{{ $abs->motif ?? '—' }}</td>
+    <td style="font-size:11px">{{ $abs->declarant?->nomComplet() ?? '—' }}</td>
+</tr>
+@endforeach
+</tbody>
+</table>
+</div>
+@endif
+
 {{-- Événements de la période --}}
 @if($evenements->count() > 0)
 <div class="section-titre">

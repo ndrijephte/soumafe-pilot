@@ -68,6 +68,8 @@
             <label><input type="checkbox" name="sections[]" value="collaborateurs" {{ in_array('collaborateurs', $sections) ? 'checked' : '' }}> Collaborateurs</label>
             <label><input type="checkbox" name="sections[]" value="projets" {{ in_array('projets', $sections) ? 'checked' : '' }}> Projets</label>
             <label><input type="checkbox" name="sections[]" value="sprints" {{ in_array('sprints', $sections) ? 'checked' : '' }}> Sprints</label>
+            <label><input type="checkbox" name="sections[]" value="urgences" {{ in_array('urgences', $sections) ? 'checked' : '' }}> Urgences T3</label>
+            <label><input type="checkbox" name="sections[]" value="absences" {{ in_array('absences', $sections) ? 'checked' : '' }}> Absences</label>
             <label><input type="checkbox" name="sections[]" value="evenements" {{ in_array('evenements', $sections) ? 'checked' : '' }}> &Eacute;v&eacute;nements</label>
         </div>
 
@@ -210,6 +212,55 @@
                 <span class="bar"><span class="bar-fill" style="width:{{ $sp->progression }}%"></span></span>
                 <span style="font-size:10px;font-weight:600">{{ $sp->progression }}%</span>
             </td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+
+{{-- Urgences T3 --}}
+@if(in_array('urgences', $sections) && $urgences->count() > 0)
+<div class="section">
+    <div class="section-titre">Urgences non planifi&eacute;es — T3 ({{ $urgences->count() }})</div>
+    <table>
+        <thead><tr><th>T&acirc;che</th><th>Projet</th><th>Collaborateur</th><th>Cr&eacute;&eacute;e le</th><th>Statut</th><th>Priorit&eacute;</th></tr></thead>
+        <tbody>
+        @foreach($urgences as $urg)
+        @php
+            $labSt = match($urg->statut) {
+                'termine' => 'Terminée', 'bloque' => 'Bloquée', 'en_cours' => 'En cours', default => 'À faire'
+            };
+        @endphp
+        <tr>
+            <td><strong>{{ $urg->libelle }}</strong></td>
+            <td>{{ $urg->projet->libelle ?? '—' }}</td>
+            <td>{{ $urg->user->nomComplet() ?? '—' }}</td>
+            <td>{{ $urg->created_at->format('d/m/Y') }}</td>
+            <td>{{ $labSt }}</td>
+            <td>{{ ucfirst($urg->priorite ?? '—') }}</td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+
+{{-- Absences --}}
+@if(in_array('absences', $sections) && $absences->count() > 0)
+<div class="section">
+    <div class="section-titre">Absences signal&eacute;es ({{ $absences->count() }})</div>
+    <table>
+        <thead><tr><th>Collaborateur</th><th>Type</th><th>Du</th><th>Au</th><th>Motif</th><th>D&eacute;clar&eacute; par</th></tr></thead>
+        <tbody>
+        @foreach($absences as $abs)
+        <tr>
+            <td><strong>{{ $abs->user->nomComplet() ?? '—' }}</strong></td>
+            <td>{{ $abs->labelType() }}</td>
+            <td>{{ $abs->date_debut->format('d/m/Y') }}</td>
+            <td>{{ $abs->date_fin->format('d/m/Y') }}</td>
+            <td>{{ $abs->motif ?? '—' }}</td>
+            <td>{{ $abs->declarant?->nomComplet() ?? '—' }}</td>
         </tr>
         @endforeach
         </tbody>

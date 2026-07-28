@@ -14,15 +14,20 @@ class SaisieController extends Controller
         $user = $r->user();
         $userId = $user->id;
 
-        // Tâches planifiées du jour (T1 sprint + T2 datées) non terminées
+        // Tâches du jour : T1/T2 planifiées + T3 urgentes actives
         $tachesDuJour = Tache::with(['projet', 'sprint'])
             ->where('user_id', $userId)
             ->whereIn('statut', ['a_faire', 'en_cours', 'bloque'])
             ->where(function ($q) {
-                $q->whereDate('date_debut', '<=', today())
-                  ->where(function ($q2) {
-                      $q2->whereNull('echeance')->orWhereDate('echeance', '>=', today());
-                  });
+                // T1/T2 : date_debut passée et échéance non dépassée
+                $q->where(function ($q1) {
+                    $q1->whereDate('date_debut', '<=', today())
+                        ->where(function ($q2) {
+                            $q2->whereNull('echeance')->orWhereDate('echeance', '>=', today());
+                        });
+                })
+                // T3 urgentes : toujours visibles tant qu'actives (pas de filtre date)
+                ->orWhere('type', 'T3');
             })
             ->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")
             ->get();
@@ -68,8 +73,24 @@ class SaisieController extends Controller
             $hier = today()->subDay();
             if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
                 $actifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->get();
+
+                // IDs ayant un JourSaisie saisi/justifié hier
                 $saisisHier = JourSaisie::whereDate('date', $hier)
                     ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->toArray();
+
+                // IDs ayant confirmé/infirmé au moins une tâche hier (via saisie ou kanban)
+                if (Schema::hasTable('confirmation_taches')) {
+                    $confirmesHier = ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->unique()->toArray();
+                    $saisisHier = array_unique(array_merge($saisisHier, $confirmesHier));
+                }
+
+                // IDs en absence déclarée hier
+                if (Schema::hasTable('absences')) {
+                    $absentsHier = Absence::whereDate('date_debut', '<=', $hier)
+                        ->whereDate('date_fin', '>=', $hier)->pluck('user_id')->toArray();
+                    $saisisHier = array_unique(array_merge($saisisHier, $absentsHier));
+                }
+
                 $sanseSaisie = $actifs->filter(fn ($u) => !in_array($u->id, $saisisHier));
             }
 

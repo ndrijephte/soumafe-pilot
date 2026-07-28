@@ -54,6 +54,49 @@ class SprintController extends Controller
         return back()->with('succes', 'Sprint mis à jour.');
     }
 
+    /** Démarrer un sprint planifié. */
+    public function demarrer(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        if ($sprint->statut !== 'planifie') return back()->with('erreur', 'Ce sprint n\'est pas en statut planifié.');
+
+        // Vérifier qu'il y a au moins une tâche
+        if ($sprint->taches()->count() === 0) {
+            return back()->with('erreur', 'Impossible de démarrer un sprint sans tâche. Ajoutez au moins une tâche.');
+        }
+
+        // Vérifier qu'aucun autre sprint du même projet n'est en cours
+        $autreEnCours = Sprint::where('projet_id', $sprint->projet_id)
+            ->where('id', '!=', $sprint->id)
+            ->where('statut', 'en_cours')->exists();
+        if ($autreEnCours) {
+            return back()->with('erreur', 'Un autre sprint est déjà en cours sur ce projet. Clôturez-le d\'abord.');
+        }
+
+        $sprint->update(['statut' => 'en_cours']);
+
+        // Notifier tous les collaborateurs assignés
+        $userIds = $sprint->taches()->whereNotNull('user_id')->pluck('user_id')->unique();
+        foreach ($userIds as $uid) {
+            NotificationApp::create([
+                'user_id' => $uid,
+                'type' => 'sprint_demarre',
+                'contenu' => "Le sprint {$sprint->numero} du projet {$sprint->projet?->libelle} a démarré. Vos tâches sont maintenant actives.",
+            ]);
+        }
+
+        // Notifier le responsable projet
+        if ($sprint->projet?->responsable_projet_id && !$userIds->contains($sprint->projet->responsable_projet_id)) {
+            NotificationApp::create([
+                'user_id' => $sprint->projet->responsable_projet_id,
+                'type' => 'sprint_demarre',
+                'contenu' => "Le sprint {$sprint->numero} a démarré — {$sprint->taches()->count()} tâche(s).",
+            ]);
+        }
+
+        return back()->with('succes', "Sprint {$sprint->numero} démarré. {$userIds->count()} collaborateur(s) notifié(s).");
+    }
+
     /** Clôturer un sprint : qualifier toutes les tâches et passer en terminé. */
     public function cloturer(Request $r, Sprint $sprint)
     {

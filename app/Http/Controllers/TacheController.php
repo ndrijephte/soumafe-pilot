@@ -70,6 +70,12 @@ class TacheController extends Controller
         if ((int) $tache->user_id !== (int) $r->user()->id && !$r->user()->estPilote()) {
             return response()->json(['ok' => false, 'message' => 'Vous n\'êtes pas autorisé à modifier cette tâche.'], 403);
         }
+
+        // Bloquer si la tâche appartient à un sprint non en_cours
+        if ($tache->sprint_id && $tache->sprint?->statut !== 'en_cours') {
+            return response()->json(['ok' => false, 'message' => 'Le sprint de cette tâche n\'est pas en cours.'], 422);
+        }
+
         $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,reporte']);
 
         if ($r->statut === 'termine') {

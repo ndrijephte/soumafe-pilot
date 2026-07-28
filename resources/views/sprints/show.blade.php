@@ -91,13 +91,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Ajouter une t&acirc;che</button>
     <button class="btn sec" onclick="document.getElementById('dlg-import').showModal()">Importer (.xlsx)</button>
     @if($sprint->statut === 'planifie')
-    <form method="POST" action="{{ route('sprints.update', $sprint) }}" style="margin:0">
-        @csrf @method('PUT')
-        <input type="hidden" name="objectif" value="{{ $sprint->objectif }}">
-        <input type="hidden" name="date_debut" value="{{ $sprint->date_debut->format('Y-m-d') }}">
-        <input type="hidden" name="date_fin" value="{{ $sprint->date_fin->format('Y-m-d') }}">
-        <input type="hidden" name="engagement_points" value="{{ $sprint->engagement_points }}">
-        <input type="hidden" name="statut" value="en_cours">
+    <form method="POST" action="{{ route('sprints.demarrer', $sprint) }}" style="margin:0" onsubmit="return confirm('Démarrer ce sprint ? Les tâches deviendront exécutables par les collaborateurs.')">
+        @csrf
         <button class="btn" style="background:var(--ok)">D&eacute;marrer le sprint</button>
     </form>
     @endif
@@ -107,6 +102,19 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         @csrf
         <button class="btn" style="background:var(--ko)">Cl&ocirc;turer le sprint</button>
     </form>
+    @endif
+</div>
+@endif
+
+@if($sprint->statut === 'planifie')
+<div style="background:#e0f2fe;border:1px solid #7dd3fc;border-radius:8px;padding:10px 14px;font-size:13px;color:#0369a1;margin-bottom:12px">
+    <strong>Sprint en pr&eacute;paration</strong> — les t&acirc;ches sont consultables mais non ex&eacute;cutables. D&eacute;marrez le sprint pour activer l'ex&eacute;cution.
+</div>
+@elseif($sprint->statut === 'termine')
+<div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:10px 14px;font-size:13px;color:#475569;margin-bottom:12px">
+    <strong>Sprint termin&eacute;</strong> — consultation uniquement.
+    @if($sprint->justification_arret)
+    <br>Motif d'arr&ecirc;t : <em>{{ $sprint->justification_arret }}</em>
     @endif
 </div>
 @endif
@@ -142,7 +150,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </thead>
 <tbody>
 @foreach($sprint->taches->sortByDesc('priorite') as $t)
-<tr data-row data-nom="{{ strtolower($t->intitule) }}" data-user="{{ $t->user_id }}" data-prio="{{ $t->priorite }}" data-statut="{{ $t->statut }}">
+<tr data-row data-nom="{{ strtolower($t->intitule) }}" data-user="{{ $t->user_id }}" data-prio="{{ $t->priorite }}" data-statut="{{ $t->statut }}" @if($sprint->statut !== 'en_cours') style="opacity:0.55" @endif>
     <td>
         <span class="typ t1">T1</span>
         <a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:#1e293b;font-weight:500">{{ $t->intitule }}</a>

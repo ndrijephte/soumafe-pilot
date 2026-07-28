@@ -32,6 +32,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/sprints/{sprint}', [SprintController::class, 'show'])->name('sprints.show');
     Route::put('/sprints/{sprint}', [SprintController::class, 'update'])->name('sprints.update');
     Route::post('/sprints/{sprint}/cloturer', [SprintController::class, 'cloturer'])->name('sprints.cloturer');
+    Route::post('/sprints/{sprint}/demarrer', [SprintController::class, 'demarrer'])->name('sprints.demarrer');
     Route::post('/sprints/{sprint}/arreter', [SprintController::class, 'arreter'])->name('sprints.arreter');
     Route::get('/api/projets/{projet}/sprints', [SprintController::class, 'parProjet'])->name('api.sprints');
     Route::post('/sprints/{sprint}/taches', [SprintController::class, 'ajouterTache'])->name('sprints.ajouter-tache');

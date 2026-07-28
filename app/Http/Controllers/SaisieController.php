@@ -14,7 +14,7 @@ class SaisieController extends Controller
         $user = $r->user();
         $userId = $user->id;
 
-        // Tâches du jour : T1/T2 planifiées + T3 urgentes actives
+        // Tâches du jour : uniquement celles dont le sprint est en_cours (ou sans sprint / T3)
         $tachesDuJour = Tache::with(['projet', 'sprint'])
             ->where('user_id', $userId)
             ->whereIn('statut', ['a_faire', 'en_cours', 'bloque'])
@@ -28,6 +28,11 @@ class SaisieController extends Controller
                 })
                 // T3 urgentes : toujours visibles tant qu'actives (pas de filtre date)
                 ->orWhere('type', 'T3');
+            })
+            // Exclure les tâches de sprints non démarrés ou terminés
+            ->where(function ($q) {
+                $q->whereNull('sprint_id') // tâches hors sprint (T2, T3)
+                  ->orWhereHas('sprint', fn ($s) => $s->where('statut', 'en_cours'));
             })
             ->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")
             ->get();
@@ -126,6 +131,11 @@ class SaisieController extends Controller
     public function confirmer(Request $r, Tache $tache)
     {
         abort_unless((int) $tache->user_id === (int) $r->user()->id, 403);
+
+        // Bloquer si la tâche appartient à un sprint non en_cours
+        if ($tache->sprint_id && $tache->sprint?->statut !== 'en_cours') {
+            return back()->with('erreur', 'Ce sprint n\'est pas en cours. Impossible d\'agir sur cette tâche.');
+        }
         $r->validate([
             'statut' => 'required|in:confirmee,infirmee',
             'motif' => 'required_if:statut,infirmee|nullable|string|max:500',

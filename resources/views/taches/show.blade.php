@@ -76,15 +76,20 @@ dialog textarea{min-height:70px;resize:vertical}
         <a href="{{ route('taches.index') }}" class="btn-ic" style="color:var(--accent);border-color:var(--accent)">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>Kanban
         </a>
-        @if(in_array($tache->statut, ['a_faire', 'en_cours']))
-        <button class="btn-ic" id="btn-terminer" onclick="marquerTermine()" style="color:var(--ok);border-color:var(--ok);background:#f0fdf4">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Termin&eacute;
-        </button>
-        @endif
-        @if($tache->statut !== 'bloque' && $tache->statut !== 'termine' && $tache->statut !== 'a_valider')
-        <button class="btn-ic" onclick="document.getElementById('dlg-blocage').showModal()" style="color:var(--ko);border-color:var(--ko);background:#fef2f2">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Blocage
-        </button>
+        @php $sprintActif = !$tache->sprint_id || $tache->sprint?->statut === 'en_cours'; @endphp
+        @if($sprintActif)
+            @if(in_array($tache->statut, ['a_faire', 'en_cours']))
+            <button class="btn-ic" id="btn-terminer" onclick="marquerTermine()" style="color:var(--ok);border-color:var(--ok);background:#f0fdf4">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Termin&eacute;
+            </button>
+            @endif
+            @if($tache->statut !== 'bloque' && $tache->statut !== 'termine' && $tache->statut !== 'a_valider')
+            <button class="btn-ic" onclick="document.getElementById('dlg-blocage').showModal()" style="color:var(--ko);border-color:var(--ko);background:#fef2f2">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Blocage
+            </button>
+            @endif
+        @else
+            <span style="font-size:12px;color:var(--gris);padding:4px 10px;background:#f1f5f9;border-radius:6px">Sprint {{ $tache->sprint?->statut === 'planifie' ? 'non d&eacute;marr&eacute;' : 'termin&eacute;' }} — consultation uniquement</span>
         @endif
     </div>
 </div>

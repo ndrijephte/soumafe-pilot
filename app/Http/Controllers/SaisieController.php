@@ -1,7 +1,8 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Commentaire, ConfirmationTache, Evenement, JourFerie, JourSaisie, NotificationApp, Tache, TypeEvenement, User};
+use App\Models\{Absence, Commentaire, ConfirmationTache, Evenement, JourFerie, JourSaisie, NotificationApp, Tache, TypeEvenement, User};
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -48,9 +49,17 @@ class SaisieController extends Controller
             ->orderByDesc('date')->limit(10)->get();
 
         // Types d'événements paramétrables
-        $typesEvenement = \Illuminate\Support\Facades\Schema::hasTable('types_evenement')
+        $typesEvenement = Schema::hasTable('types_evenement')
             ? TypeEvenement::orderBy('libelle')->get()
             : collect();
+
+        // Absences déclarées (à venir ou en cours)
+        $absences = collect();
+        if (Schema::hasTable('absences')) {
+            $absences = Absence::where('user_id', $userId)
+                ->whereDate('date_fin', '>=', today())
+                ->orderBy('date_debut')->get();
+        }
 
         // === Section pilote : collaborateurs sans saisie hier + justifications en attente ===
         $sanseSaisie = collect();
@@ -70,10 +79,18 @@ class SaisieController extends Controller
                 ->orderByDesc('date')->limit(20)->get();
         }
 
+        // Absences des collaborateurs (pour pilotes)
+        $absencesEquipe = collect();
+        if ($user->estPilote() && Schema::hasTable('absences')) {
+            $absencesEquipe = Absence::with('user')
+                ->whereDate('date_fin', '>=', today())
+                ->orderBy('date_debut')->get();
+        }
+
         return view('saisie.index', compact(
             'tachesDuJour', 'confirmations', 'jours', 'evenementsDuJour',
             'historique', 'evenementsRecents', 'typesEvenement',
-            'sanseSaisie', 'justificationsEnAttente'
+            'sanseSaisie', 'justificationsEnAttente', 'absences', 'absencesEquipe'
         ));
     }
 
@@ -170,6 +187,53 @@ class SaisieController extends Controller
         ]);
 
         return back()->with('succes', "Jour du {$jour->date->format('d/m/Y')} justifié ({$type}).");
+    }
+
+    /** Déclarer une absence (collaborateur pour lui-même ou pilote pour un collab). */
+    public function declarerAbsence(Request $r)
+    {
+        $r->validate([
+            'user_id' => 'nullable|exists:users,id',
+            'date_debut' => 'required|date|after_or_equal:today',
+            'date_fin' => 'required|date|after_or_equal:date_debut',
+            'type' => 'required|in:conge,mission,maladie,formation,autre',
+            'motif' => 'nullable|string|max:500',
+        ]);
+
+        $userId = $r->user_id && $r->user()->estPilote() ? $r->user_id : $r->user()->id;
+
+        // Vérifier chevauchement
+        $chevauchement = Absence::where('user_id', $userId)
+            ->where(function ($q) use ($r) {
+                $q->whereBetween('date_debut', [$r->date_debut, $r->date_fin])
+                  ->orWhereBetween('date_fin', [$r->date_debut, $r->date_fin])
+                  ->orWhere(function ($q2) use ($r) {
+                      $q2->whereDate('date_debut', '<=', $r->date_debut)
+                          ->whereDate('date_fin', '>=', $r->date_fin);
+                  });
+            })->exists();
+
+        if ($chevauchement) return back()->with('erreur', 'Une absence est déjà déclarée sur cette période.');
+
+        Absence::create([
+            'user_id' => $userId,
+            'date_debut' => $r->date_debut,
+            'date_fin' => $r->date_fin,
+            'type' => $r->type,
+            'motif' => $r->motif,
+            'declare_par' => $r->user()->id,
+        ]);
+
+        $nom = $userId != $r->user()->id ? User::find($userId)->nomComplet() : 'Vous';
+        return back()->with('succes', "Absence déclarée pour {$nom} du {$r->date_debut} au {$r->date_fin}.");
+    }
+
+    /** Annuler une absence déclarée. */
+    public function annulerAbsence(Request $r, Absence $absence)
+    {
+        abort_unless((int) $absence->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
+        $absence->delete();
+        return back()->with('succes', 'Absence annulée.');
     }
 
     /** Pilote : envoyer un rappel de saisie à un collaborateur. */

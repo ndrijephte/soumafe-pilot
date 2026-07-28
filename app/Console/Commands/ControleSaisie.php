@@ -1,9 +1,9 @@
 <?php
 namespace App\Console\Commands;
 
-use App\Models\{ConfirmationTache, JourFerie, JourSaisie, NotificationApp, Tache, User};
+use App\Models\{Absence, ConfirmationTache, JourFerie, JourSaisie, NotificationApp, Tache, User};
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\{DB, Schema};
 
 class ControleSaisie extends Command
 {
@@ -26,6 +26,17 @@ class ControleSaisie extends Command
         foreach ($users as $u) {
             // Déjà traité ?
             if (JourSaisie::where('user_id', $u->id)->whereDate('date', $date)->exists()) continue;
+
+            // Absence déclarée → jour automatiquement justifié
+            if (Schema::hasTable('absences') && Absence::pourDate($u->id, $date)->exists()) {
+                $abs = Absence::pourDate($u->id, $date)->first();
+                JourSaisie::create([
+                    'user_id' => $u->id,
+                    'date' => $date,
+                    'statut' => 'justifie',
+                ]);
+                continue;
+            }
 
             // Tâches planifiées ce jour-là (même logique que la page saisie)
             $tachesPlanifiees = Tache::where('user_id', $u->id)

@@ -172,6 +172,54 @@ dialog textarea{min-height:60px;resize:vertical}
 </div>
 @endif
 
+{{-- Section Absences --}}
+<div class="section">
+    <div class="section-titre" style="justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:8px">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="4"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Absences d&eacute;clar&eacute;es
+        </span>
+        <button class="btn sm sec" onclick="document.getElementById('dlg-abs').showModal()" style="font-size:12px">+ D&eacute;clarer</button>
+    </div>
+    @if(isset($absences) && $absences->count() > 0)
+    <div class="carte">
+        @foreach($absences as $a)
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px">
+            <div>
+                <span style="font-weight:600">{{ $a->labelType() }}</span>
+                <span style="color:var(--gris);margin-left:6px">du {{ $a->date_debut->format('d/m/Y') }} au {{ $a->date_fin->format('d/m/Y') }}</span>
+                @if($a->motif) <span style="font-size:11px;color:var(--gris);margin-left:6px">&mdash; {{ $a->motif }}</span> @endif
+            </div>
+            @if($a->date_debut->isFuture())
+            <form method="POST" action="{{ route('saisie.absence.annuler', $a) }}" style="display:inline">@csrf @method('DELETE')
+                <button type="submit" class="btn-ic-s ko" style="font-size:10px">Annuler</button>
+            </form>
+            @endif
+        </div>
+        @endforeach
+    </div>
+    @else
+    <div class="carte" style="text-align:center;color:var(--gris);font-size:13px;padding:16px">Aucune absence d&eacute;clar&eacute;e.</div>
+    @endif
+</div>
+
+@if(auth()->user()->estPilote() && isset($absencesEquipe) && $absencesEquipe->count() > 0)
+<div class="section">
+    <div class="section-titre">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Absences &eacute;quipe (&agrave; venir / en cours)
+    </div>
+    <div class="carte">
+        @foreach($absencesEquipe as $ae)
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
+            <span><strong>{{ $ae->user->nomComplet() }}</strong> &mdash; {{ $ae->labelType() }} &middot; {{ $ae->date_debut->format('d/m') }} &rarr; {{ $ae->date_fin->format('d/m') }}</span>
+            @if($ae->motif)<span style="color:var(--gris);font-size:11px">{{ $ae->motif }}</span>@endif
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
 <div class="section">
     <div class="section-titre">Historique (30 derniers jours)</div>
     <div class="carte">
@@ -212,6 +260,40 @@ dialog textarea{min-height:60px;resize:vertical}
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn" style="background:var(--ko)">Confirmer l'infirmation</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="dlg-abs">
+    <h3 style="color:var(--bleu);margin-bottom:4px">D&eacute;clarer une absence</h3>
+    <form method="POST" action="{{ route('saisie.absence') }}">
+        @csrf
+        @if(auth()->user()->estPilote())
+        <label>Collaborateur</label>
+        <select name="user_id">
+            <option value="">Moi-m&ecirc;me</option>
+            @foreach(\App\Models\User::where('actif',true)->whereNotIn('role',['direction','invite'])->orderBy('name')->get() as $collab)
+            <option value="{{ $collab->id }}">{{ $collab->nomComplet() }}</option>
+            @endforeach
+        </select>
+        @endif
+        <label>Type <span class="req">*</span></label>
+        <select name="type" required>
+            <option value="conge">Cong&eacute;</option>
+            <option value="mission">Mission</option>
+            <option value="maladie">Maladie</option>
+            <option value="formation">Formation</option>
+            <option value="autre">Autre</option>
+        </select>
+        <label>Du <span class="req">*</span></label>
+        <input type="date" name="date_debut" required min="{{ today()->format('Y-m-d') }}">
+        <label>Au <span class="req">*</span></label>
+        <input type="date" name="date_fin" required min="{{ today()->format('Y-m-d') }}">
+        <label>Motif (optionnel)</label>
+        <textarea name="motif" placeholder="Pr&eacute;cisez si n&eacute;cessaire..."></textarea>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">D&eacute;clarer</button>
         </div>
     </form>
 </dialog>

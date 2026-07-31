@@ -103,6 +103,9 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <button class="btn" style="background:var(--ko)">Cl&ocirc;turer le sprint</button>
     </form>
     @endif
+    @if(in_array($sprint->statut, ['en_cours', 'termine']))
+    <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint', 'sprint_id' => $sprint->id]) }}" class="btn" style="background:#059669;color:#fff">CR D&eacute;mo</a>
+    @endif
 </div>
 @endif
 

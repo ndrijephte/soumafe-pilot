@@ -1,7 +1,7 @@
 <?php
 use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController};
-use App\Http\Controllers\{ExportController, ObjectifController, ReportingController};
+use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController};
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('dashboard'));
@@ -58,9 +58,13 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/api/notifications/{notification}/lire', [NotificationController::class, 'lire'])->name('api.notifications.lire');
     Route::post('/api/notifications/tout-lire', [NotificationController::class, 'toutLire'])->name('api.notifications.tout-lire');
 
+    // Recherche globale
+    Route::get('/api/recherche', [DashboardController::class, 'recherche'])->name('api.recherche');
+
     // Profil & changement mot de passe
     Route::get('/profil', [ProfilController::class, 'index'])->name('profil.index');
     Route::patch('/profil/mot-de-passe', [ProfilController::class, 'updateMotDePasse'])->name('profil.password');
+    Route::post('/admin/utilisateurs/{utilisateur}/reset-mdp', [ProfilController::class, 'resetMotDePasse'])->name('admin.utilisateurs.reset-mdp');
 
     // Objectifs individuels
     Route::get('/objectifs', [ObjectifController::class, 'index'])->name('objectifs.index');
@@ -73,6 +77,16 @@ Route::middleware(['auth'])->group(function () {
     // Reporting (pilotes)
     Route::get('/reporting', [ReportingController::class, 'index'])->name('reporting.index');
     Route::get('/reporting/imprimer', [ReportingController::class, 'imprimer'])->name('reporting.imprimer');
+
+    // Comptes rendus
+    Route::get('/comptes-rendus', [CompteRenduController::class, 'index'])->name('comptes-rendus.index');
+    Route::get('/comptes-rendus/creer', [CompteRenduController::class, 'create'])->name('comptes-rendus.create');
+    Route::post('/comptes-rendus/designer', [CompteRenduController::class, 'designer'])->name('comptes-rendus.designer');
+    Route::get('/comptes-rendus/{cr}', [CompteRenduController::class, 'show'])->name('comptes-rendus.show');
+    Route::get('/comptes-rendus/{cr}/editer', [CompteRenduController::class, 'edit'])->name('comptes-rendus.edit');
+    Route::put('/comptes-rendus/{cr}', [CompteRenduController::class, 'update'])->name('comptes-rendus.update');
+    Route::post('/comptes-rendus/{cr}/confirmer', [CompteRenduController::class, 'confirmer'])->name('comptes-rendus.confirmer');
+    Route::get('/comptes-rendus/{cr}/telecharger', [CompteRenduController::class, 'telecharger'])->name('comptes-rendus.telecharger');
 
     // Exports xlsx (pilotes : direction, charge_operations, admin)
     Route::get('/exports', [ExportController::class, 'index'])->name('export.index');

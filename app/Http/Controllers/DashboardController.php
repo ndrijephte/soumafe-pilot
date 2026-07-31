@@ -295,4 +295,74 @@ class DashboardController extends Controller
         $taux = $joursOuvres > 0 ? round(($joursSaisis / $joursOuvres) * 100) : 100;
         return ['taux' => $taux, 'jours_ouvres' => $joursOuvres, 'jours_saisis' => $joursSaisis];
     }
+
+    /**
+     * Recherche globale (JSON) — tâches, projets, sprints, collaborateurs
+     */
+    public function recherche(Request $r)
+    {
+        $q = trim($r->get('q', ''));
+        if (mb_strlen($q) < 2) return response()->json([]);
+
+        $like = "%{$q}%";
+        $results = [];
+
+        // Tâches
+        $taches = Tache::where('intitule', 'like', $like)
+            ->orderByDesc('updated_at')->limit(5)->get();
+        foreach ($taches as $t) {
+            $results[] = [
+                'type'  => 'tache',
+                'label' => $t->intitule,
+                'sub'   => ucfirst(str_replace('_', ' ', $t->statut)),
+                'url'   => route('taches.show', $t),
+            ];
+        }
+
+        // Projets
+        $projets = Projet::where('libelle', 'like', $like)
+            ->orderBy('libelle')->limit(5)->get();
+        foreach ($projets as $p) {
+            $results[] = [
+                'type'  => 'projet',
+                'label' => $p->libelle,
+                'sub'   => ucfirst($p->statut),
+                'url'   => route('admin.projets.index'),
+            ];
+        }
+
+        // Sprints
+        if (Schema::hasTable('sprints')) {
+            $sprints = Sprint::where('libelle', 'like', $like)
+                ->orderByDesc('date_debut')->limit(5)->get();
+            foreach ($sprints as $s) {
+                $results[] = [
+                    'type'  => 'sprint',
+                    'label' => $s->libelle ?? "Sprint #{$s->id}",
+                    'sub'   => ucfirst(str_replace('_', ' ', $s->statut)),
+                    'url'   => route('sprints.show', $s),
+                ];
+            }
+        }
+
+        // Collaborateurs (pilotes uniquement)
+        if ($r->user()->estPilote()) {
+            $users = User::where(function ($qb) use ($like) {
+                $qb->where('name', 'like', $like)
+                   ->orWhere('prenom', 'like', $like)
+                   ->orWhere('email', 'like', $like);
+            })->where('actif', true)->orderBy('name')->limit(5)->get();
+
+            foreach ($users as $u) {
+                $results[] = [
+                    'type'  => 'collaborateur',
+                    'label' => $u->nomComplet(),
+                    'sub'   => $u->roleLibelle(),
+                    'url'   => $r->user()->estAdmin() ? route('admin.utilisateurs.edit', $u) : '#',
+                ];
+            }
+        }
+
+        return response()->json(array_slice($results, 0, 15));
+    }
 }

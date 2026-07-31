@@ -54,7 +54,7 @@
         <div class="form-group">
             <label>Rôle <span class="req">*</span></label>
             <select name="role" required>
-                @foreach($roles as $r)<option value="{{ $r }}" @selected(old('role', $user->role)==$r)>{{ ucfirst(str_replace('_',' ',$r)) }}</option>@endforeach
+                @foreach($roles as $r)<option value="{{ $r }}" @selected(old('role', $user->role)==$r)>{{ \App\Models\User::libelleRole($r) }}</option>@endforeach
             </select>
         </div>
         <div class="form-group">

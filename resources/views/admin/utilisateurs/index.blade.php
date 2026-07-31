@@ -48,7 +48,7 @@
 
 <form class="filtres" method="GET">
     <input name="q" placeholder="Rechercher…" value="{{ request('q') }}">
-    <select name="role"><option value="">Tous les rôles</option>@foreach($roles as $r)<option value="{{ $r }}" @selected(request('role')==$r)>{{ ucfirst(str_replace('_',' ',$r)) }}</option>@endforeach</select>
+    <select name="role"><option value="">Tous les rôles</option>@foreach($roles as $r)<option value="{{ $r }}" @selected(request('role')==$r)>{{ \App\Models\User::libelleRole($r) }}</option>@endforeach</select>
     <select name="profil"><option value="">Tous les profils</option>@foreach($profils as $p)<option value="{{ $p }}" @selected(request('profil')==$p)>{{ ucfirst($p) }}</option>@endforeach</select>
     <select name="actif"><option value="">Tous</option><option value="1" @selected(request('actif')==='1')>Actifs</option><option value="0" @selected(request('actif')==='0')>Inactifs</option></select>
     <button class="btn sm">Filtrer</button>
@@ -69,13 +69,16 @@
     <td><strong>{{ $u->name }}</strong> {{ $u->prenom }}</td>
     <td>{{ $u->email }}</td>
     <td>{{ $u->pole?->libelle ?? '—' }}</td>
-    <td><span class="badge-role r-{{ $u->role }}">{{ ucfirst(str_replace('_',' ',$u->role)) }}</span></td>
+    <td><span class="badge-role r-{{ $u->role }}">{{ $u->roleLibelle() }}</span></td>
     <td>{{ ucfirst($u->profil_mesure) }}</td>
     <td class="{{ $u->actif ? 'actif-oui' : 'actif-non' }}">{{ $u->actif ? 'Oui' : 'Non' }}</td>
     <td style="white-space:nowrap">
         <a href="{{ route('admin.utilisateurs.edit', $u) }}" class="btn sm sec">Modifier</a>
         <form method="POST" action="{{ route('admin.utilisateurs.toggle', $u) }}" style="display:inline">@csrf @method('PATCH')
             <button class="btn sm {{ $u->actif ? 'danger' : '' }}" onclick="return confirm('{{ $u->actif ? 'Désactiver' : 'Réactiver' }} ce compte ?')">{{ $u->actif ? 'Désactiver' : 'Réactiver' }}</button>
+        </form>
+        <form method="POST" action="{{ route('admin.utilisateurs.reset-mdp', $u) }}" style="display:inline">@csrf
+            <button class="btn sm" style="background:#f59e0b;color:#fff" onclick="return confirm('Réinitialiser le mot de passe de {{ $u->nomComplet() }} ?')">Reset MDP</button>
         </form>
     </td>
 </tr>

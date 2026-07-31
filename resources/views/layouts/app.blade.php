@@ -107,6 +107,8 @@
     {{-- Export déplacé dans Reporting --}}
     <a href="{{ route('objectifs.index') }}" data-tip="Objectifs" class="{{ request()->routeIs('objectifs.*') ? 'actif' : '' }}">
         {!! $svg('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>') !!}<span class="txt">Objectifs</span></a>
+    <a href="{{ route('comptes-rendus.index') }}" data-tip="Comptes rendus" class="{{ request()->routeIs('comptes-rendus.*') ? 'actif' : '' }}">
+        {!! $svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M9 15h6M9 11h6M9 7h2"/><polyline points="14 2 14 8 20 8"/>') !!}<span class="txt">Comptes rendus</span></a>
     @if($u?->estPilote())
     <a href="{{ route('reporting.index') }}" data-tip="Reporting" class="{{ request()->routeIs('reporting.*') ? 'actif' : '' }}">
         {!! $svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>') !!}<span class="txt">Reporting</span></a>
@@ -129,9 +131,10 @@
         <button class="hamburger" onclick="ouvrirMenu()" aria-label="Menu">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <div class="recherche">
+        <div class="recherche" style="position:relative">
             {!! $svg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>') !!}
-            <input placeholder="Rechercher une tâche, un projet, un document…">
+            <input id="search-global" placeholder="Rechercher une tâche, un projet, un collaborateur…" autocomplete="off">
+            <div id="search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:60;max-height:380px;overflow-y:auto;margin-top:4px"></div>
         </div>
         <div class="user">
             <div class="notif-wrap" style="position:relative;cursor:pointer" onclick="toggleNotifs()">
@@ -145,7 +148,7 @@
                     <div id="notif-list" style="padding:6px 0"></div>
                 </div>
             </div>
-            <div class="user-info"><span class="user-nom">{{ $u?->nomComplet() }}</span><span class="user-role">{{ ucfirst(str_replace('_', ' ', $u->role ?? '')) }}</span></div>
+            <div class="user-info"><span class="user-nom">{{ $u?->nomComplet() }}</span><span class="user-role">{{ $u->roleLibelle() }}</span></div>
             <a href="{{ route('profil.index') }}" class="avatar" style="text-decoration:none;color:#fff" title="Mon profil">{{ $initiales }}</a>
         </div>
     </div>
@@ -190,6 +193,32 @@ function toutLireNotifs(){
 }
 document.addEventListener('click',e=>{if(!e.target.closest('.notif-wrap'))document.getElementById('notif-panel').style.display='none'});
 chargerNotifs();setInterval(chargerNotifs,60000);
+
+// Recherche globale
+(function(){
+    const input=document.getElementById('search-global');
+    const box=document.getElementById('search-results');
+    if(!input||!box)return;
+    let timer=null;
+    const icons={tache:'📋',projet:'📁',sprint:'🚀',collaborateur:'👤'};
+    input.addEventListener('input',()=>{
+        clearTimeout(timer);
+        const q=input.value.trim();
+        if(q.length<2){box.style.display='none';return}
+        timer=setTimeout(()=>{
+            fetch('{{ route("api.recherche") }}?q='+encodeURIComponent(q),{headers:{'Accept':'application/json'}})
+            .then(r=>r.json()).then(data=>{
+                if(!data.length){box.innerHTML='<div style="padding:14px;color:#94a3b8;font-size:.85rem;text-align:center">Aucun résultat</div>';box.style.display='block';return}
+                box.innerHTML=data.map(r=>`<a href="${r.url}" style="display:flex;gap:10px;align-items:center;padding:10px 14px;text-decoration:none;color:#1a1a2e;font-size:.85rem;border-bottom:1px solid #f1f5f9;transition:background .1s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">`+
+                    `<span style="font-size:1.1rem">${icons[r.type]||'📄'}</span>`+
+                    `<span style="flex:1"><strong>${r.label}</strong><br><span style="font-size:.78rem;color:#64748b">${r.sub}</span></span>`+
+                    `<span style="font-size:.72rem;color:#94a3b8;text-transform:capitalize">${r.type}</span></a>`).join('');
+                box.style.display='block';
+            });
+        },250);
+    });
+    document.addEventListener('click',e=>{if(!e.target.closest('.recherche'))box.style.display='none'});
+})();
 </script>
 @stack('scripts')
 </body>

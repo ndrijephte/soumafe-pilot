@@ -23,6 +23,20 @@ class User extends Authenticatable
     public function projetsResponsable(): HasMany { return $this->hasMany(Projet::class, 'responsable_projet_id'); }
 
     public function nomComplet(): string { return trim("{$this->name} {$this->prenom}"); }
+
+    public static function libelleRole(string $code): string
+    {
+        return match ($code) {
+            'administrateur'     => 'Administrateur',
+            'direction'          => 'Direction Générale',
+            'charge_operations'  => 'Chargé des Opérations et Projets',
+            'collaborateur'      => 'Collaborateur',
+            'invite'             => 'Invité',
+            default              => ucfirst(str_replace('_', ' ', $code)),
+        };
+    }
+
+    public function roleLibelle(): string { return self::libelleRole($this->role); }
     public function estAdmin(): bool { return in_array($this->role, ['administrateur', 'charge_operations'], true); }
     public function aRole(string ...$roles): bool { return in_array($this->role, $roles, true); }
     public function estPilote(): bool { return $this->aRole('administrateur', 'direction', 'charge_operations'); }

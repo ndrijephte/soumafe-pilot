@@ -14,17 +14,17 @@
 .cr-card .meta{font-size:.82rem;color:#64748b}
 .cr-card .meta span{margin-right:14px}
 .badge-type{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600;color:#fff}
-.badge-type.reunion{background:#2563eb}
-.badge-type.demo{background:#059669}
+.badge-type.reunion{background:var(--bleu,#1F4E79)}
+.badge-type.demo{background:var(--accent,#2E74B5)}
 .badge-statut-cr{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
 .badge-statut-cr.brouillon{background:#fef3c7;color:#92400e}
 .badge-statut-cr.confirme{background:#d1fae5;color:#065f46}
 .cr-actions{display:flex;gap:8px}
 .cr-actions a{padding:6px 14px;border-radius:8px;font-size:.82rem;font-weight:500;text-decoration:none;transition:background .15s}
-.cr-actions .btn-voir{background:#e0e7ff;color:#3730a3}
-.cr-actions .btn-voir:hover{background:#c7d2fe}
-.cr-actions .btn-dl{background:#ecfdf5;color:#047857}
-.cr-actions .btn-dl:hover{background:#d1fae5}
+.cr-actions .btn-voir{background:#EFF4FB;color:var(--bleu,#1F4E79)}
+.cr-actions .btn-voir:hover{background:#DDEAF5}
+.cr-actions .btn-dl{background:#EFF4FB;color:var(--accent,#2E74B5)}
+.cr-actions .btn-dl:hover{background:#DDEAF5}
 .empty-state{text-align:center;padding:60px 20px;color:#94a3b8;font-size:.95rem}
 .pag{margin-top:20px;display:flex;justify-content:center}
 .pag nav{display:flex;gap:4px}

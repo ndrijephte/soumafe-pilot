@@ -6,9 +6,9 @@
 .cr-show h2{font-size:1.3rem;font-weight:700;color:#1a1a2e;margin-bottom:4px}
 .cr-show .sub{font-size:.85rem;color:#64748b;margin-bottom:20px}
 .section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.section h3{font-size:1rem;font-weight:700;color:#1e3a5f;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #e0e7ff}
+.section h3{font-size:1rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #DDEAF5}
 .tbl{width:100%;border-collapse:collapse;font-size:.85rem}
-.tbl th{background:#1F4E79;color:#fff;padding:8px 10px;text-align:left;font-weight:600}
+.tbl th{background:var(--bleu,#1F4E79);color:#fff;padding:8px 10px;text-align:left;font-weight:600}
 .tbl td{padding:8px 10px;border-bottom:1px solid #e5e7eb}
 .tbl tr:nth-child(even) td{background:#f8fafc}
 .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}

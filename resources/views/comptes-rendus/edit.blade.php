@@ -6,9 +6,9 @@
 .cr-edit h2{font-size:1.3rem;font-weight:700;color:#1a1a2e;margin-bottom:6px}
 .cr-edit .sub{font-size:.85rem;color:#64748b;margin-bottom:20px}
 .section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.section h3{font-size:1rem;font-weight:700;color:#1e3a5f;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #e0e7ff}
+.section h3{font-size:1rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #DDEAF5}
 .tbl{width:100%;border-collapse:collapse;font-size:.85rem}
-.tbl th{background:#1F4E79;color:#fff;padding:8px 10px;text-align:left;font-weight:600}
+.tbl th{background:var(--bleu,#1F4E79);color:#fff;padding:8px 10px;text-align:left;font-weight:600}
 .tbl td{padding:8px 10px;border-bottom:1px solid #e5e7eb}
 .tbl input[type=text],.tbl textarea,.tbl select{width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem}
 .tbl textarea{resize:vertical;min-height:32px}
@@ -23,7 +23,7 @@
 .btn-add:hover{background:#e2e8f0}
 .btn-rm{background:none;border:none;color:#dc2626;cursor:pointer;font-size:1.1rem;padding:2px 6px}
 .odj-item{background:#f8fafc;border-radius:10px;padding:14px 16px;margin-bottom:10px;position:relative}
-.odj-item .num{position:absolute;left:-8px;top:14px;background:#2563eb;color:#fff;font-size:.72rem;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.odj-item .num{position:absolute;left:-8px;top:14px;background:var(--bleu,#1F4E79);color:#fff;font-size:.72rem;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 </style>
 
 <div class="cr-edit">

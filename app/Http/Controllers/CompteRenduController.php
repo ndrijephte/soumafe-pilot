@@ -520,14 +520,8 @@ class CompteRenduController extends Controller
 
     private function borders(): string
     {
-        $b = '<w:val="single" w:sz="4" w:space="0" w:color="999999"/>';
-        // Fix: les attributs doivent être sur l'élément, pas avec < fermant
-        return '<w:top w:val="single" w:sz="4" w:space="0" w:color="999999"/>'
-            . '<w:left w:val="single" w:sz="4" w:space="0" w:color="999999"/>'
-            . '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="999999"/>'
-            . '<w:right w:val="single" w:sz="4" w:space="0" w:color="999999"/>'
-            . '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="999999"/>'
-            . '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="999999"/>';
+        $b = 'w:val="single" w:sz="4" w:space="0" w:color="999999"';
+        return "<w:top {$b}/><w:left {$b}/><w:bottom {$b}/><w:right {$b}/><w:insideH {$b}/><w:insideV {$b}/>";
     }
 
     private function docxImage(string $path, int $cx, int $cy): string

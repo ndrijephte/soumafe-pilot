@@ -36,12 +36,13 @@
         <form class="cr-filtres" method="GET">
             <select name="type" onchange="this.form.submit()">
                 <option value="">Tous les types</option>
-                <option value="reunion_hebdo" @selected(request('type')==='reunion_hebdo')>Réunion hebdomadaire</option>
+                <option value="reunion_ordinaire" @selected(request('type')==='reunion_ordinaire')>Réunion ordinaire</option>
+                <option value="reunion_extraordinaire" @selected(request('type')==='reunion_extraordinaire')>Réunion extraordinaire</option>
                 <option value="demo_sprint" @selected(request('type')==='demo_sprint')>Démonstration sprint</option>
             </select>
         </form>
         @if($user->estPilote())
-        <a href="{{ route('comptes-rendus.create', ['type' => 'reunion_hebdo']) }}" class="btn">+ CR Réunion</a>
+        <a href="{{ route('comptes-rendus.create', ['type' => 'reunion_ordinaire']) }}" class="btn">+ CR Réunion</a>
         <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="btn sec">+ CR Démo</a>
         @endif
     </div>
@@ -57,7 +58,7 @@
         <div class="left">
             <div class="titre">{{ $cr->titre }}</div>
             <div class="meta">
-                <span class="badge-type {{ $cr->type === 'reunion_hebdo' ? 'reunion' : 'demo' }}">{{ $cr->typeLibelle() }}</span>
+                <span class="badge-type {{ $cr->estReunion() ? 'reunion' : 'demo' }}">{{ $cr->typeCourt() }}</span>
                 <span>{{ $cr->date_reunion->format('d/m/Y') }}</span>
                 <span>Réd. : {{ $cr->redacteur?->nomComplet() ?? '—' }}</span>
                 <span class="badge-statut-cr {{ $cr->statut }}">{{ $cr->statut === 'confirme' ? 'Confirmé' : 'Brouillon' }}</span>

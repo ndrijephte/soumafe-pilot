@@ -25,6 +25,10 @@
 .cr-actions .btn-voir:hover{background:#DDEAF5}
 .cr-actions .btn-dl{background:#EFF4FB;color:var(--accent,#2E74B5)}
 .cr-actions .btn-dl:hover{background:#DDEAF5}
+.btn-cr-new{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;color:#fff;background:var(--bleu,#1F4E79);transition:background .15s;box-shadow:0 1px 3px rgba(31,78,121,.15)}
+.btn-cr-new:hover{background:var(--accent,#2E74B5)}
+.btn-cr-new.sec{background:transparent;color:var(--bleu,#1F4E79);border:1px solid var(--bleu,#1F4E79);box-shadow:none}
+.btn-cr-new.sec:hover{background:#EFF4FB}
 .empty-state{text-align:center;padding:60px 20px;color:#94a3b8;font-size:.95rem}
 .pag{margin-top:20px;display:flex;justify-content:center}
 .pag nav{display:flex;gap:4px}
@@ -42,8 +46,8 @@
             </select>
         </form>
         @if($user->estPilote())
-        <a href="{{ route('comptes-rendus.create', ['type' => 'reunion_ordinaire']) }}" class="btn">+ CR Réunion</a>
-        <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="btn sec">+ CR Démo</a>
+        <a href="{{ route('comptes-rendus.create', ['type' => 'reunion_ordinaire']) }}" class="btn-cr-new">+ Réunion</a>
+        <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="btn-cr-new sec">+ Démo</a>
         @endif
     </div>
 </div>

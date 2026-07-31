@@ -3,27 +3,26 @@
 @section('contenu')
 <style>
 .cr-form{max-width:660px;margin:0 auto;background:#fff;border-radius:14px;padding:32px;box-shadow:0 1px 6px rgba(0,0,0,.06)}
-.cr-form h2{font-size:1.3rem;font-weight:700;color:#1a1a2e;margin-bottom:4px}
-.cr-sub{font-size:.82rem;color:#94a3b8;margin-bottom:20px}
+.cr-form h2{font-size:1.15rem;font-weight:700;color:#1a1a2e;margin-bottom:4px}
+.cr-sub{font-size:.8rem;color:#94a3b8;margin-bottom:22px}
 .fg{margin-bottom:16px}
 .fg label{display:block;font-size:.85rem;font-weight:600;color:#475569;margin-bottom:4px}
-.fg input,.fg select{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem}
+.fg input,.fg select{width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;transition:border-color .15s}
+.fg input:focus,.fg select:focus{border-color:var(--bleu,#1F4E79);outline:none;box-shadow:0 0 0 3px rgba(31,78,121,.1)}
 .fg .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
-.type-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
-.type-tabs a{padding:8px 16px;border-radius:20px;font-size:.82rem;font-weight:600;text-decoration:none;transition:background .15s}
-.type-tabs a.active{background:var(--bleu,#1F4E79);color:#fff}
-.type-tabs a:not(.active){background:#f1f5f9;color:#475569}
-.type-tabs a:not(.active):hover{background:#e2e8f0}
-.type-select{display:flex;gap:8px;margin-top:6px}
-.type-select label{font-weight:400;display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 14px;border-radius:8px;border:1px solid #d1d5db;font-size:.85rem;transition:border-color .15s,background .15s}
-.type-select label:has(input:checked){border-color:var(--bleu,#1F4E79);background:#EFF4FB}
-.type-select label:has(input:checked) span{color:var(--bleu,#1F4E79);font-weight:600}
-.type-select input[type=radio]{accent-color:var(--bleu,#1F4E79)}
+.cr-tabs{display:flex;gap:0;margin-bottom:24px;border-radius:10px;overflow:hidden;border:1px solid #d1d5db}
+.cr-tabs a{flex:1;text-align:center;padding:10px 16px;font-size:.85rem;font-weight:600;text-decoration:none;transition:background .15s,color .15s;color:#64748b;background:#f8fafc}
+.cr-tabs a.active{background:var(--bleu,#1F4E79);color:#fff}
+.cr-tabs a:not(.active):hover{background:#e2e8f0}
+.cr-bar{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid #f1f5f9}
+.cr-bar .btn-annuler{padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:500;text-decoration:none;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;transition:background .15s}
+.cr-bar .btn-annuler:hover{background:#e2e8f0;color:#334155}
+.cr-bar .btn-creer{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--bleu,#1F4E79);border:none;cursor:pointer;transition:background .15s;box-shadow:0 1px 3px rgba(31,78,121,.2)}
+.cr-bar .btn-creer:hover{background:var(--accent,#2E74B5)}
 </style>
 
 <div class="cr-form">
-    <div class="type-tabs">
+    <div class="cr-tabs">
         <a href="{{ route('comptes-rendus.create', ['type' => 'reunion_ordinaire']) }}" class="{{ $type !== 'demo_sprint' ? 'active' : '' }}">Réunion</a>
         <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="{{ $type === 'demo_sprint' ? 'active' : '' }}">Démo sprint</a>
     </div>
@@ -51,17 +50,17 @@
         @if($type !== 'demo_sprint')
         <div class="fg">
             <label>Type de réunion</label>
-            <div class="type-select">
-                <label><input type="radio" name="type" value="reunion_ordinaire" @checked(old('type', $type) !== 'reunion_extraordinaire')> <span>Ordinaire (hebdomadaire)</span></label>
-                <label><input type="radio" name="type" value="reunion_extraordinaire" @checked(old('type', $type) === 'reunion_extraordinaire')> <span>Extraordinaire (stratégique)</span></label>
-            </div>
+            <select name="type">
+                <option value="reunion_ordinaire" @selected(old('type', $type) !== 'reunion_extraordinaire')>Ordinaire (hebdomadaire)</option>
+                <option value="reunion_extraordinaire" @selected(old('type', $type) === 'reunion_extraordinaire')>Extraordinaire (stratégique)</option>
+            </select>
         </div>
         @else
         <input type="hidden" name="type" value="demo_sprint">
         @endif
 
         <div class="fg">
-            <label>Date de la réunion</label>
+            <label>Date</label>
             <input type="date" name="date_reunion" value="{{ old('date_reunion', now()->format('Y-m-d')) }}" required>
         </div>
 
@@ -101,22 +100,42 @@
 
         @if($type === 'demo_sprint')
         <div class="fg">
-            <label>Sprint concerné</label>
-            <select name="sprint_id">
+            <label>Projet concerné</label>
+            <select id="projet-select" onchange="filtrerSprints()">
+                <option value="">— Tous les projets —</option>
+                @foreach($projets as $p)
+                <option value="{{ $p->id }}">{{ $p->libelle }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="fg">
+            <label>Sprint</label>
+            <select name="sprint_id" id="sprint-select">
                 <option value="">— Choisir —</option>
                 @foreach($sprints as $s)
-                <option value="{{ $s->id }}" @selected(old('sprint_id', $sprintId) == $s->id)>
-                    {{ $s->libelle ?? "Sprint #{$s->id}" }} ({{ $s->projet?->libelle ?? '—' }})
+                <option value="{{ $s->id }}" data-projet="{{ $s->projet_id }}" @selected(old('sprint_id', $sprintId) == $s->id)>
+                    {{ $s->libelle ?? "Sprint #{$s->id}" }} — {{ $s->projet?->libelle ?? '—' }}
                 </option>
                 @endforeach
             </select>
         </div>
         @endif
 
-        <div class="actions">
-            <a href="{{ route('comptes-rendus.index') }}" class="btn sec">Annuler</a>
-            <button type="submit" class="btn">Désigner et créer</button>
+        <div class="cr-bar">
+            <a href="{{ route('comptes-rendus.index') }}" class="btn-annuler">Annuler</a>
+            <button type="submit" class="btn-creer">Désigner et créer</button>
         </div>
     </form>
 </div>
+
+@if($type === 'demo_sprint')
+<script>
+function filtrerSprints(){
+    const pid = document.getElementById('projet-select').value;
+    document.querySelectorAll('#sprint-select option[data-projet]').forEach(o => {
+        o.style.display = (!pid || o.dataset.projet === pid) ? '' : 'none';
+    });
+}
+</script>
+@endif
 @endsection

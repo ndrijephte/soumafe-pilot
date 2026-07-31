@@ -33,9 +33,10 @@ class CompteRenduController extends Controller
         $sprintId = $r->get('sprint_id');
         $collaborateurs = User::where('actif', true)->where('role', '!=', 'direction')->orderBy('name')->get();
         $tousUsers = User::where('actif', true)->orderBy('name')->get();
-        $sprints = Sprint::orderByDesc('date_debut')->get();
+        $sprints = Sprint::with('projet')->orderByDesc('date_debut')->get();
+        $projets = Projet::where('statut', 'actif')->orderBy('libelle')->get();
 
-        return view('comptes-rendus.create', compact('type', 'collaborateurs', 'tousUsers', 'sprints', 'sprintId', 'user'));
+        return view('comptes-rendus.create', compact('type', 'collaborateurs', 'tousUsers', 'sprints', 'projets', 'sprintId', 'user'));
     }
 
     public function designer(Request $r)
@@ -55,36 +56,40 @@ class CompteRenduController extends Controller
             'sprint_id'     => 'nullable|exists:sprints,id',
         ]);
 
-        $cr = CompteRendu::create([
-            'type'          => $v['type'],
-            'titre'         => $v['titre'],
-            'sprint_id'     => $v['sprint_id'] ?? null,
-            'redacteur_id'  => $v['redacteur_id'],
-            'designe_par'   => $user->id,
-            'president_id'  => $v['president_id'] ?? null,
-            'date_reunion'  => $v['date_reunion'],
-            'heure_debut'   => $v['heure_debut'] ?? null,
-            'heure_fin'     => $v['heure_fin'] ?? null,
-            'lieu'          => $v['lieu'] ?? null,
-            'statut'        => 'brouillon',
-        ]);
-
-        // Pré-remplir selon le type
-        $donnees = $cr->estReunion() ? $this->preRemplirReunion() : ($cr->sprint_id ? $this->preRemplirDemo($cr->sprint_id) : []);
-        $cr->setDonnees($donnees);
-        $cr->save();
-
-        // Notification rédacteur
-        if (Schema::hasTable('notification_apps')) {
-            NotificationApp::create([
-                'user_id' => $v['redacteur_id'],
-                'type'    => 'designation_cr',
-                'message' => "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
-                'lien'    => route('comptes-rendus.edit', $cr),
+        try {
+            $cr = CompteRendu::create([
+                'type'          => $v['type'],
+                'titre'         => $v['titre'],
+                'sprint_id'     => $v['sprint_id'] ?? null,
+                'redacteur_id'  => $v['redacteur_id'],
+                'designe_par'   => $user->id,
+                'president_id'  => $v['president_id'] ?? null,
+                'date_reunion'  => $v['date_reunion'],
+                'heure_debut'   => $v['heure_debut'] ?? null,
+                'heure_fin'     => $v['heure_fin'] ?? null,
+                'lieu'          => $v['lieu'] ?? null,
+                'statut'        => 'brouillon',
             ]);
-        }
 
-        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rédacteur désigné. Le formulaire est pré-rempli.');
+            // Pré-remplir selon le type
+            $donnees = $cr->estReunion() ? $this->preRemplirReunion() : ($cr->sprint_id ? $this->preRemplirDemo($cr->sprint_id) : []);
+            $cr->setDonnees($donnees);
+            $cr->save();
+
+            // Notification rédacteur
+            if (Schema::hasTable('notification_apps')) {
+                NotificationApp::create([
+                    'user_id' => $v['redacteur_id'],
+                    'type'    => 'designation_cr',
+                    'message' => "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
+                    'lien'    => route('comptes-rendus.edit', $cr),
+                ]);
+            }
+
+            return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rédacteur désigné. Le formulaire est pré-rempli.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->withInput()->withErrors(['erreur' => $e->getMessage()]);
+        }
     }
 
     /* ===== ÉDITION ===== */
@@ -122,22 +127,25 @@ class CompteRenduController extends Controller
         $user = $r->user();
         abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
 
-        $cr->statut = 'confirme';
-        // Regénérer le DOCX à la confirmation
-        $cr->fichier_path = null;
-        $cr->save();
-        $this->genererDocx($cr);
+        try {
+            $cr->statut = 'confirme';
+            $cr->fichier_path = null;
+            $cr->save();
+            $this->genererDocx($cr);
 
-        if ($cr->designe_par !== $user->id && Schema::hasTable('notification_apps')) {
-            NotificationApp::create([
-                'user_id' => $cr->designe_par,
-                'type'    => 'cr_confirme',
-                'message' => "{$user->nomComplet()} a confirmé le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
-                'lien'    => route('comptes-rendus.show', $cr),
-            ]);
+            if ((int)$cr->designe_par !== (int)$user->id && Schema::hasTable('notification_apps')) {
+                NotificationApp::create([
+                    'user_id' => $cr->designe_par,
+                    'type'    => 'cr_confirme',
+                    'message' => "{$user->nomComplet()} a confirmé le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
+                    'lien'    => route('comptes-rendus.show', $cr),
+                ]);
+            }
+
+            return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu confirmé et DOCX généré.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->withErrors(['erreur' => 'Erreur DOCX : ' . $e->getMessage()]);
         }
-
-        return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu confirmé et DOCX généré.');
     }
 
     /* ===== CONSULTATION ===== */

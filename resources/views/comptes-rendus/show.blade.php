@@ -135,10 +135,11 @@
         <div class="section">
             <h3>3. Décisions prises / Actions à mener</h3>
             <table class="tbl">
-                <thead><tr><th>Décision / Action</th><th>Responsable</th><th style="width:120px">Échéance</th></tr></thead>
+                <thead><tr><th style="width:40px">N°</th><th>Décision / Action</th><th>Responsable</th><th style="width:120px">Échéance</th></tr></thead>
                 <tbody>
-                @foreach($d['decisions'] as $dec)
+                @foreach($d['decisions'] as $i => $dec)
                 <tr>
+                    <td style="text-align:center">{{ $i + 1 }}</td>
                     <td>{{ $dec['action'] ?? '' }}</td>
                     <td>{{ $dec['responsable'] ?? '' }}</td>
                     <td>{{ $dec['echeance'] ?? '—' }}</td>
@@ -189,10 +190,11 @@
         <div class="section">
             <h3>Actions à mener</h3>
             <table class="tbl">
-                <thead><tr><th>Action</th><th>Responsable</th><th style="width:120px">Échéance</th></tr></thead>
+                <thead><tr><th style="width:40px">N°</th><th>Action</th><th>Responsable</th><th style="width:120px">Échéance</th></tr></thead>
                 <tbody>
-                @foreach($d['actions_a_mener'] as $a)
+                @foreach($d['actions_a_mener'] as $i => $a)
                 <tr>
+                    <td style="text-align:center">{{ $i + 1 }}</td>
                     <td>{{ $a['action'] ?? '' }}</td>
                     <td>{{ $a['responsable'] ?? '' }}</td>
                     <td>{{ $a['echeance'] ?? '—' }}</td>

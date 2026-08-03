@@ -176,9 +176,9 @@
                             <div class="rich-toolbar" data-target="derou-{{ $k }}">
                                 <button type="button" onclick="execRich('bold',this)" title="Gras"><b>G</b></button>
                                 <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
-                            <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
-                                <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226;</button>
-                                <button type="button" onclick="execRich('insertOrderedList',this)" title="1. Liste">1.</button>
+                                <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
+                                <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
+                                <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                             </div>
                             <div class="rich-editor" contenteditable="true" id="derou-{{ $k }}" data-name="donnees[ordre_du_jour][{{ $k }}][contenu]">{!! $odj['contenu'] ?? '' !!}</div>
                             <input type="hidden" name="donnees[ordre_du_jour][{{ $k }}][contenu]" id="derou-{{ $k }}-hidden">
@@ -210,9 +210,10 @@
                     <div style="font-size:.82rem;color:#64748b;margin-bottom:6px">Terminées : <strong>{{ $dil['taches_terminees'] }}</strong> — Blocages : <strong>{{ $dil['taches_bloquees'] }}</strong></div>
                     <div class="fg" style="margin-bottom:0"><label>Observations</label>
                         <div class="rich-toolbar" data-target="dil-{{ $j }}">
-                            <button type="button" onclick="execRich('bold',this)"><b>G</b></button>
-                            <button type="button" onclick="execRich('underline',this)"><u>S</u></button>
-                            <button type="button" onclick="execRich('insertUnorderedList',this)">&#8226;</button>
+                            <button type="button" onclick="execRich('bold',this)" title="Gras"><b>G</b></button>
+                            <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
+                            <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
+                            <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="dil-{{ $j }}" data-name="donnees[diligences][{{ $j }}][observations]">{!! $dil['observations'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[diligences][{{ $j }}][observations]" id="dil-{{ $j }}-hidden">
@@ -268,10 +269,11 @@
                 <div class="section-body">
                     <div class="fg" style="margin-bottom:0">
                         <div class="rich-toolbar" data-target="concl-editor">
-                            <button type="button" onclick="execRich('bold',this)"><b>G</b></button>
-                            <button type="button" onclick="execRich('underline',this)"><u>S</u></button>
-                            <button type="button" onclick="execRich('insertUnorderedList',this)">&#8226; Liste</button>
-                            <button type="button" onclick="execRich('insertOrderedList',this)">1. Liste</button>
+                            <button type="button" onclick="execRich('bold',this)" title="Gras"><b>G</b></button>
+                            <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
+                            <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
+                            <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
+                            <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="concl-editor" data-name="donnees[conclusion]">{!! $donnees['conclusion'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[conclusion]" id="concl-editor-hidden">
@@ -354,9 +356,10 @@
                 <div class="section-body">
                     <div class="fg" style="margin-bottom:0">
                         <div class="rich-toolbar" data-target="note-editor">
-                            <button type="button" onclick="execRich('bold',this)"><b>G</b></button>
-                            <button type="button" onclick="execRich('underline',this)"><u>S</u></button>
-                            <button type="button" onclick="execRich('insertUnorderedList',this)">&#8226;</button>
+                            <button type="button" onclick="execRich('bold',this)" title="Gras"><b>G</b></button>
+                            <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
+                            <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
+                            <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="note-editor" data-name="donnees[note_sprint]">{!! $donnees['note_sprint'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[note_sprint]" id="note-editor-hidden">

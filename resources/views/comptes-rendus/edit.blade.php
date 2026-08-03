@@ -132,6 +132,7 @@
                         <label>Contexte et objectif</label>
                         <div class="rich-toolbar" data-target="ctx-editor">
                             <button type="button" onclick="execRich('bold',this)" title="Gras"><b>G</b></button>
+                            <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
                             <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
                             <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
                             <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
@@ -174,7 +175,8 @@
                             <label>2.{{ $k + 1 }}. {{ $odj['point'] }}</label>
                             <div class="rich-toolbar" data-target="derou-{{ $k }}">
                                 <button type="button" onclick="execRich('bold',this)" title="Gras"><b>G</b></button>
-                                <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
+                                <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
+                            <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
                                 <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226;</button>
                                 <button type="button" onclick="execRich('insertOrderedList',this)" title="1. Liste">1.</button>
                             </div>

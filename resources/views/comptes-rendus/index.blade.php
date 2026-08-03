@@ -2,10 +2,16 @@
 @section('titre', 'Comptes rendus')
 @section('contenu')
 <style>
-.cr-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.cr-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:12px}
 .cr-header h2{font-size:1.5rem;font-weight:700;color:#1a1a2e}
-.cr-filtres{display:flex;gap:8px;align-items:center}
-.cr-filtres select{padding:6px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.85rem}
+.cr-filtres{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px 20px;background:#fff;border-radius:12px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.cr-filtres select,.cr-filtres input[type=date]{padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.85rem;background:#fff}
+.cr-filtres label{font-size:.78rem;font-weight:600;color:#64748b;margin-right:-4px}
+.cr-filtres .sep{width:1px;height:28px;background:#e2e8f0;margin:0 4px}
+.btn-filter{padding:7px 16px;border-radius:8px;font-size:.82rem;font-weight:600;color:#fff;background:var(--bleu,#1F4E79);border:none;cursor:pointer;transition:background .15s}
+.btn-filter:hover{background:var(--accent,#2E74B5)}
+.btn-reset{padding:7px 14px;border-radius:8px;font-size:.82rem;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;text-decoration:none;transition:all .15s}
+.btn-reset:hover{background:#e2e8f0;color:#334155}
 .cr-cards{display:flex;flex-direction:column;gap:14px}
 .cr-card{background:#fff;border-radius:12px;padding:18px 22px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;justify-content:space-between;align-items:center;gap:16px;transition:box-shadow .15s}
 .cr-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.1)}
@@ -37,20 +43,40 @@
 <div class="cr-header">
     <h2>Comptes rendus</h2>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <form class="cr-filtres" method="GET">
-            <select name="type" onchange="this.form.submit()">
-                <option value="">Tous les types</option>
-                <option value="reunion_ordinaire" @selected(request('type')==='reunion_ordinaire')>Réunion ordinaire</option>
-                <option value="reunion_extraordinaire" @selected(request('type')==='reunion_extraordinaire')>Réunion extraordinaire</option>
-                <option value="demo_sprint" @selected(request('type')==='demo_sprint')>Démonstration sprint</option>
-            </select>
-        </form>
         @if($user->estPilote())
         <a href="{{ route('comptes-rendus.create', ['type' => 'reunion_ordinaire']) }}" class="btn-cr-new">+ Réunion</a>
         <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="btn-cr-new sec">+ Démo</a>
         @endif
     </div>
 </div>
+
+<form class="cr-filtres" method="GET">
+    <label>Type</label>
+    <select name="type">
+        <option value="">Tous</option>
+        <option value="reunion_ordinaire" @selected(request('type')==='reunion_ordinaire')>Réunion ordinaire</option>
+        <option value="reunion_extraordinaire" @selected(request('type')==='reunion_extraordinaire')>Réunion extraordinaire</option>
+        <option value="demo_sprint" @selected(request('type')==='demo_sprint')>Démonstration sprint</option>
+    </select>
+    <span class="sep"></span>
+    <label>Rédacteur</label>
+    <select name="redacteur_id">
+        <option value="">Tous</option>
+        @foreach($redacteurs as $red)
+        <option value="{{ $red->id }}" @selected(request('redacteur_id') == $red->id)>{{ $red->nomComplet() }}</option>
+        @endforeach
+    </select>
+    <span class="sep"></span>
+    <label>Du</label>
+    <input type="date" name="date_du" value="{{ request('date_du') }}">
+    <label>Au</label>
+    <input type="date" name="date_au" value="{{ request('date_au') }}">
+    <span class="sep"></span>
+    <button type="submit" class="btn-filter">Filtrer</button>
+    @if(request()->hasAny(['type','redacteur_id','date_du','date_au']))
+    <a href="{{ route('comptes-rendus.index') }}" class="btn-reset">Réinitialiser</a>
+    @endif
+</form>
 
 @if(session('ok'))
 <div class="alert ok" style="margin-bottom:16px;padding:10px 16px;background:#d1fae5;color:#065f46;border-radius:8px;font-size:.9rem">{{ session('ok') }}</div>

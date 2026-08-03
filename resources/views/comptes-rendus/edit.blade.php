@@ -45,8 +45,10 @@
 .btn-validate:hover{background:var(--bleu,#1F4E79);color:#fff}
 .btn-validate.validated{background:var(--ok,#16a34a);border-color:var(--ok,#16a34a);color:#fff}
 /* ODJ */
-.odj-item{background:#f8fafc;border-radius:10px;padding:14px 16px;margin-bottom:10px;position:relative}
-.odj-item .num{position:absolute;left:-8px;top:14px;background:var(--bleu,#1F4E79);color:#fff;font-size:.72rem;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.odj-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px 18px 48px;margin-bottom:12px;position:relative;transition:box-shadow .15s}
+.odj-item:hover{box-shadow:0 2px 8px rgba(31,78,121,.08)}
+.odj-item .num{position:absolute;left:14px;top:20px;background:var(--bleu,#1F4E79);color:#fff;font-size:.78rem;font-weight:700;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.odj-item input[type=text]{padding:10px 14px;font-size:.92rem;border-radius:8px;border:1px solid #d1d5db}
 /* Bottom bar */
 .cr-bottom{display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0}
 .cr-bottom .btn-retour{padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:500;text-decoration:none;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;transition:all .15s}
@@ -135,7 +137,7 @@
                             <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="ctx-editor" data-name="donnees[contexte]">{!! $donnees['contexte'] ?? '' !!}</div>
-                        <input type="hidden" name="donnees[contexte]" id="ctx-hidden">
+                        <input type="hidden" name="donnees[contexte]" id="ctx-editor-hidden">
                     </div>
 
                     <label style="font-size:.85rem;font-weight:600;color:#475569;margin-bottom:8px;display:block">Ordre du jour</label>
@@ -143,8 +145,8 @@
                     @foreach($donnees['ordre_du_jour'] ?? [['point' => '', 'contenu' => '']] as $k => $odj)
                         <div class="odj-item" data-idx="{{ $k }}">
                             <span class="num">{{ $k + 1 }}</span>
-                            <div style="display:flex;gap:8px;align-items:start;margin-left:18px">
-                                <div style="flex:1"><input type="text" name="donnees[ordre_du_jour][{{ $k }}][point]" value="{{ $odj['point'] ?? '' }}" placeholder="Intitulé du point"></div>
+                            <div style="display:flex;gap:10px;align-items:center">
+                                <div style="flex:1"><input type="text" name="donnees[ordre_du_jour][{{ $k }}][point]" value="{{ $odj['point'] ?? '' }}" placeholder="Ex : Revue des livrables de la semaine"></div>
                                 <button type="button" class="btn-rm" onclick="this.closest('.odj-item').remove();renum()" title="Supprimer">&#10005;</button>
                             </div>
                         </div>
@@ -230,14 +232,20 @@
                 </div>
                 <div class="section-body">
                     <table class="tbl">
-                        <thead><tr><th>Décision / Action</th><th>Responsable</th><th style="width:120px">Échéance</th><th style="width:40px"></th></tr></thead>
+                        <thead><tr><th class="num-col">N°</th><th>Décision / Action</th><th style="width:180px">Responsable</th><th style="width:120px">Échéance</th><th style="width:40px"></th></tr></thead>
                         <tbody id="decisions-body">
                         @foreach($donnees['decisions'] ?? [] as $k => $dec)
                         <tr>
+                            <td class="num-col">{{ $k + 1 }}</td>
                             <td><input type="text" name="donnees[decisions][{{ $k }}][action]" value="{{ $dec['action'] ?? '' }}"></td>
-                            <td><input type="text" name="donnees[decisions][{{ $k }}][responsable]" value="{{ $dec['responsable'] ?? '' }}"></td>
+                            <td><select name="donnees[decisions][{{ $k }}][responsable]">
+                                <option value="">— Choisir —</option>
+                                @foreach($collaborateurs as $c)
+                                <option value="{{ $c->nomComplet() }}" @selected(($dec['responsable'] ?? '') === $c->nomComplet())>{{ $c->nomComplet() }}</option>
+                                @endforeach
+                            </select></td>
                             <td><input type="date" name="donnees[decisions][{{ $k }}][echeance]" value="{{ $dec['echeance'] ?? '' }}"></td>
-                            <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">&#10005;</button></td>
+                            <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove();renumDec()">&#10005;</button></td>
                         </tr>
                         @endforeach
                         </tbody>
@@ -264,7 +272,7 @@
                             <button type="button" onclick="execRich('insertOrderedList',this)">1. Liste</button>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="concl-editor" data-name="donnees[conclusion]">{!! $donnees['conclusion'] ?? '' !!}</div>
-                        <input type="hidden" name="donnees[conclusion]" id="concl-hidden">
+                        <input type="hidden" name="donnees[conclusion]" id="concl-editor-hidden">
                     </div>
                 </div>
             </div>
@@ -314,14 +322,20 @@
                 </div>
                 <div class="section-body">
                     <table class="tbl">
-                        <thead><tr><th>Action</th><th>Responsable</th><th style="width:120px">Échéance</th><th style="width:40px"></th></tr></thead>
+                        <thead><tr><th class="num-col">N°</th><th>Action</th><th style="width:180px">Responsable</th><th style="width:120px">Échéance</th><th style="width:40px"></th></tr></thead>
                         <tbody id="actions-body">
                         @foreach($donnees['actions_a_mener'] ?? [] as $k => $a)
                         <tr>
+                            <td class="num-col">{{ $k + 1 }}</td>
                             <td><input type="text" name="donnees[actions_a_mener][{{ $k }}][action]" value="{{ $a['action'] ?? '' }}"></td>
-                            <td><input type="text" name="donnees[actions_a_mener][{{ $k }}][responsable]" value="{{ $a['responsable'] ?? '' }}"></td>
+                            <td><select name="donnees[actions_a_mener][{{ $k }}][responsable]">
+                                <option value="">— Choisir —</option>
+                                @foreach($collaborateurs as $c)
+                                <option value="{{ $c->nomComplet() }}" @selected(($a['responsable'] ?? '') === $c->nomComplet())>{{ $c->nomComplet() }}</option>
+                                @endforeach
+                            </select></td>
                             <td><input type="date" name="donnees[actions_a_mener][{{ $k }}][echeance]" value="{{ $a['echeance'] ?? '' }}"></td>
-                            <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">&#10005;</button></td>
+                            <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove();renumAct()">&#10005;</button></td>
                         </tr>
                         @endforeach
                         </tbody>
@@ -343,7 +357,7 @@
                             <button type="button" onclick="execRich('insertUnorderedList',this)">&#8226;</button>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="note-editor" data-name="donnees[note_sprint]">{!! $donnees['note_sprint'] ?? '' !!}</div>
-                        <input type="hidden" name="donnees[note_sprint]" id="note-hidden">
+                        <input type="hidden" name="donnees[note_sprint]" id="note-editor-hidden">
                     </div>
                 </div>
             </div>
@@ -367,6 +381,7 @@
 let odjIdx = {{ count($donnees['ordre_du_jour'] ?? []) }};
 let decIdx = {{ count($donnees['decisions'] ?? []) }};
 let actIdx = {{ count($donnees['actions_a_mener'] ?? []) }};
+const collabs = @json($collaborateurs->map(fn($c) => $c->nomComplet())->values());
 
 /* === Rich editor === */
 function execRich(cmd, btn){
@@ -410,8 +425,8 @@ function ajouterOdj(){
     div.className = 'odj-item';
     div.dataset.idx = odjIdx;
     div.innerHTML = `<span class="num">${odjIdx+1}</span>
-        <div style="display:flex;gap:8px;align-items:start;margin-left:18px">
-            <div style="flex:1"><input type="text" name="donnees[ordre_du_jour][${odjIdx}][point]" placeholder="Intitulé du point"></div>
+        <div style="display:flex;gap:10px;align-items:center">
+            <div style="flex:1"><input type="text" name="donnees[ordre_du_jour][${odjIdx}][point]" placeholder="Ex : Revue des livrables de la semaine"></div>
             <button type="button" class="btn-rm" onclick="this.closest('.odj-item').remove();renum()" title="Supprimer">&#10005;</button>
         </div>`;
     list.appendChild(div);
@@ -423,23 +438,38 @@ function renum(){
 }
 
 /* === Décisions / Actions === */
+function collabOptions(){
+    return '<option value="">— Choisir —</option>' + collabs.map(c => `<option value="${c}">${c}</option>`).join('');
+}
 function ajouterDecision(){
+    const body = document.getElementById('decisions-body');
+    const n = body.rows.length + 1;
     const row = document.createElement('tr');
-    row.innerHTML = `<td><input type="text" name="donnees[decisions][${decIdx}][action]"></td>
-        <td><input type="text" name="donnees[decisions][${decIdx}][responsable]"></td>
+    row.innerHTML = `<td class="num-col">${n}</td>
+        <td><input type="text" name="donnees[decisions][${decIdx}][action]"></td>
+        <td><select name="donnees[decisions][${decIdx}][responsable]">${collabOptions()}</select></td>
         <td><input type="date" name="donnees[decisions][${decIdx}][echeance]"></td>
-        <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">&#10005;</button></td>`;
-    document.getElementById('decisions-body').appendChild(row);
+        <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove();renumDec()">&#10005;</button></td>`;
+    body.appendChild(row);
     decIdx++;
 }
+function renumDec(){
+    document.querySelectorAll('#decisions-body tr').forEach((tr,i) => { const td = tr.querySelector('.num-col'); if(td) td.textContent = i+1; });
+}
 function ajouterAction(){
+    const body = document.getElementById('actions-body');
+    const n = body.rows.length + 1;
     const row = document.createElement('tr');
-    row.innerHTML = `<td><input type="text" name="donnees[actions_a_mener][${actIdx}][action]"></td>
-        <td><input type="text" name="donnees[actions_a_mener][${actIdx}][responsable]"></td>
+    row.innerHTML = `<td class="num-col">${n}</td>
+        <td><input type="text" name="donnees[actions_a_mener][${actIdx}][action]"></td>
+        <td><select name="donnees[actions_a_mener][${actIdx}][responsable]">${collabOptions()}</select></td>
         <td><input type="date" name="donnees[actions_a_mener][${actIdx}][echeance]"></td>
-        <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove()">&#10005;</button></td>`;
-    document.getElementById('actions-body').appendChild(row);
+        <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove();renumAct()">&#10005;</button></td>`;
+    body.appendChild(row);
     actIdx++;
+}
+function renumAct(){
+    document.querySelectorAll('#actions-body tr').forEach((tr,i) => { const td = tr.querySelector('.num-col'); if(td) td.textContent = i+1; });
 }
 
 /* === Confirmation === */

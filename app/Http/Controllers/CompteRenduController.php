@@ -18,9 +18,13 @@ class CompteRenduController extends Controller
             $query->where(fn($q) => $q->where('redacteur_id', $user->id)->orWhere('statut', 'confirme'));
         }
         if ($type = $r->get('type')) $query->where('type', $type);
+        if ($redacteur = $r->get('redacteur_id')) $query->where('redacteur_id', $redacteur);
+        if ($du = $r->get('date_du')) $query->whereDate('date_reunion', '>=', $du);
+        if ($au = $r->get('date_au')) $query->whereDate('date_reunion', '<=', $au);
 
         $crs = $query->paginate(15)->withQueryString();
-        return view('comptes-rendus.index', compact('crs', 'user'));
+        $redacteurs = User::where('actif', true)->orderBy('name')->get();
+        return view('comptes-rendus.index', compact('crs', 'user', 'redacteurs'));
     }
 
     /* ===== CRÉATION (désignation) ===== */

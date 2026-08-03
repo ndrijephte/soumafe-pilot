@@ -165,10 +165,11 @@
             <h3>Résultats par tâche</h3>
             <div style="font-size:.85rem;color:#64748b;margin-bottom:10px">Sprint : <strong>{{ $d['sprint'] ?? '—' }}</strong> — Projet : <strong>{{ $d['projet'] ?? '—' }}</strong></div>
             <table class="tbl">
-                <thead><tr><th>Tâche</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:50px">OK</th><th>Observation</th></tr></thead>
+                <thead><tr><th style="width:40px">N°</th><th>Tâche</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:50px">OK</th><th>Observation</th></tr></thead>
                 <tbody>
-                @foreach($d['taches'] as $t)
+                @foreach($d['taches'] as $i => $t)
                 <tr>
+                    <td style="text-align:center">{{ $i + 1 }}</td>
                     <td>{{ $t['tache'] }}</td>
                     <td style="text-align:center">{{ $t['points'] }}</td>
                     <td>{{ $t['attribution'] }}</td>

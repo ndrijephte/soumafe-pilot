@@ -379,9 +379,11 @@ class CompteRenduController extends Controller
         // 3. Décisions
         $xml .= $this->p("3. Décisions prises / Actions à mener", true, 12, 'left', true);
         if (!empty($d['decisions'])) {
-            $xml .= $this->docxTable3Col('Décision / Action', 'Responsable', 'Échéance',
-                array_map(fn($dec) => [$dec['action'] ?? '', $dec['responsable'] ?? '', $dec['echeance'] ?? ''], $d['decisions'])
-            );
+            $decRows = [];
+            foreach ($d['decisions'] as $i => $dec) {
+                $decRows[] = [(string)($i + 1), $dec['action'] ?? '', $dec['responsable'] ?? '', $dec['echeance'] ?? ''];
+            }
+            $xml .= $this->docxTableMulti(['N°', 'Décision / Action', 'Responsable', 'Échéance'], $decRows);
         } else {
             $xml .= $this->p("(Aucune décision enregistrée)");
         }
@@ -412,8 +414,11 @@ class CompteRenduController extends Controller
 
         // Tableau tâches
         $xml .= $this->p("1. Résultats par tâche", true, 12, 'left', true);
-        $rows = array_map(fn($t) => [$t['tache'], (string)$t['points'], $t['attribution'], ($t['termine'] ?? false) ? '✓' : '✗', $t['observation'] ?? ''], $d['taches'] ?? []);
-        $xml .= $this->docxTableMulti(['Tâche', 'Pts', 'Attribution', 'État', 'Observation'], $rows);
+        $rows = [];
+        foreach (($d['taches'] ?? []) as $i => $t) {
+            $rows[] = [(string)($i + 1), $t['tache'], (string)$t['points'], $t['attribution'], ($t['termine'] ?? false) ? '✓' : '✗', $t['observation'] ?? ''];
+        }
+        $xml .= $this->docxTableMulti(['N°', 'Tâche', 'Pts', 'Attribution', 'État', 'Observation'], $rows);
         $xml .= $this->p('');
 
         // Score
@@ -430,8 +435,11 @@ class CompteRenduController extends Controller
         // Actions
         $xml .= $this->p("3. Actions à mener", true, 12, 'left', true);
         if (!empty($d['actions_a_mener'])) {
-            $actRows = array_map(fn($a) => [$a['action'] ?? '', $a['responsable'] ?? '', $a['echeance'] ?? ''], $d['actions_a_mener']);
-            $xml .= $this->docxTable3Col('Action', 'Responsable', 'Échéance', $actRows);
+            $actRows = [];
+            foreach ($d['actions_a_mener'] as $i => $a) {
+                $actRows[] = [(string)($i + 1), $a['action'] ?? '', $a['responsable'] ?? '', $a['echeance'] ?? ''];
+            }
+            $xml .= $this->docxTableMulti(['N°', 'Action', 'Responsable', 'Échéance'], $actRows);
         } else {
             $xml .= $this->p("(À compléter)");
         }

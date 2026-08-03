@@ -15,7 +15,7 @@ class CompteRenduController extends Controller
         $query = CompteRendu::with(['redacteur', 'president', 'sprint'])->orderByDesc('date_reunion');
 
         if (!$user->estPilote() && !$user->aRole('direction')) {
-            $query->where('redacteur_id', $user->id);
+            $query->where(fn($q) => $q->where('redacteur_id', $user->id)->orWhere('statut', 'confirme'));
         }
         if ($type = $r->get('type')) $query->where('type', $type);
 
@@ -111,7 +111,26 @@ class CompteRenduController extends Controller
         $user = $r->user();
         abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
 
-        $cr->setDonnees($r->input('donnees', []));
+        $donnees = $r->input('donnees', []);
+        // Sanitiser les champs HTML rich-text
+        $htmlFields = ['contexte', 'conclusion', 'note_sprint'];
+        foreach ($htmlFields as $f) {
+            if (isset($donnees[$f])) $donnees[$f] = $this->sanitizeHtml($donnees[$f]);
+        }
+        if (!empty($donnees['ordre_du_jour'])) {
+            foreach ($donnees['ordre_du_jour'] as &$odj) {
+                if (isset($odj['contenu'])) $odj['contenu'] = $this->sanitizeHtml($odj['contenu']);
+            }
+            unset($odj);
+        }
+        if (!empty($donnees['diligences'])) {
+            foreach ($donnees['diligences'] as &$dil) {
+                if (isset($dil['observations'])) $dil['observations'] = $this->sanitizeHtml($dil['observations']);
+            }
+            unset($dil);
+        }
+
+        $cr->setDonnees($donnees);
         $cr->titre = $r->input('titre', $cr->titre);
         $cr->lieu = $r->input('lieu', $cr->lieu);
         $cr->heure_debut = $r->input('heure_debut', $cr->heure_debut);
@@ -309,7 +328,7 @@ class CompteRenduController extends Controller
 
         // 1. Contexte et objectifs
         $xml .= $this->p("1. Contexte et objectifs de la réunion", true, 12, 'left', true);
-        $xml .= $this->p($d['contexte'] ?? '(Non renseigné)');
+        $xml .= $this->htmlToOoxml($d['contexte'] ?? '(Non renseigné)');
         $xml .= $this->p('');
 
         // Ordre du jour
@@ -334,7 +353,7 @@ class CompteRenduController extends Controller
             foreach ($d['ordre_du_jour'] as $odj) {
                 if (!empty($odj['point'])) {
                     $xml .= $this->p("2.{$sub}. {$odj['point']}", true, 12);
-                    $xml .= $this->p(!empty($odj['contenu']) ? $odj['contenu'] : '(Non renseigné)');
+                    $xml .= $this->htmlToOoxml(!empty($odj['contenu']) ? $odj['contenu'] : '(Non renseigné)');
                     $xml .= $this->p('');
                     $sub++;
                 }
@@ -348,7 +367,7 @@ class CompteRenduController extends Controller
                 $xml .= $this->p("• {$dil['projet']} (resp. : {$dil['responsable']})", true, 12);
                 $xml .= $this->p("   Tâches terminées : {$dil['taches_terminees']} — Blocages actifs : {$dil['taches_bloquees']}");
                 if (!empty($dil['evenements'])) $xml .= $this->p("   Événements : " . implode(', ', (array)$dil['evenements']));
-                if (!empty($dil['observations'])) $xml .= $this->p("   Observations : {$dil['observations']}");
+                if (!empty($dil['observations'])) { $xml .= $this->p("   Observations :", true, 12); $xml .= $this->htmlToOoxml($dil['observations']); }
             }
             $xml .= $this->p('');
         }
@@ -366,7 +385,7 @@ class CompteRenduController extends Controller
 
         // 4. Conclusion
         $xml .= $this->p("4. Conclusion", true, 12, 'left', true);
-        $xml .= $this->p(!empty($d['conclusion']) ? $d['conclusion'] : '(Non renseignée)');
+        $xml .= $this->htmlToOoxml(!empty($d['conclusion']) ? $d['conclusion'] : '(Non renseignée)');
 
         $xml .= $this->docxFooter();
         $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null);
@@ -416,7 +435,7 @@ class CompteRenduController extends Controller
         if (!empty($d['note_sprint'])) {
             $xml .= $this->p('');
             $xml .= $this->p("4. Note pour le sprint suivant", true, 12, 'left', true);
-            $xml .= $this->p($d['note_sprint']);
+            $xml .= $this->htmlToOoxml($d['note_sprint']);
         }
 
         $xml .= $this->docxFooter();
@@ -444,6 +463,7 @@ class CompteRenduController extends Controller
             . 'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" '
             . 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
             . 'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" '
+            . 'xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" '
             . 'mc:Ignorable="w14 wp14">'
             . '<w:body>';
     }
@@ -538,14 +558,129 @@ class CompteRenduController extends Controller
             . '<w:r><w:drawing>'
             . '<wp:inline distT="0" distB="0" distL="0" distR="0">'
             . "<wp:extent cx=\"{$cx}\" cy=\"{$cy}\"/>"
+            . '<wp:effectExtent l="0" t="0" r="0" b="0"/>'
             . '<wp:docPr id="1" name="Logo"/>'
+            . '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>'
             . '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
             . '<pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr>'
             . '<pic:blipFill><a:blip r:embed="rId10"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
-            . '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' . $cx . '" cy="' . $cy . '"/></a:xfrm>'
+            . "<pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"{$cx}\" cy=\"{$cy}\"/></a:xfrm>"
             . '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
             . '</pic:pic></a:graphicData></a:graphic></wp:inline>'
             . '</w:drawing></w:r></w:p>';
+    }
+
+    /** Nettoyer le HTML provenant du contenteditable (garder uniquement b, u, i, ol, ul, li, br, div) */
+    private function sanitizeHtml(string $html): string
+    {
+        return strip_tags($html, '<b><u><i><strong><em><ol><ul><li><br><div><p>');
+    }
+
+    /** Convertir HTML (du contenteditable) en paragraphes OOXML Times New Roman 12pt */
+    private function htmlToOoxml(string $html): string
+    {
+        // Si pas de HTML, traiter comme texte brut
+        if ($html === strip_tags($html) && !str_contains($html, '<')) {
+            return $this->p($html);
+        }
+
+        $xml = '';
+        // Remplacer les <div> et <p> par des sauts pour unifier
+        $html = str_replace(['<div>', '<p>'], "\n", $html);
+        $html = str_replace(['</div>', '</p>'], '', $html);
+        $html = str_replace(['<br>', '<br/>', '<br />'], "\n", $html);
+
+        // Traiter les listes
+        $html = preg_replace_callback('/<(ol|ul)>(.*?)<\/\1>/si', function ($m) use (&$xml) {
+            $type = $m[1]; // ol ou ul
+            $items = [];
+            preg_match_all('/<li>(.*?)<\/li>/si', $m[2], $lis);
+            foreach ($lis[1] as $i => $li) {
+                $prefix = ($type === 'ol') ? ($i + 1) . '. ' : '• ';
+                $text = strip_tags($li, '<b><u><i><strong><em>');
+                $xml .= $this->richParagraph($prefix . $text);
+            }
+            return ''; // Retirer le HTML traité
+        }, $html);
+
+        // Traiter le reste ligne par ligne
+        $lines = preg_split('/\n+/', $html);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+            if (str_contains($line, '<li>')) continue; // Déjà traité
+            $xml .= $this->richParagraph($line);
+        }
+
+        return $xml ?: $this->p('(Non renseigné)');
+    }
+
+    /** Convertir une ligne HTML avec <b>, <u>, <i> en un paragraphe OOXML avec runs formatés */
+    private function richParagraph(string $html): string
+    {
+        $spacing = '<w:spacing w:line="360" w:lineRule="auto"/>';
+        $p = "<w:p><w:pPr><w:jc w:val=\"left\"/>{$spacing}</w:pPr>";
+
+        // Parser les segments avec balisage inline
+        $segments = $this->parseInlineHtml($html);
+        foreach ($segments as $seg) {
+            $escaped = htmlspecialchars($seg['text'], ENT_XML1, 'UTF-8');
+            if ($escaped === '') continue;
+            $bTag = $seg['bold'] ? '<w:b/>' : '';
+            $uTag = $seg['underline'] ? '<w:u w:val="single"/>' : '';
+            $iTag = $seg['italic'] ? '<w:i/>' : '';
+            $p .= '<w:r><w:rPr>'
+                . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+                . '<w:sz w:val="24"/><w:szCs w:val="24"/>'
+                . "{$bTag}{$uTag}{$iTag}"
+                . '</w:rPr>'
+                . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r>";
+        }
+
+        return $p . '</w:p>';
+    }
+
+    /** Parser le HTML inline (b, u, i, strong, em) en segments avec attributs */
+    private function parseInlineHtml(string $html): array
+    {
+        $segments = [];
+        // Approche : strip tags et détecter formatting par position
+        // Utiliser une approche simplifiée mais fiable
+        $text = strip_tags($html);
+        if ($text === '') return [];
+
+        // Chercher les balises de formatage
+        $bold = (bool)preg_match('/<(b|strong)\b/i', $html);
+        $underline = (bool)preg_match('/<u\b/i', $html);
+        $italic = (bool)preg_match('/<(i|em)\b/i', $html);
+
+        // Si tout le texte est uniformément formaté, un seul segment suffit
+        // Pour un parsing plus fin (partie gras, partie non), on découpe par balises
+        if (!preg_match('/<(b|strong|u|i|em)\b/i', $html)) {
+            return [['text' => $text, 'bold' => false, 'underline' => false, 'italic' => false]];
+        }
+
+        // Parser nœud par nœud via regex
+        $parts = preg_split('/(<\/?(?:b|strong|u|i|em)\b[^>]*>)/i', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $currentBold = false;
+        $currentUnderline = false;
+        $currentItalic = false;
+
+        foreach ($parts as $part) {
+            if (preg_match('/^<(b|strong)\b/i', $part)) { $currentBold = true; continue; }
+            if (preg_match('/^<\/(b|strong)>/i', $part)) { $currentBold = false; continue; }
+            if (preg_match('/^<u\b/i', $part)) { $currentUnderline = true; continue; }
+            if (preg_match('/^<\/u>/i', $part)) { $currentUnderline = false; continue; }
+            if (preg_match('/^<(i|em)\b/i', $part)) { $currentItalic = true; continue; }
+            if (preg_match('/^<\/(i|em)>/i', $part)) { $currentItalic = false; continue; }
+
+            $t = strip_tags($part);
+            if ($t !== '') {
+                $segments[] = ['text' => $t, 'bold' => $currentBold, 'underline' => $currentUnderline, 'italic' => $currentItalic];
+            }
+        }
+
+        return $segments;
     }
 
     private function ecrireDocx(string $path, string $documentXml, ?string $logoPath = null): void

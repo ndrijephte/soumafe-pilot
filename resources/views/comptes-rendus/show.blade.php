@@ -17,9 +17,16 @@
 .info-grid{display:grid;grid-template-columns:160px 1fr;gap:6px 12px;font-size:.88rem}
 .info-grid dt{font-weight:600;color:#475569}
 .info-grid dd{color:#1a1a2e}
-.bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
 .presence-ok{color:#059669;font-weight:700}
 .presence-no{color:#dc2626;font-weight:700}
+.cr-bar{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0}
+.cr-bar .btn-retour{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:500;text-decoration:none;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;transition:all .15s}
+.cr-bar .btn-retour:hover{background:#e2e8f0;color:#334155}
+.cr-bar .btn-modifier{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:600;text-decoration:none;color:var(--bleu,#1F4E79);background:#EFF4FB;border:1px solid var(--bleu,#1F4E79);transition:all .15s}
+.cr-bar .btn-modifier:hover{background:var(--bleu,#1F4E79);color:#fff}
+.cr-bar .btn-docx{display:inline-flex;align-items:center;gap:6px;padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;text-decoration:none;color:#fff;background:var(--bleu,#1F4E79);box-shadow:0 1px 3px rgba(31,78,121,.2);transition:all .15s}
+.cr-bar .btn-docx:hover{background:var(--accent,#2E74B5)}
+.tbl .num-col{width:45px;text-align:center;color:#94a3b8;font-weight:600}
 </style>
 
 <div class="cr-show">
@@ -55,10 +62,11 @@
         <div class="section">
             <h3>Liste de présence</h3>
             <table class="tbl">
-                <thead><tr><th>Collaborateur</th><th style="width:100px;text-align:center">Présence</th></tr></thead>
+                <thead><tr><th class="num-col">N°</th><th>Collaborateur</th><th style="width:100px;text-align:center">Présence</th></tr></thead>
                 <tbody>
-                @foreach($d['presences'] as $p)
+                @foreach($d['presences'] as $i => $p)
                 <tr>
+                    <td class="num-col">{{ $i + 1 }}</td>
                     <td>{{ $p['nom'] }}</td>
                     <td style="text-align:center">
                         @if($p['present'] ?? false)
@@ -77,7 +85,7 @@
         {{-- 1. CONTEXTE --}}
         <div class="section">
             <h3>1. Contexte et objectifs de la réunion</h3>
-            <p style="white-space:pre-line;font-size:.9rem;color:#334155">{{ $d['contexte'] ?? '—' }}</p>
+            <div style="font-size:.9rem;color:#334155;line-height:1.6">{!! $d['contexte'] ?? '—' !!}</div>
 
             @if(!empty($d['ordre_du_jour']))
             <div style="margin-top:14px">
@@ -99,7 +107,7 @@
             @if(!empty($odj['contenu']))
             <div style="margin-bottom:14px">
                 <strong style="font-size:.88rem;color:#1e3a5f">2.{{ $k + 1 }}. {{ $odj['point'] }}</strong>
-                <p style="white-space:pre-line;font-size:.88rem;color:#334155;margin-top:4px">{{ $odj['contenu'] }}</p>
+                <div style="font-size:.88rem;color:#334155;margin-top:4px;line-height:1.6">{!! $odj['contenu'] !!}</div>
             </div>
             @endif
             @endforeach
@@ -115,7 +123,7 @@
                 <div style="font-weight:600;color:#1e3a5f">{{ $dil['projet'] }} <span style="font-weight:400;color:#64748b;font-size:.82rem">({{ $dil['responsable'] }})</span></div>
                 <div style="font-size:.82rem;color:#64748b;margin-top:4px">Terminées : <strong>{{ $dil['taches_terminees'] }}</strong> — Blocages : <strong>{{ $dil['taches_bloquees'] }}</strong></div>
                 @if(!empty($dil['observations']))
-                <div style="font-size:.85rem;color:#334155;margin-top:6px">{{ $dil['observations'] }}</div>
+                <div style="font-size:.85rem;color:#334155;margin-top:6px;line-height:1.6">{!! $dil['observations'] !!}</div>
                 @endif
             </div>
             @endforeach
@@ -145,7 +153,7 @@
         @if(!empty($d['conclusion']))
         <div class="section">
             <h3>4. Conclusion</h3>
-            <p style="white-space:pre-line;font-size:.9rem;color:#334155">{{ $d['conclusion'] }}</p>
+            <div style="font-size:.9rem;color:#334155;line-height:1.6">{!! $d['conclusion'] !!}</div>
         </div>
         @endif
 
@@ -198,19 +206,18 @@
         @if(!empty($d['note_sprint']))
         <div class="section">
             <h3>Note pour le sprint suivant</h3>
-            <p style="white-space:pre-line;font-size:.9rem;color:#334155">{{ $d['note_sprint'] }}</p>
+            <div style="font-size:.9rem;color:#334155;line-height:1.6">{!! $d['note_sprint'] !!}</div>
         </div>
         @endif
     @endif
 
-    {{-- Actions --}}
-    <div class="bar">
-        <a href="{{ route('comptes-rendus.index') }}" class="btn sec">Retour</a>
+    <div class="cr-bar">
+        <a href="{{ route('comptes-rendus.index') }}" class="btn-retour">&larr; Retour</a>
         @if($cr->estBrouillon() && (auth()->user()->estAdmin() || auth()->id() === $cr->redacteur_id))
-        <a href="{{ route('comptes-rendus.edit', $cr) }}" class="btn" style="background:#f59e0b;color:#fff">Modifier</a>
+        <a href="{{ route('comptes-rendus.edit', $cr) }}" class="btn-modifier">Modifier</a>
         @endif
         @if($cr->estConfirme() && $cr->fichier_path)
-        <a href="{{ route('comptes-rendus.telecharger', $cr) }}" class="btn">Télécharger DOCX</a>
+        <a href="{{ route('comptes-rendus.telecharger', $cr) }}" class="btn-docx">&#8681; Télécharger DOCX</a>
         @endif
     </div>
 </div>

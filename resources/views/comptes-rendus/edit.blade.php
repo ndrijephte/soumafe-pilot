@@ -360,6 +360,7 @@
                             <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
                             <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
                             <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
+                            <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="note-editor" data-name="donnees[note_sprint]">{!! $donnees['note_sprint'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[note_sprint]" id="note-editor-hidden">

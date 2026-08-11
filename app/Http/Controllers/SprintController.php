@@ -75,6 +75,12 @@ class SprintController extends Controller
 
         $sprint->update(['statut' => 'en_cours']);
 
+        // Passer le projet en "actif" s'il ne l'est pas déjà
+        $projet = $sprint->projet;
+        if ($projet && $projet->statut !== 'actif') {
+            $projet->update(['statut' => 'actif']);
+        }
+
         // Notifier tous les collaborateurs assignés
         $userIds = $sprint->taches()->whereNotNull('user_id')->pluck('user_id')->unique();
         foreach ($userIds as $uid) {

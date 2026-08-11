@@ -65,10 +65,9 @@ class User extends Authenticatable
     /** Retourne les projets que l'utilisateur peut gérer (pour filtrer les selects). */
     public function projetsGerables()
     {
-        $exclus = ['termine', 'annule'];
-        if ($this->estPilote()) return Projet::whereNotIn('statut', $exclus)->orderBy('libelle')->get();
+        if ($this->estPilote()) return Projet::orderBy('libelle')->get();
         return Projet::where('responsable_projet_id', $this->id)
-            ->where('delegation_sprint', true)->whereNotIn('statut', $exclus)
+            ->where('delegation_sprint', true)
             ->orderBy('libelle')->get();
     }
 }

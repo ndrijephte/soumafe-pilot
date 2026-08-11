@@ -20,7 +20,8 @@ class SprintController extends Controller
         $sprint->load(['projet.responsable', 'taches.user']);
         $users = User::where('actif', true)->orderBy('name')->get();
         $canEdit = $r->user()->peutGererProjet($sprint->projet_id);
-        return view('sprints.show', compact('sprint', 'users', 'canEdit'));
+        $canEditSprint = $r->user()->estPilote(); // seuls admin, charge_ops et direction modifient sprint/tâches
+        return view('sprints.show', compact('sprint', 'users', 'canEdit', 'canEditSprint'));
     }
 
     public function store(Request $r)
@@ -42,7 +43,7 @@ class SprintController extends Controller
 
     public function update(Request $r, Sprint $sprint)
     {
-        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        abort_unless($r->user()->estPilote(), 403);
         $r->validate([
             'objectif' => 'required|string|max:255',
             'date_debut' => 'required|date',
@@ -215,7 +216,7 @@ class SprintController extends Controller
     /** Modifier une tâche existante du sprint. */
     public function modifierTache(Request $r, Sprint $sprint, Tache $tache)
     {
-        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        abort_unless($r->user()->estPilote(), 403);
         abort_unless($tache->sprint_id === $sprint->id, 404);
 
         $r->validate([

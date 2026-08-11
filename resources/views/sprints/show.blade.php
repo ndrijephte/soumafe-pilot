@@ -13,12 +13,14 @@
 .progress-fill{height:100%;border-radius:6px;background:var(--accent);transition:width .5s}
 .stats-row{display:flex;gap:20px;font-size:13px;color:var(--gris);margin-bottom:18px;flex-wrap:wrap}
 .stats-row strong{color:#1e293b}
-.taches-table{width:100%;border-collapse:collapse;font-size:13px}
-.taches-table th{text-align:left;padding:8px 10px;background:var(--fond);color:var(--gris);font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--bord)}
-.taches-table td{padding:8px 10px;border-bottom:1px solid var(--bord)}
+.taches-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+.taches-table th{text-align:left;padding:10px 12px;background:var(--fond);color:var(--gris);font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--bord)}
+.taches-table td{padding:10px 12px;border-bottom:1px solid var(--bord);vertical-align:middle}
 .taches-table tr:hover{background:#f8fafc}
-.pill{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
+.col-tache{width:38%}.col-assigne{width:16%}.col-prio{width:9%}.col-periode{width:16%}.col-pts{width:5%;text-align:center}.col-statut{width:11%}.col-edit{width:5%;text-align:center}
+.pill{padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
 .p-ok{background:#dcfce7;color:var(--ok)}.p-cours{background:#dbeafe;color:var(--accent)}.p-bloque{background:#fee2e2;color:var(--ko)}.p-attente{background:#fef3c7;color:#b45309}
+.prio-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
 .typ{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px}.t1{background:#dbeafe;color:#1d4ed8}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
 .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
@@ -35,14 +37,18 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .req{color:var(--ko)}
 .vide{text-align:center;padding:40px;color:var(--gris);font-size:14px}
-.btn-edit-row{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;padding:2px 6px;border-radius:4px;vertical-align:middle}
+.btn-edit-row{background:none;border:none;cursor:pointer;color:var(--accent);font-size:14px;padding:3px 7px;border-radius:4px;vertical-align:middle;transition:background .15s}
 .btn-edit-row:hover{background:#dbeafe}
-.btn-edit-sprint{background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500}
+.btn-edit-sprint{background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;transition:all .15s}
 .btn-edit-sprint:hover{background:var(--accent);color:#fff}
 .filtre-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .filtre-bar input,.filtre-bar select{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 .filtre-bar input{min-width:160px}
-@media(max-width:768px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}.filtre-bar{flex-direction:column}}
+.tache-nom{display:block;text-decoration:none;color:#1e293b;font-weight:500;line-height:1.4;overflow:hidden;text-overflow:ellipsis}
+.tache-nom:hover{color:var(--accent)}
+.periode-cell{font-size:12px;color:#475569;line-height:1.5}
+.periode-cell .sep{color:#94a3b8;margin:0 2px}
+@media(max-width:768px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}.filtre-bar{flex-direction:column}.taches-table{table-layout:auto}.col-tache,.col-assigne,.col-prio,.col-periode,.col-pts,.col-statut,.col-edit{width:auto}}
 </style>
 @endpush
 @section('contenu')
@@ -80,7 +86,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div><strong>P&eacute;riode :</strong> {{ $sprint->date_debut->format('d/m/Y') }} &rarr; {{ $sprint->date_fin->format('d/m/Y') }}</div>
             @if($sprint->engagement_points)<div><strong>Points engag&eacute;s :</strong> {{ $sprint->engagement_points }}</div>@endif
         </div>
-        @if($canEdit && $sprint->statut !== 'termine')
+        @if($canEditSprint && $sprint->statut !== 'termine')
         <button class="btn-edit-sprint" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint">&#9998; Modifier</button>
         @endif
     </div>
@@ -158,29 +164,38 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 <div class="carte" style="padding:0;overflow-x:auto">
 <table class="taches-table">
 <thead>
-    <tr><th>T&acirc;che</th><th>Assign&eacute; &agrave;</th><th>Priorit&eacute;</th><th>D&eacute;but</th><th>&Eacute;ch&eacute;ance</th><th>Points</th><th>Statut</th>@if($canEdit && $sprint->statut !== 'termine')<th style="width:40px"></th>@endif</tr>
+    <tr>
+        <th class="col-tache">T&acirc;che</th>
+        <th class="col-assigne">Assign&eacute;</th>
+        <th class="col-prio">Prio.</th>
+        <th class="col-periode">P&eacute;riode</th>
+        <th class="col-pts">Pts</th>
+        <th class="col-statut">Statut</th>
+        @if($canEditSprint && $sprint->statut !== 'termine')<th class="col-edit"></th>@endif
+    </tr>
 </thead>
 <tbody>
 @foreach($sprint->taches->sortByDesc('priorite') as $t)
 <tr data-row data-nom="{{ strtolower($t->intitule) }}" data-user="{{ $t->user_id }}" data-prio="{{ $t->priorite }}" data-statut="{{ $t->statut }}" @if($sprint->statut !== 'en_cours') style="opacity:0.55" @endif>
     <td>
         <span class="typ t1">T1</span>
-        <a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:#1e293b;font-weight:500">{{ $t->intitule }}</a>
+        <a href="{{ route('taches.show', $t) }}" class="tache-nom" title="{{ $t->intitule }}">{{ $t->intitule }}</a>
     </td>
-    <td>{{ $t->user?->nomComplet() ?? '—' }}</td>
+    <td style="font-size:12.5px">{{ $t->user?->nomComplet() ?? '—' }}</td>
     <td>
-        @php $pCouleur = match($t->priorite) { 'haute' => 'var(--ko)', 'basse' => 'var(--gris)', default => 'var(--accent)' }; @endphp
-        <span style="color:{{ $pCouleur }};font-weight:600;font-size:12px">{{ ucfirst($t->priorite) }}</span>
+        @php $pCouleur = match($t->priorite) { 'haute' => '#ef4444', 'basse' => '#94a3b8', default => '#2E74B5' }; @endphp
+        <span class="prio-dot" style="background:{{ $pCouleur }}"></span><span style="font-size:12px">{{ ucfirst($t->priorite) }}</span>
     </td>
-    <td style="font-size:12px">{{ $t->date_debut?->format('d/m') ?? '—' }}</td>
-    <td style="font-size:12px">{{ $t->echeance?->format('d/m') ?? '—' }}</td>
-    <td style="text-align:center">{{ $t->points ?? '—' }}</td>
+    <td class="periode-cell">
+        {{ $t->date_debut?->format('d/m') ?? '—' }}<span class="sep">&rarr;</span>{{ $t->echeance?->format('d/m') ?? '—' }}
+    </td>
+    <td style="text-align:center;font-weight:600;font-size:12.5px">{{ $t->points ?? '—' }}</td>
     <td>
         @php $sClasse = match($t->statut) { 'termine' => 'p-ok', 'en_cours' => 'p-cours', 'bloque' => 'p-bloque', default => 'p-attente' }; @endphp
         <span class="pill {{ $sClasse }}">{{ $t->labelStatut() }}</span>
     </td>
-    @if($canEdit && $sprint->statut !== 'termine')
-    <td><button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }})" title="Modifier">&#9998;</button></td>
+    @if($canEditSprint && $sprint->statut !== 'termine')
+    <td style="text-align:center"><button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }})" title="Modifier">&#9998;</button></td>
     @endif
 </tr>
 @endforeach
@@ -296,8 +311,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </form>
 </dialog>
 
-{{-- Dialog modification sprint --}}
-@if($sprint->statut !== 'termine')
+{{-- Dialog modification sprint (pilotes uniquement) --}}
+@if($canEditSprint && $sprint->statut !== 'termine')
 <dialog id="dlg-edit-sprint">
     <h3 style="color:var(--bleu);margin-bottom:4px">Modifier le sprint</h3>
     <form method="POST" action="{{ route('sprints.update', $sprint) }}">@csrf @method('PUT')
@@ -317,7 +332,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </dialog>
 @endif
 
-{{-- Dialog modification tâche --}}
+{{-- Dialog modification tâche (pilotes uniquement) --}}
+@if($canEditSprint)
 <dialog id="dlg-edit-tache">
     <h3 style="color:var(--bleu);margin-bottom:4px">Modifier la t&acirc;che</h3>
     <form id="form-edit-tache" method="POST" action="">@csrf @method('PUT')
@@ -353,10 +369,12 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </form>
 </dialog>
 @endif
+@endif
 @endsection
 
 @push('scripts')
 <script>
+@if($canEditSprint)
 function ouvrirEditTache(id, intitule, userId, priorite, debut, echeance, points){
     document.getElementById('form-edit-tache').action = '/sprints/{{ $sprint->id }}/taches/' + id;
     document.getElementById('et-intitule').value = intitule;
@@ -367,6 +385,7 @@ function ouvrirEditTache(id, intitule, userId, priorite, debut, echeance, points
     document.getElementById('et-points').value = points || '';
     document.getElementById('dlg-edit-tache').showModal();
 }
+@endif
 function filtrerSprint(){
     const nom=document.getElementById('fNom').value.toLowerCase();
     const user=document.getElementById('fAssigne').value;

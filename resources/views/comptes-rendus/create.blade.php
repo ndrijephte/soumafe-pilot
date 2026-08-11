@@ -3,7 +3,7 @@
 @section('contenu')
 <style>
 .cr-form{max-width:660px;margin:0 auto;background:#fff;border-radius:14px;padding:32px;box-shadow:0 1px 6px rgba(0,0,0,.06)}
-.cr-form h2{font-size:1.15rem;font-weight:700;color:#1a1a2e;margin-bottom:4px}
+.cr-form h2{font-size:1.15rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:4px}
 .cr-sub{font-size:.8rem;color:#94a3b8;margin-bottom:22px}
 .fg{margin-bottom:16px}
 .fg label{display:block;font-size:.85rem;font-weight:600;color:#475569;margin-bottom:4px}

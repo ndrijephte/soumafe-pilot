@@ -3,7 +3,7 @@
 @section('contenu')
 <style>
 .cr-show{max-width:920px;margin:0 auto}
-.cr-show h2{font-size:1.3rem;font-weight:700;color:#1a1a2e;margin-bottom:4px}
+.cr-show h2{font-size:1.3rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:4px}
 .cr-show .sub{font-size:.85rem;color:#64748b;margin-bottom:20px}
 .section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .section h3{font-size:1rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #DDEAF5}
@@ -16,7 +16,7 @@
 .badge-brouillon{background:#fef3c7;color:#92400e}
 .info-grid{display:grid;grid-template-columns:160px 1fr;gap:6px 12px;font-size:.88rem}
 .info-grid dt{font-weight:600;color:#475569}
-.info-grid dd{color:#1a1a2e}
+.info-grid dd{color:var(--bleu,#1F4E79)}
 .presence-ok{color:#059669;font-weight:700}
 .presence-no{color:#dc2626;font-weight:700}
 .cr-bar{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0}
@@ -106,7 +106,7 @@
             @foreach($d['ordre_du_jour'] as $k => $odj)
             @if(!empty($odj['contenu']))
             <div style="margin-bottom:14px">
-                <strong style="font-size:.88rem;color:#1e3a5f">2.{{ $k + 1 }}. {{ $odj['point'] }}</strong>
+                <strong style="font-size:.88rem;color:var(--bleu,#1F4E79)">2.{{ $k + 1 }}. {{ $odj['point'] }}</strong>
                 <div style="font-size:.88rem;color:#334155;margin-top:4px;line-height:1.6">{!! $odj['contenu'] !!}</div>
             </div>
             @endif
@@ -120,7 +120,7 @@
             <h3>Diligences par projet</h3>
             @foreach($d['diligences'] as $dil)
             <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;margin-bottom:10px">
-                <div style="font-weight:600;color:#1e3a5f">{{ $dil['projet'] }} <span style="font-weight:400;color:#64748b;font-size:.82rem">({{ $dil['responsable'] }})</span></div>
+                <div style="font-weight:600;color:var(--bleu,#1F4E79)">{{ $dil['projet'] }} <span style="font-weight:400;color:#64748b;font-size:.82rem">({{ $dil['responsable'] }})</span></div>
                 <div style="font-size:.82rem;color:#64748b;margin-top:4px">Terminées : <strong>{{ $dil['taches_terminees'] }}</strong> — Blocages : <strong>{{ $dil['taches_bloquees'] }}</strong></div>
                 @if(!empty($dil['observations']))
                 <div style="font-size:.85rem;color:#334155;margin-top:6px;line-height:1.6">{!! $dil['observations'] !!}</div>
@@ -184,7 +184,7 @@
 
         <div class="section">
             <h3>Score global</h3>
-            <div style="font-size:1.3rem;font-weight:700;color:#1e3a5f">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }} points ({{ $d['score_pourcent'] ?? 0 }}%)</div>
+            <div style="font-size:1.3rem;font-weight:700;color:var(--bleu,#1F4E79)">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }} points ({{ $d['score_pourcent'] ?? 0 }}%)</div>
         </div>
 
         @if(!empty($d['actions_a_mener']))

@@ -3,7 +3,7 @@
 @section('contenu')
 <style>
 .cr-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:12px}
-.cr-header h2{font-size:1.5rem;font-weight:700;color:#1a1a2e}
+.cr-header h2{font-size:1.5rem;font-weight:700;color:var(--bleu,#1F4E79)}
 .cr-filtres{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:14px 20px;background:#fff;border-radius:12px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .cr-filtres select,.cr-filtres input[type=date]{padding:7px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.85rem;background:#fff}
 .cr-filtres label{font-size:.78rem;font-weight:600;color:#64748b;margin-right:-4px}
@@ -16,7 +16,7 @@
 .cr-card{background:#fff;border-radius:12px;padding:18px 22px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;justify-content:space-between;align-items:center;gap:16px;transition:box-shadow .15s}
 .cr-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.1)}
 .cr-card .left{flex:1}
-.cr-card .titre{font-weight:600;font-size:1rem;color:#1a1a2e;margin-bottom:4px}
+.cr-card .titre{font-weight:600;font-size:1rem;color:var(--bleu,#1F4E79);margin-bottom:4px}
 .cr-card .meta{font-size:.82rem;color:#64748b}
 .cr-card .meta span{margin-right:14px}
 .badge-type{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600;color:#fff}

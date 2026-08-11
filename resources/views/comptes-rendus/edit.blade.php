@@ -3,7 +3,7 @@
 @section('contenu')
 <style>
 .cr-edit{max-width:920px;margin:0 auto}
-.cr-edit h2{font-size:1.3rem;font-weight:700;color:#1a1a2e;margin-bottom:6px}
+.cr-edit h2{font-size:1.3rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:6px}
 .cr-edit .sub{font-size:.85rem;color:#64748b;margin-bottom:20px}
 /* Sections pliables */
 .section{background:#fff;border-radius:12px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
@@ -34,7 +34,7 @@
 .rich-toolbar button{background:none;border:1px solid transparent;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.8rem;color:#475569;font-weight:600;transition:all .1s}
 .rich-toolbar button:hover{background:#e2e8f0;border-color:#d1d5db}
 .rich-toolbar button.active{background:var(--bleu,#1F4E79);color:#fff}
-.rich-editor{border:1px solid #d1d5db;border-radius:0 0 8px 8px;padding:10px 14px;min-height:80px;font-size:.9rem;color:#1a1a2e;line-height:1.6;outline:none}
+.rich-editor{border:1px solid #d1d5db;border-radius:0 0 8px 8px;padding:10px 14px;min-height:80px;font-size:.9rem;color:var(--bleu,#1F4E79);line-height:1.6;outline:none}
 .rich-editor:focus{border-color:var(--bleu,#1F4E79);box-shadow:0 0 0 3px rgba(31,78,121,.1)}
 .rich-editor ul,.rich-editor ol{margin:4px 0 4px 20px}
 /* Buttons */

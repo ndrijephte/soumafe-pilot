@@ -14,13 +14,13 @@
 .stats-row{display:flex;gap:20px;font-size:13px;color:var(--gris);margin-bottom:18px;flex-wrap:wrap}
 .stats-row strong{color:#1e293b}
 .taches-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
-.taches-table th{text-align:left;padding:10px 12px;background:var(--fond);color:var(--gris);font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--bord)}
-.taches-table td{padding:10px 12px;border-bottom:1px solid var(--bord);vertical-align:middle}
+.taches-table th{text-align:left;padding:10px 14px;background:var(--fond);color:var(--gris);font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--bord);white-space:nowrap}
+.taches-table td{padding:10px 14px;border-bottom:1px solid var(--bord);vertical-align:middle}
 .taches-table tr:hover{background:#f8fafc}
-.col-tache{width:38%}.col-assigne{width:16%}.col-prio{width:9%}.col-periode{width:16%}.col-pts{width:5%;text-align:center}.col-statut{width:11%}.col-edit{width:5%;text-align:center}
+.col-tache{width:50%}.col-assigne{width:12%}.col-prio{width:7%}.col-debut{width:7%}.col-ech{width:7%}.col-pts{width:5%;text-align:center}.col-statut{width:8%}.col-edit{width:4%;text-align:center}
 .pill{padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
 .p-ok{background:#dcfce7;color:var(--ok)}.p-cours{background:#dbeafe;color:var(--accent)}.p-bloque{background:#fee2e2;color:var(--ko)}.p-attente{background:#fef3c7;color:#b45309}
-.prio-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.prio-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .typ{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px}.t1{background:#dbeafe;color:#1d4ed8}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
 .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
@@ -44,11 +44,9 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 .filtre-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .filtre-bar input,.filtre-bar select{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 .filtre-bar input{min-width:160px}
-.tache-nom{display:block;text-decoration:none;color:#1e293b;font-weight:500;line-height:1.4;overflow:hidden;text-overflow:ellipsis}
+.tache-nom{display:inline;text-decoration:none;color:#1e293b;font-weight:500;line-height:1.5}
 .tache-nom:hover{color:var(--accent)}
-.periode-cell{font-size:12px;color:#475569;line-height:1.5}
-.periode-cell .sep{color:#94a3b8;margin:0 2px}
-@media(max-width:768px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}.filtre-bar{flex-direction:column}.taches-table{table-layout:auto}.col-tache,.col-assigne,.col-prio,.col-periode,.col-pts,.col-statut,.col-edit{width:auto}}
+@media(max-width:768px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}.filtre-bar{flex-direction:column}.taches-table{table-layout:auto}.col-tache,.col-assigne,.col-prio,.col-debut,.col-ech,.col-pts,.col-statut,.col-edit{width:auto}}
 </style>
 @endpush
 @section('contenu')
@@ -168,7 +166,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <th class="col-tache">T&acirc;che</th>
         <th class="col-assigne">Assign&eacute;</th>
         <th class="col-prio">Prio.</th>
-        <th class="col-periode">P&eacute;riode</th>
+        <th class="col-debut">D&eacute;but</th>
+        <th class="col-ech">&Eacute;ch.</th>
         <th class="col-pts">Pts</th>
         <th class="col-statut">Statut</th>
         @if($canEditSprint && $sprint->statut !== 'termine')<th class="col-edit"></th>@endif
@@ -179,17 +178,16 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 <tr data-row data-nom="{{ strtolower($t->intitule) }}" data-user="{{ $t->user_id }}" data-prio="{{ $t->priorite }}" data-statut="{{ $t->statut }}" @if($sprint->statut !== 'en_cours') style="opacity:0.55" @endif>
     <td>
         <span class="typ t1">T1</span>
-        <a href="{{ route('taches.show', $t) }}" class="tache-nom" title="{{ $t->intitule }}">{{ $t->intitule }}</a>
+        <a href="{{ route('taches.show', $t) }}" class="tache-nom">{{ $t->intitule }}</a>
     </td>
-    <td style="font-size:12.5px">{{ $t->user?->nomComplet() ?? '—' }}</td>
+    <td style="font-size:12px">{{ $t->user?->nomComplet() ?? '—' }}</td>
     <td>
         @php $pCouleur = match($t->priorite) { 'haute' => '#ef4444', 'basse' => '#94a3b8', default => '#2E74B5' }; @endphp
-        <span class="prio-dot" style="background:{{ $pCouleur }}"></span><span style="font-size:12px">{{ ucfirst($t->priorite) }}</span>
+        <span class="prio-dot" style="background:{{ $pCouleur }}"></span><span style="font-size:11.5px">{{ ucfirst($t->priorite) }}</span>
     </td>
-    <td class="periode-cell">
-        {{ $t->date_debut?->format('d/m') ?? '—' }}<span class="sep">&rarr;</span>{{ $t->echeance?->format('d/m') ?? '—' }}
-    </td>
-    <td style="text-align:center;font-weight:600;font-size:12.5px">{{ $t->points ?? '—' }}</td>
+    <td style="font-size:12px;color:#475569">{{ $t->date_debut?->format('d/m') ?? '—' }}</td>
+    <td style="font-size:12px;color:#475569">{{ $t->echeance?->format('d/m') ?? '—' }}</td>
+    <td style="text-align:center;font-weight:600;font-size:12px">{{ $t->points ?? '—' }}</td>
     <td>
         @php $sClasse = match($t->statut) { 'termine' => 'p-ok', 'en_cours' => 'p-cours', 'bloque' => 'p-bloque', default => 'p-attente' }; @endphp
         <span class="pill {{ $sClasse }}">{{ $t->labelStatut() }}</span>

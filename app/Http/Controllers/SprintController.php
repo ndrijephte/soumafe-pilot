@@ -48,9 +48,8 @@ class SprintController extends Controller
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after:date_debut',
             'engagement_points' => 'nullable|integer|min:1',
-            'statut' => 'required|in:planifie,en_cours,termine',
         ]);
-        $sprint->update($r->only(['objectif', 'date_debut', 'date_fin', 'engagement_points', 'statut']));
+        $sprint->update($r->only(['objectif', 'date_debut', 'date_fin', 'engagement_points']));
         return back()->with('succes', 'Sprint mis à jour.');
     }
 
@@ -211,6 +210,26 @@ class SprintController extends Controller
         ]);
 
         return back()->with('succes', 'Tâche ajoutée au sprint.');
+    }
+
+    /** Modifier une tâche existante du sprint. */
+    public function modifierTache(Request $r, Sprint $sprint, Tache $tache)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        abort_unless($tache->sprint_id === $sprint->id, 404);
+
+        $r->validate([
+            'intitule' => 'required|string|max:255',
+            'user_id' => 'required|exists:users,id',
+            'priorite' => 'required|in:haute,moyenne,basse',
+            'date_debut' => 'nullable|date',
+            'echeance' => 'nullable|date',
+            'points' => 'nullable|integer|min:1',
+        ]);
+
+        $tache->update($r->only(['intitule', 'user_id', 'priorite', 'date_debut', 'echeance', 'points']));
+
+        return back()->with('succes', 'Tâche mise à jour.');
     }
 
     /** Import xlsx de tâches rattachées à un projet/sprint. */

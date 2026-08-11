@@ -35,6 +35,10 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .req{color:var(--ko)}
 .vide{text-align:center;padding:40px;color:var(--gris);font-size:14px}
+.btn-edit-row{background:none;border:none;cursor:pointer;color:var(--accent);font-size:13px;padding:2px 6px;border-radius:4px;vertical-align:middle}
+.btn-edit-row:hover{background:#dbeafe}
+.btn-edit-sprint{background:none;border:1px solid var(--accent);color:var(--accent);padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500}
+.btn-edit-sprint:hover{background:var(--accent);color:#fff}
 .filtre-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .filtre-bar input,.filtre-bar select{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 .filtre-bar input{min-width:160px}
@@ -70,10 +74,15 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
 
 <div class="carte" style="margin-bottom:16px">
-    <div class="sprint-meta">
-        <div><strong>Objectif :</strong> {{ $sprint->objectif }}</div>
-        <div><strong>P&eacute;riode :</strong> {{ $sprint->date_debut->format('d/m/Y') }} &rarr; {{ $sprint->date_fin->format('d/m/Y') }}</div>
-        @if($sprint->engagement_points)<div><strong>Points engag&eacute;s :</strong> {{ $sprint->engagement_points }}</div>@endif
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="sprint-meta">
+            <div><strong>Objectif :</strong> {{ $sprint->objectif }}</div>
+            <div><strong>P&eacute;riode :</strong> {{ $sprint->date_debut->format('d/m/Y') }} &rarr; {{ $sprint->date_fin->format('d/m/Y') }}</div>
+            @if($sprint->engagement_points)<div><strong>Points engag&eacute;s :</strong> {{ $sprint->engagement_points }}</div>@endif
+        </div>
+        @if($canEdit && $sprint->statut !== 'termine')
+        <button class="btn-edit-sprint" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint">&#9998; Modifier</button>
+        @endif
     </div>
     <div class="progress-wrap"><div class="progress-fill" style="width:{{ $pct }}%"></div></div>
     <div class="stats-row">
@@ -149,7 +158,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 <div class="carte" style="padding:0;overflow-x:auto">
 <table class="taches-table">
 <thead>
-    <tr><th>T&acirc;che</th><th>Assign&eacute; &agrave;</th><th>Priorit&eacute;</th><th>D&eacute;but</th><th>&Eacute;ch&eacute;ance</th><th>Points</th><th>Statut</th></tr>
+    <tr><th>T&acirc;che</th><th>Assign&eacute; &agrave;</th><th>Priorit&eacute;</th><th>D&eacute;but</th><th>&Eacute;ch&eacute;ance</th><th>Points</th><th>Statut</th>@if($canEdit && $sprint->statut !== 'termine')<th style="width:40px"></th>@endif</tr>
 </thead>
 <tbody>
 @foreach($sprint->taches->sortByDesc('priorite') as $t)
@@ -170,6 +179,9 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         @php $sClasse = match($t->statut) { 'termine' => 'p-ok', 'en_cours' => 'p-cours', 'bloque' => 'p-bloque', default => 'p-attente' }; @endphp
         <span class="pill {{ $sClasse }}">{{ $t->labelStatut() }}</span>
     </td>
+    @if($canEdit && $sprint->statut !== 'termine')
+    <td><button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }})" title="Modifier">&#9998;</button></td>
+    @endif
 </tr>
 @endforeach
 </tbody>
@@ -283,11 +295,78 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         </div>
     </form>
 </dialog>
+
+{{-- Dialog modification sprint --}}
+@if($sprint->statut !== 'termine')
+<dialog id="dlg-edit-sprint">
+    <h3 style="color:var(--bleu);margin-bottom:4px">Modifier le sprint</h3>
+    <form method="POST" action="{{ route('sprints.update', $sprint) }}">@csrf @method('PUT')
+        <label>Objectif <span class="req">*</span></label>
+        <input name="objectif" required value="{{ $sprint->objectif }}">
+        <div class="form-row">
+            <div><label>Date d&eacute;but <span class="req">*</span></label><input type="date" name="date_debut" required value="{{ $sprint->date_debut->format('Y-m-d') }}"></div>
+            <div><label>Date fin <span class="req">*</span></label><input type="date" name="date_fin" required value="{{ $sprint->date_fin->format('Y-m-d') }}"></div>
+        </div>
+        <label>Points engag&eacute;s</label>
+        <input type="number" name="engagement_points" min="1" value="{{ $sprint->engagement_points }}">
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Enregistrer</button>
+        </div>
+    </form>
+</dialog>
+@endif
+
+{{-- Dialog modification tâche --}}
+<dialog id="dlg-edit-tache">
+    <h3 style="color:var(--bleu);margin-bottom:4px">Modifier la t&acirc;che</h3>
+    <form id="form-edit-tache" method="POST" action="">@csrf @method('PUT')
+        <label>Intitul&eacute; <span class="req">*</span></label>
+        <input name="intitule" id="et-intitule" required>
+        <div class="form-row">
+            <div>
+                <label>Assign&eacute; &agrave; <span class="req">*</span></label>
+                <select name="user_id" id="et-user" required>
+                    <option value="">— Choisir —</option>
+                    @foreach($users as $u)<option value="{{ $u->id }}">{{ $u->nomComplet() }}</option>@endforeach
+                </select>
+            </div>
+            <div>
+                <label>Priorit&eacute; <span class="req">*</span></label>
+                <select name="priorite" id="et-priorite" required>
+                    <option value="moyenne">Moyenne</option>
+                    <option value="haute">Haute</option>
+                    <option value="basse">Basse</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div><label>Date d&eacute;but</label><input type="date" name="date_debut" id="et-debut"></div>
+            <div><label>&Eacute;ch&eacute;ance</label><input type="date" name="echeance" id="et-echeance"></div>
+        </div>
+        <label>Points (story points)</label>
+        <input type="number" name="points" id="et-points" min="1">
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Enregistrer</button>
+        </div>
+    </form>
+</dialog>
 @endif
 @endsection
 
 @push('scripts')
 <script>
+function ouvrirEditTache(id, intitule, userId, priorite, debut, echeance, points){
+    document.getElementById('form-edit-tache').action = '/sprints/{{ $sprint->id }}/taches/' + id;
+    document.getElementById('et-intitule').value = intitule;
+    document.getElementById('et-user').value = userId || '';
+    document.getElementById('et-priorite').value = priorite;
+    document.getElementById('et-debut').value = debut;
+    document.getElementById('et-echeance').value = echeance;
+    document.getElementById('et-points').value = points || '';
+    document.getElementById('dlg-edit-tache').showModal();
+}
 function filtrerSprint(){
     const nom=document.getElementById('fNom').value.toLowerCase();
     const user=document.getElementById('fAssigne').value;

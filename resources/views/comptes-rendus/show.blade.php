@@ -49,7 +49,7 @@
             <dt>Rédacteur</dt><dd>{{ $cr->redacteur?->nomComplet() ?? '—' }}</dd>
             <dt>Désigné par</dt><dd>{{ $cr->designePar?->nomComplet() ?? '—' }}</dd>
             @if($cr->sprint)
-            <dt>Sprint</dt><dd>{{ $cr->sprint->libelle ?? "Sprint #{$cr->sprint->id}" }}</dd>
+            <dt>Sprint</dt><dd>Sprint {{ $cr->sprint->numero }} — {{ $cr->sprint->projet?->libelle ?? '' }}</dd>
             @endif
         </dl>
     </div>
@@ -135,13 +135,14 @@
         <div class="section">
             <h3>3. Décisions prises / Actions à mener</h3>
             <table class="tbl">
-                <thead><tr><th style="width:40px">N°</th><th>Décision / Action</th><th>Responsable</th><th style="width:120px">Échéance</th></tr></thead>
+                <thead><tr><th style="width:40px">N°</th><th>Décision / Action</th><th>Responsable(s)</th><th style="width:120px">Échéance</th></tr></thead>
                 <tbody>
                 @foreach($d['decisions'] as $i => $dec)
+                @php $rDec = $dec['responsables'] ?? (isset($dec['responsable']) && $dec['responsable'] ? [$dec['responsable']] : []); @endphp
                 <tr>
                     <td style="text-align:center">{{ $i + 1 }}</td>
                     <td>{{ $dec['action'] ?? '' }}</td>
-                    <td>{{ $dec['responsable'] ?? '' }}</td>
+                    <td>{{ implode(', ', $rDec) ?: '—' }}</td>
                     <td>{{ $dec['echeance'] ?? '—' }}</td>
                 </tr>
                 @endforeach
@@ -191,13 +192,14 @@
         <div class="section">
             <h3>Actions à mener</h3>
             <table class="tbl">
-                <thead><tr><th style="width:40px">N°</th><th>Action</th><th>Responsable</th><th style="width:120px">Échéance</th></tr></thead>
+                <thead><tr><th style="width:40px">N°</th><th>Action</th><th>Responsable(s)</th><th style="width:120px">Échéance</th></tr></thead>
                 <tbody>
                 @foreach($d['actions_a_mener'] as $i => $a)
+                @php $rAct = $a['responsables'] ?? (isset($a['responsable']) && $a['responsable'] ? [$a['responsable']] : []); @endphp
                 <tr>
                     <td style="text-align:center">{{ $i + 1 }}</td>
                     <td>{{ $a['action'] ?? '' }}</td>
-                    <td>{{ $a['responsable'] ?? '' }}</td>
+                    <td>{{ implode(', ', $rAct) ?: '—' }}</td>
                     <td>{{ $a['echeance'] ?? '—' }}</td>
                 </tr>
                 @endforeach

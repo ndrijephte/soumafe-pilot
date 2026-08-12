@@ -156,13 +156,41 @@ class CompteRenduController extends Controller
             $cr->save();
             $this->genererDocx($cr);
 
-            if ((int)$cr->designe_par !== (int)$user->id && Schema::hasTable('notification_apps')) {
-                NotificationApp::create([
-                    'user_id' => $cr->designe_par,
-                    'type'    => 'cr_confirme',
-                    'message' => "{$user->nomComplet()} a confirmé le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
-                    'lien'    => route('comptes-rendus.show', $cr),
-                ]);
+            if (Schema::hasTable('notification_apps')) {
+                // Notifier le désignateur
+                if ((int)$cr->designe_par !== (int)$user->id) {
+                    NotificationApp::create([
+                        'user_id' => $cr->designe_par,
+                        'type'    => 'cr_confirme',
+                        'message' => "{$user->nomComplet()} a confirmé le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
+                        'lien'    => route('comptes-rendus.show', $cr),
+                    ]);
+                }
+
+                // Notifier chaque collaborateur cité dans les décisions/actions
+                $donnees = $cr->getDonnees();
+                $nomsResp = collect();
+                foreach (['decisions', 'actions_a_mener'] as $section) {
+                    foreach ($donnees[$section] ?? [] as $item) {
+                        $noms = $item['responsables'] ?? (isset($item['responsable']) && $item['responsable'] ? [$item['responsable']] : []);
+                        $nomsResp = $nomsResp->merge($noms);
+                    }
+                }
+                $nomsResp = $nomsResp->unique()->filter();
+                if ($nomsResp->isNotEmpty()) {
+                    $allUsers = User::where('actif', true)->get();
+                    foreach ($nomsResp as $nom) {
+                        $target = $allUsers->first(fn($u) => $u->nomComplet() === $nom);
+                        if ($target && (int)$target->id !== (int)$user->id) {
+                            NotificationApp::create([
+                                'user_id' => $target->id,
+                                'type'    => 'cr_action',
+                                'message' => "Une action vous concerne dans le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
+                                'lien'    => route('comptes-rendus.show', $cr),
+                            ]);
+                        }
+                    }
+                }
             }
 
             return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu confirmé et DOCX généré.');
@@ -256,7 +284,7 @@ class CompteRenduController extends Controller
         }
 
         return [
-            'sprint' => $sprint->libelle ?? "Sprint #{$sprint->id}",
+            'sprint' => "Sprint {$sprint->numero}",
             'projet' => $sprint->projet?->libelle ?? '—',
             'date_debut' => $sprint->date_debut?->format('d/m/Y'),
             'date_fin' => $sprint->date_fin?->format('d/m/Y'),
@@ -381,9 +409,10 @@ class CompteRenduController extends Controller
         if (!empty($d['decisions'])) {
             $decRows = [];
             foreach ($d['decisions'] as $i => $dec) {
-                $decRows[] = [(string)($i + 1), $dec['action'] ?? '', $dec['responsable'] ?? '', $dec['echeance'] ?? ''];
+                $rDec = $dec['responsables'] ?? (isset($dec['responsable']) && $dec['responsable'] ? [$dec['responsable']] : []);
+                $decRows[] = [(string)($i + 1), $dec['action'] ?? '', implode(', ', $rDec), $dec['echeance'] ?? ''];
             }
-            $xml .= $this->docxTableMulti(['N°', 'Décision / Action', 'Responsable', 'Échéance'], $decRows);
+            $xml .= $this->docxTableMulti(['N°', 'Décision / Action', 'Responsable(s)', 'Échéance'], $decRows);
         } else {
             $xml .= $this->p("(Aucune décision enregistrée)");
         }
@@ -437,9 +466,10 @@ class CompteRenduController extends Controller
         if (!empty($d['actions_a_mener'])) {
             $actRows = [];
             foreach ($d['actions_a_mener'] as $i => $a) {
-                $actRows[] = [(string)($i + 1), $a['action'] ?? '', $a['responsable'] ?? '', $a['echeance'] ?? ''];
+                $rAct = $a['responsables'] ?? (isset($a['responsable']) && $a['responsable'] ? [$a['responsable']] : []);
+                $actRows[] = [(string)($i + 1), $a['action'] ?? '', implode(', ', $rAct), $a['echeance'] ?? ''];
             }
-            $xml .= $this->docxTableMulti(['N°', 'Action', 'Responsable', 'Échéance'], $actRows);
+            $xml .= $this->docxTableMulti(['N°', 'Action', 'Responsable(s)', 'Échéance'], $actRows);
         } else {
             $xml .= $this->p("(À compléter)");
         }

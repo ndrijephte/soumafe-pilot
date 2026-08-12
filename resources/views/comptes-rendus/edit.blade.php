@@ -58,6 +58,16 @@
 .cr-bottom .btn-confirm{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--ok,#16a34a);border:none;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(22,163,106,.2)}
 .cr-bottom .btn-confirm:hover{background:#15803d}
 .tbl .num-col{width:45px;text-align:center;color:#94a3b8;font-weight:600}
+/* Multi-select responsables */
+.ms-wrap{position:relative}
+.ms-btn{width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem;background:#fff;cursor:pointer;text-align:left;min-height:30px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.ms-btn:hover{border-color:var(--bleu,#1F4E79)}
+.ms-drop{display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #d1d5db;border-radius:6px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.ms-drop.open{display:block}
+.ms-drop label{display:flex;align-items:center;gap:6px;padding:5px 10px;font-size:.82rem;cursor:pointer;white-space:nowrap}
+.ms-drop label:hover{background:#f1f5f9}
+.ms-tag{background:#dbeafe;color:#1d4ed8;padding:1px 7px;border-radius:4px;font-size:.75rem;white-space:nowrap}
+.ms-placeholder{color:#94a3b8;font-size:.82rem}
 </style>
 
 <div class="cr-edit">
@@ -235,18 +245,27 @@
                 </div>
                 <div class="section-body">
                     <table class="tbl">
-                        <thead><tr><th class="num-col">N°</th><th>Décision / Action</th><th style="width:180px">Responsable</th><th style="width:120px">Échéance</th><th style="width:40px"></th></tr></thead>
+                        <thead><tr><th class="num-col">N°</th><th>Décision / Action</th><th style="width:220px">Responsable(s)</th><th style="width:120px">Échéance</th><th style="width:40px"></th></tr></thead>
                         <tbody id="decisions-body">
                         @foreach($donnees['decisions'] ?? [] as $k => $dec)
+                        @php $resps = $dec['responsables'] ?? (isset($dec['responsable']) && $dec['responsable'] ? [$dec['responsable']] : []); @endphp
                         <tr>
                             <td class="num-col">{{ $k + 1 }}</td>
                             <td><input type="text" name="donnees[decisions][{{ $k }}][action]" value="{{ $dec['action'] ?? '' }}"></td>
-                            <td><select name="donnees[decisions][{{ $k }}][responsable]">
-                                <option value="">— Choisir —</option>
-                                @foreach($collaborateurs as $c)
-                                <option value="{{ $c->nomComplet() }}" @selected(($dec['responsable'] ?? '') === $c->nomComplet())>{{ $c->nomComplet() }}</option>
-                                @endforeach
-                            </select></td>
+                            <td><div class="ms-wrap">
+                                <div class="ms-btn" onclick="toggleMS(this)">
+                                    @if(count($resps))
+                                        @foreach($resps as $rn)<span class="ms-tag">{{ $rn }}</span>@endforeach
+                                    @else
+                                        <span class="ms-placeholder">— Choisir —</span>
+                                    @endif
+                                </div>
+                                <div class="ms-drop">
+                                    @foreach($collaborateurs as $c)
+                                    <label><input type="checkbox" name="donnees[decisions][{{ $k }}][responsables][]" value="{{ $c->nomComplet() }}" onchange="updateMSDisplay(this)" @checked(in_array($c->nomComplet(), $resps))> {{ $c->nomComplet() }}</label>
+                                    @endforeach
+                                </div>
+                            </div></td>
                             <td><input type="date" name="donnees[decisions][{{ $k }}][echeance]" value="{{ $dec['echeance'] ?? '' }}"></td>
                             <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove();renumDec()">&#10005;</button></td>
                         </tr>
@@ -326,18 +345,27 @@
                 </div>
                 <div class="section-body">
                     <table class="tbl">
-                        <thead><tr><th class="num-col">N°</th><th>Action</th><th style="width:180px">Responsable</th><th style="width:120px">Échéance</th><th style="width:40px"></th></tr></thead>
+                        <thead><tr><th class="num-col">N°</th><th>Action</th><th style="width:220px">Responsable(s)</th><th style="width:120px">Échéance</th><th style="width:40px"></th></tr></thead>
                         <tbody id="actions-body">
                         @foreach($donnees['actions_a_mener'] ?? [] as $k => $a)
+                        @php $respsA = $a['responsables'] ?? (isset($a['responsable']) && $a['responsable'] ? [$a['responsable']] : []); @endphp
                         <tr>
                             <td class="num-col">{{ $k + 1 }}</td>
                             <td><input type="text" name="donnees[actions_a_mener][{{ $k }}][action]" value="{{ $a['action'] ?? '' }}"></td>
-                            <td><select name="donnees[actions_a_mener][{{ $k }}][responsable]">
-                                <option value="">— Choisir —</option>
-                                @foreach($collaborateurs as $c)
-                                <option value="{{ $c->nomComplet() }}" @selected(($a['responsable'] ?? '') === $c->nomComplet())>{{ $c->nomComplet() }}</option>
-                                @endforeach
-                            </select></td>
+                            <td><div class="ms-wrap">
+                                <div class="ms-btn" onclick="toggleMS(this)">
+                                    @if(count($respsA))
+                                        @foreach($respsA as $rn)<span class="ms-tag">{{ $rn }}</span>@endforeach
+                                    @else
+                                        <span class="ms-placeholder">— Choisir —</span>
+                                    @endif
+                                </div>
+                                <div class="ms-drop">
+                                    @foreach($collaborateurs as $c)
+                                    <label><input type="checkbox" name="donnees[actions_a_mener][{{ $k }}][responsables][]" value="{{ $c->nomComplet() }}" onchange="updateMSDisplay(this)" @checked(in_array($c->nomComplet(), $respsA))> {{ $c->nomComplet() }}</label>
+                                    @endforeach
+                                </div>
+                            </div></td>
                             <td><input type="date" name="donnees[actions_a_mener][{{ $k }}][echeance]" value="{{ $a['echeance'] ?? '' }}"></td>
                             <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove();renumAct()">&#10005;</button></td>
                         </tr>
@@ -443,17 +471,40 @@ function renum(){
     document.querySelectorAll('#odj-list .odj-item .num').forEach((el,i) => el.textContent = i+1);
 }
 
-/* === Décisions / Actions === */
-function collabOptions(){
-    return '<option value="">— Choisir —</option>' + collabs.map(c => `<option value="${c}">${c}</option>`).join('');
+/* === Multi-select responsables === */
+function msCheckboxes(namePrefix){
+    return collabs.map(c => `<label><input type="checkbox" name="${namePrefix}[responsables][]" value="${c}" onchange="updateMSDisplay(this)"> ${c}</label>`).join('');
 }
+function toggleMS(btn){
+    const drop = btn.nextElementSibling;
+    document.querySelectorAll('.ms-drop.open').forEach(d => { if(d !== drop) d.classList.remove('open'); });
+    drop.classList.toggle('open');
+}
+function updateMSDisplay(chk){
+    const wrap = chk.closest('.ms-wrap');
+    const btn = wrap.querySelector('.ms-btn');
+    const checked = wrap.querySelectorAll('.ms-drop input:checked');
+    if(checked.length === 0){
+        btn.innerHTML = '<span class="ms-placeholder">— Choisir —</span>';
+    } else {
+        btn.innerHTML = Array.from(checked).map(c => `<span class="ms-tag">${c.value}</span>`).join('');
+    }
+}
+document.addEventListener('click', function(e){
+    if(!e.target.closest('.ms-wrap')) document.querySelectorAll('.ms-drop.open').forEach(d => d.classList.remove('open'));
+});
+
+/* === Décisions / Actions === */
 function ajouterDecision(){
     const body = document.getElementById('decisions-body');
     const n = body.rows.length + 1;
     const row = document.createElement('tr');
     row.innerHTML = `<td class="num-col">${n}</td>
         <td><input type="text" name="donnees[decisions][${decIdx}][action]"></td>
-        <td><select name="donnees[decisions][${decIdx}][responsable]">${collabOptions()}</select></td>
+        <td><div class="ms-wrap">
+            <div class="ms-btn" onclick="toggleMS(this)"><span class="ms-placeholder">— Choisir —</span></div>
+            <div class="ms-drop">${msCheckboxes('donnees[decisions]['+decIdx+']')}</div>
+        </div></td>
         <td><input type="date" name="donnees[decisions][${decIdx}][echeance]"></td>
         <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove();renumDec()">&#10005;</button></td>`;
     body.appendChild(row);
@@ -468,7 +519,10 @@ function ajouterAction(){
     const row = document.createElement('tr');
     row.innerHTML = `<td class="num-col">${n}</td>
         <td><input type="text" name="donnees[actions_a_mener][${actIdx}][action]"></td>
-        <td><select name="donnees[actions_a_mener][${actIdx}][responsable]">${collabOptions()}</select></td>
+        <td><div class="ms-wrap">
+            <div class="ms-btn" onclick="toggleMS(this)"><span class="ms-placeholder">— Choisir —</span></div>
+            <div class="ms-drop">${msCheckboxes('donnees[actions_a_mener]['+actIdx+']')}</div>
+        </div></td>
         <td><input type="date" name="donnees[actions_a_mener][${actIdx}][echeance]"></td>
         <td><button type="button" class="btn-rm" onclick="this.closest('tr').remove();renumAct()">&#10005;</button></td>`;
     body.appendChild(row);

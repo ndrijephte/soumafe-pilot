@@ -84,9 +84,11 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div><strong>P&eacute;riode :</strong> {{ $sprint->date_debut->format('d/m/Y') }} &rarr; {{ $sprint->date_fin->format('d/m/Y') }}</div>
             @if($sprint->engagement_points)<div><strong>Points engag&eacute;s :</strong> {{ $sprint->engagement_points }}</div>@endif
         </div>
-        @if($canEditSprint && $sprint->statut !== 'termine')
+        @if($canEditSprint)
         <div style="display:flex;gap:6px;align-items:center">
+            @if($sprint->statut !== 'termine')
             <button class="btn-edit-sprint" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint">&#9998; Modifier</button>
+            @endif
             @if($sprint->statut !== 'en_cours')
             <form method="POST" action="{{ route('sprints.destroy', $sprint) }}" style="margin:0" onsubmit="return confirm('Supprimer ce sprint et toutes ses tâches ? Cette action est irréversible.')">@csrf @method('DELETE')
                 <button type="submit" class="btn-edit-sprint" style="border-color:var(--ko);color:var(--ko)" onmouseover="this.style.background='var(--ko)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ko)'" title="Supprimer le sprint">&#128465; Supprimer</button>

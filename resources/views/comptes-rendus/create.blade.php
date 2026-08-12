@@ -114,7 +114,7 @@
                 <option value="">— Choisir —</option>
                 @foreach($sprints as $s)
                 <option value="{{ $s->id }}" data-projet="{{ $s->projet_id }}" @selected(old('sprint_id', $sprintId) == $s->id)>
-                    {{ $s->libelle ?? "Sprint #{$s->id}" }} — {{ $s->projet?->libelle ?? '—' }}
+                    Sprint {{ $s->numero }} — {{ $s->projet?->libelle ?? '—' }}
                 </option>
                 @endforeach
             </select>

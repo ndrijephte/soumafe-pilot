@@ -11,8 +11,11 @@ class DashboardController extends Controller
     {
         $user = $r->user();
 
-        // Direction + Pilotes opérationnels → même dashboard pilote
-        if ($user->aRole('direction') || $user->estPilote()) return $this->dashboardPilote($user);
+        // Direction générale → dashboard stratégique
+        if ($user->aRole('direction')) return $this->dashboardDG($user);
+
+        // Pilotes opérationnels → dashboard pilote
+        if ($user->estPilote()) return $this->dashboardPilote($user);
 
         // Collaborateur (enrichi si responsable projet)
         return $this->dashboardCollab($user);
@@ -159,13 +162,51 @@ class DashboardController extends Controller
             $sanseSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
         }
 
+        $termineesSemaine = Tache::where('statut', 'termine')
+            ->whereBetween('date_fin_reelle', [today()->startOfWeek(), today()->endOfWeek()])->count();
+
         $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
         $topBloquees = Tache::with(['user', 'projet'])->where('statut', 'bloque')
             ->orderByDesc('updated_at')->limit(5)->get();
         $parProjet = Projet::whereHas('taches')->withCount([
             'taches',
             'taches as terminees_count' => fn ($q) => $q->where('statut', 'termine'),
+            'taches as en_retard_count' => fn ($q) => $q->whereNull('date_fin_reelle')->whereNotNull('echeance')->whereDate('echeance', '<', today()),
         ])->get();
+
+        // Tendance hebdo (4 semaines)
+        $tendanceHebdo = [];
+        for ($w = 3; $w >= 0; $w--) {
+            $deb = today()->copy()->subWeeks($w)->startOfWeek();
+            $fi = $deb->copy()->endOfWeek();
+            $tendanceHebdo[] = [
+                'label' => 'S' . $deb->weekOfYear,
+                'count' => Tache::where('statut', 'termine')
+                    ->whereBetween('date_fin_reelle', [$deb, $fi])->count(),
+            ];
+        }
+        $tendanceMax = max(1, max(array_column($tendanceHebdo, 'count')));
+
+        // Taux livraison sprints terminés
+        $sprintsTermines = Sprint::where('statut', 'termine')->with('projet')->get()->map(function ($s) {
+            $totalT = Tache::where('sprint_id', $s->id)->count();
+            $termT = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
+            $s->taux_livraison = $totalT > 0 ? round(($termT / $totalT) * 100) : 0;
+            $s->total_taches = $totalT;
+            $s->taches_terminees = $termT;
+            return $s;
+        })->sortByDesc('date_fin')->take(6)->values();
+
+        // Performance collaborateurs
+        $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction'])
+            ->orderBy('name')->get()->map(function ($c) {
+                $c->taches_total = Tache::where('user_id', $c->id)->count();
+                $c->taches_terminees = Tache::where('user_id', $c->id)->where('statut', 'termine')->count();
+                $c->taches_en_cours = Tache::where('user_id', $c->id)->where('statut', 'en_cours')->count();
+                $c->taches_bloquees = Tache::where('user_id', $c->id)->where('statut', 'bloque')->count();
+                $c->taux = $c->taches_total > 0 ? round(($c->taches_terminees / $c->taches_total) * 100) : 0;
+                return $c;
+            });
 
         $evenements = collect();
         if (Schema::hasTable('evenements')) {
@@ -177,7 +218,9 @@ class DashboardController extends Controller
 
         return view('dashboard.dg', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
-            'arbitragesEnAttente', 'sanseSaisieHier', 'sprintsEnCours', 'topBloquees', 'parProjet', 'evenements'
+            'termineesSemaine', 'arbitragesEnAttente', 'sanseSaisieHier',
+            'sprintsEnCours', 'topBloquees', 'parProjet', 'evenements',
+            'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'collaborateurs'
         ));
     }
 
@@ -390,12 +433,16 @@ class DashboardController extends Controller
 
         // Sprints
         if (Schema::hasTable('sprints')) {
-            $sprints = Sprint::where('libelle', 'like', $like)
+            $sprints = Sprint::with('projet')
+                ->where(function ($qb) use ($like) {
+                    $qb->where('numero', 'like', $like)
+                        ->orWhereHas('projet', fn ($pq) => $pq->where('libelle', 'like', $like));
+                })
                 ->orderByDesc('date_debut')->limit(5)->get();
             foreach ($sprints as $s) {
                 $results[] = [
                     'type'  => 'sprint',
-                    'label' => $s->libelle ?? "Sprint #{$s->id}",
+                    'label' => "Sprint {$s->numero} — " . ($s->projet?->libelle ?? ''),
                     'sub'   => ucfirst(str_replace('_', ' ', $s->statut)),
                     'url'   => route('sprints.show', $s),
                 ];

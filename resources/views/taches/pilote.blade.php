@@ -66,7 +66,7 @@
     @endif
 </form>
 
-<table class="tbl-pilote">
+<table class="tbl-pilote" data-collapse-table="15">
     <thead>
         <tr>
             <th>Intitulé</th>

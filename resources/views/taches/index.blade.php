@@ -70,12 +70,13 @@
     @foreach($colonnes as $code => $libelle)
     <div class="col" data-statut="{{ $code }}" ondragover="event.preventDefault()" ondrop="deposer(event,'{{ $code }}')">
         <h4>{{ $libelle }} <span>{{ ($taches[$code] ?? collect())->count() }}</span></h4>
+        <div data-collapse="8">
         @foreach($taches[$code] ?? [] as $t)
         @php
             $sprintBloque = $t->sprint_id && $t->sprint?->statut !== 'en_cours';
             $peutDrag = $code !== 'termine' && !$sprintBloque;
         @endphp
-        <div class="tache {{ $t->echeance?->isPast() && $code !== 'termine' ? 'retard' : '' }}"
+        <div class="tache {{ $t->echeance?->isPast() && $code !== 'termine' ? 'retard' : '' }}" data-collapse-item
              draggable="{{ $peutDrag ? 'true' : 'false' }}" @if($peutDrag)ondragstart="event.dataTransfer.setData('id',{{ $t->id }})"@endif style="{{ !$peutDrag ? 'cursor:default;opacity:.55' : '' }}" @if($sprintBloque) title="Sprint {{ $t->sprint?->statut === 'planifie' ? 'non démarré' : 'terminé' }}"@endif>
             <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
             <div class="meta">
@@ -84,6 +85,7 @@
             </div>
         </div>
         @endforeach
+        </div>
     </div>
     @endforeach
 </div>

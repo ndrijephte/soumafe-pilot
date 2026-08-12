@@ -169,7 +169,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </select>
 </div>
 <div class="carte" style="padding:0;overflow-x:auto">
-<table class="taches-table">
+<table class="taches-table" data-collapse-table="10">
 <thead>
     <tr>
         <th class="col-tache">T&acirc;che</th>

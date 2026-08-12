@@ -82,9 +82,9 @@
 <div class="alert ok" style="margin-bottom:16px;padding:10px 16px;background:#d1fae5;color:#065f46;border-radius:8px;font-size:.9rem">{{ session('ok') }}</div>
 @endif
 
-<div class="cr-cards">
+<div class="cr-cards" data-collapse="8">
 @forelse($crs as $cr)
-    <div class="cr-card">
+    <div class="cr-card" data-collapse-item>
         <div class="left">
             <div class="titre">{{ $cr->titre }}</div>
             <div class="meta">

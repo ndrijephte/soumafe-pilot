@@ -91,7 +91,7 @@
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         T&acirc;ches &agrave; valider ({{ $aValider->count() }})
     </h3>
-    <table class="mini-table">
+    <table class="mini-table" data-collapse-table="5">
         <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>Sprint</th><th>Action</th></tr></thead>
         <tbody>
         @foreach($aValider as $t)
@@ -180,9 +180,10 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Performance &eacute;quipe
         </h3>
+        <div data-collapse="5">
         @foreach($collaborateurs as $c)
         @php $barColor = $c->taux >= 70 ? 'var(--ok)' : ($c->taux >= 40 ? 'var(--warn)' : 'var(--ko)'); @endphp
-        <div class="membre-line">
+        <div class="membre-line" data-collapse-item>
             <div class="membre-avatar">{{ mb_strtoupper(mb_substr($c->name,0,1).mb_substr($c->prenom ?? '',0,1)) }}</div>
             <div style="flex:1">
                 <div style="font-size:13px;font-weight:600">{{ $c->nomComplet() }}</div>
@@ -198,6 +199,7 @@
             <span style="font-size:12px;font-weight:700;color:var(--bleu)">{{ $c->taux }}%</span>
         </div>
         @endforeach
+        </div>
     </div>
 </div>
 
@@ -208,7 +210,7 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             T&acirc;ches bloqu&eacute;es ({{ $topBloquees->count() }})
         </h3>
-        <table class="mini-table">
+        <table class="mini-table" data-collapse-table="5">
             <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>Projet</th></tr></thead>
             <tbody>
             @forelse($topBloquees as $t)
@@ -229,7 +231,7 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             T&acirc;ches en retard ({{ $tachesEnRetard->count() }})
         </h3>
-        <table class="mini-table">
+        <table class="mini-table" data-collapse-table="5">
             <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>&Eacute;ch&eacute;ance</th><th>Retard</th></tr></thead>
             <tbody>
             @forelse($tachesEnRetard as $t)
@@ -255,7 +257,7 @@
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/></svg>
         Mes t&acirc;ches actives ({{ $mesTachesActives->count() }})
     </h3>
-    <table class="mini-table">
+    <table class="mini-table" data-collapse-table="5">
         <thead><tr><th>T&acirc;che</th><th>Projet</th><th>Priorit&eacute;</th><th>D&eacute;but</th><th>&Eacute;ch&eacute;ance</th><th>Statut</th></tr></thead>
         <tbody>
         @foreach($mesTachesActives as $t)
@@ -314,8 +316,9 @@
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         Faits marquants (30 derniers jours)
     </h3>
+    <div data-collapse="5">
     @foreach($evenements as $e)
-    <div class="evt-line">
+    <div class="evt-line" data-collapse-item>
         <span style="font-size:11px;color:var(--gris);min-width:50px">{{ $e->date->format('d/m') }}</span>
         @php $eCls = match($e->type ?? 'autre') { 'interruption_service' => 'background:#fee2e2;color:#dc2626', 'absence' => 'background:#fef3c7;color:#b45309', 'condoleance' => 'background:#e2e8f0;color:#475569', 'reunion_exceptionnelle' => 'background:#dbeafe;color:#1d4ed8', default => 'background:#f1f5f9;color:#64748b' }; @endphp
         <span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;{{ $eCls }}">{{ $e->labelType() }}</span>
@@ -323,6 +326,7 @@
         <span style="font-size:11px;color:var(--gris)">{{ $e->user->nomComplet() }}</span>
     </div>
     @endforeach
+    </div>
 </div>
 @endif
 

@@ -8,6 +8,9 @@
     <style>
         :root{--bleu:#1F4E79;--accent:#2E74B5;--fond:#F4F7FB;--carte:#fff;--gris:#64748b;--ok:#16a34a;--warn:#f59e0b;--ko:#dc2626;--bord:#e2e8f0}
         *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Calibri,sans-serif}
+        .btn-collapse{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;padding:8px 0;margin-top:6px;border:none;background:transparent;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;transition:background .15s}
+        .btn-collapse:hover{background:#eff4fb}
+        .btn-collapse .bc-icon{font-size:9px}
         body{background:var(--fond);color:#1e293b;display:flex;min-height:100vh}
         aside{width:230px;background:linear-gradient(180deg,#16385C 0%,#1F4E79 55%,#2E74B5 100%);color:#fff;padding:18px 0;position:fixed;top:0;bottom:0;overflow-y:auto;transition:width .25s ease, transform .25s ease;display:flex;flex-direction:column;z-index:20}
         aside h1{font-size:15px}
@@ -222,6 +225,65 @@ chargerNotifs();setInterval(chargerNotifs,60000);
         },250);
     });
     document.addEventListener('click',e=>{if(!e.target.closest('.recherche'))box.style.display='none'});
+})();
+</script>
+{{-- Collapse/Expand global --}}
+<script>
+(function(){
+    document.querySelectorAll('[data-collapse]').forEach(function(wrap){
+        var max = parseInt(wrap.dataset.collapse) || 5;
+        var items = wrap.querySelectorAll('[data-collapse-item]');
+        if(items.length <= max) return;
+
+        // Masquer les éléments au-delà du seuil
+        var hidden = [];
+        items.forEach(function(el, i){
+            if(i >= max){ el.style.display = 'none'; hidden.push(el); }
+        });
+
+        // Bouton toggle
+        var btn = document.createElement('button');
+        btn.className = 'btn-collapse';
+        btn.innerHTML = '<span class="bc-icon">&#9660;</span> Voir tout (' + items.length + ')';
+        btn.dataset.expanded = 'false';
+        btn.addEventListener('click', function(){
+            var show = btn.dataset.expanded === 'false';
+            hidden.forEach(function(el){ el.style.display = show ? '' : 'none'; });
+            btn.dataset.expanded = show ? 'true' : 'false';
+            btn.innerHTML = show
+                ? '<span class="bc-icon">&#9650;</span> Réduire'
+                : '<span class="bc-icon">&#9660;</span> Voir tout (' + items.length + ')';
+        });
+        wrap.appendChild(btn);
+    });
+
+    // Collapse pour les tableaux (tbody)
+    document.querySelectorAll('table[data-collapse-table]').forEach(function(table){
+        var max = parseInt(table.dataset.collapseTable) || 5;
+        var tbody = table.querySelector('tbody');
+        if(!tbody) return;
+        var rows = tbody.querySelectorAll('tr');
+        if(rows.length <= max) return;
+
+        var hidden = [];
+        rows.forEach(function(tr, i){
+            if(i >= max){ tr.style.display = 'none'; hidden.push(tr); }
+        });
+
+        var btn = document.createElement('button');
+        btn.className = 'btn-collapse';
+        btn.innerHTML = '<span class="bc-icon">&#9660;</span> Voir tout (' + rows.length + ' lignes)';
+        btn.dataset.expanded = 'false';
+        btn.addEventListener('click', function(){
+            var show = btn.dataset.expanded === 'false';
+            hidden.forEach(function(tr){ tr.style.display = show ? '' : 'none'; });
+            btn.dataset.expanded = show ? 'true' : 'false';
+            btn.innerHTML = show
+                ? '<span class="bc-icon">&#9650;</span> Réduire'
+                : '<span class="bc-icon">&#9660;</span> Voir tout (' + rows.length + ' lignes)';
+        });
+        table.parentNode.insertBefore(btn, table.nextSibling);
+    });
 })();
 </script>
 @stack('scripts')

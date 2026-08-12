@@ -1,5 +1,5 @@
 @echo off
-REM === DEPLOY SOUMAFE PILOT — Session enrichissement ===
+REM === DEPLOY SOUMAFE PILOT — Session enrichissement + collapse ===
 set SRC=D:\BUREAU_SOUMAFE\04_PROJETS\APP_SOUMAFE_PILOT\KIT_SPRINT0
 set DST=C:\laragon\www\soumafe-pilot
 
@@ -23,6 +23,8 @@ copy /Y "%SRC%\resources\views\comptes-rendus\create.blade.php" "%DST%\resources
 copy /Y "%SRC%\resources\views\comptes-rendus\edit.blade.php" "%DST%\resources\views\comptes-rendus\edit.blade.php"
 copy /Y "%SRC%\resources\views\comptes-rendus\show.blade.php" "%DST%\resources\views\comptes-rendus\show.blade.php"
 copy /Y "%SRC%\resources\views\taches\show.blade.php" "%DST%\resources\views\taches\show.blade.php"
+copy /Y "%SRC%\resources\views\taches\index.blade.php" "%DST%\resources\views\taches\index.blade.php"
+copy /Y "%SRC%\resources\views\comptes-rendus\index.blade.php" "%DST%\resources\views\comptes-rendus\index.blade.php"
 
 REM --- New views ---
 if not exist "%DST%\resources\views\emails" mkdir "%DST%\resources\views\emails"

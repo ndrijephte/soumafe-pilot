@@ -73,13 +73,14 @@
             <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/></svg>
             Mes t&acirc;ches actives ({{ $mesTachesActives->count() }})
         </h3>
+        <div data-collapse="5">
         @forelse($mesTachesActives as $t)
         @php
             $statutCls = match($t->statut) { 'en_cours' => 'b-ok', 'bloque' => 'b-ko', default => 'b-warn' };
             $prioCls = $t->priorite === 'haute' ? 'color:var(--ko);font-weight:700' : '';
             $echeanceCls = ($t->echeance && $t->echeance->lt(today()) && $t->statut !== 'termine') ? 'color:var(--ko);font-weight:700' : 'color:var(--gris)';
         @endphp
-        <div class="tache-line" style="gap:8px">
+        <div class="tache-line" data-collapse-item style="gap:8px">
             <div style="flex:1">
                 <a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:#1e293b;font-weight:500">{{ $t->intitule }}</a>
                 <div style="font-size:10.5px;color:var(--gris);margin-top:2px">{{ $t->projet?->libelle ?? '' }} @if($t->priorite === 'haute')&middot; <span style="color:var(--ko);font-weight:600">Haute</span>@endif</div>
@@ -90,6 +91,7 @@
         @empty
         <p style="color:var(--gris);font-size:13px">Aucune t&acirc;che active.</p>
         @endforelse
+        </div>
         <div style="margin-top:12px"><a href="{{ route('taches.index') }}" class="btn">Voir toutes mes activit&eacute;s</a></div>
     </div>
     <div class="panneau">
@@ -214,9 +216,10 @@
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 &Eacute;quipe projet
             </h3>
+            <div data-collapse="5">
             @foreach($projetData['membres'] as $m)
             @php $barColor = $m->taux >= 70 ? 'var(--ok)' : ($m->taux >= 40 ? 'var(--warn)' : 'var(--ko)'); @endphp
-            <div class="membre-line">
+            <div class="membre-line" data-collapse-item>
                 <div class="membre-avatar">{{ mb_strtoupper(mb_substr($m->name,0,1).mb_substr($m->prenom ?? '',0,1)) }}</div>
                 <div style="flex:1">
                     <div style="font-size:13px;font-weight:600">{{ $m->nomComplet() }}</div>
@@ -229,6 +232,7 @@
                 <span style="font-size:12px;font-weight:700;color:var(--bleu)">{{ $m->taux }}%</span>
             </div>
             @endforeach
+            </div>
         </div>
     </div>
 
@@ -239,7 +243,7 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             T&acirc;ches bloqu&eacute;es sur mes projets
         </h3>
-        <table class="mini-table">
+        <table class="mini-table" data-collapse-table="5">
             <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>Projet</th></tr></thead>
             <tbody>
             @foreach($projetData['topBloquees'] as $t)

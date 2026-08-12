@@ -16,6 +16,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/taches/{tache}', [TacheController::class, 'show'])->name('taches.show');
     Route::put('/taches/{tache}', [TacheController::class, 'update'])->name('taches.update');
     Route::patch('/taches/{tache}/statut', [TacheController::class, 'statut'])->name('taches.statut');
+    Route::delete('/taches/{tache}', [TacheController::class, 'destroy'])->name('taches.destroy');
     Route::post('/taches/{tache}/valider', [TacheController::class, 'valider'])->name('taches.valider');
     Route::post('/taches/dupliquer-veille', [TacheController::class, 'dupliquerVeille'])->name('taches.dupliquer-veille');
 
@@ -90,6 +91,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/comptes-rendus/{cr}', [CompteRenduController::class, 'update'])->name('comptes-rendus.update');
     Route::post('/comptes-rendus/{cr}/confirmer', [CompteRenduController::class, 'confirmer'])->name('comptes-rendus.confirmer');
     Route::get('/comptes-rendus/{cr}/telecharger', [CompteRenduController::class, 'telecharger'])->name('comptes-rendus.telecharger');
+    Route::delete('/comptes-rendus/{cr}', [CompteRenduController::class, 'destroy'])->name('comptes-rendus.destroy');
 
     // Exports xlsx (pilotes : direction, charge_operations, admin)
     Route::get('/exports', [ExportController::class, 'index'])->name('export.index');

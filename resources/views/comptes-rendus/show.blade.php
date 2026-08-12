@@ -26,6 +26,8 @@
 .cr-bar .btn-modifier:hover{background:var(--bleu,#1F4E79);color:#fff}
 .cr-bar .btn-docx{display:inline-flex;align-items:center;gap:6px;padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;text-decoration:none;color:#fff;background:var(--bleu,#1F4E79);box-shadow:0 1px 3px rgba(31,78,121,.2);transition:all .15s}
 .cr-bar .btn-docx:hover{background:var(--accent,#2E74B5)}
+.cr-bar .btn-suppr{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:600;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;cursor:pointer;transition:all .15s}
+.cr-bar .btn-suppr:hover{background:#dc2626;color:#fff;border-color:#dc2626}
 .tbl .num-col{width:45px;text-align:center;color:#94a3b8;font-weight:600}
 </style>
 
@@ -223,6 +225,12 @@
         @endif
         @if($cr->estConfirme() && $cr->fichier_path)
         <a href="{{ route('comptes-rendus.telecharger', $cr) }}" class="btn-docx">&#8681; Télécharger DOCX</a>
+        @endif
+        @if(auth()->user()->estPilote())
+        <form method="POST" action="{{ route('comptes-rendus.destroy', $cr) }}" style="margin:0" onsubmit="return confirm('Supprimer définitivement ce compte rendu ? Cette action est irréversible.')">
+            @csrf @method('DELETE')
+            <button type="submit" class="btn-suppr">&#128465; Supprimer</button>
+        </form>
         @endif
     </div>
 </div>

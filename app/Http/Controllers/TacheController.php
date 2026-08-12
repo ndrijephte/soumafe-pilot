@@ -47,7 +47,8 @@ class TacheController extends Controller
         // Utilisateurs actifs pour le dropdown intervenant
         $utilisateurs = User::where('actif', true)->orderBy('name')->get(['id', 'name']);
 
-        return view('taches.show', compact('tache', 'blocagesActifs', 'typesBlocage', 'utilisateurs'));
+        $projets = Projet::orderBy('libelle')->get();
+        return view('taches.show', compact('tache', 'blocagesActifs', 'typesBlocage', 'utilisateurs', 'projets'));
     }
 
     /** US-06 : création rapide — valeurs par défaut intelligentes. */
@@ -148,6 +149,17 @@ class TacheController extends Controller
         ]);
 
         return back()->with('erreur', 'Tâche rejetée — renvoyée en cours.');
+    }
+
+    /** Suppression d'une tâche — pilotes ou propriétaire. */
+    public function destroy(Request $r, Tache $tache)
+    {
+        abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
+        $intitule = $tache->intitule;
+        $tache->commentaires()->delete();
+        $tache->blocages()->delete();
+        $tache->delete();
+        return redirect()->route('taches.index')->with('succes', "Tâche « {$intitule} » supprimée.");
     }
 
     /** Duplication de la veille (US-08 — anticipée ici tant la demande est fréquente). */

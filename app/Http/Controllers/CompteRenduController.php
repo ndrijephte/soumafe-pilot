@@ -199,6 +199,21 @@ class CompteRenduController extends Controller
         }
     }
 
+    /* ===== SUPPRESSION ===== */
+    public function destroy(Request $r, CompteRendu $cr)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+
+        // Supprimer le fichier DOCX associé
+        if ($cr->fichier_path && file_exists(storage_path('app/' . $cr->fichier_path))) {
+            @unlink(storage_path('app/' . $cr->fichier_path));
+        }
+
+        $titre = $cr->titre;
+        $cr->delete();
+        return redirect()->route('comptes-rendus.index')->with('ok', "Compte rendu « {$titre} » supprimé.");
+    }
+
     /* ===== CONSULTATION ===== */
     public function show(Request $r, CompteRendu $cr)
     {

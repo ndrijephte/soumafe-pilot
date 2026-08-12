@@ -91,6 +91,17 @@ dialog textarea{min-height:70px;resize:vertical}
         @else
             <span style="font-size:12px;color:var(--gris);padding:4px 10px;background:#f1f5f9;border-radius:6px">Sprint {{ $tache->sprint?->statut === 'planifie' ? 'non d&eacute;marr&eacute;' : 'termin&eacute;' }} — consultation uniquement</span>
         @endif
+        @if((int)$tache->user_id === (int)auth()->id() || auth()->user()->estPilote())
+        <button class="btn-ic" onclick="document.getElementById('dlg-edit-tache').showModal()" style="color:#475569;border-color:#94a3b8">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifier
+        </button>
+        <form method="POST" action="{{ route('taches.destroy', $tache) }}" style="margin:0;display:inline" onsubmit="return confirm('Supprimer cette tâche et tout son historique (blocages, commentaires) ? Cette action est irréversible.')">
+            @csrf @method('DELETE')
+            <button type="submit" class="btn-ic" style="color:var(--ko);border-color:var(--ko);background:#fef2f2">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Supprimer
+            </button>
+        </form>
+        @endif
     </div>
 </div>
 
@@ -231,8 +242,80 @@ dialog textarea{min-height:70px;resize:vertical}
     </form>
 </dialog>
 
+{{-- Dialog modification tâche --}}
+@if((int)$tache->user_id === (int)auth()->id() || auth()->user()->estPilote())
+<dialog id="dlg-edit-tache" style="width:480px">
+    <h3 style="color:var(--bleu);margin-bottom:4px">Modifier la tâche</h3>
+    <form method="POST" action="{{ route('taches.update', $tache) }}">
+        @csrf @method('PUT')
+        <label>Type <span style="color:var(--ko)">*</span></label>
+        <select name="type" id="edit-type" onchange="basculeTypeEdit()">
+            <option value="T1" @selected($tache->type==='T1')>T1 — Tâche de sprint</option>
+            <option value="T2" @selected($tache->type==='T2')>T2 — Opérationnelle planifiée</option>
+            <option value="T3" @selected($tache->type==='T3')>T3 — Urgente non planifiée</option>
+        </select>
+        <label>Intitulé <span style="color:var(--ko)">*</span></label>
+        <input name="intitule" value="{{ $tache->intitule }}" required>
+        <label>Projet</label>
+        <select name="projet_id" id="edit-projet" onchange="chargerSprintsEdit()">
+            <option value="">— Aucun projet —</option>
+            @foreach($projets as $p)
+            <option value="{{ $p->id }}" @selected($tache->projet_id == $p->id)>{{ $p->libelle }}</option>
+            @endforeach
+        </select>
+        <div id="edit-champs-sprint" style="display:{{ $tache->type === 'T1' ? 'block' : 'none' }}">
+            <label>Sprint <span style="color:var(--ko)">*</span></label>
+            <select name="sprint_id" id="edit-sprint">
+                @if($tache->sprint)
+                <option value="{{ $tache->sprint_id }}" selected>Sprint {{ $tache->sprint->numero }}</option>
+                @else
+                <option value="">— Choisir —</option>
+                @endif
+            </select>
+            <label>Points <span style="color:var(--ko)">*</span></label>
+            <input name="points" type="number" min="1" max="21" value="{{ $tache->points }}">
+        </div>
+        <label>Priorité <span style="color:var(--ko)">*</span></label>
+        <select name="priorite">
+            <option value="haute" @selected($tache->priorite==='haute')>Haute</option>
+            <option value="moyenne" @selected($tache->priorite==='moyenne')>Moyenne</option>
+            <option value="basse" @selected($tache->priorite==='basse')>Basse</option>
+        </select>
+        <label>Début <span style="color:var(--ko)">*</span></label>
+        <input type="date" name="date_debut" value="{{ $tache->date_debut?->toDateString() }}" required>
+        <label>Échéance</label>
+        <input type="date" name="echeance" value="{{ $tache->echeance?->toDateString() }}">
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Enregistrer</button>
+        </div>
+    </form>
+</dialog>
+@endif
+
 @push('scripts')
 <script>
+function basculeTypeEdit(){
+    const type = document.getElementById('edit-type').value;
+    document.getElementById('edit-champs-sprint').style.display = type === 'T1' ? 'block' : 'none';
+}
+async function chargerSprintsEdit(){
+    const projetId = document.getElementById('edit-projet').value;
+    const sel = document.getElementById('edit-sprint');
+    sel.innerHTML = '<option value="">— Chargement… —</option>';
+    if (!projetId) { sel.innerHTML = '<option value="">— Choisir un projet —</option>'; return; }
+    try {
+        const rep = await fetch(`/api/projets/${projetId}/sprints`);
+        const sprints = await rep.json();
+        if (sprints.length === 0) {
+            sel.innerHTML = '<option value="">Aucun sprint</option>';
+        } else {
+            sel.innerHTML = sprints.map(s => `<option value="${s.id}"${s.id == {{ $tache->sprint_id ?? 0 }} ? ' selected' : ''}>Sprint ${s.numero}</option>`).join('');
+        }
+    } catch(e) {
+        sel.innerHTML = '<option value="">Erreur de chargement</option>';
+    }
+}
 async function marquerTermine() {
     const btn = document.getElementById('btn-terminer');
     btn.disabled = true;

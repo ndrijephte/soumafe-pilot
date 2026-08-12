@@ -37,6 +37,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/projets/{projet}/sprints', [SprintController::class, 'parProjet'])->name('api.sprints');
     Route::post('/sprints/{sprint}/taches', [SprintController::class, 'ajouterTache'])->name('sprints.ajouter-tache');
     Route::put('/sprints/{sprint}/taches/{tache}', [SprintController::class, 'modifierTache'])->name('sprints.modifier-tache');
+    Route::delete('/sprints/{sprint}/taches/{tache}', [SprintController::class, 'supprimerTache'])->name('sprints.supprimer-tache');
+    Route::delete('/sprints/{sprint}', [SprintController::class, 'destroy'])->name('sprints.destroy');
     Route::post('/sprints/importer', [SprintController::class, 'importerTaches'])->name('sprints.importer');
 
     // US-12 : Arbitrages T3

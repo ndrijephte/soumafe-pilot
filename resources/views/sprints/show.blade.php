@@ -17,7 +17,7 @@
 .taches-table th{text-align:left;padding:10px 14px;background:var(--fond);color:var(--gris);font-weight:600;font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--bord);white-space:nowrap}
 .taches-table td{padding:10px 14px;border-bottom:1px solid var(--bord);vertical-align:middle}
 .taches-table tr:hover{background:#f8fafc}
-.col-tache{width:50%}.col-assigne{width:12%}.col-prio{width:7%}.col-debut{width:7%}.col-ech{width:7%}.col-pts{width:5%;text-align:center}.col-statut{width:8%}.col-edit{width:4%;text-align:center}
+.col-tache{width:48%}.col-assigne{width:12%}.col-prio{width:7%}.col-debut{width:7%}.col-ech{width:7%}.col-pts{width:5%;text-align:center}.col-statut{width:8%}.col-edit{width:6%;text-align:center}
 .pill{padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
 .p-ok{background:#dcfce7;color:var(--ok)}.p-cours{background:#dbeafe;color:var(--accent)}.p-bloque{background:#fee2e2;color:var(--ko)}.p-attente{background:#fef3c7;color:#b45309}
 .prio-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
@@ -85,7 +85,14 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             @if($sprint->engagement_points)<div><strong>Points engag&eacute;s :</strong> {{ $sprint->engagement_points }}</div>@endif
         </div>
         @if($canEditSprint && $sprint->statut !== 'termine')
-        <button class="btn-edit-sprint" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint">&#9998; Modifier</button>
+        <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn-edit-sprint" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint">&#9998; Modifier</button>
+            @if($sprint->statut !== 'en_cours')
+            <form method="POST" action="{{ route('sprints.destroy', $sprint) }}" style="margin:0" onsubmit="return confirm('Supprimer ce sprint et toutes ses tâches ? Cette action est irréversible.')">@csrf @method('DELETE')
+                <button type="submit" class="btn-edit-sprint" style="border-color:var(--ko);color:var(--ko)" onmouseover="this.style.background='var(--ko)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ko)'" title="Supprimer le sprint">&#128465; Supprimer</button>
+            </form>
+            @endif
+        </div>
         @endif
     </div>
     <div class="progress-wrap"><div class="progress-fill" style="width:{{ $pct }}%"></div></div>
@@ -193,7 +200,12 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <span class="pill {{ $sClasse }}">{{ $t->labelStatut() }}</span>
     </td>
     @if($canEditSprint && $sprint->statut !== 'termine')
-    <td style="text-align:center"><button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }})" title="Modifier">&#9998;</button></td>
+    <td style="text-align:center;white-space:nowrap">
+        <button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }})" title="Modifier">&#9998;</button>
+        <form method="POST" action="{{ route('sprints.supprimer-tache', [$sprint, $t]) }}" style="display:inline;margin:0" onsubmit="return confirm('Supprimer la tâche « {{ addslashes($t->intitule) }} » ?')">@csrf @method('DELETE')
+            <button type="submit" class="btn-edit-row" style="color:var(--ko)" title="Supprimer">&#128465;</button>
+        </form>
+    </td>
     @endif
 </tr>
 @endforeach

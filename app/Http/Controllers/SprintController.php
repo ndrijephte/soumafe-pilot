@@ -233,6 +233,37 @@ class SprintController extends Controller
         return back()->with('succes', 'Tâche mise à jour.');
     }
 
+    /** Supprimer une tâche du sprint. */
+    public function supprimerTache(Request $r, Sprint $sprint, Tache $tache)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        abort_unless($tache->sprint_id === $sprint->id, 404);
+
+        $intitule = $tache->intitule;
+        $tache->delete();
+
+        return back()->with('succes', "Tâche « {$intitule} » supprimée.");
+    }
+
+    /** Supprimer un sprint et toutes ses tâches. */
+    public function destroy(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+
+        if ($sprint->statut === 'en_cours') {
+            return back()->with('erreur', 'Impossible de supprimer un sprint en cours. Arrêtez-le d\'abord.');
+        }
+
+        $numero = $sprint->numero;
+        $projetLib = $sprint->projet?->libelle ?? '';
+
+        // Supprimer les tâches rattachées
+        $sprint->taches()->delete();
+        $sprint->delete();
+
+        return redirect()->route('sprints.index')->with('succes', "Sprint {$numero} ({$projetLib}) supprimé.");
+    }
+
     /** Import xlsx de tâches rattachées à un projet/sprint. */
     public function importerTaches(Request $r)
     {

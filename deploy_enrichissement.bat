@@ -16,6 +16,7 @@ copy /Y "%SRC%\app\Services\MailService.php" "%DST%\app\Services\MailService.php
 REM --- Views ---
 copy /Y "%SRC%\resources\views\dashboard\index.blade.php" "%DST%\resources\views\dashboard\index.blade.php"
 copy /Y "%SRC%\resources\views\dashboard\pilote.blade.php" "%DST%\resources\views\dashboard\pilote.blade.php"
+copy /Y "%SRC%\resources\views\dashboard\dg.blade.php" "%DST%\resources\views\dashboard\dg.blade.php"
 copy /Y "%SRC%\resources\views\layouts\app.blade.php" "%DST%\resources\views\layouts\app.blade.php"
 copy /Y "%SRC%\resources\views\sprints\show.blade.php" "%DST%\resources\views\sprints\show.blade.php"
 copy /Y "%SRC%\resources\views\comptes-rendus\create.blade.php" "%DST%\resources\views\comptes-rendus\create.blade.php"

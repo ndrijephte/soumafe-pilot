@@ -3,7 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TacheRequest;
 use App\Models\{Projet, Sprint, Tache, TypeBlocage, User};
-use App\Services\ClotureService;
+use App\Services\{ClotureService, MailService};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -29,6 +29,31 @@ class TacheController extends Controller
             'vue'     => $r->get('vue', 'kanban'),
             'projets' => Projet::orderBy('libelle')->get(),
             'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
+        ]);
+    }
+
+    /** Vue pilote : toutes les tâches de tous les collaborateurs avec filtres. */
+    public function pilote(Request $r)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+
+        $query = Tache::with(['user', 'projet', 'sprint'])
+            ->when($r->collaborateur, fn ($q) => $q->where('user_id', $r->collaborateur))
+            ->when($r->projet, fn ($q) => $q->where('projet_id', $r->projet))
+            ->when($r->statut, fn ($q) => $q->where('statut', $r->statut))
+            ->when($r->priorite, fn ($q) => $q->where('priorite', $r->priorite))
+            ->when($r->type, fn ($q) => $q->where('type', $r->type))
+            ->orderByRaw("FIELD(statut,'a_valider','bloque','en_cours','a_faire','termine')")
+            ->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")
+            ->orderBy('echeance');
+
+        $taches = $query->paginate(50)->withQueryString();
+
+        return view('taches.pilote', [
+            'taches'         => $taches,
+            'projets'        => Projet::orderBy('libelle')->get(),
+            'collaborateurs' => User::where('actif', true)->whereNotIn('role', ['invite'])->orderBy('name')->get(),
+            'filtres'        => $r->only(['collaborateur', 'projet', 'statut', 'priorite', 'type']),
         ]);
     }
 
@@ -122,6 +147,13 @@ class TacheController extends Controller
                 'contenu' => 'Votre tâche « ' . \Illuminate\Support\Str::limit($tache->intitule, 40) . ' » a été validée.',
                 'lu' => false,
             ]);
+            // E-mail
+            $owner = User::find($tache->user_id);
+            if ($owner) {
+                MailService::notifier($owner, 'Tâche validée',
+                    "Votre tâche « {$tache->intitule} » a été validée par " . $r->user()->nomComplet() . ".",
+                    route('taches.show', $tache));
+            }
 
             $msg = match ($tache->qualification) {
                 'a_temps'   => 'Validée à temps.',
@@ -147,6 +179,13 @@ class TacheController extends Controller
             'contenu' => 'Votre tâche « ' . \Illuminate\Support\Str::limit($tache->intitule, 40) . ' » a été rejetée : ' . $motif,
             'lu' => false,
         ]);
+        // E-mail
+        $owner = User::find($tache->user_id);
+        if ($owner) {
+            MailService::notifier($owner, 'Tâche rejetée',
+                "Votre tâche « {$tache->intitule} » a été rejetée par " . $r->user()->nomComplet() . ".\nMotif : {$motif}",
+                route('taches.show', $tache));
+        }
 
         return back()->with('erreur', 'Tâche rejetée — renvoyée en cours.');
     }

@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{CompteRendu, NotificationApp, Projet, Sprint, Tache, User, Blocage, Evenement};
+use App\Services\MailService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -88,6 +89,17 @@ class CompteRenduController extends Controller
                     'message' => "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
                     'lien'    => route('comptes-rendus.edit', $cr),
                 ]);
+            }
+
+            // E-mail au rédacteur
+            $redacteur = User::find($v['redacteur_id']);
+            if ($redacteur) {
+                MailService::notifier(
+                    $redacteur,
+                    'Désignation rédacteur',
+                    "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y') . " par " . $user->nomComplet() . ".\nMerci de compléter le compte rendu dans l'application.",
+                    route('comptes-rendus.edit', $cr)
+                );
             }
 
             return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rédacteur désigné. Le formulaire est pré-rempli.');
@@ -188,6 +200,13 @@ class CompteRenduController extends Controller
                                 'message' => "Une action vous concerne dans le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
                                 'lien'    => route('comptes-rendus.show', $cr),
                             ]);
+                            // E-mail
+                            MailService::notifier(
+                                $target,
+                                'Action à mener',
+                                "Une action vous concerne dans le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y') . ".\nMerci de consulter le compte rendu pour les détails.",
+                                route('comptes-rendus.show', $cr)
+                            );
                         }
                     }
                 }

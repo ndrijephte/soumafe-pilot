@@ -52,6 +52,32 @@ class DashboardController extends Controller
 
         $assiduite = $this->calculerAssiduite($userId);
 
+        // Points livrés (tâches sprint terminées)
+        $pointsLivres = (int) Tache::where('user_id', $userId)->where('statut', 'termine')
+            ->whereNotNull('sprint_id')->sum('points');
+        $pointsTotalSprint = (int) Tache::where('user_id', $userId)->whereNotNull('sprint_id')->sum('points');
+
+        // Tendance hebdo (4 dernières semaines)
+        $tendanceHebdo = [];
+        for ($w = 3; $w >= 0; $w--) {
+            $debut = today()->copy()->subWeeks($w)->startOfWeek();
+            $fin = $debut->copy()->endOfWeek();
+            $tendanceHebdo[] = [
+                'label' => 'S' . $debut->weekOfYear,
+                'count' => Tache::where('user_id', $userId)->where('statut', 'termine')
+                    ->whereBetween('date_fin_reelle', [$debut, $fin])->count(),
+            ];
+        }
+        $tendanceMax = max(1, max(array_column($tendanceHebdo, 'count')));
+
+        // Répartition par priorité
+        $parPriorite = [
+            'haute' => Tache::where('user_id', $userId)->where('priorite', 'haute')->count(),
+            'moyenne' => Tache::where('user_id', $userId)->where('priorite', 'moyenne')->count(),
+            'basse' => Tache::where('user_id', $userId)->where('priorite', 'basse')->count(),
+        ];
+        $totalPrio = max(1, array_sum($parPriorite));
+
         // Toutes mes tâches actives
         $mesTachesActives = Tache::with('projet')
             ->where('user_id', $userId)
@@ -96,7 +122,9 @@ class DashboardController extends Controller
         return view('dashboard.index', compact(
             'tachesDuJour', 'total', 'terminees', 'enCours', 'bloquees',
             'enRetard', 'tauxCompletion', 'alertes', 'termineesSemaine', 'assiduite',
-            'estResponsable', 'projetData', 'mesTachesActives'
+            'estResponsable', 'projetData', 'mesTachesActives',
+            'pointsLivres', 'pointsTotalSprint', 'tendanceHebdo', 'tendanceMax',
+            'parPriorite', 'totalPrio'
         ));
     }
 
@@ -202,13 +230,18 @@ class DashboardController extends Controller
             $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
         }
 
-        // Performance par collaborateur
+        // Performance par collaborateur (enrichi : retards + points)
         $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction'])
             ->orderBy('name')->get()->map(function ($c) {
                 $c->taches_total = Tache::where('user_id', $c->id)->count();
                 $c->taches_terminees = Tache::where('user_id', $c->id)->where('statut', 'termine')->count();
                 $c->taches_en_cours = Tache::where('user_id', $c->id)->where('statut', 'en_cours')->count();
                 $c->taches_bloquees = Tache::where('user_id', $c->id)->where('statut', 'bloque')->count();
+                $c->taches_en_retard = Tache::where('user_id', $c->id)->whereNull('date_fin_reelle')
+                    ->whereNotNull('echeance')->whereDate('echeance', '<', today())
+                    ->whereIn('statut', ['en_cours', 'a_faire'])->count();
+                $c->points_livres = (int) Tache::where('user_id', $c->id)->where('statut', 'termine')
+                    ->whereNotNull('sprint_id')->sum('points');
                 $c->taux = $c->taches_total > 0 ? round(($c->taches_terminees / $c->taches_total) * 100) : 0;
                 return $c;
             });
@@ -254,11 +287,35 @@ class DashboardController extends Controller
             ->orderBy('echeance')
             ->get();
 
+        // Tendance hebdo globale (4 semaines)
+        $tendanceHebdoGlobal = [];
+        for ($w = 3; $w >= 0; $w--) {
+            $deb = today()->copy()->subWeeks($w)->startOfWeek();
+            $fi = $deb->copy()->endOfWeek();
+            $tendanceHebdoGlobal[] = [
+                'label' => 'S' . $deb->weekOfYear,
+                'count' => Tache::where('statut', 'termine')
+                    ->whereBetween('date_fin_reelle', [$deb, $fi])->count(),
+            ];
+        }
+        $tendanceMaxGlobal = max(1, max(array_column($tendanceHebdoGlobal, 'count')));
+
+        // Taux livraison sprints terminés
+        $sprintsTermines = Sprint::where('statut', 'termine')->with('projet')->get()->map(function ($s) {
+            $totalT = Tache::where('sprint_id', $s->id)->count();
+            $termT = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
+            $s->taux_livraison = $totalT > 0 ? round(($termT / $totalT) * 100) : 0;
+            $s->total_taches = $totalT;
+            $s->taches_terminees = $termT;
+            return $s;
+        })->sortByDesc('date_fin')->take(6)->values();
+
         return view('dashboard.pilote', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
             'termineesSemaine', 'alertes', 'sanseSaisieHier', 'arbitragesEnAttente',
             'sprintsEnCours', 'collaborateurs', 'topBloquees', 'tachesEnRetard',
-            'parProjet', 'evenements', 'mesTachesActives', 'aValider'
+            'parProjet', 'evenements', 'mesTachesActives', 'aValider',
+            'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines'
         ));
     }
 

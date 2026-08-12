@@ -91,11 +91,15 @@
     <a href="{{ route('dashboard') }}" data-tip="Tableau de bord" class="{{ request()->routeIs('dashboard') ? 'actif' : '' }}">
         {!! $svg('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>') !!}<span class="txt">Tableau de bord</span></a>
     @unless($u?->aRole('direction'))
-    <a href="{{ route('taches.index') }}" data-tip="Mes activités" class="{{ request()->routeIs('taches.*') ? 'actif' : '' }}">
+    <a href="{{ route('taches.index') }}" data-tip="Mes activités" class="{{ request()->routeIs('taches.index') || request()->routeIs('taches.show') ? 'actif' : '' }}">
         {!! $svg('<rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/>') !!}<span class="txt">Mes activités</span></a>
     @endunless
     <a href="{{ route('sprints.index') }}" data-tip="Projets / Sprints" class="{{ request()->routeIs('sprints.*') ? 'actif' : '' }}">
         {!! $svg('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>') !!}<span class="txt">Projets / Sprints</span></a>
+    @if($u?->estPilote())
+    <a href="{{ route('taches.pilote') }}" data-tip="Toutes les tâches" class="{{ request()->routeIs('taches.pilote') ? 'actif' : '' }}">
+        {!! $svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!}<span class="txt">Toutes les tâches</span></a>
+    @endif
     @unless($u?->aRole('direction'))
     <a href="{{ route('saisie.index') }}" data-tip="Suivi saisie" class="{{ request()->routeIs('saisie.*') ? 'actif' : '' }}">
         {!! $svg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>') !!}<span class="txt">Suivi de saisie</span></a>

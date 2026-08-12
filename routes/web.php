@@ -12,6 +12,7 @@ Route::middleware(['auth'])->group(function () {
 
     // M2 — Activités (US-06, US-07, US-08)
     Route::get('/taches', [TacheController::class, 'index'])->name('taches.index');
+    Route::get('/taches/pilote', [TacheController::class, 'pilote'])->name('taches.pilote');
     Route::post('/taches', [TacheController::class, 'store'])->name('taches.store');
     Route::get('/taches/{tache}', [TacheController::class, 'show'])->name('taches.show');
     Route::put('/taches/{tache}', [TacheController::class, 'update'])->name('taches.update');

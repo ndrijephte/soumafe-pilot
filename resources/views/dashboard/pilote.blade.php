@@ -109,6 +109,45 @@
 </div>
 @endif
 
+{{-- Tendance hebdo + Taux livraison sprints --}}
+<div class="grille">
+    <div class="panneau">
+        <h3>
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Tendance (4 semaines)
+        </h3>
+        <div style="display:flex;align-items:flex-end;gap:12px;height:100px;padding:8px 0">
+            @foreach($tendanceHebdoGlobal as $s)
+            @php $h = round(($s['count'] / $tendanceMaxGlobal) * 80); @endphp
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+                <span style="font-size:12px;font-weight:700;color:var(--bleu);margin-bottom:4px">{{ $s['count'] }}</span>
+                <div style="width:100%;max-width:40px;height:{{ max($h, 4) }}px;background:linear-gradient(180deg,var(--accent),#1a5276);border-radius:6px 6px 0 0"></div>
+                <span style="font-size:10px;color:var(--gris);margin-top:4px">{{ $s['label'] }}</span>
+            </div>
+            @endforeach
+        </div>
+        <div style="font-size:11px;color:var(--gris);text-align:center;margin-top:4px">Tâches terminées (global)</div>
+    </div>
+    @if($sprintsTermines->count() > 0)
+    <div class="panneau">
+        <h3>
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Livraison sprints terminés
+        </h3>
+        @foreach($sprintsTermines as $st)
+        @php $livColor = $st->taux_livraison >= 80 ? 'var(--ok)' : ($st->taux_livraison >= 50 ? 'var(--warn)' : 'var(--ko)'); @endphp
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:600;min-width:140px;color:var(--bleu)">S{{ $st->numero }} {{ $st->projet?->libelle ?? '' }}</span>
+            <div style="flex:1;background:#e2e8f0;border-radius:6px;height:8px;overflow:hidden">
+                <div style="height:100%;width:{{ $st->taux_livraison }}%;background:{{ $livColor }};border-radius:6px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:700;min-width:40px;text-align:right">{{ $st->taux_livraison }}%</span>
+        </div>
+        @endforeach
+    </div>
+    @endif
+</div>
+
 {{-- Sprints + Performance équipe --}}
 <div class="grille">
     <div class="panneau">
@@ -150,7 +189,9 @@
                 <div style="font-size:10.5px;color:var(--gris)">
                     {{ $c->taches_en_cours }} en cours
                     @if($c->taches_bloquees > 0)&middot; <span style="color:var(--ko)">{{ $c->taches_bloquees }} bloq.</span>@endif
+                    @if($c->taches_en_retard > 0)&middot; <span style="color:var(--ko)">{{ $c->taches_en_retard }} retard</span>@endif
                     &middot; {{ $c->taches_terminees }}/{{ $c->taches_total }}
+                    @if($c->points_livres > 0)&middot; <span style="color:#1d4ed8">{{ $c->points_livres }} pts</span>@endif
                 </div>
                 <div class="jauge-wrap" style="margin-top:3px;height:4px"><div class="jauge-bar" style="width:{{ $c->taux }}%;background:{{ $barColor }}"></div></div>
             </div>

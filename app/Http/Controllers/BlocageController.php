@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{Blocage, NotificationApp, Tache, TypeBlocage, User};
+use App\Services\MailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -60,6 +61,15 @@ class BlocageController extends Controller
                 'lu'      => false,
             ]);
         }
+
+        // E-mail aux pilotes
+        $msgMail = $r->user()->nomComplet() . " a signalé un blocage ({$typeLabel}) sur la tâche « {$tache->intitule} ».\n\nMotif : {$r->motif}";
+        MailService::notifierPlusieurs(
+            $pilotes->filter(fn($p) => $p->id !== $r->user()->id),
+            'Blocage signalé',
+            $msgMail,
+            route('taches.show', $tache)
+        );
 
         return back()->with('succes', 'Blocage signalé — la tâche passe en « Bloqué ».');
     }

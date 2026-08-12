@@ -60,6 +60,11 @@
         <div class="lbl">Complétion</div><div class="val">{{ $tauxCompletion }}%</div>
         <div class="jauge-wrap"><div class="jauge-bar" style="width:{{ $tauxCompletion }}%"></div></div>
     </div>
+    <div class="kpi" style="background:linear-gradient(135deg,#eff6ff,#fff);border-color:#93c5fd">
+        <div class="lbl">Points livrés</div>
+        <div class="val" style="color:#1d4ed8">{{ $pointsLivres }}</div>
+        <div class="sub">sur {{ $pointsTotalSprint }} pts sprint</div>
+    </div>
 </div>
 
 <div class="grille">
@@ -108,6 +113,48 @@
             <div style="font-size:11px;color:var(--gris);margin-top:4px">{{ $assiduite['jours_saisis'] }} / {{ $assiduite['jours_ouvres'] }} jours ouvr&eacute;s saisis</div>
             <a href="{{ route('saisie.index') }}" style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:600">Voir mon suivi de saisie &rarr;</a>
         </div>
+    </div>
+</div>
+
+{{-- Tendance & Répartition --}}
+<div class="grille">
+    <div class="panneau">
+        <h3>
+            <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Progression (4 semaines)
+        </h3>
+        <div style="display:flex;align-items:flex-end;gap:12px;height:100px;padding:8px 0">
+            @foreach($tendanceHebdo as $s)
+            @php $h = round(($s['count'] / $tendanceMax) * 80); @endphp
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+                <span style="font-size:12px;font-weight:700;color:var(--bleu);margin-bottom:4px">{{ $s['count'] }}</span>
+                <div style="width:100%;max-width:40px;height:{{ max($h, 4) }}px;background:linear-gradient(180deg,var(--accent),#1a5276);border-radius:6px 6px 0 0"></div>
+                <span style="font-size:10px;color:var(--gris);margin-top:4px">{{ $s['label'] }}</span>
+            </div>
+            @endforeach
+        </div>
+        <div style="font-size:11px;color:var(--gris);text-align:center;margin-top:4px">Tâches terminées par semaine</div>
+    </div>
+    <div class="panneau">
+        <h3>
+            <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+            Répartition par priorité
+        </h3>
+        @php
+            $pColors = ['haute' => '#dc2626', 'moyenne' => '#2E74B5', 'basse' => '#94a3b8'];
+            $pLabels = ['haute' => 'Haute', 'moyenne' => 'Moyenne', 'basse' => 'Basse'];
+        @endphp
+        @foreach(['haute', 'moyenne', 'basse'] as $p)
+        @php $pct = round(($parPriorite[$p] / $totalPrio) * 100); @endphp
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="font-size:12px;font-weight:600;min-width:65px;color:{{ $pColors[$p] }}">{{ $pLabels[$p] }}</span>
+            <div style="flex:1;background:#e2e8f0;border-radius:6px;height:8px;overflow:hidden">
+                <div style="height:100%;width:{{ $pct }}%;background:{{ $pColors[$p] }};border-radius:6px"></div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:#334155;min-width:40px;text-align:right">{{ $parPriorite[$p] }}</span>
+        </div>
+        @endforeach
+        <div style="font-size:11px;color:var(--gris);text-align:center;margin-top:6px">{{ $totalPrio }} tâche(s) au total</div>
     </div>
 </div>
 

@@ -104,7 +104,15 @@ class DashboardController extends Controller
             ])->get();
 
             $sprintsEnCours = Sprint::whereIn('projet_id', $projetIds)->where('statut', 'en_cours')
-                ->with('projet')->get();
+                ->with('projet')->get()->map(function ($s) {
+                    $total = Tache::where('sprint_id', $s->id)->count();
+                    $term = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
+                    $s->stats_total = $total;
+                    $s->stats_terminees = $term;
+                    $s->progression = $total > 0 ? round(($term / $total) * 100) : 0;
+                    $s->jours_restants = $s->date_fin->gte(today()) ? (int) today()->diffInDays($s->date_fin) : 0;
+                    return $s;
+                });
 
             $membresIds = Tache::whereIn('projet_id', $projetIds)->distinct()->pluck('user_id');
             $membres = User::whereIn('id', $membresIds)->get()->map(function ($m) use ($projetIds) {
@@ -165,7 +173,15 @@ class DashboardController extends Controller
         $termineesSemaine = Tache::where('statut', 'termine')
             ->whereBetween('date_fin_reelle', [today()->startOfWeek(), today()->endOfWeek()])->count();
 
-        $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
+        $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get()->map(function ($s) {
+            $total = Tache::where('sprint_id', $s->id)->count();
+            $term = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
+            $s->stats_total = $total;
+            $s->stats_terminees = $term;
+            $s->progression = $total > 0 ? round(($term / $total) * 100) : 0;
+            $s->jours_restants = $s->date_fin->gte(today()) ? (int) today()->diffInDays($s->date_fin) : 0;
+            return $s;
+        });
         $topBloquees = Tache::with(['user', 'projet'])->where('statut', 'bloque')
             ->orderByDesc('updated_at')->limit(5)->get();
         $parProjet = Projet::whereHas('taches')->withCount([
@@ -272,6 +288,17 @@ class DashboardController extends Controller
             \Illuminate\Support\Facades\DB::table('sprints')->where('statut', 'clos')->update(['statut' => 'termine']);
             $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
         }
+
+        // Calculer progression, stats et jours restants pour chaque sprint
+        $sprintsEnCours = $sprintsEnCours->map(function ($s) {
+            $total = Tache::where('sprint_id', $s->id)->count();
+            $term = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
+            $s->stats_total = $total;
+            $s->stats_terminees = $term;
+            $s->progression = $total > 0 ? round(($term / $total) * 100) : 0;
+            $s->jours_restants = $s->date_fin->gte(today()) ? (int) today()->diffInDays($s->date_fin) : 0;
+            return $s;
+        });
 
         // Performance par collaborateur (enrichi : retards + points)
         $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction'])

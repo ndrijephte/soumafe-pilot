@@ -243,7 +243,7 @@ dialog textarea{min-height:70px;resize:vertical}
 </dialog>
 
 {{-- Dialog modification tâche --}}
-@if((int)$tache->user_id === (int)auth()->id() || auth()->user()->estPilote())
+@if(auth()->user()->estPilote())
 <dialog id="dlg-edit-tache" style="width:480px">
     <h3 style="color:var(--bleu);margin-bottom:4px">Modifier la tâche</h3>
     <form method="POST" action="{{ route('taches.update', $tache) }}">
@@ -285,6 +285,16 @@ dialog textarea{min-height:70px;resize:vertical}
         <input type="date" name="date_debut" value="{{ $tache->date_debut?->toDateString() }}" required>
         <label>Échéance</label>
         <input type="date" name="echeance" value="{{ $tache->echeance?->toDateString() }}">
+        @if(auth()->user()->estPilote())
+        <label>Statut</label>
+        <select name="statut">
+            <option value="a_faire" @selected($tache->statut==='a_faire')>À faire</option>
+            <option value="en_cours" @selected($tache->statut==='en_cours')>En cours</option>
+            <option value="bloque" @selected($tache->statut==='bloque')>Bloqué</option>
+            <option value="termine" @selected($tache->statut==='termine')>Terminé</option>
+            <option value="reporte" @selected($tache->statut==='reporte')>Reporté</option>
+        </select>
+        @endif
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn">Enregistrer</button>

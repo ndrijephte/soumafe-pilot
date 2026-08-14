@@ -87,6 +87,16 @@ class TacheController extends Controller
     {
         abort_unless($r->user()->estPilote(), 403);
         $tache->update($r->validated());
+
+        // Statut modifiable par le pilote (permet rétrogradation d'une tâche terminée)
+        if ($r->filled('statut') && in_array($r->statut, ['a_faire', 'en_cours', 'bloque', 'termine', 'reporte'])) {
+            if ($r->statut === 'termine' && $tache->statut !== 'termine') {
+                $this->cloture->cloturer($tache);
+            } else {
+                $tache->update(['statut' => $r->statut, 'date_fin_reelle' => $r->statut === 'termine' ? $tache->date_fin_reelle : null]);
+            }
+        }
+
         return back()->with('succes', 'Tâche mise à jour.');
     }
 

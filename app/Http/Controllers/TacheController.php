@@ -85,7 +85,7 @@ class TacheController extends Controller
 
     public function update(TacheRequest $r, Tache $tache)
     {
-        abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
+        abort_unless($r->user()->estPilote(), 403);
         $tache->update($r->validated());
         return back()->with('succes', 'Tâche mise à jour.');
     }
@@ -102,10 +102,15 @@ class TacheController extends Controller
             return response()->json(['ok' => false, 'message' => 'Le sprint de cette tâche n\'est pas en cours.'], 422);
         }
 
-        $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,reporte']);
+        $statutsCollab = $r->user()->estPilote()
+            ? 'a_faire,en_cours,bloque,termine,reporte'
+            : 'a_faire,en_cours,bloque,reporte';
+        $r->validate(['statut' => 'required|in:' . $statutsCollab]);
 
         if ($r->statut === 'termine') {
-            // V1 : clôture directe pour tous les types (T1, T2, T3)
+            if (!$r->user()->estPilote()) {
+                return response()->json(['ok' => false, 'message' => 'Seul un pilote peut marquer une tâche comme terminée.'], 403);
+            }
             $this->cloture->cloturer($tache);
             $msg = match ($tache->qualification) {
                 'a_temps'   => 'Tâche terminée à temps — bravo.',
@@ -193,7 +198,7 @@ class TacheController extends Controller
     /** Suppression d'une tâche — pilotes ou propriétaire. */
     public function destroy(Request $r, Tache $tache)
     {
-        abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
+        abort_unless($r->user()->estPilote(), 403);
         $intitule = $tache->intitule;
         $tache->commentaires()->delete();
         $tache->blocages()->delete();

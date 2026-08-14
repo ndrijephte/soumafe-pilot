@@ -68,7 +68,7 @@
 
 <div class="kanban">
     @foreach($colonnes as $code => $libelle)
-    <div class="col" data-statut="{{ $code }}" ondragover="event.preventDefault()" ondrop="deposer(event,'{{ $code }}')">
+    <div class="col" data-statut="{{ $code }}" ondragover="event.preventDefault()" ondrop="deposer(event,'{{ $code }}')" @if($code === 'termine' && !auth()->user()->estPilote()) style="opacity:.6" title="Seul le pilote peut valider une tâche comme terminée" @endif>
         <h4>{{ $libelle }} <span>{{ ($taches[$code] ?? collect())->count() }}</span></h4>
         <div data-collapse="8">
         @foreach($taches[$code] ?? [] as $t)
@@ -167,6 +167,9 @@ function toast(msg, type){
 async function deposer(ev, statut){
     const id = ev.dataTransfer.getData('id');
     if (!id) return;
+    @if(!auth()->user()->estPilote())
+    if (statut === 'termine') { toast('Seul le pilote peut marquer une tâche comme terminée.', 'ko'); return; }
+    @endif
 
     try {
         const rep = await fetch(`/taches/${id}/statut`, {

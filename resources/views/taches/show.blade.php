@@ -91,7 +91,7 @@ dialog textarea{min-height:70px;resize:vertical}
         @else
             <span style="font-size:12px;color:var(--gris);padding:4px 10px;background:#f1f5f9;border-radius:6px">Sprint {{ $tache->sprint?->statut === 'planifie' ? 'non d&eacute;marr&eacute;' : 'termin&eacute;' }} — consultation uniquement</span>
         @endif
-        @if((int)$tache->user_id === (int)auth()->id() || auth()->user()->estPilote())
+        @if(auth()->user()->estPilote())
         <button class="btn-ic" onclick="document.getElementById('dlg-edit-tache').showModal()" style="color:#475569;border-color:#94a3b8">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Modifier
         </button>

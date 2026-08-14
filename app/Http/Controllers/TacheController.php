@@ -102,15 +102,14 @@ class TacheController extends Controller
             return response()->json(['ok' => false, 'message' => 'Le sprint de cette tâche n\'est pas en cours.'], 422);
         }
 
-        $statutsCollab = $r->user()->estPilote()
-            ? 'a_faire,en_cours,bloque,termine,reporte'
-            : 'a_faire,en_cours,bloque,reporte';
-        $r->validate(['statut' => 'required|in:' . $statutsCollab]);
+        $r->validate(['statut' => 'required|in:a_faire,en_cours,bloque,termine,reporte']);
+
+        // Seul un pilote peut rétrograder une tâche terminée
+        if ($tache->statut === 'termine' && $r->statut !== 'termine' && !$r->user()->estPilote()) {
+            return response()->json(['ok' => false, 'message' => 'Seul un pilote (DG ou Chargé des opérations) peut rétrograder une tâche terminée.'], 403);
+        }
 
         if ($r->statut === 'termine') {
-            if (!$r->user()->estPilote()) {
-                return response()->json(['ok' => false, 'message' => 'Seul un pilote peut marquer une tâche comme terminée.'], 403);
-            }
             $this->cloture->cloturer($tache);
             $msg = match ($tache->qualification) {
                 'a_temps'   => 'Tâche terminée à temps — bravo.',

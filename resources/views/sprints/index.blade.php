@@ -55,6 +55,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
+@if($errors->any())<div class="alerte ko">{{ $errors->first() }}</div>@endif
 
 {{-- Barre de filtres --}}
 <div class="filtre-bar">
@@ -183,6 +184,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 
 @push('scripts')
 <script>
+@if($errors->any())document.addEventListener('DOMContentLoaded',function(){var d=document.getElementById('dlg-sprint');if(d)d.showModal();});@endif
 function filtrer(){
     const txt=document.getElementById('filtreProjet').value.toLowerCase();
     const statut=document.getElementById('filtreStatut').value;

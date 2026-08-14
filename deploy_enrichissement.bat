@@ -19,6 +19,7 @@ copy /Y "%SRC%\resources\views\dashboard\pilote.blade.php" "%DST%\resources\view
 copy /Y "%SRC%\resources\views\dashboard\dg.blade.php" "%DST%\resources\views\dashboard\dg.blade.php"
 copy /Y "%SRC%\resources\views\layouts\app.blade.php" "%DST%\resources\views\layouts\app.blade.php"
 copy /Y "%SRC%\resources\views\sprints\show.blade.php" "%DST%\resources\views\sprints\show.blade.php"
+copy /Y "%SRC%\resources\views\sprints\index.blade.php" "%DST%\resources\views\sprints\index.blade.php"
 copy /Y "%SRC%\resources\views\comptes-rendus\create.blade.php" "%DST%\resources\views\comptes-rendus\create.blade.php"
 copy /Y "%SRC%\resources\views\comptes-rendus\edit.blade.php" "%DST%\resources\views\comptes-rendus\edit.blade.php"
 copy /Y "%SRC%\resources\views\comptes-rendus\show.blade.php" "%DST%\resources\views\comptes-rendus\show.blade.php"
@@ -36,7 +37,6 @@ copy /Y "%SRC%\routes\web.php" "%DST%\routes\web.php"
 
 REM --- Clear cache ---
 del /Q "%DST%\storage\framework\views\*.php" 2>nul
-cd /d "%DST%" && php artisan view:clear
 
 echo.
 echo === DEPLOY TERMINE ===

@@ -30,7 +30,7 @@ class SprintController extends Controller
         $r->validate([
             'projet_id' => 'required|exists:projets,id',
             'numero' => 'required|integer|min:1',
-            'objectif' => 'required|string|max:255',
+            'objectif' => 'required|string|max:1000',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after:date_debut',
             'engagement_points' => 'nullable|integer|min:1',
@@ -45,7 +45,7 @@ class SprintController extends Controller
     {
         abort_unless($r->user()->estPilote(), 403);
         $r->validate([
-            'objectif' => 'required|string|max:255',
+            'objectif' => 'required|string|max:1000',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after:date_debut',
             'engagement_points' => 'nullable|integer|min:1',

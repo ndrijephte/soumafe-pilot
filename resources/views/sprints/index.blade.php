@@ -139,7 +139,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div><label>N° du sprint <span class="req">*</span></label><input type="number" name="numero" min="1" required></div>
             <div><label>Points engag&eacute;s</label><input type="number" name="engagement_points" min="1"></div>
         </div>
-        <label>Objectif <span class="req">*</span></label><input name="objectif" required placeholder="Ex : kanban + admin comptes">
+        <label>Objectif <span class="req">*</span></label><textarea name="objectif" required placeholder="Ex : kanban + admin comptes" rows="3" style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;resize:vertical;font-family:inherit"></textarea>
         <div class="form-row">
             <div><label>D&eacute;but <span class="req">*</span></label><input type="date" name="date_debut" required></div>
             <div><label>Fin <span class="req">*</span></label><input type="date" name="date_fin" required></div>

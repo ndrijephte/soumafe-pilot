@@ -4,6 +4,7 @@ set SRC=D:\BUREAU_SOUMAFE\04_PROJETS\APP_SOUMAFE_PILOT\KIT_SPRINT0
 set DST=C:\laragon\www\soumafe-pilot
 
 REM --- Controllers ---
+copy /Y "%SRC%\app\Http\Controllers\SprintController.php" "%DST%\app\Http\Controllers\SprintController.php"
 copy /Y "%SRC%\app\Http\Controllers\BlocageController.php" "%DST%\app\Http\Controllers\BlocageController.php"
 copy /Y "%SRC%\app\Http\Controllers\CompteRenduController.php" "%DST%\app\Http\Controllers\CompteRenduController.php"
 copy /Y "%SRC%\app\Http\Controllers\DashboardController.php" "%DST%\app\Http\Controllers\DashboardController.php"

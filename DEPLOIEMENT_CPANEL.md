@@ -57,5 +57,8 @@ si ces étapes réussissent. Les migrations de base de données restent à lance
 manuellement avec `php artisan migrate --force`, car le compte ne dispose pas de
 SSH.
 
+Le premier transfert inclut toutes les dépendances PHP et peut être long. Les
+transferts suivants sont différentiels et ne renvoient que les fichiers modifiés.
+
 Les répertoires persistants de `storage` et le fichier `.env` sont exclus de la
 synchronisation destructive afin de préserver la configuration et les données.

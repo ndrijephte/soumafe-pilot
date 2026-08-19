@@ -15,10 +15,11 @@ class EquipeSeeder extends Seeder
         $ops = Pole::where('libelle', 'Conseil, Strategie et Operations')->first()?->id;
 
         $membres = [
-            ['KOFFI',     'N\'dri Jephté', 'ndrijephtekoffi@gmail.com', 'administrateur', 'support',     $ops],
-            ['YAPO',      'Rodrigue',      'yapo@soumafe.ci',           'chef_projet',    'developpeur', $dev],
-            ['KOUDJODJI', 'Koffi',         'koudjodji@soumafe.ci',      'chef_projet',    'developpeur', $dev],
-            ['OUATTARA',  'Junior',        'ouattara@soumafe.ci',       'chef_projet',    'developpeur', $dev],
+            ['SOUMAFE',   'DG',            'dg@soumafe.ci',             'direction',           'support',     $ops],
+            ['KOFFI',     'N\'dri Jephté', 'ndrijephtekoffi@gmail.com', 'charge_operations', 'support',     $ops],
+            ['YAPO',      'Rodrigue',      'yapo@soumafe.ci',           'collaborateur',    'developpeur', $dev],
+            ['KOUDJODJI', 'Koffi',         'koudjodji@soumafe.ci',      'collaborateur',    'developpeur', $dev],
+            ['OUATTARA',  'Junior',        'ouattara@soumafe.ci',       'collaborateur',    'developpeur', $dev],
             ['ZRAN',      'Séverin',       'zran@soumafe.ci',           'collaborateur',  'developpeur', $dev],
             ['KANDAN',    'Aimé',          'kandan@soumafe.ci',         'collaborateur',  'developpeur', $dev],
         ];

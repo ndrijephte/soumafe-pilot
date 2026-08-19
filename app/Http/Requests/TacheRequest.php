@@ -18,8 +18,9 @@ class TacheRequest extends FormRequest
             'activite'   => ['nullable', 'string', 'max:255'],
             'priorite'   => ['required', 'in:haute,moyenne,basse'],
             'date_debut' => ['required', 'date'],
-            'echeance'   => ['nullable', 'date', 'after_or_equal:date_debut'],
-            'points'     => ['nullable', 'integer', 'between:1,21'],
+            // T1 et T2 : échéance obligatoire ; T3 (urgente non planifiée) : optionnelle
+            'echeance'   => [$this->input('type') !== 'T3' ? 'required' : 'nullable', 'date', 'after_or_equal:date_debut'],
+            'points'     => ['required_if:type,T1', 'nullable', 'integer', 'between:1,21'],
         ];
     }
 
@@ -28,7 +29,9 @@ class TacheRequest extends FormRequest
         return [
             'sprint_id.required_if' => 'Une tâche de sprint (T1) doit être rattachée à un sprint — aucune tâche projet hors sprint.',
             'projet_id.required_if' => 'Une tâche de sprint (T1) doit être rattachée à un projet.',
+            'echeance.required' => "L'échéance est obligatoire pour les tâches T1 et T2.",
             'echeance.after_or_equal' => "L'échéance ne peut pas précéder la date de début.",
+            'points.required_if' => 'Les points sont obligatoires pour une tâche de sprint (T1).',
         ];
     }
 }

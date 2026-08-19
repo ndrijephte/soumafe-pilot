@@ -23,6 +23,7 @@
 @section('contenu')
 <h2>Calendrier des jours fériés</h2>
 <div class="crumb">Administration &rsaquo; Référentiels &rsaquo; Jours fériés {{ $annee }}</div>
+@include('admin._nav')
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
 

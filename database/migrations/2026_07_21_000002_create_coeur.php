@@ -22,7 +22,7 @@ return new class extends Migration {
 
         Schema::create('sprints', function (Blueprint $t) {
             $t->id(); $t->foreignId('projet_id')->constrained()->cascadeOnDelete();
-            $t->unsignedSmallInteger('numero'); $t->string('objectif')->nullable();
+            $t->unsignedSmallInteger('numero'); $t->text('objectif')->nullable();
             $t->date('date_debut'); $t->date('date_fin');
             $t->unsignedSmallInteger('engagement_points')->default(0);
             $t->enum('statut', ['planifie', 'en_cours', 'clos'])->default('planifie');

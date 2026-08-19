@@ -12,8 +12,8 @@ class ProjetController extends Controller
     {
         abort_unless($r->user()->estAdmin(), 403);
         return view('admin.projets.index', [
-            'projets' => Projet::with('chefProjet')->withCount('taches')->orderBy('libelle')->get(),
-            'chefs' => User::where('actif', true)->whereIn('role', ['chef_projet', 'administrateur', 'direction'])->orderBy('name')->get(),
+            'projets' => Projet::with('responsable')->withCount('taches')->orderBy('libelle')->get(),
+            'responsables' => User::where('actif', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -24,12 +24,12 @@ class ProjetController extends Controller
             'code' => 'required|string|max:20|unique:projets',
             'libelle' => 'required|string|max:150',
             'client' => 'nullable|string|max:100',
-            'chef_projet_id' => 'nullable|exists:users,id',
+            'responsable_projet_id' => 'nullable|exists:users,id',
             'statut' => 'required|in:actif,en_pause,termine,annule',
             'date_debut' => 'nullable|date',
             'date_cible' => 'nullable|date|after_or_equal:date_debut',
         ]);
-        Projet::create($r->only(['code', 'libelle', 'client', 'chef_projet_id', 'statut', 'date_debut', 'date_cible']));
+        Projet::create($r->only(['code', 'libelle', 'client', 'responsable_projet_id', 'statut', 'date_debut', 'date_cible', 'delegation_sprint']));
         return back()->with('succes', 'Projet créé.');
     }
 
@@ -40,12 +40,12 @@ class ProjetController extends Controller
             'code' => ['required', 'string', 'max:20', Rule::unique('projets')->ignore($projet->id)],
             'libelle' => 'required|string|max:150',
             'client' => 'nullable|string|max:100',
-            'chef_projet_id' => 'nullable|exists:users,id',
+            'responsable_projet_id' => 'nullable|exists:users,id',
             'statut' => 'required|in:actif,en_pause,termine,annule',
             'date_debut' => 'nullable|date',
             'date_cible' => 'nullable|date|after_or_equal:date_debut',
         ]);
-        $projet->update($r->only(['code', 'libelle', 'client', 'chef_projet_id', 'statut', 'date_debut', 'date_cible']));
+        $projet->update($r->only(['code', 'libelle', 'client', 'responsable_projet_id', 'statut', 'date_debut', 'date_cible', 'delegation_sprint']));
         return back()->with('succes', 'Projet mis à jour.');
     }
 }

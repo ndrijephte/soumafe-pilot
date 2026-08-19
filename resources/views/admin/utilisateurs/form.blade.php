@@ -13,6 +13,7 @@
 .check-label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 .check-label input{width:auto}
 .err{color:var(--ko);font-size:11.5px;margin-top:3px}
+.req{color:var(--ko);font-weight:700}
 </style>
 @endpush
 @section('contenu')
@@ -26,38 +27,38 @@
 
     <div class="form-row">
         <div class="form-group">
-            <label>Nom</label>
+            <label>Nom <span class="req">*</span></label>
             <input name="name" value="{{ old('name', $user->name) }}" required>
             @error('name')<div class="err">{{ $message }}</div>@enderror
         </div>
         <div class="form-group">
-            <label>Prénom</label>
+            <label>Prénom <span class="req">*</span></label>
             <input name="prenom" value="{{ old('prenom', $user->prenom) }}" required>
             @error('prenom')<div class="err">{{ $message }}</div>@enderror
         </div>
     </div>
 
     <div class="form-group">
-        <label>Email</label>
+        <label>Email <span class="req">*</span></label>
         <input type="email" name="email" value="{{ old('email', $user->email) }}" required>
         @error('email')<div class="err">{{ $message }}</div>@enderror
     </div>
 
     <div class="form-group">
-        <label>Mot de passe{{ $user->exists ? ' (laisser vide pour ne pas changer)' : '' }}</label>
+        <label>Mot de passe{{ $user->exists ? '' : ' *' }}</label>
         <input type="password" name="password" {{ $user->exists ? '' : 'required' }} minlength="8">
         @error('password')<div class="err">{{ $message }}</div>@enderror
     </div>
 
     <div class="form-row">
         <div class="form-group">
-            <label>Rôle</label>
+            <label>Rôle <span class="req">*</span></label>
             <select name="role" required>
-                @foreach($roles as $r)<option value="{{ $r }}" @selected(old('role', $user->role)==$r)>{{ ucfirst(str_replace('_',' ',$r)) }}</option>@endforeach
+                @foreach($roles as $r)<option value="{{ $r }}" @selected(old('role', $user->role)==$r)>{{ \App\Models\User::libelleRole($r) }}</option>@endforeach
             </select>
         </div>
         <div class="form-group">
-            <label>Profil de mesure</label>
+            <label>Profil de mesure <span class="req">*</span></label>
             <select name="profil_mesure" required>
                 @foreach($profils as $p)<option value="{{ $p }}" @selected(old('profil_mesure', $user->profil_mesure)==$p)>{{ ucfirst($p) }}</option>@endforeach
             </select>

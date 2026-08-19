@@ -2,13 +2,31 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Pole, User};
+use App\Models\{Pole, ProfilMesure, Role, User};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\{Hash, Schema};
 use Illuminate\Validation\Rule;
 
 class UtilisateurController extends Controller
 {
+    /** Récupère les rôles disponibles (BD ou fallback). */
+    private function listeRoles(): array
+    {
+        if (Schema::hasTable('roles')) {
+            return Role::orderBy('libelle')->pluck('code')->toArray();
+        }
+        return ['administrateur', 'direction', 'charge_operations', 'collaborateur', 'invite'];
+    }
+
+    /** Récupère les profils disponibles (BD ou fallback). */
+    private function listeProfils(): array
+    {
+        if (Schema::hasTable('profils_mesure')) {
+            return ProfilMesure::orderBy('libelle')->pluck('code')->toArray();
+        }
+        return ['developpeur', 'operationnel', 'support'];
+    }
+
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
@@ -22,8 +40,8 @@ class UtilisateurController extends Controller
         return view('admin.utilisateurs.index', [
             'users' => $users,
             'poles' => Pole::orderBy('libelle')->get(),
-            'roles' => ['administrateur', 'direction', 'chef_projet', 'collaborateur', 'invite'],
-            'profils' => ['developpeur', 'operationnel', 'support'],
+            'roles' => $this->listeRoles(),
+            'profils' => $this->listeProfils(),
         ]);
     }
 
@@ -33,8 +51,8 @@ class UtilisateurController extends Controller
         return view('admin.utilisateurs.form', [
             'user' => new User(['actif' => true, 'role' => 'collaborateur', 'profil_mesure' => 'support']),
             'poles' => Pole::orderBy('libelle')->get(),
-            'roles' => ['administrateur', 'direction', 'chef_projet', 'collaborateur', 'invite'],
-            'profils' => ['developpeur', 'operationnel', 'support'],
+            'roles' => $this->listeRoles(),
+            'profils' => $this->listeProfils(),
         ]);
     }
 
@@ -47,8 +65,8 @@ class UtilisateurController extends Controller
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:8',
             'pole_id' => 'nullable|exists:poles,id',
-            'role' => 'required|in:administrateur,direction,chef_projet,collaborateur,invite',
-            'profil_mesure' => 'required|in:developpeur,operationnel,support',
+            'role' => ['required', Rule::in($this->listeRoles())],
+            'profil_mesure' => ['required', Rule::in($this->listeProfils())],
             'actif' => 'boolean',
         ]);
         $v['password'] = Hash::make($v['password']);
@@ -63,8 +81,8 @@ class UtilisateurController extends Controller
         return view('admin.utilisateurs.form', [
             'user' => $utilisateur,
             'poles' => Pole::orderBy('libelle')->get(),
-            'roles' => ['administrateur', 'direction', 'chef_projet', 'collaborateur', 'invite'],
-            'profils' => ['developpeur', 'operationnel', 'support'],
+            'roles' => $this->listeRoles(),
+            'profils' => $this->listeProfils(),
         ]);
     }
 
@@ -77,8 +95,8 @@ class UtilisateurController extends Controller
             'email' => ['required', 'email', Rule::unique('users')->ignore($utilisateur->id)],
             'password' => 'nullable|string|min:8',
             'pole_id' => 'nullable|exists:poles,id',
-            'role' => 'required|in:administrateur,direction,chef_projet,collaborateur,invite',
-            'profil_mesure' => 'required|in:developpeur,operationnel,support',
+            'role' => ['required', Rule::in($this->listeRoles())],
+            'profil_mesure' => ['required', Rule::in($this->listeProfils())],
             'actif' => 'boolean',
         ]);
         if (empty($v['password'])) unset($v['password']);

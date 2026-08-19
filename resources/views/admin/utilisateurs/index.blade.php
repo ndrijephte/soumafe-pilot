@@ -14,8 +14,8 @@
 .btn.sm{padding:4px 10px;font-size:11.5px;border-radius:6px}
 .btn.danger{background:var(--ko)}
 .badge-role{padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600}
-.r-admin{background:#dbeafe;color:#1d4ed8}.r-direction{background:#fef3c7;color:#b45309}
-.r-chef{background:#e0e7ff;color:#4338ca}.r-collab{background:#e2e8f0;color:#475569}
+.r-administrateur{background:#dbeafe;color:#1d4ed8}.r-direction{background:#fef3c7;color:#b45309}
+.r-charge_operations{background:#e0e7ff;color:#4338ca}.r-collaborateur{background:#e2e8f0;color:#475569}
 .r-invite{background:#f1f5f9;color:#94a3b8}
 .actif-oui{color:var(--ok)}.actif-non{color:var(--ko)}
 .pagination-w{display:flex;gap:4px;margin-top:14px;font-size:12px}
@@ -24,18 +24,31 @@
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 .alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
+
+@media(max-width:900px){
+    .filtres{flex-direction:column}
+    .admin-tbl{font-size:12px}
+    .admin-tbl th:nth-child(2),.admin-tbl td:nth-child(2),
+    .admin-tbl th:nth-child(5),.admin-tbl td:nth-child(5){display:none}
+    .btn.sm{padding:4px 8px;font-size:10.5px}
+}
+@media(max-width:500px){
+    .admin-tbl th:nth-child(3),.admin-tbl td:nth-child(3),
+    .admin-tbl th:nth-child(6),.admin-tbl td:nth-child(6){display:none}
+}
 </style>
 @endpush
 @section('contenu')
 <h2>Gestion des comptes</h2>
 <div class="crumb">Administration &rsaquo; Comptes utilisateurs</div>
+@include('admin._nav')
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
 
 <form class="filtres" method="GET">
     <input name="q" placeholder="Rechercher…" value="{{ request('q') }}">
-    <select name="role"><option value="">Tous les rôles</option>@foreach($roles as $r)<option value="{{ $r }}" @selected(request('role')==$r)>{{ ucfirst(str_replace('_',' ',$r)) }}</option>@endforeach</select>
+    <select name="role"><option value="">Tous les rôles</option>@foreach($roles as $r)<option value="{{ $r }}" @selected(request('role')==$r)>{{ \App\Models\User::libelleRole($r) }}</option>@endforeach</select>
     <select name="profil"><option value="">Tous les profils</option>@foreach($profils as $p)<option value="{{ $p }}" @selected(request('profil')==$p)>{{ ucfirst($p) }}</option>@endforeach</select>
     <select name="actif"><option value="">Tous</option><option value="1" @selected(request('actif')==='1')>Actifs</option><option value="0" @selected(request('actif')==='0')>Inactifs</option></select>
     <button class="btn sm">Filtrer</button>
@@ -56,13 +69,16 @@
     <td><strong>{{ $u->name }}</strong> {{ $u->prenom }}</td>
     <td>{{ $u->email }}</td>
     <td>{{ $u->pole?->libelle ?? '—' }}</td>
-    <td><span class="badge-role r-{{ explode('_',$u->role)[0] ?? 'collab' }}">{{ ucfirst(str_replace('_',' ',$u->role)) }}</span></td>
+    <td><span class="badge-role r-{{ $u->role }}">{{ $u->roleLibelle() }}</span></td>
     <td>{{ ucfirst($u->profil_mesure) }}</td>
     <td class="{{ $u->actif ? 'actif-oui' : 'actif-non' }}">{{ $u->actif ? 'Oui' : 'Non' }}</td>
     <td style="white-space:nowrap">
         <a href="{{ route('admin.utilisateurs.edit', $u) }}" class="btn sm sec">Modifier</a>
         <form method="POST" action="{{ route('admin.utilisateurs.toggle', $u) }}" style="display:inline">@csrf @method('PATCH')
             <button class="btn sm {{ $u->actif ? 'danger' : '' }}" onclick="return confirm('{{ $u->actif ? 'Désactiver' : 'Réactiver' }} ce compte ?')">{{ $u->actif ? 'Désactiver' : 'Réactiver' }}</button>
+        </form>
+        <form method="POST" action="{{ route('admin.utilisateurs.reset-mdp', $u) }}" style="display:inline">@csrf
+            <button class="btn sm" style="background:#f59e0b;color:#fff" onclick="return confirm('Réinitialiser le mot de passe de {{ $u->nomComplet() }} ?')">Reset MDP</button>
         </form>
     </td>
 </tr>

@@ -1,0 +1,90 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    # Le premier transfert FTP inclut vendor/ et peut être long sur un cPanel.
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+
+      - name: Install PHP dependencies for tests
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests
+        run: php artisan test
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build frontend assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --classmap-authoritative --no-interaction --prefer-dist --no-progress
+
+      - name: Remove files not needed in production
+        run: |
+          rm -rf .git .github node_modules tests
+          rm -f .env package-lock.json phpunit.xml
+
+      - name: Install FTP client
+        run: sudo apt-get update && sudo apt-get install --yes lftp
+
+      - name: Upload application to cPanel
+        env:
+          FTP_HOST: ${{ secrets.CPANEL_FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.CPANEL_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.CPANEL_FTP_PASSWORD }}
+          FTP_SERVER_DIR: ${{ secrets.CPANEL_FTP_SERVER_DIR }}
+        run: |
+          test -n "$FTP_HOST"
+          test -n "$FTP_USERNAME"
+          test -n "$FTP_PASSWORD"
+          test -n "$FTP_SERVER_DIR"
+
+          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" "$FTP_HOST" <<LFTP_COMMANDS
+          set cmd:fail-exit yes
+          set ftp:ssl-allow yes
+          set net:max-retries 3
+          set net:timeout 20
+          mirror --reverse --delete --verbose \
+            --parallel=10 \
+            --exclude-glob .env \
+            --exclude-glob '.env.*' \
+            --exclude-glob 'storage/app/public/**' \
+            --exclude-glob 'storage/framework/cache/data/**' \
+            --exclude-glob 'storage/framework/sessions/**' \
+            --exclude-glob 'storage/framework/views/**' \
+            --exclude-glob 'storage/logs/**' \
+            ./ "$FTP_SERVER_DIR"
+          bye
+          LFTP_COMMANDS

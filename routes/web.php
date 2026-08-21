@@ -1,6 +1,6 @@
 <?php
 use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController};
-use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController};
+use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController};
 use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController};
 use Illuminate\Support\Facades\Route;
 
@@ -118,7 +118,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/penalites', [ParcController::class, 'storePenalite'])->name('parc.penalites.store');
     Route::put('/parc/penalites/{penalite}', [ParcController::class, 'updatePenalite'])->name('parc.penalites.update');
     Route::delete('/parc/penalites/{penalite}', [ParcController::class, 'destroyPenalite'])->name('parc.penalites.destroy');
-    Route::post('/parc/parametres', [ParcController::class, 'updateParametres'])->name('parc.parametres');
+    Route::post('/parc/chauffeurs', [ParcController::class, 'storeChauffeur'])->name('parc.chauffeurs.store');
+    Route::put('/parc/chauffeurs/{chauffeur}', [ParcController::class, 'updateChauffeur'])->name('parc.chauffeurs.update');
+    Route::delete('/parc/chauffeurs/{chauffeur}', [ParcController::class, 'destroyChauffeur'])->name('parc.chauffeurs.destroy');
+    Route::post('/parc/chauffeurs/affecter', [ParcController::class, 'affecterChauffeur'])->name('parc.chauffeurs.affecter');
+    Route::delete('/parc/vehicules/{vehicule}/chauffeurs/{chauffeur}', [ParcController::class, 'detacherChauffeur'])->name('parc.chauffeurs.detacher');
+    Route::get('/parc/vehicules/{vehicule}/fiche', [ParcController::class, 'ficheVehicule'])->name('parc.vehicules.fiche');
 
     // M8 — Administration (US-01→05)
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -172,6 +177,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/types-blocage', [TypeBlocageController::class, 'store'])->name('types-blocage.store');
         Route::put('/types-blocage/{type}', [TypeBlocageController::class, 'update'])->name('types-blocage.update');
         Route::delete('/types-blocage/{type}', [TypeBlocageController::class, 'destroy'])->name('types-blocage.destroy');
+
+        Route::get('/parc-parametres', [ParcParametreController::class, 'index'])->name('parc-parametres.index');
+        Route::post('/parc-parametres', [ParcParametreController::class, 'update'])->name('parc-parametres.update');
 
     });
 });

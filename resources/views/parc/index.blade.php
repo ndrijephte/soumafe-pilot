@@ -4,15 +4,13 @@
 <style>
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:18px}
 .kpi{background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px}
-.kpi-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
-.kpi-icon svg{width:20px;height:20px}
-.kpi-body .val{font-size:22px;font-weight:700;line-height:1.2}
-.kpi-body .lab{font-size:11px;color:var(--gris);margin-top:1px}
-.kpi-ok .kpi-icon{background:#dcfce7;color:var(--ok)}.kpi-ok .val{color:var(--ok)}
-.kpi-warn .kpi-icon{background:#fef3c7;color:#b45309}.kpi-warn .val{color:#b45309}
-.kpi-ko .kpi-icon{background:#fee2e2;color:var(--ko)}.kpi-ko .val{color:var(--ko)}
-.kpi-bleu .kpi-icon{background:#dbeafe;color:var(--accent)}.kpi-bleu .val{color:var(--bleu)}
-.kpi-gris .kpi-icon{background:#f1f5f9;color:#475569}.kpi-gris .val{color:#334155}
+.kpi .val{font-size:22px;font-weight:700;line-height:1.2}
+.kpi .lab{font-size:11px;color:var(--gris);margin-top:1px}
+.kpi-ok .val{color:var(--ok)}
+.kpi-warn .val{color:#b45309}
+.kpi-ko .val{color:var(--ko)}
+.kpi-bleu .val{color:var(--bleu)}
+.kpi-gris .val{color:#334155}
 .tabs{display:flex;gap:0;border-bottom:2px solid var(--bord);margin-bottom:16px}
 .tabs a{padding:10px 16px;font-size:13px;font-weight:600;color:var(--gris);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;display:flex;align-items:center;gap:6px}
 .tabs a:hover{color:var(--bleu)}
@@ -63,12 +61,8 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .pagination-row{display:flex;justify-content:center;gap:4px;margin-top:12px}
 .pagination-row a,.pagination-row span{padding:4px 10px;border:1px solid var(--bord);border-radius:6px;font-size:12px;text-decoration:none;color:var(--gris)}
 .pagination-row span.current{background:var(--accent);color:#fff;border-color:var(--accent)}
-.param-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.param-item{display:flex;flex-direction:column;gap:2px}
-.param-item label{font-size:12px;color:var(--gris);font-weight:600}
-.param-item input{padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;text-align:right}
 .header-actions{display:flex;gap:8px;align-items:center}
-@media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}.form-row,.form-row3,.param-grid{grid-template-columns:1fr}.tabs{overflow-x:auto}.tabs a{white-space:nowrap;font-size:12px;padding:8px 10px}table{display:block;overflow-x:auto}}
+@media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}.form-row,.form-row3{grid-template-columns:1fr}.tabs{overflow-x:auto}.tabs a{white-space:nowrap;font-size:12px;padding:8px 10px}table{display:block;overflow-x:auto}}
 </style>
 @endpush
 @section('contenu')
@@ -83,14 +77,32 @@ $icGear = $ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.3
 $icEdit = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
 $icDel = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
 $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+$icEye = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+$icUser = $ic('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+
+// Datalists : valeurs existantes + suggestions courantes
+$marques = $vehicules->pluck('marque')->filter()->unique()->sort()->values()->toArray();
+$marquesSugg = array_unique(array_merge($marques, ['Toyota', 'Hyundai', 'Kia', 'Renault', 'Peugeot', 'Suzuki', 'Nissan', 'Mitsubishi']));
+sort($marquesSugg);
+
+// $chauffeurs est passé par le controller (collection Chauffeur)
+
+$lieuxSugg = ['Abidjan', 'Yamoussoukro', 'Bouaké', 'San Pedro', 'Daloa', 'Korhogo'];
+if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
+    $lieuxExist = \App\Models\Penalite::distinct()->pluck('lieu')->filter()->toArray();
+    $lieuxSugg = array_values(array_unique(array_merge($lieuxExist, $lieuxSugg)));
+    sort($lieuxSugg);
+}
 @endphp
+
+{{-- Datalists globaux --}}
+<datalist id="dl-marques">@foreach($marquesSugg as $m)<option value="{{ $m }}">@endforeach</datalist>
+<datalist id="dl-chauffeurs">@foreach($chauffeurs as $c)<option value="{{ $c->nomComplet() }}">@endforeach</datalist>
+<datalist id="dl-lieux">@foreach($lieuxSugg as $l)<option value="{{ $l }}">@endforeach</datalist>
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
     <h2 style="display:flex;align-items:center;gap:8px">{!! $icCar !!} Parc automobile</h2>
     <div class="header-actions">
-        @if(auth()->user()->estPilote())
-        <button class="btn sec" onclick="document.getElementById('dlg-params').showModal()" style="font-size:12px">{!! $icGear !!} <span style="display:inline">Paramètres</span></button>
-        @endif
         @if($onglet === 'vehicules')
         <button class="btn" onclick="document.getElementById('dlg-vehicule').showModal()">{!! $icPlus !!} Véhicule</button>
         @elseif($onglet === 'pannes')
@@ -101,6 +113,8 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
         <button class="btn" onclick="document.getElementById('dlg-maint').showModal()">{!! $icPlus !!} Échéance</button>
         @elseif($onglet === 'penalites')
         <button class="btn" onclick="document.getElementById('dlg-penal').showModal()">{!! $icPlus !!} Pénalité</button>
+        @elseif($onglet === 'chauffeurs')
+        <button class="btn" onclick="document.getElementById('dlg-chauffeur').showModal()">{!! $icPlus !!} Chauffeur</button>
         @endif
     </div>
 </div>
@@ -111,28 +125,22 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
 {{-- KPI --}}
 <div class="kpi-row">
     <div class="kpi kpi-bleu">
-        <div class="kpi-icon">{!! $ic('<rect x="1" y="6" width="22" height="12" rx="3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',20) !!}</div>
-        <div class="kpi-body"><div class="val">{{ $kpi['actifs'] }}<span style="font-size:13px;color:var(--gris);font-weight:400">/{{ $kpi['total'] }}</span></div><div class="lab">En service · {{ $kpi['taxis'] }}T {{ $kpi['vtcs'] }}V</div></div>
+        <div class="val">{{ $kpi['actifs'] }}<span style="font-size:13px;color:var(--gris);font-weight:400">/{{ $kpi['total'] }}</span></div><div class="lab">En service · {{ $kpi['taxis'] }}T {{ $kpi['vtcs'] }}V</div>
     </div>
     <div class="kpi {{ $kpi['pannes_ouvertes'] > 0 ? 'kpi-warn' : 'kpi-gris' }}">
-        <div class="kpi-icon">{!! $ic('<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>',20) !!}</div>
-        <div class="kpi-body"><div class="val">{{ $kpi['pannes_ouvertes'] }}</div><div class="lab">Pannes ouvertes</div></div>
+        <div class="val">{{ $kpi['pannes_ouvertes'] }}</div><div class="lab">Pannes ouvertes</div>
     </div>
     <div class="kpi kpi-gris">
-        <div class="kpi-icon">{!! $ic('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>',20) !!}</div>
-        <div class="kpi-body"><div class="val">{{ number_format($kpi['cout_mois'], 0, ',', ' ') }}</div><div class="lab">Coût pannes ce mois</div></div>
+        <div class="val">{{ number_format($kpi['cout_mois'], 0, ',', ' ') }}</div><div class="lab">Coût pannes ce mois</div>
     </div>
     <div class="kpi {{ $kpi['taux_recette'] >= 100 ? 'kpi-ok' : ($kpi['taux_recette'] >= 80 ? 'kpi-warn' : 'kpi-ko') }}">
-        <div class="kpi-icon">{!! $ic('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/>',20) !!}</div>
-        <div class="kpi-body"><div class="val">{{ $kpi['taux_recette'] }}%</div><div class="lab">Taux recette / objectif</div></div>
+        <div class="val">{{ $kpi['taux_recette'] }}%</div><div class="lab">Taux recette / objectif</div>
     </div>
     <div class="kpi {{ $kpi['echeances_retard'] > 0 ? 'kpi-ko' : 'kpi-ok' }}">
-        <div class="kpi-icon">{!! $ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/>',20) !!}</div>
-        <div class="kpi-body"><div class="val">{{ $kpi['echeances_retard'] }}</div><div class="lab">Échéances en retard</div></div>
+        <div class="val">{{ $kpi['echeances_retard'] }}</div><div class="lab">Échéances en retard</div>
     </div>
     <div class="kpi {{ $kpi['penalites_non_payees'] > 0 ? 'kpi-ko' : 'kpi-gris' }}">
-        <div class="kpi-icon">{!! $ic('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',20) !!}</div>
-        <div class="kpi-body"><div class="val">{{ $kpi['penalites_non_payees'] }}</div><div class="lab">Pénalités impayées</div></div>
+        <div class="val">{{ $kpi['penalites_non_payees'] }}</div><div class="lab">Pénalités impayées</div>
     </div>
 </div>
 
@@ -143,6 +151,7 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
     <a href="{{ route('parc.index', ['onglet' => 'recettes']) }}" class="{{ $onglet === 'recettes' ? 'actif' : '' }}">{!! $icWallet !!} Recettes</a>
     <a href="{{ route('parc.index', ['onglet' => 'maintenance']) }}" class="{{ $onglet === 'maintenance' ? 'actif' : '' }}">{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="tab-badge ko">{{ $kpi['echeances_retard'] }}</span>@endif</a>
     <a href="{{ route('parc.index', ['onglet' => 'penalites']) }}" class="{{ $onglet === 'penalites' ? 'actif' : '' }}">{!! $icAlert !!} Pénalités @if($kpi['penalites_non_payees']>0)<span class="tab-badge ko">{{ $kpi['penalites_non_payees'] }}</span>@endif</a>
+    <a href="{{ route('parc.index', ['onglet' => 'chauffeurs']) }}" class="{{ $onglet === 'chauffeurs' ? 'actif' : '' }}">{!! $icUser !!} Chauffeurs <span class="tab-badge">{{ $chauffeurs->count() }}</span></a>
 </div>
 
 {{-- ==================== ONGLET VÉHICULES ==================== --}}
@@ -163,6 +172,7 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
     <td><span class="pill {{ $v->statut === 'en_service' ? 'p-ok' : ($v->statut === 'immobilise' ? 'p-warn' : 'p-ko') }}">{{ $v->statutLabel() }}</span></td>
     <td>
         <div class="act-row">
+            <button class="act-btn" title="Fiche véhicule" onclick="ficheVehicule({{ $v->id }})" style="color:var(--accent)">{!! $icEye !!}</button>
             <button class="act-btn" title="Modifier" onclick="editVehicule({{ $v->id }})">{!! $icEdit !!}</button>
             @if(auth()->user()->estPilote())
             <form method="POST" action="{{ route('parc.vehicules.destroy', $v) }}" onsubmit="return confirm('Supprimer ce véhicule ?')">@csrf @method('DELETE')
@@ -194,12 +204,12 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
         </div>
     </div>
     <div class="form-row">
-        <div><label>Marque</label><input name="marque" id="v-marque"></div>
+        <div><label>Marque</label><input name="marque" id="v-marque" list="dl-marques" autocomplete="off"></div>
         <div><label>Modèle</label><input name="modele" id="v-modele"></div>
     </div>
     <div class="dlg-section">Affectation</div>
     <div class="form-row">
-        <div><label>Chauffeur affecté</label><input name="chauffeur_affecte" id="v-chauff"></div>
+        <div><label>Chauffeur affecté</label><input name="chauffeur_affecte" id="v-chauff" list="dl-chauffeurs" autocomplete="off"></div>
         <div><label>Kilométrage</label><input type="number" name="kilometrage" id="v-km" min="0"></div>
     </div>
     <div class="form-row">
@@ -248,7 +258,11 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
     <td>{{ $p->delai_resolution !== null ? $p->delai_resolution.'j' : '—' }}</td>
     <td>
         <div class="act-row">
-            <button class="act-btn" title="Modifier" onclick="editPanne({{ $p->id }})">{!! $icEdit !!}</button>
+            <button class="act-btn" title="Fiche véhicule" onclick="ficheVehicule({{ $p->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
+            @if($p->statut !== 'cloturee')
+            <button class="act-btn" title="Statuer" onclick="statuerPanne({{ $p->id }})" style="color:var(--accent)">{!! $icWrench !!}</button>
+            @endif
+            <button class="act-btn" title="Modifier déclaration" onclick="editPanne({{ $p->id }})">{!! $icEdit !!}</button>
             <form method="POST" action="{{ route('parc.pannes.destroy', $p) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
                 <button class="act-btn del" title="Supprimer">{!! $icDel !!}</button>
             </form>
@@ -265,15 +279,21 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
 @endif
 </div>
 
+{{-- Dialog Déclaration (terrain, rapide) --}}
 <dialog id="dlg-panne">
 <h3 id="dlg-panne-titre">{!! $icWrench !!} Déclarer une panne</h3>
 <form id="form-panne" method="POST" action="{{ route('parc.pannes.store') }}">
     @csrf <div id="panne-method"></div>
-    <div class="dlg-section">Identification</div>
+    <input type="hidden" name="statut" id="p-statut" value="declaree">
+    <input type="hidden" name="diagnostic" id="p-diag" value="">
+    <input type="hidden" name="decision" id="p-deci" value="">
+    <input type="hidden" name="cout_reel" id="p-cout" value="">
+    <input type="hidden" name="date_debut_intervention" id="p-ddi" value="">
+    <input type="hidden" name="date_cloture" id="p-dcl" value="">
     <div class="form-row3">
         <div><label>Véhicule <span class="req">*</span></label>
             <select name="vehicule_id" id="p-vehic" required>
-                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option>@endforeach
+                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
             </select>
         </div>
         <div><label>Date déclaration</label><input type="date" name="date_declaration" id="p-date" value="{{ date('Y-m-d') }}"></div>
@@ -283,21 +303,46 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
             </select>
         </div>
     </div>
-    <div><label>Description <span class="req">*</span></label><textarea name="description" id="p-desc" required rows="2"></textarea></div>
+    <div><label>Description <span class="req">*</span></label><textarea name="description" id="p-desc" required rows="3" placeholder="Décrivez le problème constaté"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+        <button class="btn">Déclarer</button>
+    </div>
+</form>
+</dialog>
+
+{{-- Dialog Statuer (diagnostic, résolution) --}}
+<dialog id="dlg-statuer">
+<h3 id="dlg-statuer-titre">{!! $icWrench !!} Statuer sur la panne</h3>
+<form id="form-statuer" method="POST" action="">
+    @csrf <input type="hidden" name="_method" value="PUT">
+    <input type="hidden" name="vehicule_id" id="s-vehic">
+    <input type="hidden" name="date_declaration" id="s-date">
+    <input type="hidden" name="description" id="s-desc">
+    <input type="hidden" name="urgence" id="s-urg">
+    <div class="dlg-section" style="margin-top:0">Informations de la panne</div>
+    <div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
+        <strong id="s-info-vehic"></strong> — <span id="s-info-date"></span><br>
+        <span id="s-info-desc" style="color:var(--gris)"></span>
+    </div>
     <div class="dlg-section">Diagnostic & Intervention</div>
-    <div><label>Diagnostic</label><textarea name="diagnostic" id="p-diag" rows="2"></textarea></div>
+    <div><label>Diagnostic</label><textarea name="diagnostic" id="s-diag" rows="2" placeholder="Résultat du diagnostic"></textarea></div>
     <div class="form-row3">
-        <div><label>Décision</label><input name="decision" id="p-deci"></div>
-        <div><label>Coût réel (FCFA)</label><input type="number" name="cout_reel" id="p-cout" min="0"></div>
+        <div><label>Décision</label>
+            <select name="decision" id="s-deci">
+                <option value="">— Choisir —</option><option value="Réparer">Réparer</option><option value="Remplacer pièce">Remplacer pièce</option><option value="Sous-traitance">Sous-traitance</option><option value="Réforme">Réforme</option><option value="Autre">Autre</option>
+            </select>
+        </div>
+        <div><label>Coût réel (FCFA)</label><input type="number" name="cout_reel" id="s-cout" min="0"></div>
         <div><label>Statut <span class="req">*</span></label>
-            <select name="statut" id="p-statut" required>
+            <select name="statut" id="s-statut" required>
                 <option value="declaree">Déclarée</option><option value="en_diagnostic">En diagnostic</option><option value="en_intervention">En intervention</option><option value="cloturee">Clôturée</option>
             </select>
         </div>
     </div>
     <div class="form-row">
-        <div><label>Début intervention</label><input type="date" name="date_debut_intervention" id="p-ddi"></div>
-        <div><label>Date clôture</label><input type="date" name="date_cloture" id="p-dcl"></div>
+        <div><label>Début intervention</label><input type="date" name="date_debut_intervention" id="s-ddi"></div>
+        <div><label>Date clôture</label><input type="date" name="date_cloture" id="s-dcl"></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
@@ -337,6 +382,7 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
     <td>{{ $rec->controle_par ?? '—' }}</td>
     <td>
         <div class="act-row">
+            <button class="act-btn" title="Fiche véhicule" onclick="ficheVehicule({{ $rec->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
             <button class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
             <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
                 <button class="act-btn del" title="Supprimer">{!! $icDel !!}</button>
@@ -366,7 +412,7 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
                 @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
             </select>
         </div>
-        <div><label>Chauffeur</label><input name="chauffeur" id="r-chauff"></div>
+        <div><label>Chauffeur</label><input name="chauffeur" id="r-chauff" list="dl-chauffeurs" autocomplete="off"></div>
     </div>
     <div class="form-row3">
         <div><label>Recette (FCFA) <span class="req">*</span></label><input type="number" name="recette" id="r-montant" min="0" required></div>
@@ -375,7 +421,12 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
                 <option value="">—</option><option value="especes">Espèces</option><option value="mobile_money">Mobile Money</option><option value="cheque">Chèque</option><option value="virement">Virement</option><option value="autre">Autre</option>
             </select>
         </div>
-        <div><label>Contrôlé par</label><input name="controle_par" id="r-ctrl"></div>
+        <div><label>Contrôlé par</label>
+            <select name="controle_par" id="r-ctrl">
+                <option value="">— Choisir —</option>
+                @foreach($collaborateurs as $u)<option value="{{ $u->name }}">{{ $u->name }}</option>@endforeach
+            </select>
+        </div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="r-obs" rows="2"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
@@ -489,6 +540,10 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
     <td>{{ $pen->date_paiement ? $pen->date_paiement->format('d/m/Y') : '—' }}</td>
     <td>
         <div class="act-row">
+            <button class="act-btn" title="Fiche véhicule" onclick="ficheVehicule({{ $pen->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
+            @if($pen->statut !== 'payee')
+            <button class="act-btn" title="Statuer" onclick="statuerPenal({{ $pen->id }})" style="color:var(--accent)">{!! $icWrench !!}</button>
+            @endif
             <button class="act-btn" title="Modifier" onclick="editPenal({{ $pen->id }})">{!! $icEdit !!}</button>
             <form method="POST" action="{{ route('parc.penalites.destroy', $pen) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
                 <button class="act-btn del" title="Supprimer">{!! $icDel !!}</button>
@@ -506,15 +561,18 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
 @endif
 </div>
 
+{{-- Dialog Déclaration pénalité (rapide terrain) --}}
 <dialog id="dlg-penal">
-<h3 id="dlg-penal-titre">{!! $icAlert !!} Nouvelle pénalité</h3>
+<h3 id="dlg-penal-titre">{!! $icAlert !!} Déclarer une pénalité</h3>
 <form id="form-penal" method="POST" action="{{ route('parc.penalites.store') }}">
     @csrf <div id="penal-method"></div>
-    <div class="dlg-section">Infraction</div>
+    <input type="hidden" name="statut" id="pe-statut" value="non_payee">
+    <input type="hidden" name="date_paiement" id="pe-dpay" value="">
+    <input type="hidden" name="observations" id="pe-obs" value="">
     <div class="form-row3">
         <div><label>Véhicule <span class="req">*</span></label>
             <select name="vehicule_id" id="pe-vehic" required>
-                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option>@endforeach
+                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
             </select>
         </div>
         <div><label>Date <span class="req">*</span></label><input type="date" name="date_infraction" id="pe-date" value="{{ date('Y-m-d') }}" required></div>
@@ -524,22 +582,47 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
             </select>
         </div>
     </div>
-    <div class="form-row">
-        <div><label>Chauffeur</label><input name="chauffeur" id="pe-chauff"></div>
-        <div><label>Lieu</label><input name="lieu" id="pe-lieu"></div>
-    </div>
-    <div><label>Description</label><textarea name="description" id="pe-desc" rows="2"></textarea></div>
-    <div class="dlg-section">Règlement</div>
     <div class="form-row3">
+        <div><label>Chauffeur</label><input name="chauffeur" id="pe-chauff" list="dl-chauffeurs" autocomplete="off"></div>
+        <div><label>Lieu</label><input name="lieu" id="pe-lieu" list="dl-lieux" autocomplete="off"></div>
         <div><label>Montant (FCFA) <span class="req">*</span></label><input type="number" name="montant" id="pe-mont" min="0" required></div>
+    </div>
+    <div><label>Description</label><textarea name="description" id="pe-desc" rows="2" placeholder="Décrivez l'infraction"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+        <button class="btn">Déclarer</button>
+    </div>
+</form>
+</dialog>
+
+{{-- Dialog Statuer pénalité (règlement) --}}
+<dialog id="dlg-statuer-penal">
+<h3>{!! $icAlert !!} Statuer sur la pénalité</h3>
+<form id="form-statuer-penal" method="POST" action="">
+    @csrf <input type="hidden" name="_method" value="PUT">
+    <input type="hidden" name="vehicule_id" id="sp-vehic">
+    <input type="hidden" name="date_infraction" id="sp-date">
+    <input type="hidden" name="type" id="sp-type">
+    <input type="hidden" name="chauffeur" id="sp-chauff">
+    <input type="hidden" name="lieu" id="sp-lieu">
+    <input type="hidden" name="description" id="sp-desc">
+    <input type="hidden" name="montant" id="sp-mont">
+    <div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
+        <strong id="sp-info-vehic"></strong> — <span id="sp-info-date"></span> — <span id="sp-info-type"></span><br>
+        <span style="color:var(--gris)" id="sp-info-desc"></span><br>
+        Montant : <strong id="sp-info-mont"></strong> FCFA
+    </div>
+    <div class="dlg-section" style="margin-top:0">Règlement</div>
+    <div class="form-row3">
         <div><label>Statut <span class="req">*</span></label>
-            <select name="statut" id="pe-statut" required>
+            <select name="statut" id="sp-statut" required>
                 <option value="non_payee">Non payée</option><option value="payee">Payée</option><option value="contestee">Contestée</option>
             </select>
         </div>
-        <div><label>Date paiement</label><input type="date" name="date_paiement" id="pe-dpay"></div>
+        <div><label>Date paiement</label><input type="date" name="date_paiement" id="sp-dpay"></div>
+        <div></div>
     </div>
-    <div><label>Observations</label><textarea name="observations" id="pe-obs" rows="2"></textarea></div>
+    <div><label>Observations</label><textarea name="observations" id="sp-obs" rows="2"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Enregistrer</button>
@@ -548,25 +631,104 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
 </dialog>
 @endif
 
-{{-- ==================== DIALOG PARAMÈTRES ==================== --}}
-<dialog id="dlg-params">
-<h3>{!! $icGear !!} Paramètres du parc</h3>
-<form method="POST" action="{{ route('parc.parametres') }}">
-    @csrf
-    <p style="font-size:12px;color:var(--gris);margin-bottom:14px">Les objectifs de recette sont appliqués automatiquement selon la catégorie du véhicule et le type de jour (ouvrable / férié-dimanche).</p>
-    <div class="param-grid">
-    @foreach($parametres as $p)
-        <div class="param-item">
-            <label>{{ $p->libelle }}</label>
-            <input type="number" name="params[{{ $p->id }}]" value="{{ $p->valeur }}" min="0">
+{{-- ==================== ONGLET CHAUFFEURS ==================== --}}
+@if($onglet === 'chauffeurs')
+<div class="carte" style="overflow-x:auto">
+<table>
+<thead><tr><th>Nom complet</th><th>N° Permis</th><th>Téléphone</th><th>Véhicule(s)</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
+<tbody>
+@forelse($chauffeurs as $ch)
+@php
+    $affectations = $ch->vehicules->where('pivot.actif', true);
+    $vehicLabels = $affectations->map(fn($v) => $v->immatriculation)->join(', ');
+    $roleLabels = $affectations->map(fn($v) => ucfirst($v->pivot->role))->join(', ');
+@endphp
+<tr>
+    <td><strong>{{ $ch->nomComplet() }}</strong></td>
+    <td>{{ $ch->numero_permis ?? '—' }}</td>
+    <td>{{ $ch->telephone ?? '—' }}</td>
+    <td>{{ $vehicLabels ?: '—' }}</td>
+    <td>{{ $roleLabels ?: '—' }}</td>
+    <td><span class="pill {{ $ch->statut === 'actif' ? 'p-ok' : 'p-gris' }}">{{ ucfirst($ch->statut) }}</span></td>
+    <td>
+        <div class="act-row">
+            <button class="act-btn" title="Affecter véhicule" onclick="affecterChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icCar !!}</button>
+            <button class="act-btn" title="Modifier" onclick="editChauffeur({{ $ch->id }})">{!! $icEdit !!}</button>
+            <form method="POST" action="{{ route('parc.chauffeurs.destroy', $ch) }}" onsubmit="return confirm('Supprimer ce chauffeur ?')">@csrf @method('DELETE')
+                <button class="act-btn del" title="Supprimer">{!! $icDel !!}</button>
+            </form>
         </div>
-    @endforeach
+    </td>
+</tr>
+@empty
+<tr><td colspan="7" style="text-align:center;color:var(--gris);padding:30px">Aucun chauffeur enregistré.</td></tr>
+@endforelse
+</tbody>
+</table>
+</div>
+
+{{-- Dialog Chauffeur --}}
+<dialog id="dlg-chauffeur">
+<h3 id="dlg-chauffeur-titre">{!! $icUser !!} Nouveau chauffeur</h3>
+<form id="form-chauffeur" method="POST" action="{{ route('parc.chauffeurs.store') }}">
+    @csrf <div id="chauffeur-method"></div>
+    <div class="form-row">
+        <div><label>Prénom <span class="req">*</span></label><input name="prenom" id="ch-prenom" required></div>
+        <div><label>Nom <span class="req">*</span></label><input name="nom" id="ch-nom" required></div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
+    <div class="form-row">
+        <div><label>N° Permis</label><input name="numero_permis" id="ch-permis"></div>
+        <div><label>Téléphone</label><input name="telephone" id="ch-tel"></div>
+    </div>
+    <div class="form-row">
+        <div><label>Statut</label>
+            <select name="statut" id="ch-statut"><option value="actif">Actif</option><option value="inactif">Inactif</option></select>
+        </div>
+        <div></div>
+    </div>
+    <div><label>Observations</label><textarea name="observations" id="ch-obs" rows="2"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Enregistrer</button>
     </div>
 </form>
+</dialog>
+
+{{-- Dialog Affectation --}}
+<dialog id="dlg-affectation">
+<h3>{!! $icCar !!} Affecter un véhicule</h3>
+<form id="form-affectation" method="POST" action="{{ route('parc.chauffeurs.affecter') }}">
+    @csrf
+    <input type="hidden" name="chauffeur_id" id="af-chauffeur">
+    <div class="form-row">
+        <div><label>Véhicule <span class="req">*</span></label>
+            <select name="vehicule_id" id="af-vehic" required>
+                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
+            </select>
+        </div>
+        <div><label>Rôle <span class="req">*</span></label>
+            <select name="role" id="af-role" required>
+                <option value="principal">Principal</option><option value="alternant">Alternant</option>
+            </select>
+        </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+        <button class="btn">Affecter</button>
+    </div>
+</form>
+</dialog>
+@endif
+
+{{-- ============ Dialog Fiche véhicule (global) ============ --}}
+<dialog id="dlg-fiche" style="width:620px">
+<h3>{!! $icEye !!} Fiche véhicule</h3>
+<div id="fiche-contenu" style="font-size:13px;line-height:1.7">
+    <p style="text-align:center;color:var(--gris)">Chargement...</p>
+</div>
+<div style="display:flex;justify-content:flex-end;margin-top:16px">
+    <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Fermer</button>
+</div>
 </dialog>
 
 @endsection
@@ -647,6 +809,23 @@ if ($onglet === 'penalites') {
         ];
     }
 }
+$_chData = [];
+if ($onglet === 'chauffeurs') {
+    foreach($chauffeurs as $_ch) {
+        $_chData[$_ch->id] = [
+            'nom' => $_ch->nom,
+            'prenom' => $_ch->prenom,
+            'numero_permis' => $_ch->numero_permis,
+            'telephone' => $_ch->telephone,
+            'statut' => $_ch->statut,
+            'observations' => $_ch->observations,
+        ];
+    }
+}
+$_vLabels = [];
+foreach($vehicules as $_v) {
+    $_vLabels[$_v->id] = $_v->immatriculation . ' (' . $_v->categorieLabel() . ')';
+}
 @endphp
 
 @push('scripts')
@@ -656,6 +835,8 @@ var pannesData = @json($_pData);
 var recettesData = @json($_rData);
 var maintData = @json($_mData);
 var penalData = @json($_peData);
+var chauffeurData = @json($_chData);
+var vLabels = @json($_vLabels);
 
 function editVehicule(id){
     var d=vehiculesData[id]; if(!d)return;
@@ -677,20 +858,39 @@ function editVehicule(id){
 
 function editPanne(id){
     var d=pannesData[id]; if(!d)return;
-    document.getElementById('dlg-panne-titre').innerHTML='{!! $icWrench !!} Modifier la panne';
+    document.getElementById('dlg-panne-titre').innerHTML='{!! $icWrench !!} Modifier la déclaration';
     document.getElementById('form-panne').action='{{ url("parc/pannes") }}/'+id;
     document.getElementById('panne-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
     document.getElementById('p-vehic').value=d.vehicule_id;
     document.getElementById('p-date').value=d.date_declaration||'';
     document.getElementById('p-desc').value=d.description;
     document.getElementById('p-urg').value=d.urgence;
-    document.getElementById('p-statut').value=d.statut;
+    document.getElementById('p-statut').value=d.statut||'declaree';
     document.getElementById('p-diag').value=d.diagnostic||'';
     document.getElementById('p-deci').value=d.decision||'';
     document.getElementById('p-cout').value=d.cout_reel||'';
     document.getElementById('p-ddi').value=d.date_debut_intervention||'';
     document.getElementById('p-dcl').value=d.date_cloture||'';
     document.getElementById('dlg-panne').showModal();
+}
+function statuerPanne(id){
+    var d=pannesData[id]; if(!d)return;
+    var vLabel=''; document.querySelectorAll('#p-vehic option').forEach(function(o){if(o.value==d.vehicule_id)vLabel=o.textContent});
+    document.getElementById('form-statuer').action='{{ url("parc/pannes") }}/'+id;
+    document.getElementById('s-vehic').value=d.vehicule_id;
+    document.getElementById('s-date').value=d.date_declaration||'';
+    document.getElementById('s-desc').value=d.description;
+    document.getElementById('s-urg').value=d.urgence;
+    document.getElementById('s-info-vehic').textContent=vLabel;
+    document.getElementById('s-info-date').textContent=d.date_declaration||'';
+    document.getElementById('s-info-desc').textContent=d.description;
+    document.getElementById('s-diag').value=d.diagnostic||'';
+    document.getElementById('s-deci').value=d.decision||'';
+    document.getElementById('s-cout').value=d.cout_reel||'';
+    document.getElementById('s-statut').value=d.statut;
+    document.getElementById('s-ddi').value=d.date_debut_intervention||'';
+    document.getElementById('s-dcl').value=d.date_cloture||'';
+    document.getElementById('dlg-statuer').showModal();
 }
 
 function editRecette(id){
@@ -723,7 +923,7 @@ function editMaint(id){
 
 function editPenal(id){
     var d=penalData[id]; if(!d)return;
-    document.getElementById('dlg-penal-titre').innerHTML='{!! $icAlert !!} Modifier la pénalité';
+    document.getElementById('dlg-penal-titre').innerHTML='{!! $icAlert !!} Modifier la déclaration';
     document.getElementById('form-penal').action='{{ url("parc/penalites") }}/'+id;
     document.getElementById('penal-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
     document.getElementById('pe-vehic').value=d.vehicule_id;
@@ -733,16 +933,99 @@ function editPenal(id){
     document.getElementById('pe-lieu').value=d.lieu||'';
     document.getElementById('pe-desc').value=d.description||'';
     document.getElementById('pe-mont').value=d.montant;
-    document.getElementById('pe-statut').value=d.statut;
+    document.getElementById('pe-statut').value=d.statut||'non_payee';
     document.getElementById('pe-dpay').value=d.date_paiement||'';
     document.getElementById('pe-obs').value=d.observations||'';
     document.getElementById('dlg-penal').showModal();
+}
+
+function statuerPenal(id){
+    var d=penalData[id]; if(!d)return;
+    var vLabel=vLabels[d.vehicule_id]||'?';
+    document.getElementById('form-statuer-penal').action='{{ url("parc/penalites") }}/'+id;
+    document.getElementById('sp-vehic').value=d.vehicule_id;
+    document.getElementById('sp-date').value=d.date_infraction;
+    document.getElementById('sp-type').value=d.type;
+    document.getElementById('sp-chauff').value=d.chauffeur||'';
+    document.getElementById('sp-lieu').value=d.lieu||'';
+    document.getElementById('sp-desc').value=d.description||'';
+    document.getElementById('sp-mont').value=d.montant;
+    document.getElementById('sp-info-vehic').textContent=vLabel;
+    document.getElementById('sp-info-date').textContent=d.date_infraction;
+    var typeLabels={'contravention':'Contravention','exces_vitesse':'Excès de vitesse','stationnement':'Stationnement','defaut_document':'Défaut de document','autre':'Autre'};
+    document.getElementById('sp-info-type').textContent=typeLabels[d.type]||d.type;
+    document.getElementById('sp-info-desc').textContent=d.description||'';
+    document.getElementById('sp-info-mont').textContent=new Intl.NumberFormat('fr-FR').format(d.montant);
+    document.getElementById('sp-statut').value=d.statut;
+    document.getElementById('sp-dpay').value=d.date_paiement||'';
+    document.getElementById('sp-obs').value=d.observations||'';
+    document.getElementById('dlg-statuer-penal').showModal();
+}
+
+function editChauffeur(id){
+    var d=chauffeurData[id]; if(!d)return;
+    document.getElementById('dlg-chauffeur-titre').innerHTML='{!! $icUser !!} Modifier le chauffeur';
+    document.getElementById('form-chauffeur').action='{{ url("parc/chauffeurs") }}/'+id;
+    document.getElementById('chauffeur-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
+    document.getElementById('ch-prenom').value=d.prenom||'';
+    document.getElementById('ch-nom').value=d.nom||'';
+    document.getElementById('ch-permis').value=d.numero_permis||'';
+    document.getElementById('ch-tel').value=d.telephone||'';
+    document.getElementById('ch-statut').value=d.statut||'actif';
+    document.getElementById('ch-obs').value=d.observations||'';
+    document.getElementById('dlg-chauffeur').showModal();
+}
+
+function affecterChauffeur(id){
+    document.getElementById('af-chauffeur').value=id;
+    document.getElementById('dlg-affectation').showModal();
+}
+
+function ficheVehicule(vehiculeId){
+    var dlg=document.getElementById('dlg-fiche');
+    var contenu=document.getElementById('fiche-contenu');
+    contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
+    dlg.showModal();
+    fetch('{{ url("parc/vehicules") }}/'+vehiculeId+'/fiche')
+        .then(function(r){return r.json()})
+        .then(function(d){
+            var html='<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:14px;margin-bottom:12px">';
+            html+='<div style="font-size:18px;font-weight:700;color:var(--bleu)">'+d.immatriculation+'</div>';
+            html+='<div style="font-size:12px;color:var(--gris);margin-top:4px">'+d.marque+' '+d.modele+' · <span class="cat-pill cat-'+d.categorie+'">'+d.categorie_label+'</span> · <span class="pill '+(d.statut==='en_service'?'p-ok':(d.statut==='immobilise'?'p-warn':'p-ko'))+'">'+d.statut_label+'</span></div>';
+            if(d.kilometrage) html+='<div style="margin-top:6px;font-size:12px">Kilométrage : <strong>'+new Intl.NumberFormat('fr-FR').format(d.kilometrage)+' km</strong></div>';
+            html+='</div>';
+            // Chauffeurs
+            if(d.chauffeurs && d.chauffeurs.length>0){
+                html+='<div class="dlg-section" style="margin-top:8px">Chauffeurs affectés</div><ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
+                d.chauffeurs.forEach(function(c){html+='<li>'+c.nom+' <span style="color:var(--gris)">('+c.role+')</span></li>'});
+                html+='</ul>';
+            }
+            // Stats
+            html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">';
+            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--ok)">'+d.pannes_total+'</div><div style="font-size:11px;color:var(--gris)">Pannes ('+d.pannes_ouvertes+' ouvertes)</div></div>';
+            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent)">'+new Intl.NumberFormat('fr-FR').format(d.recette_mois)+' F</div><div style="font-size:11px;color:var(--gris)">Recettes ce mois</div></div>';
+            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:#b45309">'+d.echeances_retard+'</div><div style="font-size:11px;color:var(--gris)">Échéances en retard</div></div>';
+            html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:11px;color:var(--gris)">Pénalités impayées</div></div>';
+            html+='</div>';
+            contenu.innerHTML=html;
+        })
+        .catch(function(){contenu.innerHTML='<p style="color:var(--ko)">Erreur de chargement.</p>'});
 }
 
 document.querySelectorAll('dialog').forEach(function(dlg){
     dlg.addEventListener('close',function(){
         var form=dlg.querySelector('form');
         if(form){form.reset();var m=dlg.querySelector('[id$="-method"]');if(m)m.innerHTML='';}
+        // Reset titles
+        var titles={'dlg-vehicule':'{!! $icCar !!} Nouveau véhicule','dlg-panne':'{!! $icWrench !!} Déclarer une panne','dlg-recette':'{!! $icWallet !!} Nouvelle recette','dlg-maint':'{!! $icCalCheck !!} Nouvelle échéance','dlg-penal':'{!! $icAlert !!} Déclarer une pénalité','dlg-chauffeur':'{!! $icUser !!} Nouveau chauffeur'};
+        var t=titles[dlg.id];if(t){var h=dlg.querySelector('h3[id]');if(h)h.innerHTML=t;}
+        // Reset form action
+        if(dlg.id==='dlg-vehicule'&&form)form.action='{{ route("parc.vehicules.store") }}';
+        if(dlg.id==='dlg-panne'&&form)form.action='{{ route("parc.pannes.store") }}';
+        if(dlg.id==='dlg-recette'&&form)form.action='{{ route("parc.recettes.store") }}';
+        if(dlg.id==='dlg-maint'&&form)form.action='{{ route("parc.maintenances.store") }}';
+        if(dlg.id==='dlg-penal'&&form)form.action='{{ route("parc.penalites.store") }}';
+        if(dlg.id==='dlg-chauffeur'&&form)form.action='{{ route("parc.chauffeurs.store") }}';
     });
 });
 </script>

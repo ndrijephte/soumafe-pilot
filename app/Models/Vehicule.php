@@ -2,7 +2,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\{BelongsToMany, HasMany};
 
 class Vehicule extends Model
 {
@@ -17,6 +17,12 @@ class Vehicule extends Model
     public function recettes(): HasMany { return $this->hasMany(RecetteVehicule::class); }
     public function maintenances(): HasMany { return $this->hasMany(MaintenancePreventive::class); }
     public function penalites(): HasMany { return $this->hasMany(Penalite::class); }
+    public function chauffeurs(): BelongsToMany
+    {
+        return $this->belongsToMany(Chauffeur::class, 'chauffeur_vehicule')
+            ->withPivot('role', 'actif')
+            ->withTimestamps();
+    }
 
     public function categorieLabel(): string
     {

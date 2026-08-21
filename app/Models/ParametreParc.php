@@ -19,8 +19,8 @@ class ParametreParc extends Model
     /** Retourne l'objectif recette selon catégorie véhicule + type de jour. */
     public static function objectifRecette(string $categorie, string $typeJour): int
     {
-        $suffixe = in_array($typeJour, ['ferie', 'dimanche']) ? 'ferie' : 'ouvrable';
-        $cle = "objectif_{$categorie}_{$suffixe}";
+        // dimanche, ferie, ouvrable → chacun sa clé
+        $cle = "objectif_{$categorie}_{$typeJour}";
         return (int) static::val($cle, '0');
     }
 }

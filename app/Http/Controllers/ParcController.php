@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, RecetteVehicule, Vehicule};
+use App\Models\{Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, RecetteVehicule, User, Vehicule};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
 
@@ -28,6 +28,10 @@ class ParcController extends Controller
         $this->autoriser($r);
         $onglet = $r->get('onglet', 'vehicules');
         $vehicules = Vehicule::orderBy('immatriculation')->get();
+        $chauffeurs = Schema::hasTable('chauffeurs')
+            ? Chauffeur::with('vehicules')->orderBy('nom')->get()
+            : collect();
+        $collaborateurs = User::where('actif', true)->orderBy('name')->get();
 
         $pannes = collect();
         $recettes = collect();
@@ -64,15 +68,9 @@ class ParcController extends Controller
             $penalites = $q->paginate(30)->withQueryString();
         }
 
-        // Paramètres
-        $parametres = collect();
-        if (Schema::hasTable('parametres_parc')) {
-            $parametres = ParametreParc::orderBy('groupe')->orderBy('libelle')->get();
-        }
-
         $kpi = $this->calculerKpi($vehicules);
 
-        return view('parc.index', compact('onglet', 'vehicules', 'pannes', 'recettes', 'maintenances', 'penalites', 'parametres', 'kpi'));
+        return view('parc.index', compact('onglet', 'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes', 'maintenances', 'penalites', 'kpi'));
     }
 
     /* ===== VÉHICULES CRUD ===== */
@@ -348,18 +346,102 @@ class ParcController extends Controller
         return back()->with('succes', 'Pénalité supprimée.');
     }
 
-    /* ===== PARAMÈTRES ===== */
-    public function updateParametres(Request $r)
+    /* ===== CHAUFFEURS CRUD ===== */
+    public function storeChauffeur(Request $r)
+    {
+        $this->autoriser($r);
+        $data = $r->validate([
+            'nom' => 'required|string|max:60',
+            'prenom' => 'required|string|max:60',
+            'numero_permis' => 'nullable|string|max:30',
+            'telephone' => 'nullable|string|max:20',
+            'statut' => 'required|in:actif,inactif',
+            'observations' => 'nullable|string|max:500',
+        ]);
+        Chauffeur::create($data);
+        return back()->with('succes', 'Chauffeur enregistré.');
+    }
+
+    public function updateChauffeur(Request $r, Chauffeur $chauffeur)
+    {
+        $this->autoriser($r);
+        $data = $r->validate([
+            'nom' => 'required|string|max:60',
+            'prenom' => 'required|string|max:60',
+            'numero_permis' => 'nullable|string|max:30',
+            'telephone' => 'nullable|string|max:20',
+            'statut' => 'required|in:actif,inactif',
+            'observations' => 'nullable|string|max:500',
+        ]);
+        $chauffeur->update($data);
+        return back()->with('succes', 'Chauffeur mis à jour.');
+    }
+
+    public function destroyChauffeur(Request $r, Chauffeur $chauffeur)
     {
         $this->autoriser($r);
         abort_unless($r->user()->estPilote(), 403);
+        $chauffeur->delete();
+        return back()->with('succes', 'Chauffeur supprimé.');
+    }
 
-        $params = $r->input('params', []);
-        foreach ($params as $id => $valeur) {
-            ParametreParc::where('id', $id)->update(['valeur' => $valeur]);
-        }
+    public function affecterChauffeur(Request $r)
+    {
+        $this->autoriser($r);
+        $data = $r->validate([
+            'chauffeur_id' => 'required|exists:chauffeurs,id',
+            'vehicule_id' => 'required|exists:vehicules,id',
+            'role' => 'required|in:principal,alternant',
+        ]);
+        $v = Vehicule::findOrFail($data['vehicule_id']);
+        $v->chauffeurs()->syncWithoutDetaching([$data['chauffeur_id'] => ['role' => $data['role'], 'actif' => true]]);
+        return back()->with('succes', 'Chauffeur affecté.');
+    }
 
-        return back()->with('succes', 'Paramètres enregistrés.');
+    public function detacherChauffeur(Request $r, Vehicule $vehicule, Chauffeur $chauffeur)
+    {
+        $this->autoriser($r);
+        $vehicule->chauffeurs()->detach($chauffeur->id);
+        return back()->with('succes', 'Chauffeur détaché.');
+    }
+
+    /* ===== FICHE RÉSUMÉ VÉHICULE (JSON) ===== */
+    public function ficheVehicule(Request $r, Vehicule $vehicule)
+    {
+        $this->autoriser($r);
+        $vehicule->load(['chauffeurs', 'pannes', 'recettes', 'maintenances', 'penalites']);
+
+        $moisDebut = today()->startOfMonth();
+        $moisFin = today()->endOfMonth();
+        $recetteMois = $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
+        $pannesOuvertes = $vehicule->pannes->whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count();
+        $echeancesRetard = $vehicule->maintenances->filter(fn($m) => $m->prochaine_echeance && $m->prochaine_echeance < today())->count();
+        $penalitesImpayees = $vehicule->penalites->where('statut', 'non_payee')->count();
+
+        return response()->json([
+            'id' => $vehicule->id,
+            'immatriculation' => $vehicule->immatriculation,
+            'categorie' => $vehicule->categorie,
+            'categorie_label' => $vehicule->categorieLabel(),
+            'marque' => $vehicule->marque,
+            'modele' => $vehicule->modele,
+            'statut' => $vehicule->statut,
+            'statut_label' => $vehicule->statutLabel(),
+            'kilometrage' => $vehicule->kilometrage,
+            'date_mise_en_service' => $vehicule->date_mise_en_service?->format('d/m/Y'),
+            'chauffeurs' => $vehicule->chauffeurs->map(fn($c) => [
+                'nom' => $c->nomComplet(),
+                'role' => $c->pivot->role === 'principal' ? 'Principal' : 'Alternant',
+                'permis' => $c->numero_permis,
+                'telephone' => $c->telephone,
+            ]),
+            'pannes_ouvertes' => $pannesOuvertes,
+            'pannes_total' => $vehicule->pannes->count(),
+            'recette_mois' => $recetteMois,
+            'echeances_retard' => $echeancesRetard,
+            'penalites_impayees' => $penalitesImpayees,
+            'observations' => $vehicule->observations,
+        ]);
     }
 
     /* ===== KPI ===== */

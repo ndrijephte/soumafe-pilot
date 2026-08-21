@@ -162,10 +162,19 @@ dialog textarea{min-height:60px;resize:vertical}
         @foreach($sanseSaisie as $u)
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px">
             <span style="font-weight:600">{{ $u->nomComplet() }}</span>
-            <form method="POST" action="{{ route('saisie.rappeler') }}" style="display:inline">@csrf
-                <input type="hidden" name="user_id" value="{{ $u->id }}">
-                <button type="submit" class="btn-ic-s accent"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Rappel</button>
-            </form>
+            <div style="display:flex;align-items:center;gap:8px">
+                @if(in_array((int)$u->id, $rappelsAujourdhui, true))
+                <span style="display:inline-flex;align-items:center;gap:4px;color:var(--ok);font-size:11px;font-weight:600" title="Rappel envoyé aujourd'hui">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="var(--ok)" stroke="var(--ok)" stroke-width="1.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                    Envoy&eacute;
+                </span>
+                @else
+                <form method="POST" action="{{ route('saisie.rappeler') }}" style="display:inline">@csrf
+                    <input type="hidden" name="user_id" value="{{ $u->id }}">
+                    <button type="submit" class="btn-ic-s accent"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>Rappel</button>
+                </form>
+                @endif
+            </div>
         </div>
         @endforeach
     </div>

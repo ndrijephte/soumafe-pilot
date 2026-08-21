@@ -117,6 +117,15 @@ class CompteRenduController extends Controller
         $collaborateurs = User::where('actif', true)->orderBy('name')->get();
         $projets = Projet::where('statut', 'actif')->orderBy('libelle')->get();
         $donnees = $cr->getDonnees();
+
+        // Garantir que la liste de présence existe pour les réunions
+        if ($cr->estReunion() && empty($donnees['presences'])) {
+            $donnees['presences'] = User::where('actif', true)->orderBy('name')->get()
+                ->map(fn($u) => ['nom' => $u->nomComplet(), 'present' => true])->toArray();
+            $cr->setDonnees($donnees);
+            $cr->save();
+        }
+
         $cr->load(['redacteur', 'president', 'sprint']);
 
         return view('comptes-rendus.edit', compact('cr', 'collaborateurs', 'projets', 'donnees', 'user'));

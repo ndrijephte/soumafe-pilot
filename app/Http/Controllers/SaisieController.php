@@ -110,6 +110,11 @@ class SaisieController extends Controller
             $justificationsEnAttente = JourSaisie::with('user')
                 ->where('statut', 'justifie')
                 ->orderByDesc('date')->limit(20)->get();
+
+            // IDs des collaborateurs déjà rappelés aujourd'hui
+            $rappelsAujourdhui = NotificationApp::where('type', 'rappel')
+                ->whereDate('created_at', today())
+                ->pluck('user_id')->map(fn($v) => (int)$v)->toArray();
         }
 
         // Absences des collaborateurs (pour pilotes)
@@ -120,10 +125,13 @@ class SaisieController extends Controller
                 ->orderBy('date_debut')->get();
         }
 
+        $rappelsAujourdhui = $rappelsAujourdhui ?? [];
+
         return view('saisie.index', compact(
             'tachesDuJour', 'confirmations', 'jours', 'evenementsDuJour',
             'historique', 'evenementsRecents', 'typesEvenement',
-            'sanseSaisie', 'justificationsEnAttente', 'absences', 'absencesEquipe'
+            'sanseSaisie', 'justificationsEnAttente', 'absences', 'absencesEquipe',
+            'rappelsAujourdhui'
         ));
     }
 

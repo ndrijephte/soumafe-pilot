@@ -21,7 +21,7 @@ class ObjectifController extends Controller
             $filtreUser = $r->get('user_id');
             $filtreProjet = $r->get('projet_id');
             $collaborateurs = User::where('actif', true)
-                ->whereNotIn('role', ['invite'])
+                ->whereNotIn('role', ['invite', 'direction'])
                 ->orderBy('name')->get();
 
             // Individuels

@@ -77,6 +77,10 @@
         <label class="check-label"><input type="checkbox" name="actif" value="1" @checked(old('actif', $user->actif))> Compte actif</label>
     </div>
 
+    <div class="form-group">
+        <label class="check-label"><input type="checkbox" name="delegation_parc" value="1" @checked(old('delegation_parc', $user->delegation_parc))> Délégation parc automobile</label>
+    </div>
+
     <div style="display:flex;gap:10px;margin-top:18px">
         <button class="btn">{{ $user->exists ? 'Enregistrer' : 'Créer le compte' }}</button>
         <a href="{{ route('admin.utilisateurs.index') }}" class="btn sec">Annuler</a>

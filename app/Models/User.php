@@ -10,9 +10,9 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'prenom', 'email', 'password', 'pole_id', 'profil_mesure', 'role', 'actif'];
+    protected $fillable = ['name', 'prenom', 'email', 'password', 'pole_id', 'profil_mesure', 'role', 'actif', 'delegation_parc'];
     protected $hidden = ['password', 'remember_token'];
-    protected $casts = ['email_verified_at' => 'datetime', 'password' => 'hashed', 'actif' => 'boolean'];
+    protected $casts = ['email_verified_at' => 'datetime', 'password' => 'hashed', 'actif' => 'boolean', 'delegation_parc' => 'boolean'];
 
     public function pole(): BelongsTo { return $this->belongsTo(Pole::class); }
     public function taches(): HasMany { return $this->hasMany(Tache::class); }
@@ -60,6 +60,12 @@ class User extends Authenticatable
         $projet = Projet::find($projetId);
         if (!$projet) return false;
         return $projet->delegation_sprint && $projet->responsable_projet_id === $this->id;
+    }
+
+    /** Peut accéder au module parc automobile (pilote ou collaborateur délégué). */
+    public function peutGererParc(): bool
+    {
+        return $this->estPilote() || ($this->delegation_parc ?? false);
     }
 
     /** Retourne les projets que l'utilisateur peut gérer (pour filtrer les selects). */

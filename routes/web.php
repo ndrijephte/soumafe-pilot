@@ -1,5 +1,5 @@
 <?php
-use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController};
+use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController};
 use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController};
 use Illuminate\Support\Facades\Route;
@@ -100,6 +100,25 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/exports/taches', [ExportController::class, 'taches'])->name('export.taches');
     Route::get('/exports/sprint/{sprint}', [ExportController::class, 'sprint'])->name('export.sprint');
     Route::get('/exports/evenements', [ExportController::class, 'evenements'])->name('export.evenements');
+
+    // Parc automobile
+    Route::get('/parc', [ParcController::class, 'index'])->name('parc.index');
+    Route::post('/parc/vehicules', [ParcController::class, 'storeVehicule'])->name('parc.vehicules.store');
+    Route::put('/parc/vehicules/{vehicule}', [ParcController::class, 'updateVehicule'])->name('parc.vehicules.update');
+    Route::delete('/parc/vehicules/{vehicule}', [ParcController::class, 'destroyVehicule'])->name('parc.vehicules.destroy');
+    Route::post('/parc/pannes', [ParcController::class, 'storePanne'])->name('parc.pannes.store');
+    Route::put('/parc/pannes/{panne}', [ParcController::class, 'updatePanne'])->name('parc.pannes.update');
+    Route::delete('/parc/pannes/{panne}', [ParcController::class, 'destroyPanne'])->name('parc.pannes.destroy');
+    Route::post('/parc/recettes', [ParcController::class, 'storeRecette'])->name('parc.recettes.store');
+    Route::put('/parc/recettes/{recette}', [ParcController::class, 'updateRecette'])->name('parc.recettes.update');
+    Route::delete('/parc/recettes/{recette}', [ParcController::class, 'destroyRecette'])->name('parc.recettes.destroy');
+    Route::post('/parc/maintenances', [ParcController::class, 'storeMaintenance'])->name('parc.maintenances.store');
+    Route::put('/parc/maintenances/{maintenance}', [ParcController::class, 'updateMaintenance'])->name('parc.maintenances.update');
+    Route::delete('/parc/maintenances/{maintenance}', [ParcController::class, 'destroyMaintenance'])->name('parc.maintenances.destroy');
+    Route::post('/parc/penalites', [ParcController::class, 'storePenalite'])->name('parc.penalites.store');
+    Route::put('/parc/penalites/{penalite}', [ParcController::class, 'updatePenalite'])->name('parc.penalites.update');
+    Route::delete('/parc/penalites/{penalite}', [ParcController::class, 'destroyPenalite'])->name('parc.penalites.destroy');
+    Route::post('/parc/parametres', [ParcController::class, 'updateParametres'])->name('parc.parametres');
 
     // M8 — Administration (US-01→05)
     Route::prefix('admin')->name('admin.')->group(function () {

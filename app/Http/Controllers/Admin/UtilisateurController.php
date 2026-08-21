@@ -71,6 +71,7 @@ class UtilisateurController extends Controller
         ]);
         $v['password'] = Hash::make($v['password']);
         $v['actif'] = $r->boolean('actif');
+        $v['delegation_parc'] = $r->boolean('delegation_parc');
         User::create($v);
         return redirect()->route('admin.utilisateurs.index')->with('succes', 'Compte créé.');
     }
@@ -102,6 +103,7 @@ class UtilisateurController extends Controller
         if (empty($v['password'])) unset($v['password']);
         else $v['password'] = Hash::make($v['password']);
         $v['actif'] = $r->boolean('actif');
+        $v['delegation_parc'] = $r->boolean('delegation_parc');
         $utilisateur->update($v);
         return redirect()->route('admin.utilisateurs.index')->with('succes', 'Compte mis à jour.');
     }

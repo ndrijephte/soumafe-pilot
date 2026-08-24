@@ -23,8 +23,11 @@
 </style>
 @endpush
 @section('contenu')
-<h2>Toutes les tâches</h2>
-<div class="crumb">Vue consolidée — pilotage des activités</div>
+<h2>Projets & Sprints</h2>
+<div class="onglets-page">
+    <a href="{{ route('sprints.index') }}">Projets / Sprints</a>
+    <a href="{{ route('taches.pilote') }}" class="actif">Toutes les tâches</a>
+</div>
 
 <div class="stat-bar">
     <span>Total affiché : <strong>{{ $taches->total() }}</strong></span>

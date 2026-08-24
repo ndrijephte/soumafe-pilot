@@ -44,6 +44,10 @@
 
 @section('contenu')
 <h2>Mes activités</h2>
+<div class="onglets-page">
+    <a href="{{ route('taches.index') }}" class="actif">Mes tâches</a>
+    <a href="{{ route('saisie.index') }}">Suivi de saisie</a>
+</div>
 
 @if(session('succes'))<div class="carte" style="background:#f0fdf4;margin-bottom:10px">{{ session('succes') }}</div>@endif
 

@@ -44,7 +44,11 @@ dialog textarea{min-height:60px;resize:vertical}
 </style>
 @endpush
 @section('contenu')
-<h2>Suivi de saisie</h2>
+<h2>Mes activités</h2>
+<div class="onglets-page">
+    <a href="{{ route('taches.index') }}">Mes tâches</a>
+    <a href="{{ route('saisie.index') }}" class="actif">Suivi de saisie</a>
+</div>
 <div class="crumb">{{ now()->translatedFormat('l j F Y') }} &mdash; confirmation quotidienne</div>
 
 @if(session('succes'))

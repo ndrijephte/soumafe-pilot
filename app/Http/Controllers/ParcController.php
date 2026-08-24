@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
+use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
 
@@ -26,6 +27,7 @@ class ParcController extends Controller
     public function index(Request $r)
     {
         $this->autoriser($r);
+        AlerteParcService::verifier();
         $vehicules = Vehicule::with('chauffeurs')->orderBy('immatriculation')->get();
         $chauffeurs = Schema::hasTable('chauffeurs')
             ? Chauffeur::with('vehicules')->orderBy('nom')->get()

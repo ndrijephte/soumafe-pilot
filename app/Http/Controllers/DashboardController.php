@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{ArbitrageT3, ConfirmationTache, Evenement, MaintenancePreventive, Panne, Penalite, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
+use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -142,6 +143,7 @@ class DashboardController extends Controller
     /* ─── Dashboard DG (US-17) ─── */
     private function dashboardDG(User $user)
     {
+        AlerteParcService::verifier();
         $totalTaches = Tache::count();
         $terminees = Tache::where('statut', 'termine')->count();
         $enCours = Tache::where('statut', 'en_cours')->count();
@@ -296,6 +298,7 @@ class DashboardController extends Controller
     /* ─── Dashboard pilote opérationnel (charge_operations, administrateur) ─── */
     private function dashboardPilote(User $user)
     {
+        AlerteParcService::verifier();
         // KPI globaux
         $totalTaches = Tache::count();
         $terminees = Tache::where('statut', 'termine')->count();

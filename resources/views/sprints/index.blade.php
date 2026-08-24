@@ -51,7 +51,12 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </div>
     @endif
 </div>
-<div class="crumb">Planification des sprints par projet</div>
+<div class="onglets-page">
+    <a href="{{ route('sprints.index') }}" class="actif">Projets / Sprints</a>
+    @if(auth()->user()->estPilote())
+    <a href="{{ route('taches.pilote') }}">Toutes les tâches</a>
+    @endif
+</div>
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif

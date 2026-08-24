@@ -206,6 +206,70 @@
     </table>
 </div>
 
+{{-- Parc automobile --}}
+@if($parc)
+<div class="panneau" style="margin-bottom:20px">
+    <h3>
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="22" height="12" rx="3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M5 10h14"/></svg>
+        Parc automobile &mdash; Mois en cours
+        <a href="{{ route('reporting.parc') }}" class="lien" style="margin-left:auto">Reporting d&eacute;taill&eacute; &rarr;</a>
+    </h3>
+    <div class="kpis" style="margin-bottom:14px">
+        <div class="kpi" style="padding:12px 14px">
+            <div class="lbl">V&eacute;hicules actifs</div>
+            <div class="val" style="font-size:24px">{{ $parc['vehiculesActifs'] }}<span style="font-size:12px;color:var(--gris);font-weight:400">/{{ $parc['vehiculesTotal'] }}</span></div>
+        </div>
+        <div class="kpi" style="padding:12px 14px">
+            <div class="lbl">Recettes</div>
+            <div class="val" style="font-size:22px">{{ number_format($parc['recetteMois'],0,',',' ') }}</div>
+            <div class="sub" style="font-weight:600;color:{{ $parc['tauxRecette'] >= 100 ? 'var(--ok)' : ($parc['tauxRecette'] >= 80 ? 'var(--warn)' : 'var(--ko)') }}">{{ $parc['tauxRecette'] }}% de l'objectif</div>
+        </div>
+        <div class="kpi" style="padding:12px 14px">
+            <div class="lbl">Co&ucirc;t pannes</div>
+            <div class="val" style="font-size:22px;color:var(--ko)">{{ number_format($parc['coutPannesMois'],0,',',' ') }}</div>
+            <div class="sub">{{ $parc['pannesOuvertes'] }} ouverte{{ $parc['pannesOuvertes'] > 1 ? 's' : '' }}</div>
+        </div>
+        <div class="kpi" style="padding:12px 14px">
+            <div class="lbl">P&eacute;nalit&eacute;s</div>
+            <div class="val" style="font-size:22px;color:var(--warn)">{{ number_format($parc['montantPenalitesMois'],0,',',' ') }}</div>
+            <div class="sub">{{ $parc['penalitesNonPayees'] }} impay&eacute;e{{ $parc['penalitesNonPayees'] > 1 ? 's' : '' }}</div>
+        </div>
+        <div class="kpi" style="padding:12px 14px" @if($parc['maintenancesRetard'] > 0) style="background:#fef2f2;border-color:#fecaca;padding:12px 14px" @endif>
+            <div class="lbl">Maint. en retard</div>
+            <div class="val" style="font-size:24px;color:{{ $parc['maintenancesRetard'] > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $parc['maintenancesRetard'] }}</div>
+        </div>
+        <div class="kpi" style="padding:12px 14px">
+            <div class="lbl">R&eacute;sultat net</div>
+            <div class="val" style="font-size:22px;color:{{ $parc['resultatNet'] >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $parc['resultatNet'] >= 0 ? '+' : '' }}{{ number_format($parc['resultatNet'],0,',',' ') }}</div>
+            <div class="sub">Recettes &minus; Pannes &minus; P&eacute;nalit&eacute;s</div>
+        </div>
+    </div>
+
+    @if($parc['topVehicules']->count() > 0)
+    <table class="mini-table">
+        <thead><tr><th>Top 5 v&eacute;hicules</th><th>Cat.</th><th style="text-align:right">Recette</th><th style="text-align:right">Objectif</th><th style="text-align:right">Taux</th></tr></thead>
+        <tbody>
+        @foreach($parc['topVehicules'] as $tv)
+        @php $tvColor = $tv['taux'] >= 100 ? 'var(--ok)' : ($tv['taux'] >= 80 ? 'var(--warn)' : 'var(--ko)'); @endphp
+        <tr>
+            <td style="font-weight:600">{{ $tv['immat'] }}</td>
+            <td>{{ $tv['categorie'] }}</td>
+            <td style="text-align:right">{{ number_format($tv['recette'],0,',',' ') }}</td>
+            <td style="text-align:right">{{ number_format($tv['objectif'],0,',',' ') }}</td>
+            <td style="text-align:right">
+                <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+                    <div class="jauge-wrap" style="width:60px"><div class="jauge-bar" style="width:{{ min($tv['taux'],100) }}%;background:{{ $tvColor }}"></div></div>
+                    <span style="font-size:11px;font-weight:700;min-width:30px">{{ $tv['taux'] }}%</span>
+                </div>
+            </td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+    @endif
+</div>
+@endif
+
 {{-- Événements récents --}}
 @if($evenements->count() > 0)
 <div class="panneau">

@@ -1,7 +1,7 @@
 <?php
 use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController};
-use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController};
+use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController, ReportingParcController};
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('dashboard'));
@@ -124,6 +124,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/chauffeurs/affecter', [ParcController::class, 'affecterChauffeur'])->name('parc.chauffeurs.affecter');
     Route::delete('/parc/vehicules/{vehicule}/chauffeurs/{chauffeur}', [ParcController::class, 'detacherChauffeur'])->name('parc.chauffeurs.detacher');
     Route::get('/parc/vehicules/{vehicule}/fiche', [ParcController::class, 'ficheVehicule'])->name('parc.vehicules.fiche');
+    Route::get('/parc/reporting', [ReportingParcController::class, 'index'])->name('reporting.parc');
 
     // M8 — Administration (US-01→05)
     Route::prefix('admin')->name('admin.')->group(function () {

@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{ArbitrageT3, ConfirmationTache, Evenement, Projet, Sprint, Tache, JourFerie, JourSaisie, User};
+use App\Models\{ArbitrageT3, ConfirmationTache, Evenement, MaintenancePreventive, Panne, Penalite, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -232,11 +232,64 @@ class DashboardController extends Controller
                 ->limit(15)->get();
         }
 
+        // ─── Parc automobile (résumé DG) ───
+        $parc = null;
+        if (Schema::hasTable('vehicules')) {
+            $moisDebut = today()->startOfMonth();
+            $moisFin = today()->endOfMonth();
+
+            $vehiculesTotal = Vehicule::count();
+            $vehiculesActifs = Vehicule::where('statut', 'en_service')->count();
+
+            $recetteMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
+            $objectifMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('objectif');
+            $tauxRecette = $objectifMois > 0 ? round(($recetteMois / $objectifMois) * 100) : 0;
+
+            $coutPannesMois = (int) Panne::whereBetween('date_declaration', [$moisDebut, $moisFin])->sum('cout_reel');
+            $pannesOuvertes = Panne::whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count();
+
+            $montantPenalitesMois = 0;
+            $penalitesNonPayees = 0;
+            if (Schema::hasTable('penalites')) {
+                $montantPenalitesMois = (int) Penalite::whereBetween('date_infraction', [$moisDebut, $moisFin])->sum('montant');
+                $penalitesNonPayees = Penalite::where('statut', 'non_payee')->count();
+            }
+
+            $maintenancesRetard = MaintenancePreventive::whereNotNull('prochaine_echeance')
+                ->whereDate('prochaine_echeance', '<', today())->count();
+
+            // Top 5 véhicules par recette du mois
+            $topVehicules = RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])
+                ->select('vehicule_id', \Illuminate\Support\Facades\DB::raw('SUM(recette) as total'), \Illuminate\Support\Facades\DB::raw('SUM(objectif) as obj'))
+                ->groupBy('vehicule_id')->orderByDesc('total')->limit(5)->get()
+                ->map(function ($r) {
+                    $v = Vehicule::find($r->vehicule_id);
+                    return [
+                        'immat' => $v ? $v->immatriculation : '?',
+                        'categorie' => $v ? $v->categorieLabel() : '?',
+                        'recette' => (int) $r->total,
+                        'objectif' => (int) $r->obj,
+                        'taux' => $r->obj > 0 ? round(($r->total / $r->obj) * 100) : 0,
+                    ];
+                });
+
+            $resultatNet = $recetteMois - $coutPannesMois - $montantPenalitesMois;
+
+            $parc = compact(
+                'vehiculesTotal', 'vehiculesActifs',
+                'recetteMois', 'objectifMois', 'tauxRecette',
+                'coutPannesMois', 'pannesOuvertes',
+                'montantPenalitesMois', 'penalitesNonPayees',
+                'maintenancesRetard', 'topVehicules', 'resultatNet'
+            );
+        }
+
         return view('dashboard.dg', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
             'termineesSemaine', 'arbitragesEnAttente', 'sanseSaisieHier',
             'sprintsEnCours', 'topBloquees', 'parProjet', 'evenements',
-            'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'collaborateurs'
+            'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'collaborateurs',
+            'parc'
         ));
     }
 

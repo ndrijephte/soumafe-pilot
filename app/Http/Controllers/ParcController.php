@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, RecetteVehicule, User, Vehicule};
+use App\Models\{Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
 
@@ -26,51 +26,23 @@ class ParcController extends Controller
     public function index(Request $r)
     {
         $this->autoriser($r);
-        $onglet = $r->get('onglet', 'vehicules');
-        $vehicules = Vehicule::orderBy('immatriculation')->get();
+        $vehicules = Vehicule::with('chauffeurs')->orderBy('immatriculation')->get();
         $chauffeurs = Schema::hasTable('chauffeurs')
             ? Chauffeur::with('vehicules')->orderBy('nom')->get()
             : collect();
         $collaborateurs = User::where('actif', true)->orderBy('name')->get();
 
-        $pannes = collect();
-        $recettes = collect();
-        $maintenances = collect();
-        $penalites = collect();
-
-        if ($onglet === 'pannes') {
-            $q = Panne::with('vehicule')->orderByDesc('date_declaration');
-            if ($r->vehicule) $q->where('vehicule_id', $r->vehicule);
-            if ($r->statut_panne) $q->where('statut', $r->statut_panne);
-            $pannes = $q->paginate(30)->withQueryString();
-        }
-
-        if ($onglet === 'recettes') {
-            $q = RecetteVehicule::with('vehicule')->orderByDesc('date');
-            if ($r->vehicule) $q->where('vehicule_id', $r->vehicule);
-            if ($r->mois) {
-                $parts = explode('-', $r->mois);
-                $q->whereYear('date', $parts[0])->whereMonth('date', $parts[1]);
-            }
-            $recettes = $q->paginate(30)->withQueryString();
-        }
-
-        if ($onglet === 'maintenance') {
-            $q = MaintenancePreventive::with('vehicule')->orderBy('prochaine_echeance');
-            if ($r->vehicule) $q->where('vehicule_id', $r->vehicule);
-            $maintenances = $q->get();
-        }
-
-        if ($onglet === 'penalites') {
-            $q = Penalite::with('vehicule')->orderByDesc('date_infraction');
-            if ($r->vehicule) $q->where('vehicule_id', $r->vehicule);
-            if ($r->statut_pen) $q->where('statut', $r->statut_pen);
-            $penalites = $q->paginate(30)->withQueryString();
-        }
+        // Toutes les données chargées (sections empilées)
+        $pannes = Panne::with('vehicule')->orderByDesc('date_declaration')->get();
+        $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->get();
+        $maintenances = MaintenancePreventive::with('vehicule')->orderBy('prochaine_echeance')->get();
+        $penalites = Penalite::with('vehicule')->orderByDesc('date_infraction')->get();
 
         $kpi = $this->calculerKpi($vehicules);
+        $typesPenalite = TypeParc::penalites();
+        $typesMaintenance = TypeParc::maintenances();
 
-        return view('parc.index', compact('onglet', 'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes', 'maintenances', 'penalites', 'kpi'));
+        return view('parc.index', compact('vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes', 'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance'));
     }
 
     /* ===== VÉHICULES CRUD ===== */
@@ -90,11 +62,13 @@ class ParcController extends Controller
             'observations' => 'nullable|string|max:500',
         ]);
 
-        Vehicule::create(array_merge(
+        $vehicule = Vehicule::create(array_merge(
             $r->only(['immatriculation', 'categorie', 'marque', 'modele', 'date_mise_en_service',
                 'chauffeur_affecte', 'kilometrage', 'statut', 'observations']),
             ['objectif_recette' => $r->objectif_recette ?? 0]
         ));
+
+        $this->syncChauffeurs($vehicule, $r);
 
         return back()->with('succes', 'Véhicule ajouté.');
     }
@@ -121,6 +95,8 @@ class ParcController extends Controller
             ['objectif_recette' => $r->objectif_recette ?? 0]
         ));
 
+        $this->syncChauffeurs($vehicule, $r);
+
         return back()->with('succes', 'Véhicule mis à jour.');
     }
 
@@ -130,6 +106,24 @@ class ParcController extends Controller
         abort_unless($r->user()->estPilote(), 403);
         $vehicule->delete();
         return back()->with('succes', 'Véhicule supprimé.');
+    }
+
+    /* ─── Sync chauffeurs via pivot ─── */
+    private function syncChauffeurs(Vehicule $vehicule, Request $r): void
+    {
+        $ids = $r->input('chauffeurs_ids', []);
+        $roles = $r->input('chauffeurs_roles', []);
+        if (empty($ids)) {
+            $vehicule->chauffeurs()->detach();
+            return;
+        }
+        $sync = [];
+        foreach ($ids as $i => $chauffeurId) {
+            if ($chauffeurId) {
+                $sync[(int) $chauffeurId] = ['role' => $roles[$i] ?? 'principal', 'actif' => true];
+            }
+        }
+        $vehicule->chauffeurs()->sync($sync);
     }
 
     /* ===== PANNES CRUD ===== */
@@ -252,7 +246,7 @@ class ParcController extends Controller
         $this->autoriser($r);
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
-            'type_echeance' => 'required|in:vidange,assurance,visite_technique,patente,carte_stationnement,autre',
+            'type_echeance' => 'required|string|max:50',
             'derniere_realisation' => 'nullable|date',
             'prochaine_echeance' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
@@ -270,7 +264,7 @@ class ParcController extends Controller
         $this->autoriser($r);
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
-            'type_echeance' => 'required|in:vidange,assurance,visite_technique,patente,carte_stationnement,autre',
+            'type_echeance' => 'required|string|max:50',
             'derniere_realisation' => 'nullable|date',
             'prochaine_echeance' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
@@ -297,7 +291,7 @@ class ParcController extends Controller
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
-            'type' => 'required|in:contravention,exces_vitesse,stationnement,defaut_document,autre',
+            'type' => 'required|string|max:50',
             'chauffeur' => 'nullable|string|max:100',
             'lieu' => 'nullable|string|max:120',
             'description' => 'nullable|string|max:500',
@@ -321,7 +315,7 @@ class ParcController extends Controller
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
-            'type' => 'required|in:contravention,exces_vitesse,stationnement,defaut_document,autre',
+            'type' => 'required|string|max:50',
             'chauffeur' => 'nullable|string|max:100',
             'lieu' => 'nullable|string|max:120',
             'description' => 'nullable|string|max:500',
@@ -353,13 +347,13 @@ class ParcController extends Controller
         $data = $r->validate([
             'nom' => 'required|string|max:60',
             'prenom' => 'required|string|max:60',
-            'numero_permis' => 'nullable|string|max:30',
+            'numero_permis' => 'nullable|string|max:30|unique:chauffeurs,numero_permis',
             'telephone' => 'nullable|string|max:20',
             'statut' => 'required|in:actif,inactif',
-            'observations' => 'nullable|string|max:500',
+            'observations' => 'nullable|string',
         ]);
         Chauffeur::create($data);
-        return back()->with('succes', 'Chauffeur enregistré.');
+        return redirect()->route('parc.index')->with('succes', 'Chauffeur enregistré.');
     }
 
     public function updateChauffeur(Request $r, Chauffeur $chauffeur)
@@ -368,13 +362,13 @@ class ParcController extends Controller
         $data = $r->validate([
             'nom' => 'required|string|max:60',
             'prenom' => 'required|string|max:60',
-            'numero_permis' => 'nullable|string|max:30',
+            'numero_permis' => 'nullable|string|max:30|unique:chauffeurs,numero_permis,' . $chauffeur->id,
             'telephone' => 'nullable|string|max:20',
             'statut' => 'required|in:actif,inactif',
-            'observations' => 'nullable|string|max:500',
+            'observations' => 'nullable|string',
         ]);
         $chauffeur->update($data);
-        return back()->with('succes', 'Chauffeur mis à jour.');
+        return redirect()->route('parc.index')->with('succes', 'Chauffeur mis à jour.');
     }
 
     public function destroyChauffeur(Request $r, Chauffeur $chauffeur)
@@ -395,14 +389,14 @@ class ParcController extends Controller
         ]);
         $v = Vehicule::findOrFail($data['vehicule_id']);
         $v->chauffeurs()->syncWithoutDetaching([$data['chauffeur_id'] => ['role' => $data['role'], 'actif' => true]]);
-        return back()->with('succes', 'Chauffeur affecté.');
+        return redirect()->route('parc.index')->with('succes', 'Chauffeur affecté.');
     }
 
     public function detacherChauffeur(Request $r, Vehicule $vehicule, Chauffeur $chauffeur)
     {
         $this->autoriser($r);
         $vehicule->chauffeurs()->detach($chauffeur->id);
-        return back()->with('succes', 'Chauffeur détaché.');
+        return redirect()->route('parc.index')->with('succes', 'Chauffeur détaché.');
     }
 
     /* ===== FICHE RÉSUMÉ VÉHICULE (JSON) ===== */

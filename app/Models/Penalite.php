@@ -20,13 +20,8 @@ class Penalite extends Model
 
     public function typeLabel(): string
     {
-        return match ($this->type) {
-            'contravention'    => 'Contravention',
-            'exces_vitesse'    => 'Excès de vitesse',
-            'stationnement'    => 'Stationnement',
-            'defaut_document'  => 'Défaut de document',
-            default            => ucfirst(str_replace('_', ' ', $this->type)),
-        };
+        $tp = TypeParc::where('categorie', 'penalite')->where('code', $this->type)->first();
+        return $tp ? $tp->libelle : ucfirst(str_replace('_', ' ', $this->type));
     }
 
     public function statutLabel(): string

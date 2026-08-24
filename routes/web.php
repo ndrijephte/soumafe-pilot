@@ -180,6 +180,9 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/parc-parametres', [ParcParametreController::class, 'index'])->name('parc-parametres.index');
         Route::post('/parc-parametres', [ParcParametreController::class, 'update'])->name('parc-parametres.update');
+        Route::post('/parc-parametres/types', [ParcParametreController::class, 'storeType'])->name('parc-parametres.types.store');
+        Route::put('/parc-parametres/types/{type}', [ParcParametreController::class, 'toggleType'])->name('parc-parametres.types.toggle');
+        Route::delete('/parc-parametres/types/{type}', [ParcParametreController::class, 'destroyType'])->name('parc-parametres.types.destroy');
 
     });
 });

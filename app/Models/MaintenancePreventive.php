@@ -37,13 +37,7 @@ class MaintenancePreventive extends Model
 
     public function typeLabel(): string
     {
-        return match ($this->type_echeance) {
-            'vidange'              => 'Vidange',
-            'assurance'            => 'Assurance',
-            'visite_technique'     => 'Visite technique',
-            'patente'              => 'Patente',
-            'carte_stationnement'  => 'Carte de stationnement',
-            default                => ucfirst(str_replace('_', ' ', $this->type_echeance)),
-        };
+        $tp = \App\Models\TypeParc::where('categorie', 'maintenance')->where('code', $this->type_echeance)->first();
+        return $tp ? $tp->libelle : ucfirst(str_replace('_', ' ', $this->type_echeance));
     }
 }

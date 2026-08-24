@@ -2,7 +2,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ParametreParc;
+use App\Models\{ParametreParc, TypeParc};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -15,7 +15,14 @@ class ParcParametreController extends Controller
         if (Schema::hasTable('parametres_parc')) {
             $parametres = ParametreParc::orderBy('groupe')->orderBy('cle')->get();
         }
-        return view('admin.parc-parametres', compact('parametres'));
+        $typesPenalite = Schema::hasTable('types_parc')
+            ? TypeParc::where('categorie', 'penalite')->orderBy('ordre')->get()
+            : collect();
+        $typesMaintenance = Schema::hasTable('types_parc')
+            ? TypeParc::where('categorie', 'maintenance')->orderBy('ordre')->get()
+            : collect();
+
+        return view('admin.parc-parametres', compact('parametres', 'typesPenalite', 'typesMaintenance'));
     }
 
     public function update(Request $r)
@@ -26,5 +33,33 @@ class ParcParametreController extends Controller
             ParametreParc::where('id', $id)->update(['valeur' => $valeur]);
         }
         return back()->with('succes', 'Paramètres du parc enregistrés.');
+    }
+
+    /* ===== TYPES PARC CRUD ===== */
+    public function storeType(Request $r)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $data = $r->validate([
+            'categorie' => 'required|in:penalite,maintenance',
+            'code' => 'required|string|max:50',
+            'libelle' => 'required|string|max:80',
+        ]);
+        $maxOrdre = TypeParc::where('categorie', $data['categorie'])->max('ordre') ?? 0;
+        TypeParc::create(array_merge($data, ['actif' => true, 'ordre' => $maxOrdre + 1]));
+        return back()->with('succes', 'Type ajouté.');
+    }
+
+    public function toggleType(Request $r, TypeParc $type)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $type->update(['actif' => !$type->actif]);
+        return back()->with('succes', 'Type ' . ($type->actif ? 'activé' : 'désactivé') . '.');
+    }
+
+    public function destroyType(Request $r, TypeParc $type)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $type->delete();
+        return back()->with('succes', 'Type supprimé.');
     }
 }

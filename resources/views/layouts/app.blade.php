@@ -208,7 +208,8 @@ chargerNotifs();setInterval(chargerNotifs,60000);
     const box=document.getElementById('search-results');
     if(!input||!box)return;
     let timer=null;
-    const icons={tache:'📋',projet:'📁',sprint:'🚀',collaborateur:'👤'};
+    const mkIco=(d)=>`<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    const icons={tache:mkIco('<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'),projet:mkIco('<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'),sprint:mkIco('<polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/>'),collaborateur:mkIco('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>')};
     input.addEventListener('input',()=>{
         clearTimeout(timer);
         const q=input.value.trim();
@@ -218,7 +219,7 @@ chargerNotifs();setInterval(chargerNotifs,60000);
             .then(r=>r.json()).then(data=>{
                 if(!data.length){box.innerHTML='<div style="padding:14px;color:#94a3b8;font-size:.85rem;text-align:center">Aucun résultat</div>';box.style.display='block';return}
                 box.innerHTML=data.map(r=>`<a href="${r.url}" style="display:flex;gap:10px;align-items:center;padding:10px 14px;text-decoration:none;color:#1a1a2e;font-size:.85rem;border-bottom:1px solid #f1f5f9;transition:background .1s" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">`+
-                    `<span style="font-size:1.1rem">${icons[r.type]||'📄'}</span>`+
+                    `<span style="color:var(--accent)">${icons[r.type]||mkIco('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>')}</span>`+
                     `<span style="flex:1"><strong>${r.label}</strong><br><span style="font-size:.78rem;color:#64748b">${r.sub}</span></span>`+
                     `<span style="font-size:.72rem;color:#94a3b8;text-transform:capitalize">${r.type}</span></a>`).join('');
                 box.style.display='block';

@@ -28,7 +28,8 @@
 .lien:hover{text-decoration:underline}
 .evt-line{padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;gap:8px;align-items:center}
 .evt-line:last-child{border:none}
-@media(max-width:900px){.grille{grid-template-columns:1fr}}
+@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}}
+@media(max-width:500px){.kpis{grid-template-columns:1fr!important}}
 </style>
 @endpush
 @section('contenu')
@@ -57,7 +58,7 @@
     </div>
     <div class="kpi">
         <div class="lbl">Sans saisie hier</div>
-        <div class="val" style="color:{{ $sanseSaisieHier > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ $sanseSaisieHier }}</div>
+        <div class="val" style="color:{{ $sansSaisieHier > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ $sansSaisieHier }}</div>
     </div>
     <div class="kpi">
         <div class="lbl">Collaborateurs actifs</div>
@@ -235,7 +236,7 @@
             <div class="val" style="font-size:22px;color:var(--warn)">{{ number_format($parc['montantPenalitesMois'],0,',',' ') }}</div>
             <div class="sub">{{ $parc['penalitesNonPayees'] }} impay&eacute;e{{ $parc['penalitesNonPayees'] > 1 ? 's' : '' }}</div>
         </div>
-        <div class="kpi" style="padding:12px 14px" @if($parc['maintenancesRetard'] > 0) style="background:#fef2f2;border-color:#fecaca;padding:12px 14px" @endif>
+        <div class="kpi" style="padding:12px 14px;{{ $parc['maintenancesRetard'] > 0 ? 'background:#fef2f2;border-color:#fecaca' : '' }}">
             <div class="lbl">Maint. en retard</div>
             <div class="val" style="font-size:24px;color:{{ $parc['maintenancesRetard'] > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $parc['maintenancesRetard'] }}</div>
         </div>

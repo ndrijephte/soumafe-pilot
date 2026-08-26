@@ -155,7 +155,7 @@ class DashboardController extends Controller
         $arbitragesEnAttente = ArbitrageT3::where('decision', 'en_attente')->count();
 
         $hier = today()->subDay();
-        $sanseSaisieHier = 0;
+        $sansSaisieHier = 0;
         if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
             $totalActifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->count();
             $idsCouverts = JourSaisie::whereDate('date', $hier)
@@ -169,7 +169,7 @@ class DashboardController extends Controller
             if (Schema::hasTable('taches')) {
                 $idsCouverts = array_merge($idsCouverts, Tache::where('statut', 'termine')->whereDate('date_fin_reelle', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray());
             }
-            $sanseSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
+            $sansSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
         }
 
         $termineesSemaine = Tache::where('statut', 'termine')
@@ -315,7 +315,7 @@ class DashboardController extends Controller
 
         return view('dashboard.dg', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
-            'termineesSemaine', 'arbitragesEnAttente', 'sanseSaisieHier',
+            'termineesSemaine', 'arbitragesEnAttente', 'sansSaisieHier',
             'sprintsEnCours', 'topBloquees', 'parProjet', 'evenements',
             'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'collaborateurs',
             'parc'
@@ -341,7 +341,7 @@ class DashboardController extends Controller
         // Alertes
         $alertes = [];
         $hier = today()->subDay();
-        $sanseSaisieHier = 0;
+        $sansSaisieHier = 0;
         if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
             $totalActifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->count();
             $idsCouverts = JourSaisie::whereDate('date', $hier)
@@ -355,9 +355,9 @@ class DashboardController extends Controller
             if (Schema::hasTable('taches')) {
                 $idsCouverts = array_merge($idsCouverts, Tache::where('statut', 'termine')->whereDate('date_fin_reelle', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->toArray());
             }
-            $sanseSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
+            $sansSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
         }
-        if ($sanseSaisieHier > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$sanseSaisieHier} collaborateur(s) sans saisie hier."];
+        if ($sansSaisieHier > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$sansSaisieHier} collaborateur(s) sans saisie hier."];
         if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s) sur tous les projets."];
         if ($enRetard > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$enRetard} tâche(s) en retard."];
 
@@ -465,7 +465,7 @@ class DashboardController extends Controller
 
         return view('dashboard.pilote', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
-            'termineesSemaine', 'alertes', 'sanseSaisieHier', 'arbitragesEnAttente',
+            'termineesSemaine', 'alertes', 'sansSaisieHier', 'arbitragesEnAttente',
             'sprintsEnCours', 'collaborateurs', 'topBloquees', 'tachesEnRetard',
             'parProjet', 'evenements', 'mesTachesActives', 'aValider',
             'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines'

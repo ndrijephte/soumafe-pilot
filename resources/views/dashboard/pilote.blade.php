@@ -33,7 +33,8 @@
 .evt-line{padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;gap:8px;align-items:center}
 .evt-line:last-child{border:none}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
-@media(max-width:900px){.grille{grid-template-columns:1fr}}
+@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}}
+@media(max-width:500px){.kpis{grid-template-columns:1fr!important}}
 </style>
 @endpush
 @section('contenu')
@@ -76,7 +77,7 @@
     </div>
     <div class="kpi">
         <div class="lbl">Sans saisie hier</div>
-        <div class="val" style="color:{{ $sanseSaisieHier > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ $sanseSaisieHier }}</div>
+        <div class="val" style="color:{{ $sansSaisieHier > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ $sansSaisieHier }}</div>
     </div>
     <div class="kpi">
         <div class="lbl">Collaborateurs actifs</div>

@@ -87,11 +87,11 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         @if($canEditSprint)
         <div style="display:flex;gap:6px;align-items:center">
             @if($sprint->statut !== 'termine')
-            <button class="btn-edit-sprint" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint">&#9998; Modifier</button>
+            <button class="btn-edit-sprint" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifier</button>
             @endif
             @if($sprint->statut !== 'en_cours')
             <form method="POST" action="{{ route('sprints.destroy', $sprint) }}" style="margin:0" onsubmit="return confirm('Supprimer ce sprint et toutes ses tâches ? Cette action est irréversible.')">@csrf @method('DELETE')
-                <button type="submit" class="btn-edit-sprint" style="border-color:var(--ko);color:var(--ko)" onmouseover="this.style.background='var(--ko)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ko)'" title="Supprimer le sprint">&#128465; Supprimer</button>
+                <button type="submit" class="btn-edit-sprint" style="border-color:var(--ko);color:var(--ko)" onmouseover="this.style.background='var(--ko)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ko)'" title="Supprimer le sprint"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Supprimer</button>
             </form>
             @endif
         </div>
@@ -203,9 +203,9 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </td>
     @if($canEditSprint && $sprint->statut !== 'termine')
     <td style="text-align:center;white-space:nowrap">
-        <button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }})" title="Modifier">&#9998;</button>
+        <button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }})" title="Modifier"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <form method="POST" action="{{ route('sprints.supprimer-tache', [$sprint, $t]) }}" style="display:inline;margin:0" onsubmit="return confirm('Supprimer la tâche « {{ addslashes($t->intitule) }} » ?')">@csrf @method('DELETE')
-            <button type="submit" class="btn-edit-row" style="color:var(--ko)" title="Supprimer">&#128465;</button>
+            <button type="submit" class="btn-edit-row" style="color:var(--ko)" title="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </form>
     </td>
     @endif

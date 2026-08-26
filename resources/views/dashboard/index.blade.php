@@ -35,7 +35,8 @@
 .lien:hover{text-decoration:underline}
 .section-sep{margin-top:28px;padding-top:24px;border-top:2px solid var(--bord)}
 .section-sep h2{font-size:16px;color:var(--bleu);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-@media(max-width:900px){.grille{grid-template-columns:1fr}}
+@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}}
+@media(max-width:500px){.kpis{grid-template-columns:1fr!important}}
 </style>
 @endpush
 @section('contenu')
@@ -147,7 +148,7 @@
             $pLabels = ['haute' => 'Haute', 'moyenne' => 'Moyenne', 'basse' => 'Basse'];
         @endphp
         @foreach(['haute', 'moyenne', 'basse'] as $p)
-        @php $pct = round(($parPriorite[$p] / $totalPrio) * 100); @endphp
+        @php $pct = $totalPrio > 0 ? round(($parPriorite[$p] / $totalPrio) * 100) : 0; @endphp
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
             <span style="font-size:12px;font-weight:600;min-width:65px;color:{{ $pColors[$p] }}">{{ $pLabels[$p] }}</span>
             <div style="flex:1;background:#e2e8f0;border-radius:6px;height:8px;overflow:hidden">

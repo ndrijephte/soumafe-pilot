@@ -354,15 +354,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @forelse($chauffeurs as $ch)
     @php
         $affectations = $ch->vehicules->where('pivot.actif', true);
-        $vehicLabels = $affectations->map(fn($v) => $v->immatriculation)->join(', ');
-        $roleLabels = $affectations->map(fn($v) => ucfirst($v->pivot->role))->join(', ');
     @endphp
     <tr data-statut="{{ $ch->statut }}" data-affecte="{{ $affectations->count() > 0 ? '1' : '0' }}" data-nom="{{ strtolower($ch->nomComplet()) }}">
         <td><strong>{{ $ch->nomComplet() }}</strong></td>
         <td>{{ $ch->numero_permis ?? '—' }}</td>
         <td>{{ $ch->telephone ?? '—' }}</td>
-        <td>{{ $vehicLabels ?: '—' }}</td>
-        <td>{{ $roleLabels ?: '—' }}</td>
+        <td>@if($affectations->isEmpty()) — @else @foreach($affectations as $aff)<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px">{{ $aff->immatriculation }}<form method="POST" action="{{ route('parc.chauffeurs.detacher', [$aff, $ch]) }}" style="display:inline" onsubmit="return confirm('Détacher ce véhicule ?')">@csrf @method('DELETE')<button class="act-btn del" title="Détacher" style="padding:1px 3px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></form></span>@endforeach @endif</td>
+        <td>{{ $affectations->map(fn($v) => ucfirst($v->pivot->role))->join(', ') ?: '—' }}</td>
         <td><span class="pill {{ $ch->statut === 'actif' ? 'p-ok' : 'p-gris' }}">{{ ucfirst($ch->statut) }}</span></td>
         <td>
             <div class="act-row">
@@ -661,6 +659,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- Dialog Affectation --}}
 <dialog id="dlg-affectation">
 <h3>{!! $icCar !!} Affecter un véhicule</h3>
+<div id="af-nom-chauffeur" style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:13px;font-weight:600;color:var(--bleu)"></div>
 <form id="form-affectation" method="POST" action="{{ route('parc.chauffeurs.affecter') }}">
     @csrf
     <input type="hidden" name="chauffeur_id" id="af-chauffeur">
@@ -796,6 +795,12 @@ function changerOnglet(nom){
     var idx=noms.indexOf(nom);
     if(idx>=0 && btns[idx]) btns[idx].classList.add('actif');
 }
+// Auto-activation onglet via ?tab=
+(function(){
+    var p=new URLSearchParams(window.location.search);
+    var t=p.get('tab');
+    if(t && document.getElementById('tab-'+t)) changerOnglet(t);
+})();
 
 @php
 $_chauffActifs = $chauffeurs->where('statut','actif')->map(fn($c) => ['id'=>$c->id,'nom'=>$c->nomComplet()])->values()->toArray();
@@ -975,6 +980,9 @@ function editChauffeur(id){
 
 function affecterChauffeur(id){
     document.getElementById('af-chauffeur').value=id;
+    var nom='';
+    var d=chauffeurData[id]; if(d) nom=(d.prenom||'')+' '+(d.nom||'');
+    document.getElementById('af-nom-chauffeur').textContent=nom.trim()||'Chauffeur #'+id;
     document.getElementById('dlg-affectation').showModal();
 }
 

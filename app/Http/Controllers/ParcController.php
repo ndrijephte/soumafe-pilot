@@ -72,7 +72,7 @@ class ParcController extends Controller
 
         $this->syncChauffeurs($vehicule, $r);
 
-        return back()->with('succes', 'Véhicule ajouté.');
+        return redirect()->route('parc.index', ['tab' => 'vehicules'])->with('succes', 'Véhicule ajouté.');
     }
 
     public function updateVehicule(Request $r, Vehicule $vehicule)
@@ -99,7 +99,7 @@ class ParcController extends Controller
 
         $this->syncChauffeurs($vehicule, $r);
 
-        return back()->with('succes', 'Véhicule mis à jour.');
+        return redirect()->route('parc.index', ['tab' => 'vehicules'])->with('succes', 'Véhicule mis à jour.');
     }
 
     public function destroyVehicule(Request $r, Vehicule $vehicule)
@@ -107,7 +107,7 @@ class ParcController extends Controller
         $this->autoriser($r);
         abort_unless($r->user()->estPilote(), 403);
         $vehicule->delete();
-        return back()->with('succes', 'Véhicule supprimé.');
+        return redirect()->route('parc.index', ['tab' => 'vehicules'])->with('succes', 'Véhicule supprimé.');
     }
 
     /* ─── Sync chauffeurs via pivot ─── */
@@ -150,7 +150,7 @@ class ParcController extends Controller
         }
 
         Panne::create($data);
-        return back()->with('succes', 'Panne enregistrée.');
+        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne enregistrée.');
     }
 
     public function updatePanne(Request $r, Panne $panne)
@@ -174,14 +174,14 @@ class ParcController extends Controller
         }
 
         $panne->update($data);
-        return back()->with('succes', 'Panne mise à jour.');
+        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne mise à jour.');
     }
 
     public function destroyPanne(Request $r, Panne $panne)
     {
         $this->autoriser($r);
         $panne->delete();
-        return back()->with('succes', 'Panne supprimée.');
+        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne supprimée.');
     }
 
     /* ===== RECETTES CRUD ===== */
@@ -208,7 +208,7 @@ class ParcController extends Controller
         $data['ecart'] = $data['recette'] - $data['objectif'];
 
         RecetteVehicule::create($data);
-        return back()->with('succes', 'Recette enregistrée.');
+        return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette enregistrée.');
     }
 
     public function updateRecette(Request $r, RecetteVehicule $recette)
@@ -232,14 +232,14 @@ class ParcController extends Controller
         $data['ecart'] = $data['recette'] - $data['objectif'];
 
         $recette->update($data);
-        return back()->with('succes', 'Recette mise à jour.');
+        return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette mise à jour.');
     }
 
     public function destroyRecette(Request $r, RecetteVehicule $recette)
     {
         $this->autoriser($r);
         $recette->delete();
-        return back()->with('succes', 'Recette supprimée.');
+        return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette supprimée.');
     }
 
     /* ===== MAINTENANCE CRUD ===== */
@@ -258,7 +258,7 @@ class ParcController extends Controller
             'vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations',
         ]));
 
-        return back()->with('succes', 'Échéance ajoutée.');
+        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance ajoutée.');
     }
 
     public function updateMaintenance(Request $r, MaintenancePreventive $maintenance)
@@ -276,14 +276,14 @@ class ParcController extends Controller
             'vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations',
         ]));
 
-        return back()->with('succes', 'Échéance mise à jour.');
+        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance mise à jour.');
     }
 
     public function destroyMaintenance(Request $r, MaintenancePreventive $maintenance)
     {
         $this->autoriser($r);
         $maintenance->delete();
-        return back()->with('succes', 'Échéance supprimée.');
+        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance supprimée.');
     }
 
     /* ===== PÉNALITÉS CRUD ===== */
@@ -308,7 +308,7 @@ class ParcController extends Controller
             'description', 'montant', 'statut', 'date_paiement', 'observations',
         ]));
 
-        return back()->with('succes', 'Pénalité enregistrée.');
+        return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité enregistrée.');
     }
 
     public function updatePenalite(Request $r, Penalite $penalite)
@@ -332,14 +332,14 @@ class ParcController extends Controller
             'description', 'montant', 'statut', 'date_paiement', 'observations',
         ]));
 
-        return back()->with('succes', 'Pénalité mise à jour.');
+        return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité mise à jour.');
     }
 
     public function destroyPenalite(Request $r, Penalite $penalite)
     {
         $this->autoriser($r);
         $penalite->delete();
-        return back()->with('succes', 'Pénalité supprimée.');
+        return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité supprimée.');
     }
 
     /* ===== CHAUFFEURS CRUD ===== */
@@ -355,7 +355,7 @@ class ParcController extends Controller
             'observations' => 'nullable|string',
         ]);
         Chauffeur::create($data);
-        return redirect()->route('parc.index')->with('succes', 'Chauffeur enregistré.');
+        return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur enregistré.');
     }
 
     public function updateChauffeur(Request $r, Chauffeur $chauffeur)
@@ -370,7 +370,7 @@ class ParcController extends Controller
             'observations' => 'nullable|string',
         ]);
         $chauffeur->update($data);
-        return redirect()->route('parc.index')->with('succes', 'Chauffeur mis à jour.');
+        return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur mis à jour.');
     }
 
     public function destroyChauffeur(Request $r, Chauffeur $chauffeur)
@@ -378,7 +378,7 @@ class ParcController extends Controller
         $this->autoriser($r);
         abort_unless($r->user()->estPilote(), 403);
         $chauffeur->delete();
-        return back()->with('succes', 'Chauffeur supprimé.');
+        return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur supprimé.');
     }
 
     public function affecterChauffeur(Request $r)
@@ -391,14 +391,14 @@ class ParcController extends Controller
         ]);
         $v = Vehicule::findOrFail($data['vehicule_id']);
         $v->chauffeurs()->syncWithoutDetaching([$data['chauffeur_id'] => ['role' => $data['role'], 'actif' => true]]);
-        return redirect()->route('parc.index')->with('succes', 'Chauffeur affecté.');
+        return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur affecté.');
     }
 
     public function detacherChauffeur(Request $r, Vehicule $vehicule, Chauffeur $chauffeur)
     {
         $this->autoriser($r);
         $vehicule->chauffeurs()->detach($chauffeur->id);
-        return redirect()->route('parc.index')->with('succes', 'Chauffeur détaché.');
+        return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur détaché.');
     }
 
     /* ===== FICHE RÉSUMÉ VÉHICULE (JSON) ===== */

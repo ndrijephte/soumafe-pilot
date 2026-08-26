@@ -199,26 +199,61 @@
     </div>
 </div>
 
+{{-- ═══ PÉNALITÉS PAR STATUT ═══ --}}
+@if($penalitesStatut->count() > 0)
+<div class="rp-section">
+    <h3>{!! $ico('<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>') !!} R&eacute;partition p&eacute;nalit&eacute;s par statut</h3>
+    @php
+        $statutColors = ['payee' => '#16a34a', 'non_payee' => '#dc2626', 'contestee' => '#f59e0b', 'annulee' => '#94a3b8'];
+        $statutLabels = ['payee' => 'Payée', 'non_payee' => 'Non payée', 'contestee' => 'Contestée', 'annulee' => 'Annulée'];
+        $totalPenS = max((int) $penalitesStatut->sum(), 1);
+        $gradParts = []; $cumulPS = 0;
+        foreach($penalitesStatut as $st => $mont) {
+            $pctPS = round(((int) $mont / $totalPenS) * 360);
+            $color = $statutColors[$st] ?? '#94a3b8';
+            $gradParts[] = "$color {$cumulPS}deg " . ($cumulPS + $pctPS) . "deg";
+            $cumulPS += $pctPS;
+        }
+    @endphp
+    <div class="donut-wrap">
+        <div class="donut" style="background:conic-gradient({{ implode(', ', $gradParts) }})">
+            <div class="donut-center">{{ number_format($totalPenS,0,',',' ') }}</div>
+        </div>
+        <div class="donut-legend">
+            @foreach($penalitesStatut as $st => $mont)
+                <div><span style="background:{{ $statutColors[$st] ?? '#94a3b8' }}"></span>{{ $statutLabels[$st] ?? ucfirst(str_replace('_', ' ', $st)) }} : {{ number_format((int) $mont,0,',',' ') }} FCFA</div>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endif
+
 {{-- ═══ MAINTENANCE PAR TYPE ═══ --}}
 <div class="rp-section">
     <h3>{!! $ico('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>') !!} État des maintenances par type</h3>
     @if($maintenanceType->isEmpty())
         <p style="color:var(--gris);font-size:13px">Aucune échéance de maintenance enregistrée.</p>
     @else
-        <table class="rp-tbl" data-collapse-table="8">
-            <thead><tr><th>Type</th><th class="num">Total</th><th class="num">En retard</th><th class="num">À venir (15j)</th><th class="num">OK</th></tr></thead>
-            <tbody>
+        {{-- Barres empilées --}}
+        <div style="margin-bottom:14px">
             @foreach($maintenanceType as $mt)
-                <tr>
-                    <td>{{ $mt['type'] }}</td>
-                    <td class="num">{{ $mt['nb'] }}</td>
-                    <td class="num {{ $mt['retard'] > 0 ? 'neg' : '' }}">{{ $mt['retard'] }}</td>
-                    <td class="num {{ $mt['proche'] > 0 ? 'kpi-warn' : '' }}" style="{{ $mt['proche'] > 0 ? 'color:var(--warn);font-weight:600' : '' }}">{{ $mt['proche'] }}</td>
-                    <td class="num pos">{{ $mt['nb'] - $mt['retard'] - $mt['proche'] }}</td>
-                </tr>
+                @php $okM = max($mt['nb'] - $mt['retard'] - $mt['proche'], 0); @endphp
+                <div class="bar-wrap">
+                    <div class="bar-label" title="{{ $mt['type'] }}">{{ $mt['type'] }}</div>
+                    <div class="bar-track" style="display:flex;overflow:hidden">
+                        @if($mt['retard'] > 0)<div style="width:{{ round(($mt['retard']/$mt['nb'])*100) }}%;height:100%;background:#dc2626" title="Retard: {{ $mt['retard'] }}"></div>@endif
+                        @if($mt['proche'] > 0)<div style="width:{{ round(($mt['proche']/$mt['nb'])*100) }}%;height:100%;background:#f59e0b" title="À venir: {{ $mt['proche'] }}"></div>@endif
+                        @if($okM > 0)<div style="width:{{ round(($okM/$mt['nb'])*100) }}%;height:100%;background:#16a34a" title="OK: {{ $okM }}"></div>@endif
+                    </div>
+                    <div class="bar-val">{{ $mt['nb'] }}</div>
+                </div>
             @endforeach
-            </tbody>
-        </table>
+            <div style="display:flex;gap:14px;font-size:11px;color:var(--gris);margin-top:6px">
+                <span><span style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;vertical-align:middle;margin-right:4px"></span>En retard</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:4px"></span>À venir (15j)</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;vertical-align:middle;margin-right:4px"></span>OK</span>
+            </div>
+        </div>
     @endif
 </div>
 
@@ -254,25 +289,21 @@
     @endif
 </div>
 
-{{-- ═══ TABLEAU PANNES PAR VÉHICULE ═══ --}}
+{{-- ═══ PANNES PAR VÉHICULE ═══ --}}
 <div class="rp-section">
-    <h3><span class="ico">🔧</span> Pannes par véhicule</h3>
+    <h3>{!! $ico('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>') !!} Pannes par véhicule</h3>
     @if($pannesVehicule->isEmpty())
         <p style="color:var(--gris);font-size:13px">Aucune panne sur cette période.</p>
     @else
-        <table class="rp-tbl" data-collapse-table="8">
-            <thead><tr><th>Véhicule</th><th class="num">Nombre</th><th class="num">Coût total</th><th class="num">Délai moy.</th></tr></thead>
-            <tbody>
-            @foreach($pannesVehicule as $pv)
-                <tr>
-                    <td><strong>{{ $pv['immat'] }}</strong></td>
-                    <td class="num">{{ $pv['nb'] }}</td>
-                    <td class="num neg">{{ number_format($pv['cout'],0,',',' ') }}</td>
-                    <td class="num">{{ $pv['delai'] }} j</td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
+        @php $maxPVCout = max($pannesVehicule->max('cout'), 1); @endphp
+        @foreach($pannesVehicule as $pv)
+            <div class="bar-wrap">
+                <div class="bar-label" title="{{ $pv['immat'] }}">{{ $pv['immat'] }}</div>
+                <div class="bar-track"><div class="bar-fill" style="width:{{ round(($pv['cout']/$maxPVCout)*100) }}%;background:#dc2626"></div></div>
+                <div class="bar-val">{{ number_format($pv['cout'],0,',',' ') }} <span style="font-size:10px;color:var(--gris)">&middot; {{ $pv['nb'] }}x &middot; {{ $pv['delai'] }}j</span></div>
+            </div>
+        @endforeach
+        <div style="font-size:11px;color:var(--gris);margin-top:6px">Coût total &mdash; nombre de pannes &mdash; délai moyen résolution</div>
     @endif
 </div>
 
@@ -306,6 +337,84 @@
                     <td class="num neg">{{ number_format($cl['penalites'],0,',',' ') }}</td>
                     <td class="num {{ $cl['maint_retard'] > 0 ? 'neg' : '' }}">{{ $cl['maint_retard'] }}</td>
                     <td class="num {{ $cl['resultat'] >= 0 ? 'pos' : 'neg' }}"><strong>{{ $cl['resultat'] >= 0 ? '+' : '' }}{{ number_format($cl['resultat'],0,',',' ') }}</strong></td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    @endif
+</div>
+
+{{-- ═══ GESTIONNAIRE PARC ═══ --}}
+@if($gestionnaireParc)
+<div class="rp-section" style="margin-bottom:18px">
+    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!} Gestionnaire parc d&eacute;sign&eacute;</h3>
+    <p style="font-size:14px;font-weight:600;color:var(--bleu)">{{ $gestionnaireParc }}</p>
+</div>
+@endif
+
+{{-- ═══ PERFORMANCE CHAUFFEURS ═══ --}}
+<div class="rp-section">
+    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/>') !!} Performance des chauffeurs</h3>
+    @if($performanceChauffeurs->isEmpty())
+        <p style="color:var(--gris);font-size:13px">Aucun chauffeur actif avec v&eacute;hicule affect&eacute;.</p>
+    @else
+        {{-- Graphique comparaison recettes vs objectif --}}
+        @php $maxChR = max($performanceChauffeurs->max('recette'), $performanceChauffeurs->max('objectif'), 1); @endphp
+        <div style="margin-bottom:16px">
+            @foreach($performanceChauffeurs as $ch)
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">
+                    <div style="width:90px;font-size:11.5px;font-weight:600;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none" title="{{ $ch['nom'] }}">{{ $ch['nom'] }}</div>
+                    <div style="flex:1">
+                        <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+                            <div style="height:12px;width:{{ round(($ch['recette']/$maxChR)*100) }}%;background:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};border-radius:3px;min-width:2px"></div>
+                            <span style="font-size:10px;color:#475569;white-space:nowrap">{{ number_format($ch['recette'],0,',',' ') }}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px">
+                            <div style="height:6px;width:{{ round(($ch['objectif']/$maxChR)*100) }}%;background:#cbd5e1;border-radius:2px;min-width:2px"></div>
+                            <span style="font-size:9px;color:var(--gris);white-space:nowrap">{{ number_format($ch['objectif'],0,',',' ') }}</span>
+                        </div>
+                    </div>
+                    <div style="width:80px;font-size:12px;font-weight:700;text-align:right;flex:none;color:{{ $ch['resultat']>=0?'var(--ok)':'var(--ko)' }}">{{ $ch['resultat']>=0?'+':'' }}{{ number_format($ch['resultat'],0,',',' ') }}</div>
+                </div>
+            @endforeach
+            <div style="display:flex;gap:14px;font-size:11px;color:var(--gris);margin-top:4px;flex-wrap:wrap">
+                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ok);border-radius:2px;vertical-align:middle;margin-right:4px"></span>Recette &ge;100%</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:var(--warn);border-radius:2px;vertical-align:middle;margin-right:4px"></span>80-99%</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ko);border-radius:2px;vertical-align:middle;margin-right:4px"></span>&lt;80%</span>
+                <span><span style="display:inline-block;width:10px;height:6px;background:#cbd5e1;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Objectif</span>
+            </div>
+        </div>
+
+        {{-- Tableau détaillé avec jauges --}}
+        <table class="rp-tbl" data-collapse-table="8">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Chauffeur</th>
+                    <th>V&eacute;hicule(s)</th>
+                    <th class="num">Recettes</th>
+                    <th class="num">Objectif</th>
+                    <th style="min-width:90px">Taux</th>
+                    <th class="num">P&eacute;nalit&eacute;s</th>
+                    <th class="num">Pannes</th>
+                    <th class="num">R&eacute;sultat net</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach($performanceChauffeurs as $i => $ch)
+                @php $resCl = $ch['resultat'] >= 0 ? 'pos' : 'neg'; @endphp
+                <tr>
+                    <td style="font-weight:700;color:var(--gris)">{{ $i + 1 }}</td>
+                    <td style="font-weight:600">{{ $ch['nom'] }}</td>
+                    <td style="font-size:11px;color:var(--gris)">{{ $ch['vehicules'] }}</td>
+                    <td class="num">{{ number_format($ch['recette'],0,',',' ') }}</td>
+                    <td class="num">{{ number_format($ch['objectif'],0,',',' ') }}</td>
+                    <td>
+                        <div class="gauge"><div class="gauge-fill" style="width:{{ min($ch['taux'],100) }}%;background:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }}"></div><div class="gauge-txt">{{ $ch['taux'] }}%</div></div>
+                    </td>
+                    <td class="num" style="color:var(--warn)">{{ $ch['nb_penalites'] }} <span style="font-size:10px">({{ number_format($ch['montant_penalites'],0,',',' ') }})</span></td>
+                    <td class="num">{{ $ch['nb_pannes'] }} <span style="font-size:10px;color:var(--ko)">({{ number_format($ch['cout_pannes'],0,',',' ') }})</span></td>
+                    <td class="num {{ $resCl }}"><strong>{{ $ch['resultat']>=0?'+':'' }}{{ number_format($ch['resultat'],0,',',' ') }}</strong></td>
                 </tr>
             @endforeach
             </tbody>

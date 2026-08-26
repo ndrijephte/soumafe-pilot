@@ -53,9 +53,6 @@
 
 <div class="barre-outils">
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Nouvelle tâche</button>
-    <form method="POST" action="{{ route('taches.dupliquer-veille') }}">@csrf
-        <button class="btn sec">Reprendre la veille</button>
-    </form>
     <form method="GET" style="margin-left:auto;display:flex;gap:8px">
         <select name="projet" class="filtre-select" onchange="this.form.submit()">
             <option value="">Projet : tous</option>

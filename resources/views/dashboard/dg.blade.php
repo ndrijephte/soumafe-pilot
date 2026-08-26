@@ -223,6 +223,7 @@
             <div class="lbl">Recettes</div>
             <div class="val" style="font-size:22px">{{ number_format($parc['recetteMois'],0,',',' ') }}</div>
             <div class="sub" style="font-weight:600;color:{{ $parc['tauxRecette'] >= 100 ? 'var(--ok)' : ($parc['tauxRecette'] >= 80 ? 'var(--warn)' : 'var(--ko)') }}">{{ $parc['tauxRecette'] }}% de l'objectif</div>
+            <div class="jauge-wrap" style="height:6px;margin-top:4px"><div class="jauge-bar" style="width:{{ min($parc['tauxRecette'],100) }}%;background:{{ $parc['tauxRecette']>=100?'var(--ok)':($parc['tauxRecette']>=80?'var(--warn)':'var(--ko)') }}"></div></div>
         </div>
         <div class="kpi" style="padding:12px 14px">
             <div class="lbl">Co&ucirc;t pannes</div>
@@ -242,31 +243,74 @@
             <div class="lbl">R&eacute;sultat net</div>
             <div class="val" style="font-size:22px;color:{{ $parc['resultatNet'] >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $parc['resultatNet'] >= 0 ? '+' : '' }}{{ number_format($parc['resultatNet'],0,',',' ') }}</div>
             <div class="sub">Recettes &minus; Pannes &minus; P&eacute;nalit&eacute;s</div>
+            @php
+                $totDG = max($parc['recetteMois'], 1);
+                $pctPanDG = round(($parc['coutPannesMois'] / $totDG) * 100);
+                $pctPenDG = round(($parc['montantPenalitesMois'] / $totDG) * 100);
+                $pctNetDG = max(100 - $pctPanDG - $pctPenDG, 0);
+            @endphp
+            <div style="display:flex;height:6px;border-radius:4px;overflow:hidden;margin-top:4px" title="Vert: net, Rouge: pannes, Orange: p&eacute;nalit&eacute;s">
+                <div style="width:{{ $pctNetDG }}%;background:var(--ok)"></div>
+                <div style="width:{{ $pctPanDG }}%;background:var(--ko)"></div>
+                <div style="width:{{ $pctPenDG }}%;background:var(--warn)"></div>
+            </div>
         </div>
     </div>
 
-    @if($parc['topVehicules']->count() > 0)
-    <table class="mini-table">
-        <thead><tr><th>Top 5 v&eacute;hicules</th><th>Cat.</th><th style="text-align:right">Recette</th><th style="text-align:right">Objectif</th><th style="text-align:right">Taux</th></tr></thead>
-        <tbody>
-        @foreach($parc['topVehicules'] as $tv)
-        @php $tvColor = $tv['taux'] >= 100 ? 'var(--ok)' : ($tv['taux'] >= 80 ? 'var(--warn)' : 'var(--ko)'); @endphp
-        <tr>
-            <td style="font-weight:600">{{ $tv['immat'] }}</td>
-            <td>{{ $tv['categorie'] }}</td>
-            <td style="text-align:right">{{ number_format($tv['recette'],0,',',' ') }}</td>
-            <td style="text-align:right">{{ number_format($tv['objectif'],0,',',' ') }}</td>
-            <td style="text-align:right">
-                <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
-                    <div class="jauge-wrap" style="width:60px"><div class="jauge-bar" style="width:{{ min($tv['taux'],100) }}%;background:{{ $tvColor }}"></div></div>
-                    <span style="font-size:11px;font-weight:700;min-width:30px">{{ $tv['taux'] }}%</span>
-                </div>
-            </td>
-        </tr>
-        @endforeach
-        </tbody>
-    </table>
+    @if(!empty($parc['gestionnaire']))
+    <div style="font-size:12px;color:var(--gris);margin-bottom:10px">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Gestionnaire : <strong style="color:var(--bleu)">{{ $parc['gestionnaire'] }}</strong>
+    </div>
     @endif
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        @if($parc['topVehicules']->count() > 0)
+        <table class="mini-table">
+            <thead><tr><th>Top 5 v&eacute;hicules</th><th>Cat.</th><th style="text-align:right">Recette</th><th style="text-align:right">Objectif</th><th style="text-align:right">Taux</th></tr></thead>
+            <tbody>
+            @foreach($parc['topVehicules'] as $tv)
+            @php $tvColor = $tv['taux'] >= 100 ? 'var(--ok)' : ($tv['taux'] >= 80 ? 'var(--warn)' : 'var(--ko)'); @endphp
+            <tr>
+                <td style="font-weight:600">{{ $tv['immat'] }}</td>
+                <td>{{ $tv['categorie'] }}</td>
+                <td style="text-align:right">{{ number_format($tv['recette'],0,',',' ') }}</td>
+                <td style="text-align:right">{{ number_format($tv['objectif'],0,',',' ') }}</td>
+                <td style="text-align:right">
+                    <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+                        <div class="jauge-wrap" style="width:60px"><div class="jauge-bar" style="width:{{ min($tv['taux'],100) }}%;background:{{ $tvColor }}"></div></div>
+                        <span style="font-size:11px;font-weight:700;min-width:30px">{{ $tv['taux'] }}%</span>
+                    </div>
+                </td>
+            </tr>
+            @endforeach
+            </tbody>
+        </table>
+        @endif
+
+        @if($parc['topChauffeurs']->count() > 0)
+        <table class="mini-table">
+            <thead><tr><th>Top 3 chauffeurs</th><th>V&eacute;hicule(s)</th><th style="text-align:right">Recettes</th><th style="text-align:right">Taux</th><th style="text-align:right">R&eacute;sultat</th></tr></thead>
+            <tbody>
+            @foreach($parc['topChauffeurs'] as $tc)
+            @php $tcColor = $tc['taux'] >= 100 ? 'var(--ok)' : ($tc['taux'] >= 80 ? 'var(--warn)' : 'var(--ko)'); @endphp
+            <tr>
+                <td style="font-weight:600">{{ $tc['nom'] }}</td>
+                <td style="font-size:11px;color:var(--gris)">{{ $tc['vehicules'] }}</td>
+                <td style="text-align:right">{{ number_format($tc['recette'],0,',',' ') }}</td>
+                <td style="text-align:right">
+                    <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">
+                        <div class="jauge-wrap" style="width:50px"><div class="jauge-bar" style="width:{{ min($tc['taux'],100) }}%;background:{{ $tcColor }}"></div></div>
+                        <span style="font-size:11px;font-weight:700;min-width:30px">{{ $tc['taux'] }}%</span>
+                    </div>
+                </td>
+                <td style="text-align:right;font-weight:700;color:{{ $tc['resultat'] >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $tc['resultat'] >= 0 ? '+' : '' }}{{ number_format($tc['resultat'],0,',',' ') }}</td>
+            </tr>
+            @endforeach
+            </tbody>
+        </table>
+        @endif
+    </div>
 </div>
 @endif
 

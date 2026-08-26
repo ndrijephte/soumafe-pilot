@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{MaintenancePreventive, Panne, Penalite, RecetteVehicule, TypeParc, Vehicule};
+use App\Models\{Chauffeur, MaintenancePreventive, Panne, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -147,6 +147,57 @@ class ReportingParcController extends Controller
                 ];
             });
 
+        // ═══════ PERFORMANCE CHAUFFEURS ═══════
+        $performanceChauffeurs = collect();
+        if (Schema::hasTable('chauffeurs') && Schema::hasTable('chauffeur_vehicule')) {
+            $performanceChauffeurs = Chauffeur::with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
+                ->where('statut', 'actif')->get()
+                ->map(function ($c) use ($debut, $fin, $vehiculeIds) {
+                    $cvIds = $c->vehicules->pluck('id')->intersect($vehiculeIds);
+                    if ($cvIds->isEmpty()) return null;
+
+                    $recTotal = (int) RecetteVehicule::whereIn('vehicule_id', $cvIds)
+                        ->whereBetween('date', [$debut, $fin])->sum('recette');
+                    $objTotal = (int) RecetteVehicule::whereIn('vehicule_id', $cvIds)
+                        ->whereBetween('date', [$debut, $fin])->sum('objectif');
+                    $coutP = (int) Panne::whereIn('vehicule_id', $cvIds)
+                        ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
+                    $nbP = Panne::whereIn('vehicule_id', $cvIds)
+                        ->whereBetween('date_declaration', [$debut, $fin])->count();
+                    $montPen = 0; $nbPen = 0;
+                    if (Schema::hasTable('penalites')) {
+                        $montPen = (int) Penalite::whereIn('vehicule_id', $cvIds)
+                            ->whereBetween('date_infraction', [$debut, $fin])->sum('montant');
+                        $nbPen = Penalite::whereIn('vehicule_id', $cvIds)
+                            ->whereBetween('date_infraction', [$debut, $fin])->count();
+                    }
+                    $resultat = $recTotal - $coutP - $montPen;
+                    return [
+                        'nom' => $c->nomComplet(),
+                        'statut' => $c->statut,
+                        'nb_vehicules' => $cvIds->count(),
+                        'vehicules' => $c->vehicules->whereIn('id', $cvIds)->pluck('immatriculation')->join(', '),
+                        'recette' => $recTotal,
+                        'objectif' => $objTotal,
+                        'taux' => $objTotal > 0 ? round(($recTotal / $objTotal) * 100) : 0,
+                        'cout_pannes' => $coutP,
+                        'nb_pannes' => $nbP,
+                        'montant_penalites' => $montPen,
+                        'nb_penalites' => $nbPen,
+                        'resultat' => $resultat,
+                    ];
+                })->filter()->sortByDesc('resultat')->values();
+        }
+
+        // ═══════ GESTIONNAIRE PARC DÉSIGNÉ ═══════
+        $gestionnaireParc = User::where('actif', true)->where('delegation_parc', true)->get()
+            ->map(fn($u) => $u->nomComplet())->join(', ');
+        if (!$gestionnaireParc) {
+            $gestionnaireParc = User::where('actif', true)
+                ->whereIn('role', ['administrateur', 'charge_operations'])->get()
+                ->map(fn($u) => $u->nomComplet())->join(', ');
+        }
+
         // ═══════ CLASSEMENT VÉHICULES (performance globale) ═══════
         $classement = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
             $rec = RecetteVehicule::where('vehicule_id', $v->id)
@@ -191,7 +242,8 @@ class ReportingParcController extends Controller
             'recettesJour', 'recettesVehicule',
             'pannesVehicule', 'pannesUrgence',
             'penalitesType', 'penalitesStatut',
-            'maintenanceType', 'classement'
+            'maintenanceType', 'classement',
+            'performanceChauffeurs', 'gestionnaireParc'
         ));
     }
 

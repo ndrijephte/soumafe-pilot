@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{ArbitrageT3, ConfirmationTache, Evenement, MaintenancePreventive, Panne, Penalite, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
+use App\Models\{ArbitrageT3, Chauffeur, ConfirmationTache, Evenement, MaintenancePreventive, Panne, Penalite, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -277,12 +277,39 @@ class DashboardController extends Controller
 
             $resultatNet = $recetteMois - $coutPannesMois - $montantPenalitesMois;
 
+            // Top 3 chauffeurs du mois
+            $topChauffeurs = collect();
+            if (Schema::hasTable('chauffeurs') && Schema::hasTable('chauffeur_vehicule')) {
+                $topChauffeurs = Chauffeur::with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
+                    ->where('statut', 'actif')->get()
+                    ->map(function ($c) use ($moisDebut, $moisFin) {
+                        $cvIds = $c->vehicules->pluck('id');
+                        if ($cvIds->isEmpty()) return null;
+                        $rec = (int) RecetteVehicule::whereIn('vehicule_id', $cvIds)->whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
+                        $obj = (int) RecetteVehicule::whereIn('vehicule_id', $cvIds)->whereBetween('date', [$moisDebut, $moisFin])->sum('objectif');
+                        $pen = Schema::hasTable('penalites') ? (int) Penalite::whereIn('vehicule_id', $cvIds)->whereBetween('date_infraction', [$moisDebut, $moisFin])->sum('montant') : 0;
+                        $pan = (int) Panne::whereIn('vehicule_id', $cvIds)->whereBetween('date_declaration', [$moisDebut, $moisFin])->sum('cout_reel');
+                        return [
+                            'nom' => $c->nomComplet(),
+                            'vehicules' => $c->vehicules->pluck('immatriculation')->join(', '),
+                            'recette' => $rec,
+                            'taux' => $obj > 0 ? round(($rec / $obj) * 100) : 0,
+                            'resultat' => $rec - $pan - $pen,
+                        ];
+                    })->filter()->sortByDesc('resultat')->take(3)->values();
+            }
+
+            // Gestionnaire parc
+            $gestionnaire = User::where('actif', true)->where('delegation_parc', true)->get()
+                ->map(fn($u) => $u->nomComplet())->join(', ');
+
             $parc = compact(
                 'vehiculesTotal', 'vehiculesActifs',
                 'recetteMois', 'objectifMois', 'tauxRecette',
                 'coutPannesMois', 'pannesOuvertes',
                 'montantPenalitesMois', 'penalitesNonPayees',
-                'maintenancesRetard', 'topVehicules', 'resultatNet'
+                'maintenancesRetard', 'topVehicules', 'resultatNet',
+                'topChauffeurs', 'gestionnaire'
             );
         }
 

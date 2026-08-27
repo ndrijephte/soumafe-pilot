@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>SOUMAFE PILOT — @yield('titre', 'Tableau de bord')</title>
+    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     <style>
         :root{--bleu:#1F4E79;--accent:#2E74B5;--fond:#F4F7FB;--carte:#fff;--gris:#64748b;--ok:#16a34a;--warn:#f59e0b;--ko:#dc2626;--bord:#e2e8f0}
         *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Calibri,sans-serif}

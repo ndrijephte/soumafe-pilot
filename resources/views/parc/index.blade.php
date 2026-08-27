@@ -146,7 +146,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><strong>{{ $v->immatriculation }}</strong></td>
         <td><span class="cat-pill cat-{{ $v->categorie }}">{{ $v->categorieLabel() }}</span></td>
         <td>{{ $v->marque }} {{ $v->modele }}</td>
-        <td>{{ $v->chauffeur_affecte ?? '—' }}</td>
+        @php $chAff = $v->chauffeurs->where('pivot.actif', true); @endphp
+        <td>{{ $chAff->isNotEmpty() ? $chAff->map(fn($c) => $c->nomComplet())->join(', ') : '—' }}</td>
         <td>{{ $v->kilometrage ? number_format($v->kilometrage, 0, ',', ' ') : '—' }}</td>
         <td>{{ $v->date_mise_en_service ? $v->date_mise_en_service->format('d/m/Y') : '—' }}</td>
         <td><span class="pill {{ $v->statut === 'en_service' ? 'p-ok' : ($v->statut === 'immobilise' ? 'p-warn' : 'p-ko') }}">{{ $v->statutLabel() }}</span></td>

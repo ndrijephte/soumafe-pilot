@@ -28,8 +28,8 @@
 .lien:hover{text-decoration:underline}
 .evt-line{padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;gap:8px;align-items:center}
 .evt-line:last-child{border:none}
-@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}}
-@media(max-width:500px){.kpis{grid-template-columns:1fr!important}}
+@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}.mini-table{display:block;overflow-x:auto}}
+@media(max-width:600px){.kpis{grid-template-columns:1fr!important}.kpi .val{font-size:22px}.kpi{padding:10px}.panneau{padding:10px}.membre-line{gap:8px}}
 </style>
 @endpush
 @section('contenu')

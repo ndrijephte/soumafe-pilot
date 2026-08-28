@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Evenement, Projet, Sprint, Tache, User};
+use App\Models\{Chauffeur, Evenement, MaintenancePreventive, Panne, Penalite, Projet, RecetteVehicule, Sprint, Tache, User, Vehicule};
 use App\Services\GenerateurXlsx;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -176,6 +176,148 @@ class ExportController extends Controller
             return $xlsx->telecharger('evenements_soumafe_' . date('Ymd') . '.xlsx');
         } catch (\Throwable $e) {
             return back()->with('erreur', 'Erreur export événements : ' . $e->getMessage());
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  PARC AUTOMOBILE
+    // ═══════════════════════════════════════════════════════
+
+    /** Export véhicules. */
+    public function vehicules(Request $r)
+    {
+        abort_unless($r->user()->peutGererParc(), 403);
+        if (!Schema::hasTable('vehicules')) return back()->with('erreur', 'Table véhicules absente.');
+
+        try {
+            $query = Vehicule::with(['chauffeurs' => fn($q) => $q->wherePivot('actif', true)]);
+            if ($r->filled('categorie') && $r->categorie !== 'tous') $query->where('categorie', $r->categorie);
+            if ($r->filled('statut')) $query->where('statut', $r->statut);
+
+            $xlsx = new GenerateurXlsx('Véhicules');
+            $xlsx->entetes(['Immatriculation', 'Catégorie', 'Marque', 'Modèle', 'Statut', 'Km', 'Mise en service', 'Obj. recette', 'Chauffeur(s)', 'Observations']);
+
+            foreach ($query->orderBy('immatriculation')->get() as $v) {
+                $chauffeurs = $v->chauffeurs->map(fn($c) => $c->nomComplet())->join(', ');
+                $xlsx->ligne([
+                    $v->immatriculation,
+                    $v->categorieLabel(),
+                    $v->marque ?? '',
+                    $v->modele ?? '',
+                    $v->statutLabel(),
+                    $v->kilometrage ?? '',
+                    $v->date_mise_en_service ? $v->date_mise_en_service->format('d/m/Y') : '',
+                    $v->objectif_recette ?? '',
+                    $chauffeurs ?: '—',
+                    $v->observations ?? '',
+                ]);
+            }
+            return $xlsx->telecharger('vehicules_soumafe_' . date('Ymd') . '.xlsx');
+        } catch (\Throwable $e) {
+            return back()->with('erreur', 'Erreur export véhicules : ' . $e->getMessage());
+        }
+    }
+
+    /** Export recettes. */
+    public function recettes(Request $r)
+    {
+        abort_unless($r->user()->peutGererParc(), 403);
+        if (!Schema::hasTable('recettes_vehicules')) return back()->with('erreur', 'Table recettes absente.');
+
+        try {
+            $query = RecetteVehicule::with('vehicule');
+            if ($r->filled('date_debut')) $query->whereDate('date', '>=', $r->date_debut);
+            if ($r->filled('date_fin')) $query->whereDate('date', '<=', $r->date_fin);
+            if ($r->filled('vehicule_id')) $query->where('vehicule_id', $r->vehicule_id);
+
+            $xlsx = new GenerateurXlsx('Recettes');
+            $xlsx->entetes(['Date', 'Véhicule', 'Chauffeur', 'Type jour', 'Recette', 'Objectif', 'Écart', 'Mode remise', 'Contrôlé par', 'Observations']);
+
+            foreach ($query->orderByDesc('date')->get() as $rec) {
+                $xlsx->ligne([
+                    $rec->date ? $rec->date->format('d/m/Y') : '',
+                    $rec->vehicule ? $rec->vehicule->immatriculation : '?',
+                    $rec->chauffeur ?? '—',
+                    ucfirst(str_replace('_', ' ', $rec->type_jour ?? '')),
+                    $rec->recette ?? 0,
+                    $rec->objectif ?? 0,
+                    $rec->ecart ?? 0,
+                    $rec->mode_remise ?? '',
+                    $rec->controle_par ?? '',
+                    $rec->observations ?? '',
+                ]);
+            }
+            return $xlsx->telecharger('recettes_parc_' . date('Ymd') . '.xlsx');
+        } catch (\Throwable $e) {
+            return back()->with('erreur', 'Erreur export recettes : ' . $e->getMessage());
+        }
+    }
+
+    /** Export pannes. */
+    public function pannes(Request $r)
+    {
+        abort_unless($r->user()->peutGererParc(), 403);
+        if (!Schema::hasTable('pannes')) return back()->with('erreur', 'Table pannes absente.');
+
+        try {
+            $query = Panne::with('vehicule');
+            if ($r->filled('date_debut')) $query->whereDate('date_declaration', '>=', $r->date_debut);
+            if ($r->filled('date_fin')) $query->whereDate('date_declaration', '<=', $r->date_fin);
+
+            $xlsx = new GenerateurXlsx('Pannes');
+            $xlsx->entetes(['Date déclaration', 'Véhicule', 'Description', 'Urgence', 'Statut', 'Coût estimé', 'Coût réel', 'Délai (j)', 'Décision', 'Date résolution', 'Observations']);
+
+            foreach ($query->orderByDesc('date_declaration')->get() as $p) {
+                $xlsx->ligne([
+                    $p->date_declaration ? $p->date_declaration->format('d/m/Y') : '',
+                    $p->vehicule ? $p->vehicule->immatriculation : '?',
+                    $p->description ?? '',
+                    ucfirst($p->urgence ?? ''),
+                    ucfirst(str_replace('_', ' ', $p->statut ?? '')),
+                    $p->cout_estime ?? '',
+                    $p->cout_reel ?? '',
+                    $p->delai_resolution ?? '',
+                    $p->decision ?? '',
+                    $p->date_resolution ? $p->date_resolution->format('d/m/Y') : '',
+                    $p->observations ?? '',
+                ]);
+            }
+            return $xlsx->telecharger('pannes_parc_' . date('Ymd') . '.xlsx');
+        } catch (\Throwable $e) {
+            return back()->with('erreur', 'Erreur export pannes : ' . $e->getMessage());
+        }
+    }
+
+    /** Export chauffeurs. */
+    public function chauffeurs(Request $r)
+    {
+        abort_unless($r->user()->peutGererParc(), 403);
+        if (!Schema::hasTable('chauffeurs')) return back()->with('erreur', 'Table chauffeurs absente.');
+
+        try {
+            $query = Chauffeur::with(['vehicules' => fn($q) => $q->wherePivot('actif', true)]);
+            if ($r->filled('statut')) $query->where('statut', $r->statut);
+
+            $xlsx = new GenerateurXlsx('Chauffeurs');
+            $xlsx->entetes(['Nom', 'Prénom', 'N° permis', 'Téléphone', 'Statut', 'Véhicule(s) affecté(s)', 'Rôle(s)', 'Observations']);
+
+            foreach ($query->orderBy('nom')->get() as $c) {
+                $vehicules = $c->vehicules->map(fn($v) => $v->immatriculation)->join(', ');
+                $roles = $c->vehicules->map(fn($v) => $v->pivot->role === 'principal' ? 'Principal' : 'Alternant')->join(', ');
+                $xlsx->ligne([
+                    $c->nom ?? '',
+                    $c->prenom ?? '',
+                    $c->numero_permis ?? '',
+                    $c->telephone ?? '',
+                    ucfirst($c->statut ?? ''),
+                    $vehicules ?: '—',
+                    $roles ?: '—',
+                    $c->observations ?? '',
+                ]);
+            }
+            return $xlsx->telecharger('chauffeurs_soumafe_' . date('Ymd') . '.xlsx');
+        } catch (\Throwable $e) {
+            return back()->with('erreur', 'Erreur export chauffeurs : ' . $e->getMessage());
         }
     }
 }

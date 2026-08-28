@@ -33,6 +33,8 @@
 .lien-detail:hover{text-decoration:underline}
 .evt-line{padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;gap:8px;align-items:center}
 .evt-line:last-child{border:none}
+@media(max-width:900px){.deux-cols{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}.mini-table{display:block;overflow-x:auto}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:1fr}.kpi .val{font-size:22px}.kpi{padding:10px}.membre-card{gap:8px}}
 </style>
 @endpush
 @section('contenu')

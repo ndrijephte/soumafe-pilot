@@ -1,3 +1,7 @@
+<style>
+@media(max-width:900px){.admin-tbl{display:block;overflow-x:auto}.form-row,.form-row3{grid-template-columns:1fr}.form-card input,.form-card select{max-width:none}}
+@media(max-width:600px){.form-card{padding:12px 10px}.form-actions{flex-direction:column}.form-actions .btn{width:100%;text-align:center}.admin-tbl th,.admin-tbl td{padding:6px 8px;font-size:12px}}
+</style>
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
 @php $liens = [
     ['admin.utilisateurs.index', 'Comptes'],

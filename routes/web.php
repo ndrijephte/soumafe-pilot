@@ -100,6 +100,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/exports/taches', [ExportController::class, 'taches'])->name('export.taches');
     Route::get('/exports/sprint/{sprint}', [ExportController::class, 'sprint'])->name('export.sprint');
     Route::get('/exports/evenements', [ExportController::class, 'evenements'])->name('export.evenements');
+    Route::get('/exports/vehicules', [ExportController::class, 'vehicules'])->name('export.vehicules');
+    Route::get('/exports/recettes', [ExportController::class, 'recettes'])->name('export.recettes');
+    Route::get('/exports/pannes', [ExportController::class, 'pannes'])->name('export.pannes');
+    Route::get('/exports/chauffeurs', [ExportController::class, 'chauffeurs'])->name('export.chauffeurs');
 
     // Parc automobile
     Route::get('/parc', [ParcController::class, 'index'])->name('parc.index');

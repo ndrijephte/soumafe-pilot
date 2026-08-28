@@ -19,6 +19,7 @@
 .cr-bar .btn-annuler:hover{background:#e2e8f0;color:#334155}
 .cr-bar .btn-creer{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--bleu,#1F4E79);border:none;cursor:pointer;transition:background .15s;box-shadow:0 1px 3px rgba(31,78,121,.2)}
 .cr-bar .btn-creer:hover{background:var(--accent,#2E74B5)}
+@media(max-width:600px){.cr-form{padding:18px 14px;border-radius:10px}.fg .row2{grid-template-columns:1fr}.cr-tabs a{padding:8px 10px;font-size:.78rem}.cr-bar{flex-direction:column}.cr-bar .btn-annuler,.cr-bar .btn-creer{width:100%;text-align:center;justify-content:center}}
 </style>
 
 <div class="cr-form">

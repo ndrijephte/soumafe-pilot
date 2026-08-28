@@ -57,6 +57,8 @@
 .cr-bottom .btn-save:hover{background:var(--bleu,#1F4E79)}
 .cr-bottom .btn-confirm{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--ok,#16a34a);border:none;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(22,163,106,.2)}
 .cr-bottom .btn-confirm:hover{background:#15803d}
+@media(max-width:900px){.tbl{display:block;overflow-x:auto}.cr-bottom{justify-content:stretch}.cr-bottom .btn-retour,.cr-bottom .btn-save,.cr-bottom .btn-confirm{flex:1;text-align:center;justify-content:center}}
+@media(max-width:600px){.cr-edit{margin:0}.section-body{padding:12px 10px}.fg .row2{grid-template-columns:1fr}.odj-item{padding:14px 12px 14px 42px}.rich-toolbar{flex-wrap:wrap}}
 .tbl .num-col{width:45px;text-align:center;color:#94a3b8;font-weight:600}
 /* Multi-select responsables */
 .ms-wrap{position:relative}

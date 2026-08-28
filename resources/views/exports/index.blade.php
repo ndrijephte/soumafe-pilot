@@ -57,6 +57,55 @@
     </div>
 </div>
 
+{{-- Exports Parc automobile --}}
+@if(auth()->user()->peutGererParc())
+<div class="section-titre">Parc automobile</div>
+<div class="export-grid" style="margin-bottom:28px">
+    <div class="export-card">
+        <h3><svg class="ic-export" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="6" width="22" height="12" rx="3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M5 10h14"/></svg> V&eacute;hicules</h3>
+        <p>Flotte compl&egrave;te : immatriculation, cat&eacute;gorie, statut, chauffeur(s).</p>
+        <form action="{{ route('export.vehicules') }}" method="GET">
+            <div class="filtres-export">
+                <div class="filtre-item"><label>Cat&eacute;gorie</label>
+                    <select name="categorie"><option value="tous">Toutes</option><option value="taxi">Taxi</option><option value="vtc">VTC</option></select>
+                </div>
+                <div class="filtre-item"><label>Statut</label>
+                    <select name="statut"><option value="">Tous</option><option value="en_service">En service</option><option value="immobilise">Immobilis&eacute;</option><option value="reforme">R&eacute;form&eacute;</option></select>
+                </div>
+            </div>
+            <button type="submit" class="btn-export"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exporter</button>
+        </form>
+    </div>
+    <div class="export-card">
+        <h3><svg class="ic-export" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Recettes</h3>
+        <p>Recettes journali&egrave;res par v&eacute;hicule et chauffeur.</p>
+        <form action="{{ route('export.recettes') }}" method="GET">
+            <div class="filtres-export">
+                <div class="filtre-item"><label>D&eacute;but</label><input type="date" name="date_debut"></div>
+                <div class="filtre-item"><label>Fin</label><input type="date" name="date_fin"></div>
+            </div>
+            <button type="submit" class="btn-export"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exporter</button>
+        </form>
+    </div>
+    <div class="export-card">
+        <h3><svg class="ic-export" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Pannes</h3>
+        <p>Historique pannes : co&ucirc;ts, d&eacute;lais, statuts.</p>
+        <form action="{{ route('export.pannes') }}" method="GET">
+            <div class="filtres-export">
+                <div class="filtre-item"><label>D&eacute;but</label><input type="date" name="date_debut"></div>
+                <div class="filtre-item"><label>Fin</label><input type="date" name="date_fin"></div>
+            </div>
+            <button type="submit" class="btn-export"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exporter</button>
+        </form>
+    </div>
+    <div class="export-card">
+        <h3><svg class="ic-export" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Chauffeurs</h3>
+        <p>Liste chauffeurs : permis, t&eacute;l&eacute;phone, v&eacute;hicule(s).</p>
+        <a href="{{ route('export.chauffeurs') }}" class="btn-export"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> T&eacute;l&eacute;charger</a>
+    </div>
+</div>
+@endif
+
 {{-- Export tâches avec filtres --}}
 <div class="section-titre">Export t&acirc;ches (avec filtres)</div>
 <div class="export-card" style="margin-bottom:28px">

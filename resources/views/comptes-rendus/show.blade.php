@@ -29,6 +29,8 @@
 .cr-bar .btn-suppr{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:600;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;cursor:pointer;transition:all .15s}
 .cr-bar .btn-suppr:hover{background:#dc2626;color:#fff;border-color:#dc2626}
 .tbl .num-col{width:45px;text-align:center;color:#94a3b8;font-weight:600}
+@media(max-width:900px){.tbl{display:block;overflow-x:auto}.info-grid{grid-template-columns:1fr}.cr-bar{flex-wrap:wrap}}
+@media(max-width:600px){.cr-show{margin:0}.section{padding:14px 12px}.cr-bar a,.cr-bar button,.cr-bar form{flex:1}.cr-bar a,.cr-bar button{text-align:center;justify-content:center}}
 </style>
 
 <div class="cr-show">

@@ -38,6 +38,8 @@
 .empty-state{text-align:center;padding:60px 20px;color:#94a3b8;font-size:.95rem}
 .pag{margin-top:20px;display:flex;justify-content:center}
 .pag nav{display:flex;gap:4px}
+@media(max-width:900px){.cr-filtres{flex-direction:column;align-items:stretch}.cr-filtres .sep{display:none}.cr-card{flex-direction:column;align-items:flex-start}.cr-actions{width:100%;justify-content:flex-end}}
+@media(max-width:600px){.cr-header{flex-direction:column;align-items:flex-start}.cr-card .meta span{display:block;margin-bottom:2px}.cr-actions a{padding:5px 10px;font-size:.78rem}}
 </style>
 
 <div class="cr-header">

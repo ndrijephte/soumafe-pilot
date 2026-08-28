@@ -35,8 +35,8 @@
 .lien:hover{text-decoration:underline}
 .section-sep{margin-top:28px;padding-top:24px;border-top:2px solid var(--bord)}
 .section-sep h2{font-size:16px;color:var(--bleu);margin-bottom:14px;display:flex;align-items:center;gap:8px}
-@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}}
-@media(max-width:500px){.kpis{grid-template-columns:1fr!important}}
+@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}.mini-table{display:block;overflow-x:auto}}
+@media(max-width:600px){.kpis{grid-template-columns:1fr!important}.kpi .val{font-size:22px}.kpi{padding:10px}.panneau{padding:10px}.membre-line{gap:8px}}
 </style>
 @endpush
 @section('contenu')

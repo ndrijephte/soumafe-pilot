@@ -33,8 +33,8 @@
 .evt-line{padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12px;display:flex;gap:8px;align-items:center}
 .evt-line:last-child{border:none}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
-@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}}
-@media(max-width:500px){.kpis{grid-template-columns:1fr!important}}
+@media(max-width:900px){.grille{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}.mini-table{display:block;overflow-x:auto}}
+@media(max-width:600px){.kpis{grid-template-columns:1fr!important}.kpi .val{font-size:22px}.kpi{padding:10px}.panneau{padding:10px}.membre-line{gap:8px}}
 </style>
 @endpush
 @section('contenu')

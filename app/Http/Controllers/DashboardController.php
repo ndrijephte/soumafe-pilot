@@ -277,20 +277,27 @@ class DashboardController extends Controller
 
             $resultatNet = $recetteMois - $coutPannesMois - $montantPenalitesMois;
 
-            // Top 3 chauffeurs du mois
+            // Top 3 chauffeurs du mois (performance individuelle)
             $topChauffeurs = collect();
             if (Schema::hasTable('chauffeurs') && Schema::hasTable('chauffeur_vehicule')) {
                 $topChauffeurs = Chauffeur::with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
                     ->where('statut', 'actif')->get()
                     ->map(function ($c) use ($moisDebut, $moisFin) {
+                        $nom = $c->nomComplet();
                         $cvIds = $c->vehicules->pluck('id');
-                        if ($cvIds->isEmpty()) return null;
-                        $rec = (int) RecetteVehicule::whereIn('vehicule_id', $cvIds)->whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
-                        $obj = (int) RecetteVehicule::whereIn('vehicule_id', $cvIds)->whereBetween('date', [$moisDebut, $moisFin])->sum('objectif');
-                        $pen = Schema::hasTable('penalites') ? (int) Penalite::whereIn('vehicule_id', $cvIds)->whereBetween('date_infraction', [$moisDebut, $moisFin])->sum('montant') : 0;
-                        $pan = (int) Panne::whereIn('vehicule_id', $cvIds)->whereBetween('date_declaration', [$moisDebut, $moisFin])->sum('cout_reel');
+                        $recQ = RecetteVehicule::where('chauffeur', $nom)->whereBetween('date', [$moisDebut, $moisFin]);
+                        if ($cvIds->isNotEmpty()) $recQ->whereIn('vehicule_id', $cvIds);
+                        $rec = (int) (clone $recQ)->sum('recette');
+                        $obj = (int) (clone $recQ)->sum('objectif');
+                        $nbJ = (clone $recQ)->count();
+                        if ($nbJ === 0) return null;
+                        $pen = 0;
+                        if (Schema::hasTable('penalites') && $cvIds->isNotEmpty()) {
+                            $pen = (int) Penalite::whereIn('vehicule_id', $cvIds)->where('chauffeur', $nom)->whereBetween('date_infraction', [$moisDebut, $moisFin])->sum('montant');
+                        }
+                        $pan = $cvIds->isNotEmpty() ? (int) Panne::whereIn('vehicule_id', $cvIds)->whereBetween('date_declaration', [$moisDebut, $moisFin])->sum('cout_reel') : 0;
                         return [
-                            'nom' => $c->nomComplet(),
+                            'nom' => $nom,
                             'vehicules' => $c->vehicules->pluck('immatriculation')->join(', '),
                             'recette' => $rec,
                             'taux' => $obj > 0 ? round(($rec / $obj) * 100) : 0,

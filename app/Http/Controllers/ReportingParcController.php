@@ -147,38 +147,52 @@ class ReportingParcController extends Controller
                 ];
             });
 
-        // ═══════ PERFORMANCE CHAUFFEURS ═══════
+        // ═══════ PERFORMANCE CHAUFFEURS (individuelle par chauffeur) ═══════
         $performanceChauffeurs = collect();
         if (Schema::hasTable('chauffeurs') && Schema::hasTable('chauffeur_vehicule')) {
             $performanceChauffeurs = Chauffeur::with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
                 ->where('statut', 'actif')->get()
                 ->map(function ($c) use ($debut, $fin, $vehiculeIds) {
+                    $nomComplet = $c->nomComplet();
                     $cvIds = $c->vehicules->pluck('id')->intersect($vehiculeIds);
-                    if ($cvIds->isEmpty()) return null;
 
-                    $recTotal = (int) RecetteVehicule::whereIn('vehicule_id', $cvIds)
-                        ->whereBetween('date', [$debut, $fin])->sum('recette');
-                    $objTotal = (int) RecetteVehicule::whereIn('vehicule_id', $cvIds)
-                        ->whereBetween('date', [$debut, $fin])->sum('objectif');
-                    $coutP = (int) Panne::whereIn('vehicule_id', $cvIds)
-                        ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
-                    $nbP = Panne::whereIn('vehicule_id', $cvIds)
-                        ->whereBetween('date_declaration', [$debut, $fin])->count();
-                    $montPen = 0; $nbPen = 0;
-                    if (Schema::hasTable('penalites')) {
-                        $montPen = (int) Penalite::whereIn('vehicule_id', $cvIds)
-                            ->whereBetween('date_infraction', [$debut, $fin])->sum('montant');
-                        $nbPen = Penalite::whereIn('vehicule_id', $cvIds)
-                            ->whereBetween('date_infraction', [$debut, $fin])->count();
+                    // Recettes individuelles : filtrées par nom du chauffeur
+                    $recQ = RecetteVehicule::where('chauffeur', $nomComplet)
+                        ->whereBetween('date', [$debut, $fin]);
+                    if ($cvIds->isNotEmpty()) {
+                        $recQ->whereIn('vehicule_id', $cvIds);
+                    }
+                    $recTotal = (int) (clone $recQ)->sum('recette');
+                    $objTotal = (int) (clone $recQ)->sum('objectif');
+                    $nbJours = (clone $recQ)->count();
+
+                    if ($nbJours === 0) return null;
+
+                    // Pannes et pénalités restent liées aux véhicules affectés
+                    $coutP = 0; $nbP = 0; $montPen = 0; $nbPen = 0;
+                    if ($cvIds->isNotEmpty()) {
+                        $coutP = (int) Panne::whereIn('vehicule_id', $cvIds)
+                            ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
+                        $nbP = Panne::whereIn('vehicule_id', $cvIds)
+                            ->whereBetween('date_declaration', [$debut, $fin])->count();
+                        if (Schema::hasTable('penalites')) {
+                            $montPen = (int) Penalite::whereIn('vehicule_id', $cvIds)
+                                ->where('chauffeur', $nomComplet)
+                                ->whereBetween('date_infraction', [$debut, $fin])->sum('montant');
+                            $nbPen = Penalite::whereIn('vehicule_id', $cvIds)
+                                ->where('chauffeur', $nomComplet)
+                                ->whereBetween('date_infraction', [$debut, $fin])->count();
+                        }
                     }
                     $resultat = $recTotal - $coutP - $montPen;
                     return [
-                        'nom' => $c->nomComplet(),
+                        'nom' => $nomComplet,
                         'statut' => $c->statut,
                         'nb_vehicules' => $cvIds->count(),
                         'vehicules' => $c->vehicules->whereIn('id', $cvIds)->pluck('immatriculation')->join(', '),
                         'recette' => $recTotal,
                         'objectif' => $objTotal,
+                        'nb_jours' => $nbJours,
                         'taux' => $objTotal > 0 ? round(($recTotal / $objTotal) * 100) : 0,
                         'cout_pannes' => $coutP,
                         'nb_pannes' => $nbP,

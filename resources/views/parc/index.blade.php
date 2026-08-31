@@ -61,7 +61,38 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .act-btn.del:hover{background:#fef2f2}
 .header-actions{display:flex;gap:8px;align-items:center}
 .empty-msg{text-align:center;color:var(--gris);padding:24px;font-size:12.5px}
-@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.grille{grid-template-columns:1fr}.form-row,.form-row3{grid-template-columns:1fr}table{display:block;overflow-x:auto}}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.form-row,.form-row3{grid-template-columns:1fr}table{display:block;overflow-x:auto}.panel-head{flex-wrap:wrap;gap:8px}.header-actions{flex-wrap:wrap}}
+@media(max-width:600px){.kpis{grid-template-columns:1fr}.kpi .val{font-size:22px}.tab-btn{padding:8px 12px;font-size:12px}.tab-btn svg{width:14px;height:14px}.panneau{padding:10px 8px}.panel-head h3{font-size:13px}.btn.sm{padding:4px 8px;font-size:10.5px}dialog{padding:16px;width:95vw}}
+@media(max-width:400px){.tab-btn span.pill{display:none}.tab-btn{padding:6px 8px;gap:4px}.kpi{padding:10px}}
+/* Grille chauffeurs recettes */
+.gc-list{display:flex;flex-direction:column;gap:6px}
+.gc-item{background:var(--carte);border:1px solid var(--bord);border-radius:10px;overflow:hidden;transition:box-shadow .15s}
+.gc-item:hover{box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.gc-item.gc-repos{border-left:3px solid var(--ok);background:#f0fdf4}
+.gc-item.gc-inactif{opacity:.65;border-left:3px solid var(--gris)}
+.gc-av-off{background:var(--gris)!important;color:#fff!important}
+.gc-item.gc-fait{border-left:3px solid var(--accent)}
+.gc-row{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;user-select:none}
+.gc-row:hover{background:rgba(46,116,181,.04)}
+.gc-avatar{width:36px;height:36px;border-radius:50%;background:var(--fond);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--bleu)}
+.gc-info{flex:1;min-width:0}
+.gc-nom{font-size:13.5px;font-weight:700;color:var(--bleu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-sub{font-size:11.5px;color:var(--gris);display:flex;align-items:center;gap:6px;margin-top:2px}
+.gc-montant{font-size:15px;font-weight:700;color:var(--bleu);text-align:right;min-width:80px}
+.gc-montant.gc-ok{color:var(--ok)}
+.gc-montant.gc-ko{color:var(--ko)}
+.gc-chevron{width:20px;height:20px;color:var(--gris);transition:transform .2s;flex-shrink:0}
+.gc-item.gc-open .gc-chevron{transform:rotate(180deg)}
+.gc-detail{max-height:0;overflow:hidden;transition:max-height .25s ease-out}
+.gc-item.gc-open .gc-detail{max-height:300px}
+.gc-form{padding:0 16px 14px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end}
+.gc-form label{font-size:10.5px;color:var(--gris);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.gc-form input,.gc-form select{padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;width:100%}
+.gc-form input[type=number]{text-align:right}
+.gc-form .gc-btn-val{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.gc-form .gc-btn-val.nouveau{background:var(--accent);color:#fff}
+.gc-form .gc-btn-val.maj{background:var(--ok);color:#fff}
+@media(max-width:700px){.gc-form{grid-template-columns:1fr 1fr;gap:8px}.gc-montant{min-width:60px;font-size:13px}}
 </style>
 @endpush
 @section('contenu')
@@ -91,8 +122,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 @endphp
 
 <datalist id="dl-marques">@foreach($marquesSugg as $m)<option value="{{ $m }}">@endforeach</datalist>
-<datalist id="dl-chauffeurs">@foreach($chauffeurs as $c)<option value="{{ $c->nomComplet() }}">@endforeach</datalist>
-<datalist id="dl-lieux">@foreach($lieuxSugg as $l)<option value="{{ $l }}">@endforeach</datalist>
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
     <h2 style="display:flex;align-items:center;gap:8px">{!! $icCar !!} Parc automobile</h2>
@@ -213,42 +242,212 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB RECETTES ==================== --}}
 <div class="tab-panel" id="tab-recettes">
-    <div class="panel-head">
-        <h3>{!! $icWallet !!} Recettes</h3>
-        <button class="btn sm" onclick="document.getElementById('dlg-recette').showModal()">{!! $icPlus !!} Recette</button>
+
+    {{-- ===== ALERTES JOURS MANQUANTS ===== --}}
+    @if(!empty($alertesManquants))
+    <div style="margin-bottom:16px">
+        @foreach($alertesManquants as $am)
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12.5px;color:#991b1b;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span><strong>{{ $am['date_label'] }}</strong> — {{ $am['count'] }} véhicule(s) sans recette : {{ $am['vehicules'] }}</span>
+            <a href="{{ route('parc.index', ['tab' => 'recettes', 'date_recette' => $am['date']]) }}" class="btn sm" style="margin-left:auto;padding:3px 10px;font-size:11px">Saisir</a>
+        </div>
+        @endforeach
     </div>
-    <div class="panneau" style="overflow-x:auto">
-    <table>
-    <thead><tr><th>Date</th><th>Jour</th><th>Véhicule</th><th>Chauffeur</th><th>Recette</th><th>Objectif</th><th>Écart</th><th>Mode</th><th>Contrôle</th><th></th></tr></thead>
-    <tbody>
-    @forelse($recettes as $rec)
-    @php $typeJourLabel = match($rec->type_jour ?? 'ouvrable') { 'ferie' => 'Férié', 'dimanche' => 'Dim.', default => 'Ouv.' }; @endphp
-    <tr>
-        <td>{{ $rec->date->format('d/m/Y') }}</td>
-        <td><span class="pill {{ ($rec->type_jour ?? 'ouvrable') === 'ouvrable' ? 'p-gris' : 'p-warn' }}">{{ $typeJourLabel }}</span></td>
-        <td><strong>{{ $rec->vehicule->immatriculation ?? '?' }}</strong></td>
-        <td>{{ $rec->chauffeur ?? '—' }}</td>
-        <td style="font-weight:600">{{ number_format($rec->recette, 0, ',', ' ') }}</td>
-        <td>{{ number_format($rec->objectif, 0, ',', ' ') }}</td>
-        <td style="color:{{ $rec->ecart >= 0 ? 'var(--ok)' : 'var(--ko)' }};font-weight:600">{{ ($rec->ecart >= 0 ? '+' : '') . number_format($rec->ecart, 0, ',', ' ') }}</td>
-        <td>{{ $rec->mode_remise ? ucfirst(str_replace('_', ' ', $rec->mode_remise)) : '—' }}</td>
-        <td>{{ $rec->controle_par ?? '—' }}</td>
-        <td>
-            <div class="act-row">
-                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $rec->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
-                <button class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
-                <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
-                    <button class="act-btn del">{!! $icDel !!}</button>
-                </form>
+    @endif
+
+    {{-- ===== SÉLECTION DATE ===== --}}
+    @php
+        $dateJourCarbon = \Carbon\Carbon::parse($dateJour);
+        $jourLabel = $dateJourCarbon->translatedFormat('l d F Y');
+        $estAujourdhui = $dateJourCarbon->isToday();
+        $typeJourGrille = $dateJourCarbon->isSunday() ? 'dimanche' : 'ouvrable';
+        $nbSaisis = collect($grilleJour)->where('deja_saisi', true)->count();
+        $nbTotal = count($grilleJour);
+        $tousValides = $nbSaisis === $nbTotal && $nbTotal > 0;
+    @endphp
+
+    <div class="panel-head" style="flex-wrap:wrap;gap:10px">
+        <h3>{!! $icWallet !!} Recettes du jour</h3>
+        <form method="GET" action="{{ route('parc.index') }}" style="display:flex;align-items:center;gap:8px">
+            <input type="hidden" name="tab" value="recettes">
+            <a href="{{ route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJourCarbon->copy()->subDay()->format('Y-m-d')]) }}" class="btn sm sec" style="padding:4px 10px">&larr;</a>
+            <input type="date" name="date_recette" value="{{ $dateJour }}" onchange="this.form.submit()" style="padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
+            <a href="{{ route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJourCarbon->copy()->addDay()->format('Y-m-d')]) }}" class="btn sm sec" style="padding:4px 10px">&rarr;</a>
+            @if(!$estAujourdhui)
+            <a href="{{ route('parc.index', ['tab' => 'recettes']) }}" class="btn sm sec" style="padding:4px 10px;font-size:11px">Aujourd'hui</a>
+            @endif
+        </form>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+        <span style="font-size:14px;font-weight:700;color:var(--bleu);text-transform:capitalize">{{ $jourLabel }}</span>
+        @if($typeJourGrille === 'dimanche')
+        <span class="pill p-warn">Dimanche — VTC repos / Taxi 5 000 F</span>
+        @endif
+        <span class="pill {{ $tousValides ? 'p-ok' : ($nbSaisis > 0 ? 'p-cours' : 'p-ko') }}">{{ $nbSaisis }}/{{ $nbTotal }} saisi(s)</span>
+    </div>
+
+    {{-- Erreurs de validation --}}
+    @if($errors->any())
+    <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+        @foreach($errors->all() as $err)
+        <div style="font-size:12.5px;color:#b91c1c">{{ $err }}</div>
+        @endforeach
+    </div>
+    @endif
+
+    {{-- ===== FORMULAIRE CACHÉ POUR SOUMISSION ===== --}}
+    <form method="POST" action="{{ route('parc.recettes.validerJournee') }}" id="form-grille-ind" style="display:none">
+        @csrf
+        <input type="hidden" name="date_jour" value="{{ $dateJour }}">
+        <input type="hidden" name="lignes[0][vehicule_id]" id="gi-vehicule">
+        <input type="hidden" name="lignes[0][chauffeur]" id="gi-chauffeur">
+        <input type="hidden" name="lignes[0][recette]" id="gi-recette">
+        <input type="hidden" name="lignes[0][mode_remise]" id="gi-mode">
+        <input type="hidden" name="lignes[0][motif_absence]" id="gi-motif">
+        <input type="hidden" name="lignes[0][perspective]" id="gi-perspective">
+        <input type="hidden" name="lignes[0][controle_par]" value="{{ auth()->user()->name }}">
+        <input type="hidden" name="lignes[0][est_repos]" id="gi-repos" value="0">
+    </form>
+
+    {{-- ===== FILTRE RECHERCHE ===== --}}
+    <div style="margin-bottom:12px">
+        <input type="text" id="gc-search" placeholder="Rechercher un chauffeur..." oninput="filtrerChauffeurs(this.value)" style="width:100%;max-width:360px;padding:8px 14px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:var(--carte)">
+    </div>
+
+    {{-- ===== GRILLE CHAUFFEURS ===== --}}
+    <div class="gc-list" id="gc-list">
+    @foreach($grilleJour as $i => $g)
+    @php
+        $v = $g['vehicule'];
+        $deja = $g['deja_saisi'];
+        $rec = $g['recette'];
+        $repos = $g['est_repos'];
+        $nomCh = $g['chauffeur'] ?: 'Sans chauffeur';
+        $chActif = $g['chauffeur_actif'] ?? true;
+        $montantAff = $deja ? number_format($rec->recette, 0, ',', ' ') . ' F' : '';
+        $ecartOk = $deja && $rec->ecart >= 0;
+        $sousObjectif = $deja && $rec->ecart < 0 && $rec->recette > 0;
+    @endphp
+    <div class="gc-item {{ $repos ? 'gc-repos' : ($deja ? 'gc-fait' : '') }}{{ !$chActif ? ' gc-inactif' : '' }}" id="gc-{{ $i }}" data-vid="{{ $v->id }}" data-repos="{{ $repos ? '1' : '0' }}" data-objectif="{{ $g['objectif'] }}" data-nom="{{ mb_strtolower($nomCh) }}">
+        <div class="gc-row" onclick="toggleRecette({{ $i }})">
+            <div class="gc-avatar{{ !$chActif ? ' gc-av-off' : '' }}">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </div>
-        </td>
-    </tr>
-    @empty
-    <tr><td colspan="10" class="empty-msg">Aucune recette enregistrée.</td></tr>
-    @endforelse
-    </tbody>
-    </table>
+            <div class="gc-info">
+                <div class="gc-nom">{{ $nomCh }}@if(!$chActif) <span class="pill p-ko" style="font-size:9px;padding:1px 5px;margin-left:6px">Inactif</span>@endif</div>
+                <div class="gc-sub">
+                    <span>{{ $v->immatriculation }}</span>
+                    <span class="cat-pill {{ $v->categorie === 'taxi' ? 'cat-taxi' : 'cat-vtc' }}" style="font-size:10px;padding:1px 6px">{{ $v->categorieLabel() }}</span>
+                    <span>Obj. {{ number_format($g['objectif'], 0, ',', ' ') }} F</span>
+                </div>
+            </div>
+            @if($repos)
+            <span class="pill p-ok" style="font-size:11px">Repos</span>
+            @elseif($deja)
+            <div class="gc-montant {{ $ecartOk ? 'gc-ok' : 'gc-ko' }}">{{ $montantAff }}</div>
+            @else
+            <span class="pill p-warn" style="font-size:11px">En attente</span>
+            @endif
+            <svg class="gc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="gc-detail" id="gc-detail-{{ $i }}">
+            @if($repos)
+            <div style="padding:0 16px 12px;font-size:12px;color:var(--ok);font-weight:600">Repos automatique — recette enregistrée à 0 F</div>
+            @else
+            <div class="gc-form" style="grid-template-columns:1fr 1fr 1fr auto">
+                <div>
+                    <label>Recette (F)</label>
+                    <input type="number" id="gr-rec-{{ $i }}" value="{{ $deja ? $rec->recette : '' }}" min="0" placeholder="Montant" oninput="recetteChange({{ $i }})">
+                </div>
+                <div>
+                    <label>Mode remise</label>
+                    <select id="gr-mode-{{ $i }}">
+                        <option value="">—</option>
+                        <option value="especes"{{ $deja && ($rec->mode_remise ?? '') === 'especes' ? ' selected' : '' }}>Espèces</option>
+                        <option value="mobile_money"{{ $deja && ($rec->mode_remise ?? '') === 'mobile_money' ? ' selected' : '' }}>Mobile Money</option>
+                        <option value="cheque"{{ $deja && ($rec->mode_remise ?? '') === 'cheque' ? ' selected' : '' }}>Chèque</option>
+                        <option value="virement"{{ $deja && ($rec->mode_remise ?? '') === 'virement' ? ' selected' : '' }}>Virement</option>
+                        <option value="autre"{{ $deja && ($rec->mode_remise ?? '') === 'autre' ? ' selected' : '' }}>Autre</option>
+                    </select>
+                </div>
+                <div id="gc-motif-wrap-{{ $i }}">
+                    <label>Motif</label>
+                    <select id="grille-motif-{{ $i }}">
+                        <option value="">—</option>
+                        <option value="sous_objectif"{{ $deja && ($rec->motif_absence ?? '') === 'sous_objectif' ? ' selected' : '' }}>Sous objectif</option>
+                        @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}"{{ $deja && ($rec->motif_absence ?? '') === $ma->code ? ' selected' : '' }}>{{ $ma->libelle }}</option>@endforeach
+                    </select>
+                </div>
+                <div>
+                    <label>&nbsp;</label>
+                    <button type="button" class="gc-btn-val {{ $deja ? 'maj' : 'nouveau' }}" onclick="validerLigne({{ $i }})">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        {{ $deja ? 'MAJ' : 'Valider' }}
+                    </button>
+                </div>
+            </div>
+            {{-- Perspective (visible si recette < objectif) --}}
+            <div class="gc-perspective" id="gc-persp-wrap-{{ $i }}" style="padding:0 16px 12px;{{ ($sousObjectif) ? '' : 'display:none' }}">
+                <label style="font-size:10.5px;color:var(--ko);font-weight:600;text-transform:uppercase;letter-spacing:.3px">Perspective / Stratégie de rattrapage</label>
+                <textarea id="gr-persp-{{ $i }}" rows="2" placeholder="Le chauffeur rattrapera-t-il la somme restante ? Motif suffisant ?" style="width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;resize:vertical;margin-top:4px">{{ $deja ? ($rec->perspective ?? '') : '' }}</textarea>
+            </div>
+            @endif
+        </div>
     </div>
+    @endforeach
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
+        @if($tousValides)
+        <span style="font-size:12px;color:var(--ok);font-weight:600">Journée complète</span>
+        @else
+        <span style="font-size:12px;color:var(--ko)">{{ $nbTotal - $nbSaisis }} chauffeur(s) en attente</span>
+        @endif
+        <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-histo-recettes').showModal()" style="margin-left:auto">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Historique
+        </button>
+        <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-recette').showModal()">{!! $icPlus !!} Saisie individuelle</button>
+    </div>
+
+    {{-- ===== DIALOG HISTORIQUE ===== --}}
+    <dialog id="dlg-histo-recettes" style="width:95vw;max-width:1000px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Historique des recettes</h3>
+            <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+        </div>
+        <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
+        <table>
+        <thead><tr><th>Date</th><th>Chauffeur</th><th>Véhicule</th><th>Recette</th><th>Objectif</th><th>Écart</th><th>Mode</th><th>Motif</th><th></th></tr></thead>
+        <tbody>
+        @forelse($recettes as $rec)
+        <tr>
+            <td>{{ $rec->date->format('d/m/Y') }}</td>
+            <td><strong>{{ $rec->chauffeur ?? '—' }}</strong></td>
+            <td>{{ $rec->vehicule->immatriculation ?? '?' }}</td>
+            <td style="font-weight:600">{{ number_format($rec->recette, 0, ',', ' ') }}</td>
+            <td>{{ number_format($rec->objectif, 0, ',', ' ') }}</td>
+            <td style="color:{{ $rec->ecart >= 0 ? 'var(--ok)' : 'var(--ko)' }};font-weight:600">{{ ($rec->ecart >= 0 ? '+' : '') . number_format($rec->ecart, 0, ',', ' ') }}</td>
+            <td>{{ $rec->mode_remise ? ucfirst(str_replace('_', ' ', $rec->mode_remise)) : '—' }}</td>
+            <td>@if($rec->motif_absence)<span class="pill p-warn">{{ $rec->motif_absence }}</span>@else — @endif</td>
+            <td>
+                <div class="act-row">
+                    <button type="button" class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
+                    <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
+                        <button class="act-btn del">{!! $icDel !!}</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        @empty
+        <tr><td colspan="9" class="empty-msg">Aucune recette enregistrée.</td></tr>
+        @endforelse
+        </tbody>
+        </table>
+        </div>
+    </dialog>
 </div>
 
 {{-- ==================== TAB MAINTENANCE ==================== --}}
@@ -508,7 +707,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
             </select>
         </div>
-        <div><label>Chauffeur</label><input name="chauffeur" id="r-chauff" list="dl-chauffeurs" autocomplete="off"></div>
+        <div><label>Chauffeur</label>
+            <select name="chauffeur" id="r-chauff">
+                <option value="">— Chauffeur —</option>
+                @foreach($chauffeurs->where('statut','actif') as $ch)<option value="{{ $ch->nomComplet() }}">{{ $ch->nomComplet() }}</option>@endforeach
+            </select>
+        </div>
     </div>
     <div class="form-row3">
         <div><label>Recette (FCFA) <span class="req">*</span></label><input type="number" name="recette" id="r-montant" min="0" required></div>
@@ -523,6 +727,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 @foreach($collaborateurs as $u)<option value="{{ $u->name }}">{{ $u->name }}</option>@endforeach
             </select>
         </div>
+    </div>
+    <div id="motif-zone" style="display:none;margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px">
+        <label style="color:#92400e;font-weight:700;font-size:11px">JUSTIFICATION OBLIGATOIRE (recette = 0)</label>
+        <select name="motif_absence" id="r-motif" style="margin-top:4px">
+            <option value="">— Choisir un motif —</option>
+            @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}">{{ $ma->libelle }}</option>@endforeach
+        </select>
     </div>
     <div><label>Observations</label><textarea name="observations" id="r-obs" rows="2"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
@@ -583,8 +794,18 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </div>
     <div class="form-row3">
-        <div><label>Chauffeur</label><input name="chauffeur" id="pe-chauff" list="dl-chauffeurs" autocomplete="off"></div>
-        <div><label>Lieu</label><input name="lieu" id="pe-lieu" list="dl-lieux" autocomplete="off"></div>
+        <div><label>Chauffeur</label>
+            <select name="chauffeur" id="pe-chauff">
+                <option value="">— Chauffeur —</option>
+                @foreach($chauffeurs->where('statut','actif') as $ch)<option value="{{ $ch->nomComplet() }}">{{ $ch->nomComplet() }}</option>@endforeach
+            </select>
+        </div>
+        <div><label>Lieu</label>
+            <select name="lieu" id="pe-lieu">
+                <option value="">— Lieu —</option>
+                @foreach($lieuxSugg as $l)<option value="{{ $l }}">{{ $l }}</option>@endforeach
+            </select>
+        </div>
         <div><label>Montant (FCFA) <span class="req">*</span></label><input type="number" name="montant" id="pe-mont" min="0" required></div>
     </div>
     <div><label>Description</label><textarea name="description" id="pe-desc" rows="2" placeholder="Décrivez l'infraction"></textarea></div>
@@ -741,6 +962,7 @@ foreach($recettes as $_r) {
         'mode_remise' => $_r->mode_remise,
         'controle_par' => $_r->controle_par,
         'observations' => $_r->observations,
+        'motif_absence' => $_r->motif_absence,
     ];
 }
 $_mData = [];
@@ -896,6 +1118,84 @@ function statuerPanne(id){
     document.getElementById('dlg-statuer').showModal();
 }
 
+function toggleMotif(){
+    var m=document.getElementById('r-montant');
+    var z=document.getElementById('motif-zone');
+    z.style.display=(parseInt(m.value||1)===0)?'block':'none';
+}
+document.getElementById('r-montant').addEventListener('input',toggleMotif);
+
+// Grille chauffeurs : toggle expand
+function toggleRecette(idx){
+    var item=document.getElementById('gc-'+idx);
+    if(!item) return;
+    // Fermer les autres
+    document.querySelectorAll('.gc-item.gc-open').forEach(function(el){
+        if(el!==item) el.classList.remove('gc-open');
+    });
+    item.classList.toggle('gc-open');
+}
+
+// Filtre recherche chauffeur
+function filtrerChauffeurs(q){
+    q=q.toLowerCase().trim();
+    document.querySelectorAll('#gc-list .gc-item').forEach(function(el){
+        var nom=el.getAttribute('data-nom')||'';
+        el.style.display=(!q||nom.indexOf(q)>-1)?'':'none';
+    });
+}
+
+// Grille : toggle perspective + motif selon montant vs objectif
+function recetteChange(idx){
+    var item=document.getElementById('gc-'+idx);
+    if(!item) return;
+    var rec=document.getElementById('gr-rec-'+idx);
+    var motifWrap=document.getElementById('gc-motif-wrap-'+idx);
+    var perspWrap=document.getElementById('gc-persp-wrap-'+idx);
+    var objectif=parseFloat(item.getAttribute('data-objectif'))||0;
+    var montant=parseFloat(rec?rec.value:0)||0;
+
+    if(montant>0 && montant<objectif){
+        if(motifWrap) motifWrap.style.display='';
+        if(perspWrap) perspWrap.style.display='';
+    } else if(montant===0 || rec.value===''){
+        if(motifWrap) motifWrap.style.display='';
+        if(perspWrap) perspWrap.style.display='none';
+    } else {
+        if(perspWrap) perspWrap.style.display='none';
+    }
+}
+
+function validerLigne(idx){
+    var item=document.getElementById('gc-'+idx);
+    if(!item) return;
+    var vid=item.getAttribute('data-vid');
+    var repos=item.getAttribute('data-repos')==='1';
+    var objectif=parseFloat(item.getAttribute('data-objectif'))||0;
+    var rec=document.getElementById('gr-rec-'+idx);
+    var mode=document.getElementById('gr-mode-'+idx);
+    var motif=document.getElementById('grille-motif-'+idx);
+    var persp=document.getElementById('gr-persp-'+idx);
+
+    var nomEl=item.querySelector('.gc-nom');
+    var chauffeur=nomEl?nomEl.textContent.trim():'';
+    if(chauffeur==='Sans chauffeur') chauffeur='';
+
+    var montant=parseFloat(rec?rec.value:0)||0;
+    if(!repos && rec && rec.value===''){alert('Saisissez le montant de la recette.');return;}
+    if(!repos && montant===0 && motif && !motif.value){alert('Motif obligatoire lorsque la recette est à 0.');return;}
+    if(!repos && montant>0 && montant<objectif && motif && !motif.value){alert('Recette inférieure à l\'objectif : motif obligatoire.');return;}
+
+    document.getElementById('gi-vehicule').value=vid;
+    document.getElementById('gi-chauffeur').value=chauffeur;
+    document.getElementById('gi-recette').value=repos?0:montant;
+    document.getElementById('gi-mode').value=mode?mode.value:'';
+    document.getElementById('gi-motif').value=motif?motif.value:'';
+    document.getElementById('gi-perspective').value=persp?persp.value:'';
+    document.getElementById('gi-repos').value=repos?'1':'0';
+    document.getElementById('form-grille-ind').submit();
+}
+
 function editRecette(id){
     var d=recettesData[id]; if(!d)return;
     document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} Modifier la recette';
@@ -908,6 +1208,8 @@ function editRecette(id){
     document.getElementById('r-mode').value=d.mode_remise||'';
     document.getElementById('r-ctrl').value=d.controle_par||'';
     document.getElementById('r-obs').value=d.observations||'';
+    document.getElementById('r-motif').value=d.motif_absence||'';
+    toggleMotif();
     document.getElementById('dlg-recette').showModal();
 }
 

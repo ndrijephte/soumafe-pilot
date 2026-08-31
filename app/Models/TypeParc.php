@@ -21,4 +21,10 @@ class TypeParc extends Model
         if (!Schema::hasTable('types_parc')) return collect();
         return static::where('categorie', 'maintenance')->where('actif', true)->orderBy('ordre')->get();
     }
+
+    public static function motifsAbsence()
+    {
+        if (!Schema::hasTable('types_parc')) return collect();
+        return static::where('categorie', 'motif_absence')->where('actif', true)->orderBy('ordre')->get();
+    }
 }

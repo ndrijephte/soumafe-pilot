@@ -5,11 +5,13 @@
 .cr-show{max-width:920px;margin:0 auto}
 .cr-show h2{font-size:1.3rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:4px}
 .cr-show .sub{font-size:.85rem;color:#64748b;margin-bottom:20px}
-.section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
 .section h3{font-size:1rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #DDEAF5}
-.tbl{width:100%;border-collapse:collapse;font-size:.85rem}
+.section .cr-contenu{font-size:.9rem;color:#334155;line-height:1.6;padding:0 8px;overflow-wrap:break-word;word-break:break-word;max-width:100%}
+.section .cr-contenu p,.section .cr-contenu div,.section .cr-contenu ul,.section .cr-contenu ol{max-width:100%;overflow-wrap:break-word;word-break:break-word}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem;table-layout:fixed}
 .tbl th{background:var(--bleu,#1F4E79);color:#fff;padding:8px 10px;text-align:left;font-weight:600}
-.tbl td{padding:8px 10px;border-bottom:1px solid #e5e7eb}
+.tbl td{padding:8px 10px;border-bottom:1px solid #e5e7eb;overflow-wrap:break-word;word-break:break-word}
 .tbl tr:nth-child(even) td{background:#f8fafc}
 .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
 .badge-ok{background:#d1fae5;color:#065f46}
@@ -89,7 +91,7 @@
         {{-- 1. CONTEXTE --}}
         <div class="section">
             <h3>1. Contexte et objectifs de la réunion</h3>
-            <div style="font-size:.9rem;color:#334155;line-height:1.6">{!! $d['contexte'] ?? '—' !!}</div>
+            <div class="cr-contenu">{!! $d['contexte'] ?? '—' !!}</div>
 
             @if(!empty($d['ordre_du_jour']))
             <div style="margin-top:14px">
@@ -111,7 +113,7 @@
             @if(!empty($odj['contenu']))
             <div style="margin-bottom:14px">
                 <strong style="font-size:.88rem;color:var(--bleu,#1F4E79)">2.{{ $k + 1 }}. {{ $odj['point'] }}</strong>
-                <div style="font-size:.88rem;color:#334155;margin-top:4px;line-height:1.6">{!! $odj['contenu'] !!}</div>
+                <div class="cr-contenu" style="margin-top:4px">{!! $odj['contenu'] !!}</div>
             </div>
             @endif
             @endforeach
@@ -127,7 +129,7 @@
                 <div style="font-weight:600;color:var(--bleu,#1F4E79)">{{ $dil['projet'] }} <span style="font-weight:400;color:#64748b;font-size:.82rem">({{ $dil['responsable'] }})</span></div>
                 <div style="font-size:.82rem;color:#64748b;margin-top:4px">Terminées : <strong>{{ $dil['taches_terminees'] }}</strong> — Blocages : <strong>{{ $dil['taches_bloquees'] }}</strong></div>
                 @if(!empty($dil['observations']))
-                <div style="font-size:.85rem;color:#334155;margin-top:6px;line-height:1.6">{!! $dil['observations'] !!}</div>
+                <div class="cr-contenu" style="margin-top:6px">{!! $dil['observations'] !!}</div>
                 @endif
             </div>
             @endforeach
@@ -159,7 +161,7 @@
         @if(!empty($d['conclusion']))
         <div class="section">
             <h3>4. Conclusion</h3>
-            <div style="font-size:.9rem;color:#334155;line-height:1.6">{!! $d['conclusion'] !!}</div>
+            <div class="cr-contenu">{!! $d['conclusion'] !!}</div>
         </div>
         @endif
 
@@ -215,7 +217,7 @@
         @if(!empty($d['note_sprint']))
         <div class="section">
             <h3>Note pour le sprint suivant</h3>
-            <div style="font-size:.9rem;color:#334155;line-height:1.6">{!! $d['note_sprint'] !!}</div>
+            <div class="cr-contenu">{!! $d['note_sprint'] !!}</div>
         </div>
         @endif
     @endif
@@ -228,6 +230,10 @@
         @if($cr->estConfirme() && $cr->fichier_path)
         <a href="{{ route('comptes-rendus.telecharger', $cr) }}" class="btn-docx">&#8681; Télécharger DOCX</a>
         @endif
+        <a href="{{ route('comptes-rendus.imprimer', $cr) }}" class="btn-docx" style="background:#1F4E79" target="_blank">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Version PDF
+        </a>
         @if(auth()->user()->estPilote())
         <form method="POST" action="{{ route('comptes-rendus.destroy', $cr) }}" style="margin:0" onsubmit="return confirm('Supprimer définitivement ce compte rendu ? Cette action est irréversible.')">
             @csrf @method('DELETE')

@@ -21,7 +21,9 @@
 .rp-section h3 .ico{flex:none}
 
 .rp-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:900px){.rp-grid2{grid-template-columns:1fr}}
+@media(max-width:900px){.rp-grid2{grid-template-columns:1fr}.rp-tbl{display:block;overflow-x:auto}.rp-section{padding:12px 10px}}
+@media(max-width:600px){.rp-kpi{grid-template-columns:repeat(2,1fr)}.kpi-v{font-size:20px}.rp-section h3{font-size:13px}.rp-filtres{gap:6px}}
+@media(max-width:400px){.rp-kpi{grid-template-columns:1fr}.kpi-c{padding:10px}}
 
 /* Tableaux */
 .rp-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -90,6 +92,24 @@
             <option value="vtc" {{ $categorie==='vtc'?'selected':'' }}>VTC</option>
         </select>
     </div>
+    <div>
+        <label>Véhicule</label>
+        <select name="vehicule_id">
+            <option value="">Tous</option>
+            @foreach($tousVehicules as $tv)
+            <option value="{{ $tv->id }}" {{ $filtreVehicule==$tv->id?'selected':'' }}>{{ $tv->immatriculation }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label>Chauffeur</label>
+        <select name="chauffeur_id">
+            <option value="">Tous</option>
+            @foreach($tousChauffeurs as $tc)
+            <option value="{{ $tc->id }}" {{ $filtreChauffeur==$tc->id?'selected':'' }}>{{ $tc->nomComplet() }}</option>
+            @endforeach
+        </select>
+    </div>
     <button type="submit" class="btn-f">Filtrer</button>
 </form>
 
@@ -126,6 +146,60 @@
         <div class="kpi-sub kpi-warn">{{ $maintenancesProches }} à venir (15j)</div>
     </div>
 </div>
+
+{{-- ═══ DÉTAIL JOUR PAR JOUR (si filtre actif) ═══ --}}
+@if($detailJour->isNotEmpty())
+<div class="rp-section" style="border-left:4px solid var(--accent)">
+    <h3>{!! $ico('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>') !!} Détail jour par jour — {{ $filtreNom }}</h3>
+    @php
+        $dtRec = $detailJour->sum('recette');
+        $dtObj = $detailJour->sum('objectif');
+        $dtTaux = $dtObj > 0 ? round(($dtRec / $dtObj) * 100) : 0;
+        $dtAbsences = $detailJour->whereNotNull('motif_absence')->count();
+    @endphp
+    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;font-size:13px">
+        <span><strong>{{ $detailJour->count() }}</strong> jours enregistrés</span>
+        <span>Recettes : <strong>{{ number_format($dtRec, 0, ',', ' ') }}</strong> FCFA</span>
+        <span>Objectif : <strong>{{ number_format($dtObj, 0, ',', ' ') }}</strong> FCFA</span>
+        <span>Taux : <strong style="color:{{ $dtTaux >= 100 ? 'var(--ok)' : ($dtTaux >= 80 ? '#b45309' : 'var(--ko)') }}">{{ $dtTaux }}%</strong></span>
+        @if($dtAbsences > 0)<span style="color:var(--ko)">{{ $dtAbsences }} absence{{ $dtAbsences > 1 ? 's' : '' }} justifiée{{ $dtAbsences > 1 ? 's' : '' }}</span>@endif
+    </div>
+    <div style="overflow-x:auto">
+    <table class="rp-tbl">
+    <thead><tr><th>Date</th><th>Jour</th><th>Véhicule</th><th>Chauffeur</th><th>Recette</th><th>Objectif</th><th>Écart</th><th>Mode</th><th>Motif</th></tr></thead>
+    <tbody>
+    @foreach($detailJour as $dj)
+    @php
+        $ecDj = $dj->recette - $dj->objectif;
+        $tjL = match($dj->type_jour ?? 'ouvrable') { 'ferie' => 'Férié', 'dimanche' => 'Dim.', default => 'Ouv.' };
+    @endphp
+    <tr>
+        <td>{{ $dj->date->format('d/m/Y') }}</td>
+        <td>{{ $tjL }}</td>
+        <td>{{ $dj->vehicule->immatriculation ?? '?' }}</td>
+        <td>{{ $dj->chauffeur ?? '—' }}</td>
+        <td class="num" style="font-weight:600">{{ number_format($dj->recette, 0, ',', ' ') }}</td>
+        <td class="num">{{ number_format($dj->objectif, 0, ',', ' ') }}</td>
+        <td class="num {{ $ecDj >= 0 ? 'pos' : 'neg' }}">{{ ($ecDj >= 0 ? '+' : '') . number_format($ecDj, 0, ',', ' ') }}</td>
+        <td>{{ $dj->mode_remise ? ucfirst(str_replace('_', ' ', $dj->mode_remise)) : '—' }}</td>
+        <td>@if($dj->motif_absence)<span style="color:var(--ko);font-weight:600">{{ $dj->motif_absence }}</span>@else — @endif</td>
+    </tr>
+    @endforeach
+    </tbody>
+    <tfoot>
+    <tr style="font-weight:700;background:#f8fafc">
+        <td colspan="4">TOTAL</td>
+        <td class="num">{{ number_format($dtRec, 0, ',', ' ') }}</td>
+        <td class="num">{{ number_format($dtObj, 0, ',', ' ') }}</td>
+        @php $ecTot = $dtRec - $dtObj; @endphp
+        <td class="num {{ $ecTot >= 0 ? 'pos' : 'neg' }}">{{ ($ecTot >= 0 ? '+' : '') . number_format($ecTot, 0, ',', ' ') }}</td>
+        <td colspan="2"></td>
+    </tr>
+    </tfoot>
+    </table>
+    </div>
+</div>
+@endif
 
 {{-- ═══ GRAPHIQUES RECETTES ═══ --}}
 <div class="rp-section">

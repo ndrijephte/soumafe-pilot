@@ -10,7 +10,7 @@ class RecetteVehicule extends Model
 
     protected $fillable = [
         'date', 'type_jour', 'vehicule_id', 'chauffeur', 'recette', 'objectif',
-        'ecart', 'mode_remise', 'controle_par', 'observations',
+        'ecart', 'mode_remise', 'controle_par', 'observations', 'motif_absence', 'perspective',
     ];
 
     protected $casts = ['date' => 'date'];

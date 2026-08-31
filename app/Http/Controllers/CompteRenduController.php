@@ -262,6 +262,13 @@ class CompteRenduController extends Controller
         return response()->download($path, $nom);
     }
 
+    /* ===== IMPRESSION PDF (via navigateur) ===== */
+    public function imprimer(CompteRendu $cr)
+    {
+        $cr->load(['redacteur', 'designePar', 'president', 'sprint.projet']);
+        return view('comptes-rendus.pdf', compact('cr'));
+    }
+
     /* ===================================================================
      *  PRÉ-REMPLISSAGE
      * =================================================================== */

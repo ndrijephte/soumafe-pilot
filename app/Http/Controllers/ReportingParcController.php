@@ -15,12 +15,25 @@ class ReportingParcController extends Controller
         $periode = $r->get('periode', 'mois');
         [$debut, $fin] = $this->bornesPeriode($periode, $r->get('date_debut'), $r->get('date_fin'));
         $categorie = $r->get('categorie', 'tous');
+        $filtreVehicule = $r->get('vehicule_id');
+        $filtreChauffeur = $r->get('chauffeur_id');
 
         // Filtre véhicules par catégorie
         $vehiculesQ = Vehicule::query();
         if ($categorie !== 'tous') $vehiculesQ->where('categorie', $categorie);
         $vehicules = $vehiculesQ->orderBy('immatriculation')->get();
         $vehiculeIds = $vehicules->pluck('id');
+
+        // Si véhicule spécifique sélectionné
+        if ($filtreVehicule) {
+            $vehiculeIds = $vehiculeIds->intersect([$filtreVehicule]);
+        }
+
+        // Tous chauffeurs et tous véhicules pour les dropdowns
+        $tousVehicules = Vehicule::orderBy('immatriculation')->get();
+        $tousChauffeurs = Schema::hasTable('chauffeurs')
+            ? Chauffeur::where('statut', 'actif')->orderBy('nom')->get()
+            : collect();
 
         // ═══════ KPI GLOBAUX ═══════
         $recetteTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
@@ -247,6 +260,25 @@ class ReportingParcController extends Controller
             ];
         })->sortByDesc('resultat')->values();
 
+        // ═══════ DÉTAIL JOUR PAR JOUR (si filtre véhicule ou chauffeur) ═══════
+        $detailJour = collect();
+        $filtreNom = null;
+        if ($filtreChauffeur && Schema::hasTable('chauffeurs')) {
+            $ch = Chauffeur::find($filtreChauffeur);
+            if ($ch) {
+                $filtreNom = $ch->nomComplet();
+                $detailJour = RecetteVehicule::where('chauffeur', $filtreNom)
+                    ->whereBetween('date', [$debut, $fin])
+                    ->orderBy('date')->get();
+            }
+        } elseif ($filtreVehicule) {
+            $vf = Vehicule::find($filtreVehicule);
+            $filtreNom = $vf ? $vf->immatriculation : null;
+            $detailJour = RecetteVehicule::where('vehicule_id', $filtreVehicule)
+                ->whereBetween('date', [$debut, $fin])
+                ->orderBy('date')->get();
+        }
+
         return view('reporting.parc', compact(
             'periode', 'debut', 'fin', 'categorie',
             'recetteTotal', 'objectifTotal', 'tauxRecette',
@@ -257,7 +289,10 @@ class ReportingParcController extends Controller
             'pannesVehicule', 'pannesUrgence',
             'penalitesType', 'penalitesStatut',
             'maintenanceType', 'classement',
-            'performanceChauffeurs', 'gestionnaireParc'
+            'performanceChauffeurs', 'gestionnaireParc',
+            'tousVehicules', 'tousChauffeurs',
+            'filtreVehicule', 'filtreChauffeur',
+            'detailJour', 'filtreNom'
         ));
     }
 

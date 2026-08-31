@@ -120,4 +120,34 @@
         <button class="btn sm">+ Ajouter</button>
     </form>
 </div>
+{{-- ===== MOTIFS D'ABSENCE DE RECETTE ===== --}}
+<div class="carte form-admin" style="margin-top:20px">
+    <div class="param-section" style="margin-top:0">Motifs d'absence de recette</div>
+    <div class="info-box" style="background:#fff7ed;border-color:#fed7aa;color:#92400e">
+        Lorsqu'un chauffeur ne verse pas de recette (montant = 0), il doit obligatoirement sélectionner un motif dans cette liste.
+    </div>
+    <ul class="type-list">
+    @foreach($motifsAbsence as $ma)
+        <li class="type-item {{ $ma->actif ? '' : 'inactif' }}">
+            <span class="code">{{ $ma->code }}</span>
+            <span class="libelle">{{ $ma->libelle }}</span>
+            <form method="POST" action="{{ route('admin.parc-parametres.types.toggle', $ma) }}" style="display:inline">
+                @csrf @method('PUT')
+                <button class="btn sm {{ $ma->actif ? 'sec' : '' }}">{{ $ma->actif ? 'Actif' : 'Inactif' }}</button>
+            </form>
+            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $ma) }}" style="display:inline" onsubmit="return confirm('Supprimer ce motif ?')">
+                @csrf @method('DELETE')
+                <button class="btn sm ko">Suppr.</button>
+            </form>
+        </li>
+    @endforeach
+    </ul>
+    <form method="POST" action="{{ route('admin.parc-parametres.types.store') }}" class="add-type-row">
+        @csrf
+        <input type="hidden" name="categorie" value="motif_absence">
+        <input name="code" placeholder="Code (ex: accident)" required>
+        <input name="libelle" placeholder="Libellé (ex: Accident de circulation)" required>
+        <button class="btn sm">+ Ajouter</button>
+    </form>
+</div>
 @endsection

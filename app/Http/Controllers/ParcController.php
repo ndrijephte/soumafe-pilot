@@ -36,15 +36,178 @@ class ParcController extends Controller
 
         // Toutes les données chargées (sections empilées)
         $pannes = Panne::with('vehicule')->orderByDesc('date_declaration')->get();
-        $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->get();
+        $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->limit(200)->get();
         $maintenances = MaintenancePreventive::with('vehicule')->orderBy('prochaine_echeance')->get();
         $penalites = Penalite::with('vehicule')->orderByDesc('date_infraction')->get();
 
         $kpi = $this->calculerKpi($vehicules);
         $typesPenalite = TypeParc::penalites();
         $typesMaintenance = TypeParc::maintenances();
+        $motifsAbsence = TypeParc::motifsAbsence();
 
-        return view('parc.index', compact('vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes', 'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance'));
+        // --- Grille journalière recettes ---
+        $dateJour = $r->get('date_recette', date('Y-m-d'));
+        $grilleJour = $this->construireGrilleJour($vehicules, $dateJour, $collaborateurs);
+
+        // --- Alertes jours manquants (7 derniers jours) ---
+        $alertesManquants = $this->detecterJoursManquants($vehicules);
+
+        return view('parc.index', compact(
+            'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes',
+            'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
+            'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants'
+        ));
+    }
+
+    /* ─── Construire la grille du jour (chauffeur-centric) ─── */
+    private function construireGrilleJour($vehicules, string $dateStr, $collaborateurs): array
+    {
+        $date = \Carbon\Carbon::parse($dateStr);
+        $typeJour = $this->detecterTypeJour($dateStr);
+        $estDimanche = $date->isSunday();
+
+        $existantsData = RecetteVehicule::with('vehicule')->whereDate('date', $dateStr)->get()->keyBy('vehicule_id');
+
+        // 1. Chauffeurs actifs avec véhicule en service
+        $chauffeursActifs = Schema::hasTable('chauffeurs')
+            ? Chauffeur::where('statut', 'actif')
+                ->with(['vehicules' => fn($q) => $q->wherePivot('actif', true)->where('statut', 'en_service')])
+                ->orderBy('nom')->get()
+            : collect();
+
+        // 1b. Chauffeurs inactifs ayant une recette déjà saisie ce jour (ne pas masquer)
+        $chauffeursInactifs = Schema::hasTable('chauffeurs')
+            ? Chauffeur::where('statut', '!=', 'actif')
+                ->whereHas('vehicules', fn($q) => $q->wherePivot('actif', true))
+                ->with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
+                ->orderBy('nom')->get()
+                ->filter(function ($ch) use ($existantsData) {
+                    return $ch->vehicules->contains(fn($v) => $existantsData->has($v->id));
+                })
+            : collect();
+
+        $grille = [];
+        $vehiculesTraites = [];
+
+        foreach ($chauffeursActifs as $ch) {
+            $veh = $ch->vehicules->sortByDesc(fn($v) => $v->pivot->role === 'principal' ? 1 : 0)->first();
+            if (!$veh) continue;
+
+            $vehiculesTraites[] = $veh->id;
+            $estRepos = $estDimanche && $veh->categorie === 'vtc';
+            $objectif = ParametreParc::objectifRecette($veh->categorie, $typeJour);
+            if ($objectif <= 0) $objectif = $veh->objectif_recette ?? 0;
+            $dejaSaisi = $existantsData->has($veh->id);
+            $recetteExistante = $dejaSaisi ? $existantsData->get($veh->id) : null;
+
+            $grille[] = [
+                'chauffeur_obj' => $ch,
+                'chauffeur' => $ch->nomComplet(),
+                'chauffeur_actif' => true,
+                'vehicule' => $veh,
+                'objectif' => $estRepos ? 0 : $objectif,
+                'est_repos' => $estRepos,
+                'est_dimanche_taxi' => $estDimanche && $veh->categorie === 'taxi',
+                'type_jour' => $typeJour,
+                'deja_saisi' => $dejaSaisi,
+                'recette' => $recetteExistante,
+            ];
+        }
+
+        // 1c. Chauffeurs inactifs avec recette existante
+        foreach ($chauffeursInactifs as $ch) {
+            $veh = $ch->vehicules->first();
+            if (!$veh || in_array($veh->id, $vehiculesTraites)) continue;
+
+            $vehiculesTraites[] = $veh->id;
+            $estRepos = $estDimanche && $veh->categorie === 'vtc';
+            $objectif = ParametreParc::objectifRecette($veh->categorie, $typeJour);
+            if ($objectif <= 0) $objectif = $veh->objectif_recette ?? 0;
+            $dejaSaisi = $existantsData->has($veh->id);
+            $recetteExistante = $dejaSaisi ? $existantsData->get($veh->id) : null;
+
+            $grille[] = [
+                'chauffeur_obj' => $ch,
+                'chauffeur' => $ch->nomComplet(),
+                'chauffeur_actif' => false,
+                'vehicule' => $veh,
+                'objectif' => $estRepos ? 0 : $objectif,
+                'est_repos' => $estRepos,
+                'est_dimanche_taxi' => $estDimanche && $veh->categorie === 'taxi',
+                'type_jour' => $typeJour,
+                'deja_saisi' => $dejaSaisi,
+                'recette' => $recetteExistante,
+            ];
+        }
+
+        // 2. Véhicules en service sans chauffeur affecté
+        $actifsSansChauffeur = $vehicules->where('statut', 'en_service')
+            ->reject(fn($v) => in_array($v->id, $vehiculesTraites));
+
+        foreach ($actifsSansChauffeur as $v) {
+            $estRepos = $estDimanche && $v->categorie === 'vtc';
+            $objectif = ParametreParc::objectifRecette($v->categorie, $typeJour);
+            if ($objectif <= 0) $objectif = $v->objectif_recette ?? 0;
+            $dejaSaisi = $existantsData->has($v->id);
+            $recetteExistante = $dejaSaisi ? $existantsData->get($v->id) : null;
+
+            $grille[] = [
+                'chauffeur_obj' => null,
+                'chauffeur' => $v->chauffeur_affecte ?? '',
+                'chauffeur_actif' => true,
+                'vehicule' => $v,
+                'objectif' => $estRepos ? 0 : $objectif,
+                'est_repos' => $estRepos,
+                'est_dimanche_taxi' => $estDimanche && $v->categorie === 'taxi',
+                'type_jour' => $typeJour,
+                'deja_saisi' => $dejaSaisi,
+                'recette' => $recetteExistante,
+            ];
+        }
+
+        return $grille;
+    }
+
+    /* ─── Détecter jours manquants (7 derniers jours) ─── */
+    private function detecterJoursManquants($vehicules): array
+    {
+        $actifs = $vehicules->where('statut', 'en_service');
+        if ($actifs->isEmpty()) return [];
+
+        $alertes = [];
+        $aujourdhui = \Carbon\Carbon::today();
+
+        for ($i = 1; $i <= 7; $i++) {
+            $jour = $aujourdhui->copy()->subDays($i);
+            $dateStr = $jour->format('Y-m-d');
+            $estDimanche = $jour->isSunday();
+
+            // Véhicules qui doivent verser ce jour
+            $doiventVerser = $actifs->filter(function ($v) use ($estDimanche) {
+                // Dimanche VTC = repos, pas besoin de recette
+                if ($estDimanche && $v->categorie === 'vtc') return false;
+                return true;
+            });
+
+            if ($doiventVerser->isEmpty()) continue;
+
+            $idsDoivent = $doiventVerser->pluck('id')->toArray();
+            $saisis = RecetteVehicule::whereDate('date', $dateStr)
+                ->whereIn('vehicule_id', $idsDoivent)
+                ->pluck('vehicule_id')->toArray();
+
+            $manquants = array_diff($idsDoivent, $saisis);
+            if (!empty($manquants)) {
+                $noms = $doiventVerser->whereIn('id', $manquants)->pluck('immatriculation')->toArray();
+                $alertes[] = [
+                    'date' => $dateStr,
+                    'date_label' => $jour->translatedFormat('l d/m'),
+                    'count' => count($manquants),
+                    'vehicules' => implode(', ', $noms),
+                ];
+            }
+        }
+        return $alertes;
     }
 
     /* ===== VÉHICULES CRUD ===== */
@@ -196,19 +359,33 @@ class ParcController extends Controller
             'mode_remise' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
             'controle_par' => 'nullable|string|max:100',
             'observations' => 'nullable|string|max:500',
+            'motif_absence' => 'nullable|string|max:80',
         ]);
 
-        $v = Vehicule::find($data['vehicule_id']);
-        $data['type_jour'] = $this->detecterTypeJour($data['date']);
+        // Recette = 0 → motif obligatoire
+        if (($data['recette'] ?? 0) == 0 && empty($data['motif_absence'])) {
+            return back()->withInput()->withErrors(['motif_absence' => 'Le motif est obligatoire lorsque la recette est à 0.']);
+        }
+        // Recette > 0 → vider le motif
+        if (($data['recette'] ?? 0) > 0) {
+            $data['motif_absence'] = null;
+        }
 
-        // Objectif dynamique : paramètre si dispo, sinon objectif véhicule
-        $categorie = $v->categorie ?? 'taxi';
-        $objectifParam = ParametreParc::objectifRecette($categorie, $data['type_jour']);
-        $data['objectif'] = $objectifParam > 0 ? $objectifParam : ($v->objectif_recette ?? 0);
-        $data['ecart'] = $data['recette'] - $data['objectif'];
+        try {
+            $v = Vehicule::find($data['vehicule_id']);
+            $data['type_jour'] = $this->detecterTypeJour($data['date']);
 
-        RecetteVehicule::create($data);
-        return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette enregistrée.');
+            $categorie = $v->categorie ?? 'taxi';
+            $objectifParam = ParametreParc::objectifRecette($categorie, $data['type_jour']);
+            $data['objectif'] = $objectifParam > 0 ? $objectifParam : ($v->objectif_recette ?? 0);
+            $data['ecart'] = $data['recette'] - $data['objectif'];
+
+            RecetteVehicule::create($data);
+            return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette enregistrée.');
+        } catch (\Exception $e) {
+            return redirect()->route('parc.index', ['tab' => 'recettes'])
+                ->withErrors(['Erreur : ' . $e->getMessage()]);
+        }
     }
 
     public function updateRecette(Request $r, RecetteVehicule $recette)
@@ -222,17 +399,30 @@ class ParcController extends Controller
             'mode_remise' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
             'controle_par' => 'nullable|string|max:100',
             'observations' => 'nullable|string|max:500',
+            'motif_absence' => 'nullable|string|max:80',
         ]);
 
-        $v = Vehicule::find($data['vehicule_id']);
-        $data['type_jour'] = $this->detecterTypeJour($data['date']);
-        $categorie = $v->categorie ?? 'taxi';
-        $objectifParam = ParametreParc::objectifRecette($categorie, $data['type_jour']);
-        $data['objectif'] = $objectifParam > 0 ? $objectifParam : ($v->objectif_recette ?? 0);
-        $data['ecart'] = $data['recette'] - $data['objectif'];
+        if (($data['recette'] ?? 0) == 0 && empty($data['motif_absence'])) {
+            return back()->withInput()->withErrors(['motif_absence' => 'Le motif est obligatoire lorsque la recette est à 0.']);
+        }
+        if (($data['recette'] ?? 0) > 0) {
+            $data['motif_absence'] = null;
+        }
 
-        $recette->update($data);
-        return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette mise à jour.');
+        try {
+            $v = Vehicule::find($data['vehicule_id']);
+            $data['type_jour'] = $this->detecterTypeJour($data['date']);
+            $categorie = $v->categorie ?? 'taxi';
+            $objectifParam = ParametreParc::objectifRecette($categorie, $data['type_jour']);
+            $data['objectif'] = $objectifParam > 0 ? $objectifParam : ($v->objectif_recette ?? 0);
+            $data['ecart'] = $data['recette'] - $data['objectif'];
+
+            $recette->update($data);
+            return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette mise à jour.');
+        } catch (\Exception $e) {
+            return redirect()->route('parc.index', ['tab' => 'recettes'])
+                ->withErrors(['Erreur : ' . $e->getMessage()]);
+        }
     }
 
     public function destroyRecette(Request $r, RecetteVehicule $recette)
@@ -240,6 +430,97 @@ class ParcController extends Controller
         $this->autoriser($r);
         $recette->delete();
         return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette supprimée.');
+    }
+
+    /* ===== VALIDATION EN MASSE JOURNÉE ===== */
+    public function validerJournee(Request $r)
+    {
+        $this->autoriser($r);
+        $dateJour = $r->input('date_jour');
+        $lignes = $r->input('lignes', []);
+
+        if (!$dateJour || empty($lignes)) {
+            return redirect()->route('parc.index', ['tab' => 'recettes'])->withErrors(['Données manquantes.']);
+        }
+
+        $typeJour = $this->detecterTypeJour($dateJour);
+        $erreurs = [];
+        $nbCrees = 0;
+        $nbMaj = 0;
+
+        try {
+            foreach ($lignes as $i => $ligne) {
+                $vehiculeId = $ligne['vehicule_id'] ?? null;
+                if (!$vehiculeId) continue;
+
+                $v = Vehicule::find($vehiculeId);
+                if (!$v) continue;
+
+                $estRepos = isset($ligne['est_repos']) && $ligne['est_repos'];
+                $montant = (int) ($ligne['recette'] ?? 0);
+                $motif = $ligne['motif_absence'] ?? null;
+                $perspective = $ligne['perspective'] ?? null;
+
+                $categorie = $v->categorie ?? 'taxi';
+                $objectifParam = ParametreParc::objectifRecette($categorie, $typeJour);
+                $objectif = $estRepos ? 0 : ($objectifParam > 0 ? $objectifParam : ($v->objectif_recette ?? 0));
+
+                if ($estRepos) {
+                    $montant = 0;
+                    $motif = 'jour_repos';
+                    $perspective = null;
+                } else {
+                    // Recette = 0 sans motif = erreur
+                    if ($montant == 0 && empty($motif)) {
+                        $erreurs[] = ($ligne['chauffeur'] ?? $v->immatriculation) . ' : motif obligatoire (recette = 0)';
+                        continue;
+                    }
+                    // Recette < objectif et > 0 → motif souhaité, perspective recommandée
+                    if ($montant > 0 && $montant < $objectif && empty($motif)) {
+                        $motif = 'sous_objectif';
+                    }
+                    // Recette >= objectif → nettoyer
+                    if ($montant >= $objectif) {
+                        $motif = null;
+                        $perspective = null;
+                    }
+                }
+
+                $donnees = [
+                    'date' => $dateJour,
+                    'vehicule_id' => $vehiculeId,
+                    'chauffeur' => $ligne['chauffeur'] ?? null,
+                    'recette' => $montant,
+                    'objectif' => $objectif,
+                    'ecart' => $montant - $objectif,
+                    'type_jour' => $typeJour,
+                    'mode_remise' => $ligne['mode_remise'] ?? null,
+                    'controle_par' => $ligne['controle_par'] ?? null,
+                    'observations' => $ligne['observations'] ?? null,
+                    'motif_absence' => $motif,
+                    'perspective' => $perspective,
+                ];
+
+                $existant = RecetteVehicule::where('vehicule_id', $vehiculeId)->whereDate('date', $dateJour)->first();
+                if ($existant) {
+                    $existant->update($donnees);
+                    $nbMaj++;
+                } else {
+                    RecetteVehicule::create($donnees);
+                    $nbCrees++;
+                }
+            }
+        } catch (\Exception $e) {
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJour])
+                ->withErrors(['Erreur lors de la validation : ' . $e->getMessage()]);
+        }
+
+        $msg = "Journée du " . \Carbon\Carbon::parse($dateJour)->format('d/m/Y') . " validée : {$nbCrees} créée(s), {$nbMaj} mise(s) à jour.";
+        if (!empty($erreurs)) {
+            $msg .= ' Erreurs : ' . implode(' | ', $erreurs);
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJour])->with('succes', $msg)->withErrors($erreurs);
+        }
+        return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJour])->with('succes', $msg);
     }
 
     /* ===== MAINTENANCE CRUD ===== */

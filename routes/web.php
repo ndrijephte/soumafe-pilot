@@ -92,6 +92,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/comptes-rendus/{cr}', [CompteRenduController::class, 'update'])->name('comptes-rendus.update');
     Route::post('/comptes-rendus/{cr}/confirmer', [CompteRenduController::class, 'confirmer'])->name('comptes-rendus.confirmer');
     Route::get('/comptes-rendus/{cr}/telecharger', [CompteRenduController::class, 'telecharger'])->name('comptes-rendus.telecharger');
+    Route::get('/comptes-rendus/{cr}/imprimer', [CompteRenduController::class, 'imprimer'])->name('comptes-rendus.imprimer');
     Route::delete('/comptes-rendus/{cr}', [CompteRenduController::class, 'destroy'])->name('comptes-rendus.destroy');
 
     // Exports xlsx (pilotes : direction, charge_operations, admin)
@@ -116,6 +117,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/recettes', [ParcController::class, 'storeRecette'])->name('parc.recettes.store');
     Route::put('/parc/recettes/{recette}', [ParcController::class, 'updateRecette'])->name('parc.recettes.update');
     Route::delete('/parc/recettes/{recette}', [ParcController::class, 'destroyRecette'])->name('parc.recettes.destroy');
+    Route::post('/parc/recettes/valider-journee', [ParcController::class, 'validerJournee'])->name('parc.recettes.validerJournee');
     Route::post('/parc/maintenances', [ParcController::class, 'storeMaintenance'])->name('parc.maintenances.store');
     Route::put('/parc/maintenances/{maintenance}', [ParcController::class, 'updateMaintenance'])->name('parc.maintenances.update');
     Route::delete('/parc/maintenances/{maintenance}', [ParcController::class, 'destroyMaintenance'])->name('parc.maintenances.destroy');

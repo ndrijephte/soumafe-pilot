@@ -263,6 +263,7 @@
                                     @endif
                                 </div>
                                 <div class="ms-drop">
+                                    <label><input type="checkbox" name="donnees[decisions][{{ $k }}][responsables][]" value="Tous" onchange="updateMSDisplay(this)" @checked(in_array('Tous', $resps))> <strong>Tous</strong></label>
                                     @foreach($collaborateurs as $c)
                                     <label><input type="checkbox" name="donnees[decisions][{{ $k }}][responsables][]" value="{{ $c->nomComplet() }}" onchange="updateMSDisplay(this)" @checked(in_array($c->nomComplet(), $resps))> {{ $c->nomComplet() }}</label>
                                     @endforeach
@@ -363,6 +364,7 @@
                                     @endif
                                 </div>
                                 <div class="ms-drop">
+                                    <label><input type="checkbox" name="donnees[actions_a_mener][{{ $k }}][responsables][]" value="Tous" onchange="updateMSDisplay(this)" @checked(in_array('Tous', $respsA))> <strong>Tous</strong></label>
                                     @foreach($collaborateurs as $c)
                                     <label><input type="checkbox" name="donnees[actions_a_mener][{{ $k }}][responsables][]" value="{{ $c->nomComplet() }}" onchange="updateMSDisplay(this)" @checked(in_array($c->nomComplet(), $respsA))> {{ $c->nomComplet() }}</label>
                                     @endforeach
@@ -475,7 +477,7 @@ function renum(){
 
 /* === Multi-select responsables === */
 function msCheckboxes(namePrefix){
-    return collabs.map(c => `<label><input type="checkbox" name="${namePrefix}[responsables][]" value="${c}" onchange="updateMSDisplay(this)"> ${c}</label>`).join('');
+    return `<label><input type="checkbox" name="${namePrefix}[responsables][]" value="Tous" onchange="updateMSDisplay(this)"> <strong>Tous</strong></label>` + collabs.map(c => `<label><input type="checkbox" name="${namePrefix}[responsables][]" value="${c}" onchange="updateMSDisplay(this)"> ${c}</label>`).join('');
 }
 function toggleMS(btn){
     const drop = btn.nextElementSibling;

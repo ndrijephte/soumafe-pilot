@@ -14,6 +14,10 @@ class TacheController extends Controller
     /** US-07 : mes tâches en kanban (défaut) ou liste, filtres projet/type/priorité. */
     public function index(Request $r)
     {
+        if ($r->user()?->aRole('direction')) {
+            return redirect()->route('dashboard');
+        }
+
         $taches = Tache::with(['projet', 'sprint'])
             ->where('user_id', $r->user()->id)
             ->when($r->projet, fn ($q) => $q->where('projet_id', $r->projet))

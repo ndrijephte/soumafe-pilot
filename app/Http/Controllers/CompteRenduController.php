@@ -282,7 +282,7 @@ class CompteRenduController extends Controller
         foreach ($projets as $p) {
             $tachesTerminees = Tache::where('projet_id', $p->id)->where('statut', 'termine')->where('updated_at', '>=', $semaine)->count();
             $tachesBloquees = Schema::hasTable('blocages') ? Blocage::whereHas('tache', fn($q) => $q->where('projet_id', $p->id))->whereNull('date_levee')->count() : 0;
-            $evenements = Schema::hasTable('evenements') ? Evenement::where('projet_id', $p->id)->where('created_at', '>=', $semaine)->pluck('description')->toArray() : [];
+            $evenements = (Schema::hasTable('evenements') && Schema::hasColumn('evenements', 'projet_id')) ? Evenement::where('projet_id', $p->id)->where('created_at', '>=', $semaine)->pluck('description')->toArray() : [];
 
             $diligences[] = [
                 'projet' => $p->libelle, 'responsable' => $p->responsable?->nomComplet() ?? '—',

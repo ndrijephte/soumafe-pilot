@@ -12,6 +12,9 @@ class SaisieController extends Controller
     public function index(Request $r)
     {
         $user = $r->user();
+        if ($user?->aRole('direction')) {
+            return redirect()->route('dashboard');
+        }
         $userId = $user->id;
 
         // Tâches du jour : uniquement celles dont le sprint est en_cours (ou sans sprint / T3)

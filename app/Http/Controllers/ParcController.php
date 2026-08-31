@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
+use App\Models\{Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -52,10 +52,15 @@ class ParcController extends Controller
         // --- Alertes jours manquants (7 derniers jours) ---
         $alertesManquants = $this->detecterJoursManquants($vehicules);
 
+        // --- Recouvrements ---
+        $recouvrements = Schema::hasTable('recouvrements')
+            ? Recouvrement::with(['vehicule', 'versements'])->orderByDesc('date_recette')->get()
+            : collect();
+
         return view('parc.index', compact(
             'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes',
             'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
-            'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants'
+            'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements'
         ));
     }
 
@@ -76,15 +81,13 @@ class ParcController extends Controller
             : collect();
 
         // 1b. Chauffeurs inactifs ayant une recette déjà saisie ce jour (ne pas masquer)
-        $chauffeursInactifs = Schema::hasTable('chauffeurs')
-            ? Chauffeur::where('statut', '!=', 'actif')
-                ->whereHas('vehicules', fn($q) => $q->wherePivot('actif', true))
+        $chauffeursInactifs = collect();
+        if (Schema::hasTable('chauffeurs') && $existantsData->isNotEmpty()) {
+            $chauffeursInactifs = Chauffeur::where('statut', '!=', 'actif')
                 ->with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
                 ->orderBy('nom')->get()
-                ->filter(function ($ch) use ($existantsData) {
-                    return $ch->vehicules->contains(fn($v) => $existantsData->has($v->id));
-                })
-            : collect();
+                ->filter(fn($ch) => $ch->vehicules->contains(fn($v) => $existantsData->has($v->id)));
+        }
 
         $grille = [];
         $vehiculesTraites = [];
@@ -504,10 +507,50 @@ class ParcController extends Controller
                 $existant = RecetteVehicule::where('vehicule_id', $vehiculeId)->whereDate('date', $dateJour)->first();
                 if ($existant) {
                     $existant->update($donnees);
+                    $recetteObj = $existant;
                     $nbMaj++;
                 } else {
-                    RecetteVehicule::create($donnees);
+                    $recetteObj = RecetteVehicule::create($donnees);
                     $nbCrees++;
+                }
+
+                // ─── Gestion recouvrement si déficit ───
+                if (!$estRepos && Schema::hasTable('recouvrements') && $montant < $objectif) {
+                    $justifValable = filter_var($ligne['justification_valable'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                    $deficit = $objectif - $montant;
+                    $chauffeurNom = $ligne['chauffeur'] ?? null;
+
+                    // Chercher chauffeur_id
+                    $chauffeurId = null;
+                    if ($chauffeurNom && Schema::hasTable('chauffeurs')) {
+                        $ch = Chauffeur::whereRaw("CONCAT(nom,' ',prenom) = ?", [$chauffeurNom])
+                            ->orWhereRaw("CONCAT(prenom,' ',nom) = ?", [$chauffeurNom])
+                            ->first();
+                        $chauffeurId = $ch?->id;
+                    }
+
+                    // Supprimer ancien recouvrement pour cette recette si justification a changé
+                    Recouvrement::where('recette_vehicule_id', $recetteObj->id)
+                        ->where('montant_recouvre', 0)->delete();
+
+                    if (!$justifValable) {
+                        Recouvrement::create([
+                            'recette_vehicule_id' => $recetteObj->id,
+                            'chauffeur_id' => $chauffeurId,
+                            'chauffeur_nom' => $chauffeurNom,
+                            'vehicule_id' => $vehiculeId,
+                            'date_recette' => $dateJour,
+                            'montant_verse' => $montant,
+                            'objectif' => $objectif,
+                            'deficit' => $deficit,
+                            'montant_recouvre' => 0,
+                            'solde' => $deficit,
+                            'statut' => 'actif',
+                            'motif' => $motif,
+                            'justification_valable' => false,
+                            'cree_par' => $ligne['controle_par'] ?? auth()->user()->name,
+                        ]);
+                    }
                 }
             }
         } catch (\Exception $e) {
@@ -766,5 +809,47 @@ class ParcController extends Controller
             'penalites_mois' => $penalitesMois,
             'penalites_non_payees' => $penalitesNonPayees,
         ];
+    }
+
+    /* ═══════════════════════════════════════════════════════
+     *  RECOUVREMENTS
+     * ═══════════════════════════════════════════════════════ */
+
+    public function storeVersement(Request $r, Recouvrement $recouvrement)
+    {
+        $this->autoriser($r);
+        $data = $r->validate([
+            'montant' => 'required|integer|min:1',
+            'date_versement' => 'required|date',
+            'mode_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'observations' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            if ($data['montant'] > $recouvrement->solde) {
+                return back()->withErrors(['Le montant dépasse le solde restant (' . number_format($recouvrement->solde, 0, ',', ' ') . ' F).']);
+            }
+
+            $data['recouvrement_id'] = $recouvrement->id;
+            $data['recu_par'] = $r->user()->name;
+            VersementRecouvrement::create($data);
+            $recouvrement->recalculerSolde();
+
+            return redirect()->route('parc.index', ['tab' => 'recouvrements'])
+                ->with('succes', 'Versement de ' . number_format($data['montant'], 0, ',', ' ') . ' F enregistré.');
+        } catch (\Exception $e) {
+            return redirect()->route('parc.index', ['tab' => 'recouvrements'])
+                ->withErrors(['Erreur : ' . $e->getMessage()]);
+        }
+    }
+
+    public function annulerRecouvrement(Request $r, Recouvrement $recouvrement)
+    {
+        $this->autoriser($r);
+        if ($recouvrement->montant_recouvre > 0) {
+            return back()->withErrors(['Impossible d\'annuler : des versements ont déjà été effectués.']);
+        }
+        $recouvrement->update(['statut' => 'annule']);
+        return redirect()->route('parc.index', ['tab' => 'recouvrements'])->with('succes', 'Recouvrement annulé.');
     }
 }

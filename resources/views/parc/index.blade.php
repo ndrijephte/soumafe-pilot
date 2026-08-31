@@ -157,6 +157,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <button class="tab-btn" onclick="changerOnglet('recettes')">{!! $icWallet !!} Recettes</button>
     <button class="tab-btn" onclick="changerOnglet('maint')">{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }}</span>@endif</button>
     <button class="tab-btn" onclick="changerOnglet('penal')">{!! $icAlert !!} Pénalités @if($kpi['penalites_non_payees']>0)<span class="pill p-ko">{{ $kpi['penalites_non_payees'] }}</span>@endif</button>
+    <button class="tab-btn" onclick="changerOnglet('recouv')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Recouvrements @if(($recouvrements ?? collect())->where('statut','actif')->count()>0)<span class="pill p-ko">{{ ($recouvrements ?? collect())->where('statut','actif')->count() }}</span>@endif</button>
     <button class="tab-btn" onclick="changerOnglet('chauffeurs')">{!! $icUser !!} Chauffeurs <span class="pill p-cours">{{ $chauffeurs->count() }}</span></button>
 </div>
 
@@ -307,6 +310,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <input type="hidden" name="lignes[0][mode_remise]" id="gi-mode">
         <input type="hidden" name="lignes[0][motif_absence]" id="gi-motif">
         <input type="hidden" name="lignes[0][perspective]" id="gi-perspective">
+        <input type="hidden" name="lignes[0][justification_valable]" id="gi-justif" value="1">
         <input type="hidden" name="lignes[0][controle_par]" value="{{ auth()->user()->name }}">
         <input type="hidden" name="lignes[0][est_repos]" id="gi-repos" value="0">
     </form>
@@ -390,8 +394,20 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
             {{-- Perspective (visible si recette < objectif) --}}
             <div class="gc-perspective" id="gc-persp-wrap-{{ $i }}" style="padding:0 16px 12px;{{ ($sousObjectif) ? '' : 'display:none' }}">
-                <label style="font-size:10.5px;color:var(--ko);font-weight:600;text-transform:uppercase;letter-spacing:.3px">Perspective / Stratégie de rattrapage</label>
-                <textarea id="gr-persp-{{ $i }}" rows="2" placeholder="Le chauffeur rattrapera-t-il la somme restante ? Motif suffisant ?" style="width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;resize:vertical;margin-top:4px">{{ $deja ? ($rec->perspective ?? '') : '' }}</textarea>
+                <div style="display:flex;gap:16px;align-items:center;margin-bottom:8px">
+                    <span style="font-size:10.5px;color:var(--ko);font-weight:600;text-transform:uppercase;letter-spacing:.3px">Justification du déficit</span>
+                    <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+                        <input type="radio" name="justif-{{ $i }}" value="1" checked onchange="toggleJustif({{ $i }})"> Valable
+                    </label>
+                    <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ko)">
+                        <input type="radio" name="justif-{{ $i }}" value="0" onchange="toggleJustif({{ $i }})"> Non valable → Recouvrement
+                    </label>
+                </div>
+                <textarea id="gr-persp-{{ $i }}" rows="2" placeholder="Perspective de rattrapage ou justification..." style="width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;resize:vertical">{{ $deja ? ($rec->perspective ?? '') : '' }}</textarea>
+                <div id="gc-recouv-warn-{{ $i }}" style="display:none;margin-top:6px;padding:6px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:11.5px;color:#b91c1c">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Une créance sera automatiquement créée pour le déficit.
+                </div>
             </div>
             @endif
         </div>
@@ -526,6 +542,137 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </tbody>
     </table>
     </div>
+</div>
+
+{{-- ==================== TAB RECOUVREMENTS ==================== --}}
+<div class="tab-panel" id="tab-recouv">
+    <div class="panneau">
+    <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--bleu)" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Recouvrements en cours
+    </h3>
+
+    @php $recActifs = ($recouvrements ?? collect())->where('statut', 'actif'); @endphp
+
+    @if($recActifs->count() > 0)
+    {{-- KPIs recouvrements --}}
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <div class="kpi"><div class="lbl">Créances actives</div><div class="val" style="color:var(--ko)">{{ $recActifs->count() }}</div></div>
+        <div class="kpi"><div class="lbl">Total à recouvrer</div><div class="val" style="color:var(--ko)">{{ number_format($recActifs->sum('solde'), 0, ',', ' ') }} F</div></div>
+        <div class="kpi"><div class="lbl">Déjà recouvré</div><div class="val" style="color:var(--ok)">{{ number_format($recActifs->sum('montant_recouvre'), 0, ',', ' ') }} F</div></div>
+    </div>
+
+    <div style="overflow-x:auto">
+    <table>
+    <thead><tr><th>Date</th><th>Chauffeur</th><th>Véhicule</th><th>Objectif</th><th>Versé</th><th>Déficit</th><th>Recouvré</th><th>Solde</th><th>Statut</th><th></th></tr></thead>
+    <tbody>
+    @foreach($recActifs as $rc)
+    <tr>
+        <td>{{ $rc->date_recette->format('d/m/Y') }}</td>
+        <td><strong>{{ $rc->chauffeur_nom ?? '—' }}</strong></td>
+        <td>{{ $rc->vehicule?->immatriculation ?? '—' }}</td>
+        <td>{{ number_format($rc->objectif, 0, ',', ' ') }}</td>
+        <td>{{ number_format($rc->montant_verse, 0, ',', ' ') }}</td>
+        <td style="color:var(--ko);font-weight:600">{{ number_format($rc->deficit, 0, ',', ' ') }}</td>
+        <td style="color:var(--ok)">{{ number_format($rc->montant_recouvre, 0, ',', ' ') }}</td>
+        <td style="font-weight:700;color:{{ $rc->solde > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($rc->solde, 0, ',', ' ') }} F</td>
+        <td><span class="pill p-ko">Actif</span></td>
+        <td>
+            <div class="act-row">
+                <button type="button" class="act-btn" title="Enregistrer un versement" onclick="ouvrirVersement({{ $rc->id }}, '{{ $rc->chauffeur_nom }}', {{ $rc->solde }})">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+                @if($rc->montant_recouvre == 0)
+                <form method="POST" action="{{ route('parc.recouvrements.annuler', $rc) }}" onsubmit="return confirm('Annuler ce recouvrement ?')">@csrf @method('PATCH')
+                    <button class="act-btn del" title="Annuler">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </form>
+                @endif
+            </div>
+        </td>
+    </tr>
+    {{-- Versements existants --}}
+    @if($rc->versements->count())
+    <tr><td colspan="10" style="padding:0">
+        <div style="background:#f0fdf4;padding:6px 16px;font-size:11.5px">
+            <strong style="color:var(--ok)">Versements :</strong>
+            @foreach($rc->versements as $vs)
+            <span style="margin-left:8px">{{ $vs->date_versement->format('d/m') }} — {{ number_format($vs->montant, 0, ',', ' ') }} F ({{ $vs->mode_paiement ? ucfirst(str_replace('_',' ',$vs->mode_paiement)) : '—' }})</span>{{ !$loop->last ? ' |' : '' }}
+            @endforeach
+        </div>
+    </td></tr>
+    @endif
+    @endforeach
+    </tbody>
+    </table>
+    </div>
+    @else
+    <div class="empty-msg" style="text-align:center;padding:30px 0">Aucun recouvrement actif.</div>
+    @endif
+
+    {{-- Recouvrements soldés --}}
+    @php $recSoldes = ($recouvrements ?? collect())->whereIn('statut', ['solde', 'annule']); @endphp
+    @if($recSoldes->count() > 0)
+    <details style="margin-top:16px">
+        <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--bleu);padding:6px 0">Historique soldés / annulés ({{ $recSoldes->count() }})</summary>
+        <div style="overflow-x:auto;margin-top:8px">
+        <table>
+        <thead><tr><th>Date</th><th>Chauffeur</th><th>Déficit</th><th>Recouvré</th><th>Statut</th></tr></thead>
+        <tbody>
+        @foreach($recSoldes as $rs)
+        <tr style="opacity:.7">
+            <td>{{ $rs->date_recette->format('d/m/Y') }}</td>
+            <td>{{ $rs->chauffeur_nom ?? '—' }}</td>
+            <td>{{ number_format($rs->deficit, 0, ',', ' ') }}</td>
+            <td>{{ number_format($rs->montant_recouvre, 0, ',', ' ') }}</td>
+            <td><span class="pill {{ $rs->statut === 'solde' ? 'p-ok' : 'p-gris' }}">{{ $rs->statut === 'solde' ? 'Soldé' : 'Annulé' }}</span></td>
+        </tr>
+        @endforeach
+        </tbody>
+        </table>
+        </div>
+    </details>
+    @endif
+    </div>
+
+    {{-- Dialog versement --}}
+    <dialog id="dlg-versement" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h3 id="dlg-vers-titre" style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Versement</h3>
+            <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+        </div>
+        <form method="POST" id="form-versement">
+            @csrf
+            <div style="display:grid;gap:12px">
+                <div>
+                    <label>Montant (F)</label>
+                    <input type="number" name="montant" id="vs-montant" required min="1" placeholder="Montant du versement">
+                    <div id="vs-solde-info" style="font-size:11px;color:var(--gris);margin-top:2px"></div>
+                </div>
+                <div>
+                    <label>Date versement</label>
+                    <input type="date" name="date_versement" id="vs-date" value="{{ date('Y-m-d') }}" required>
+                </div>
+                <div>
+                    <label>Mode de paiement</label>
+                    <select name="mode_paiement">
+                        <option value="">—</option>
+                        <option value="especes">Espèces</option>
+                        <option value="mobile_money">Mobile Money</option>
+                        <option value="cheque">Chèque</option>
+                        <option value="virement">Virement</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Observations</label>
+                    <textarea name="observations" rows="2" placeholder="Notes..."></textarea>
+                </div>
+                <button type="submit" class="btn">Enregistrer le versement</button>
+            </div>
+        </form>
+    </dialog>
 </div>
 
 {{-- ==================== TAB CHAUFFEURS ==================== --}}
@@ -1145,6 +1292,15 @@ function filtrerChauffeurs(q){
     });
 }
 
+// Toggle justification valable / non valable
+function toggleJustif(idx){
+    var radios=document.querySelectorAll('input[name="justif-'+idx+'"]');
+    var val='1';
+    radios.forEach(function(r){if(r.checked) val=r.value;});
+    var warn=document.getElementById('gc-recouv-warn-'+idx);
+    if(warn) warn.style.display=(val==='0')?'':'none';
+}
+
 // Grille : toggle perspective + motif selon montant vs objectif
 function recetteChange(idx){
     var item=document.getElementById('gc-'+idx);
@@ -1192,8 +1348,21 @@ function validerLigne(idx){
     document.getElementById('gi-mode').value=mode?mode.value:'';
     document.getElementById('gi-motif').value=motif?motif.value:'';
     document.getElementById('gi-perspective').value=persp?persp.value:'';
+    // Justification valable (radio)
+    var justifRadio=item.querySelector('input[name="justif-'+idx+'"]:checked');
+    document.getElementById('gi-justif').value=justifRadio?justifRadio.value:'1';
     document.getElementById('gi-repos').value=repos?'1':'0';
     document.getElementById('form-grille-ind').submit();
+}
+
+function ouvrirVersement(recId, chauffeur, solde){
+    document.getElementById('dlg-vers-titre').textContent='Versement — '+chauffeur;
+    document.getElementById('form-versement').action='{{ url("parc/recouvrements") }}/'+recId+'/versement';
+    document.getElementById('vs-montant').max=solde;
+    document.getElementById('vs-montant').value='';
+    document.getElementById('vs-solde-info').textContent='Solde restant : '+solde.toLocaleString('fr-FR')+' F';
+    document.getElementById('vs-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('dlg-versement').showModal();
 }
 
 function editRecette(id){

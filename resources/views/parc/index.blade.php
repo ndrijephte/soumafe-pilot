@@ -12,7 +12,7 @@
 .tab-bar::-webkit-scrollbar{display:none}
 .tab-btn{padding:10px 18px;font-size:13px;font-weight:600;color:var(--gris);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s}
 .tab-btn:hover{color:var(--bleu);background:#f8fafc}
-.tab-btn.actif{color:var(--bleu);border-bottom-color:var(--accent)}
+.tab-btn.actif{color:#fff;background:var(--accent);border-bottom-color:var(--accent);border-radius:8px 8px 0 0}
 .tab-btn svg{width:16px;height:16px}
 .tab-panel{display:none}
 .tab-panel.actif{display:block}
@@ -61,6 +61,7 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .act-btn.del:hover{background:#fef2f2}
 .header-actions{display:flex;gap:8px;align-items:center}
 .empty-msg{text-align:center;color:var(--gris);padding:24px;font-size:12.5px}
+.dg-mode .act-row,.dg-mode .gc-detail,.dg-mode .gc-chevron,.dg-mode #form-grille-ind{display:none!important}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.form-row,.form-row3{grid-template-columns:1fr}table{display:block;overflow-x:auto}.panel-head{flex-wrap:wrap;gap:8px}.header-actions{flex-wrap:wrap}}
 @media(max-width:600px){.kpis{grid-template-columns:1fr}.kpi .val{font-size:22px}.tab-btn{padding:8px 12px;font-size:12px}.tab-btn svg{width:14px;height:14px}.panneau{padding:10px 8px}.panel-head h3{font-size:13px}.btn.sm{padding:4px 8px;font-size:10.5px}dialog{padding:16px;width:95vw}}
 @media(max-width:400px){.tab-btn span.pill{display:none}.tab-btn{padding:6px 8px;gap:4px}.kpi{padding:10px}}
@@ -109,6 +110,8 @@ $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="c
 $icEye = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 $icUser = $ic('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>');
 
+$estDG = auth()->user()->aRole('direction');
+
 $marques = $vehicules->pluck('marque')->filter()->unique()->sort()->values()->toArray();
 $marquesSugg = array_unique(array_merge($marques, ['Toyota', 'Hyundai', 'Kia', 'Renault', 'Peugeot', 'Suzuki', 'Nissan', 'Mitsubishi']));
 sort($marquesSugg);
@@ -123,6 +126,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 <datalist id="dl-marques">@foreach($marquesSugg as $m)<option value="{{ $m }}">@endforeach</datalist>
 
+<div class="{{ $estDG ? 'dg-mode' : '' }}">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:8px">
     <h2 style="display:flex;align-items:center;gap:8px">{!! $icCar !!} Parc automobile</h2>
     <div class="header-actions">
@@ -167,7 +171,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <div class="tab-panel actif" id="tab-vehicules">
     <div class="panel-head">
         <h3>{!! $icCar !!} Véhicules <span class="pill p-cours">{{ $vehicules->count() }}</span></h3>
-        <button class="btn sm" onclick="document.getElementById('dlg-vehicule').showModal()">{!! $icPlus !!} Véhicule</button>
+        @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-vehicule').showModal()">{!! $icPlus !!} Véhicule</button>@endif
     </div>
     <div class="panneau" style="overflow-x:auto">
     <table>
@@ -207,7 +211,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <div class="tab-panel" id="tab-pannes">
     <div class="panel-head">
         <h3>{!! $icWrench !!} Pannes @if($kpi['pannes_ouvertes']>0)<span class="pill p-ko">{{ $kpi['pannes_ouvertes'] }} ouvertes</span>@endif</h3>
-        <button class="btn sm" onclick="document.getElementById('dlg-panne').showModal()">{!! $icPlus !!} Panne</button>
+        @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-panne').showModal()">{!! $icPlus !!} Panne</button>@endif
     </div>
     <div class="panneau" style="overflow-x:auto">
     <table>
@@ -317,7 +321,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
     {{-- ===== FILTRE RECHERCHE ===== --}}
     <div style="margin-bottom:12px">
-        <input type="text" id="gc-search" placeholder="Rechercher un chauffeur..." oninput="filtrerChauffeurs(this.value)" style="width:100%;max-width:360px;padding:8px 14px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:var(--carte)">
+        <input type="text" id="gc-search" placeholder="Rechercher un chauffeur..." oninput="filtrerGrilleCh(this.value)" style="width:100%;max-width:360px;padding:8px 14px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:var(--carte)">
     </div>
 
     {{-- ===== GRILLE CHAUFFEURS ===== --}}
@@ -376,7 +380,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                         <option value="autre"{{ $deja && ($rec->mode_remise ?? '') === 'autre' ? ' selected' : '' }}>Autre</option>
                     </select>
                 </div>
-                <div id="gc-motif-wrap-{{ $i }}">
+                <div id="gc-motif-wrap-{{ $i }}" style="{{ ($sousObjectif || ($deja && $rec->recette == 0 && $rec->motif_absence)) ? '' : 'display:none' }}">
                     <label>Motif</label>
                     <select id="grille-motif-{{ $i }}">
                         <option value="">—</option>
@@ -425,7 +429,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             Historique
         </button>
-        <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-recette').showModal()">{!! $icPlus !!} Saisie individuelle</button>
+        @if(!$estDG)<button type="button" class="btn sm sec" onclick="document.getElementById('dlg-recette').showModal()">{!! $icPlus !!} Saisie individuelle</button>@endif
     </div>
 
     {{-- ===== DIALOG HISTORIQUE ===== --}}
@@ -470,7 +474,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <div class="tab-panel" id="tab-maint">
     <div class="panel-head">
         <h3>{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }} en retard</span>@endif</h3>
-        <button class="btn sm" onclick="document.getElementById('dlg-maint').showModal()">{!! $icPlus !!} Échéance</button>
+        @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-maint').showModal()">{!! $icPlus !!} Échéance</button>@endif
     </div>
     <div class="panneau" style="overflow-x:auto">
     <table>
@@ -507,7 +511,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <div class="tab-panel" id="tab-penal">
     <div class="panel-head">
         <h3>{!! $icAlert !!} Pénalités @if($kpi['penalites_non_payees']>0)<span class="pill p-ko">{{ $kpi['penalites_non_payees'] }} impayées</span>@endif</h3>
-        <button class="btn sm" onclick="document.getElementById('dlg-penal').showModal()">{!! $icPlus !!} Pénalité</button>
+        @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-penal').showModal()">{!! $icPlus !!} Pénalité</button>@endif
     </div>
     <div class="panneau" style="overflow-x:auto">
     <table>
@@ -546,11 +550,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB RECOUVREMENTS ==================== --}}
 <div class="tab-panel" id="tab-recouv">
+    <div class="panel-head">
+        <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Recouvrements en cours</h3>
+    </div>
     <div class="panneau">
-    <h3 style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--bleu)" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-        Recouvrements en cours
-    </h3>
 
     @php $recActifs = ($recouvrements ?? collect())->where('statut', 'actif'); @endphp
 
@@ -679,7 +682,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <div class="tab-panel" id="tab-chauffeurs">
     <div class="panel-head">
         <h3>{!! $icUser !!} Chauffeurs <span class="pill p-cours">{{ $chauffeurs->count() }}</span></h3>
-        <button class="btn sm" onclick="document.getElementById('dlg-chauffeur').showModal()">{!! $icPlus !!} Chauffeur</button>
+        @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-chauffeur').showModal()">{!! $icPlus !!} Chauffeur</button>@endif
     </div>
     <div class="filtre-bar" id="filtre-chauffeurs">
         <select id="fc-statut" onchange="filtrerChauffeurs()">
@@ -1061,6 +1064,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Fermer</button>
 </div>
 </dialog>
+</div>{{-- /dg-mode --}}
 
 @endsection
 
@@ -1161,7 +1165,7 @@ function changerOnglet(nom){
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('actif')});
     document.getElementById('tab-'+nom).classList.add('actif');
     var btns=document.querySelectorAll('.tab-btn');
-    var noms=['vehicules','pannes','recettes','maint','penal','chauffeurs'];
+    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs'];
     var idx=noms.indexOf(nom);
     if(idx>=0 && btns[idx]) btns[idx].classList.add('actif');
 }
@@ -1283,8 +1287,8 @@ function toggleRecette(idx){
     item.classList.toggle('gc-open');
 }
 
-// Filtre recherche chauffeur
-function filtrerChauffeurs(q){
+// Filtre recherche chauffeur (grille recettes)
+function filtrerGrilleCh(q){
     q=q.toLowerCase().trim();
     document.querySelectorAll('#gc-list .gc-item').forEach(function(el){
         var nom=el.getAttribute('data-nom')||'';
@@ -1309,17 +1313,12 @@ function recetteChange(idx){
     var motifWrap=document.getElementById('gc-motif-wrap-'+idx);
     var perspWrap=document.getElementById('gc-persp-wrap-'+idx);
     var objectif=parseFloat(item.getAttribute('data-objectif'))||0;
-    var montant=parseFloat(rec?rec.value:0)||0;
+    var val=rec?rec.value:'';
+    var montant=parseFloat(val)||0;
+    var sousObj=(val!=='' && montant<objectif);
 
-    if(montant>0 && montant<objectif){
-        if(motifWrap) motifWrap.style.display='';
-        if(perspWrap) perspWrap.style.display='';
-    } else if(montant===0 || rec.value===''){
-        if(motifWrap) motifWrap.style.display='';
-        if(perspWrap) perspWrap.style.display='none';
-    } else {
-        if(perspWrap) perspWrap.style.display='none';
-    }
+    if(motifWrap) motifWrap.style.display=sousObj?'':'none';
+    if(perspWrap) perspWrap.style.display=(montant>0 && montant<objectif)?'':'none';
 }
 
 function validerLigne(idx){
@@ -1339,8 +1338,7 @@ function validerLigne(idx){
 
     var montant=parseFloat(rec?rec.value:0)||0;
     if(!repos && rec && rec.value===''){alert('Saisissez le montant de la recette.');return;}
-    if(!repos && montant===0 && motif && !motif.value){alert('Motif obligatoire lorsque la recette est à 0.');return;}
-    if(!repos && montant>0 && montant<objectif && motif && !motif.value){alert('Recette inférieure à l\'objectif : motif obligatoire.');return;}
+    if(!repos && montant<objectif && motif && !motif.value){alert('Recette inférieure à l\'objectif : motif obligatoire.');return;}
 
     document.getElementById('gi-vehicule').value=vid;
     document.getElementById('gi-chauffeur').value=chauffeur;

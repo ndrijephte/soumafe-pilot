@@ -203,7 +203,7 @@
 
 {{-- ═══ GRAPHIQUES RECETTES ═══ --}}
 <div class="rp-section">
-    <h3>{!! $ico('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>') !!} Recettes vs Objectifs par jour</h3>
+    <h3>{!! $ico('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>') !!} Recettes journalières</h3>
     @if($recettesJour->isEmpty())
         <p style="color:var(--gris);font-size:13px">Aucune recette sur cette période.</p>
     @else
@@ -211,26 +211,25 @@
             $maxR = max($recettesJour->max('total'), $recettesJour->max('obj'), 1);
         @endphp
         <div style="overflow-x:auto">
-            <div style="display:flex;align-items:flex-end;gap:3px;min-width:{{ $recettesJour->count() * 38 }}px;height:180px;padding-bottom:24px;position:relative">
+            <div style="display:flex;align-items:flex-end;gap:3px;min-width:{{ $recettesJour->count() * 32 }}px;height:200px;padding-bottom:24px;position:relative">
                 @foreach($recettesJour as $jr)
                     @php
-                        $hR = round(($jr['total'] / $maxR) * 150);
-                        $hO = round(($jr['obj'] / $maxR) * 150);
+                        $tauxJ = $jr['obj'] > 0 ? round(($jr['total'] / $jr['obj']) * 100) : 0;
+                        $hR = max(round(($jr['total'] / $maxR) * 155), 2);
+                        $colorJ = $tauxJ >= 100 ? 'var(--ok)' : ($tauxJ >= 80 ? 'var(--warn)' : 'var(--ko)');
                         $jour = \Carbon\Carbon::parse($jr['jour'])->format('d');
                     @endphp
-                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:30px">
-                        <div style="display:flex;gap:2px;align-items:flex-end;height:155px">
-                            <div style="width:12px;height:{{ $hR }}px;background:{{ $jr['total'] >= $jr['obj'] ? 'var(--ok)' : 'var(--ko)' }};border-radius:3px 3px 0 0" title="Recette: {{ number_format($jr['total'],0,',',' ') }}"></div>
-                            <div style="width:12px;height:{{ $hO }}px;background:#cbd5e1;border-radius:3px 3px 0 0" title="Objectif: {{ number_format($jr['obj'],0,',',' ') }}"></div>
-                        </div>
+                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:26px">
+                        <span style="font-size:9px;font-weight:700;color:{{ $colorJ }}">{{ $tauxJ }}%</span>
+                        <div style="width:18px;height:{{ $hR }}px;background:{{ $colorJ }};border-radius:4px 4px 0 0;cursor:default" title="{{ number_format($jr['total'],0,',',' ') }} / {{ number_format($jr['obj'],0,',',' ') }} FCFA"></div>
                         <span style="font-size:10px;color:var(--gris)">{{ $jour }}</span>
                     </div>
                 @endforeach
             </div>
-            <div style="display:flex;gap:16px;font-size:11px;color:var(--gris);margin-top:6px">
-                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ok);border-radius:2px;vertical-align:middle;margin-right:4px"></span>Recette ≥ objectif</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ko);border-radius:2px;vertical-align:middle;margin-right:4px"></span>Recette < objectif</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:#cbd5e1;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Objectif</span>
+            <div style="display:flex;gap:16px;font-size:11px;color:var(--gris);margin-top:4px">
+                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ok);border-radius:2px;vertical-align:middle;margin-right:4px"></span>&ge; 100%</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:var(--warn);border-radius:2px;vertical-align:middle;margin-right:4px"></span>80 — 99%</span>
+                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ko);border-radius:2px;vertical-align:middle;margin-right:4px"></span>&lt; 80%</span>
             </div>
         </div>
     @endif
@@ -352,9 +351,7 @@
                     <td class="num">{{ number_format($rv['recette'],0,',',' ') }}</td>
                     <td class="num">{{ number_format($rv['objectif'],0,',',' ') }}</td>
                     <td class="num {{ $rv['ecart'] >= 0 ? 'pos' : 'neg' }}">{{ $rv['ecart'] >= 0 ? '+' : '' }}{{ number_format($rv['ecart'],0,',',' ') }}</td>
-                    <td class="num">
-                        <div class="gauge"><div class="gauge-fill" style="width:{{ min($rv['taux'],100) }}%;background:{{ $rv['taux']>=100?'var(--ok)':($rv['taux']>=80?'var(--warn)':'var(--ko)') }}"></div><div class="gauge-txt">{{ $rv['taux'] }}%</div></div>
-                    </td>
+                    <td class="num"><span style="font-weight:700;color:{{ $rv['taux']>=100?'var(--ok)':($rv['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $rv['taux'] }}%</span></td>
                     <td class="num">{{ number_format($rv['moyenne'],0,',',' ') }}</td>
                 </tr>
             @endforeach
@@ -403,9 +400,7 @@
                     <td><strong>{{ $cl['immat'] }}</strong></td>
                     <td>{{ $cl['categorie'] }}</td>
                     <td class="num">{{ number_format($cl['recette'],0,',',' ') }}</td>
-                    <td class="num">
-                        <div class="gauge"><div class="gauge-fill" style="width:{{ min($cl['taux'],100) }}%;background:{{ $cl['taux']>=100?'var(--ok)':($cl['taux']>=80?'var(--warn)':'var(--ko)') }}"></div><div class="gauge-txt">{{ $cl['taux'] }}%</div></div>
-                    </td>
+                    <td class="num"><span style="font-weight:700;color:{{ $cl['taux']>=100?'var(--ok)':($cl['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $cl['taux'] }}%</span></td>
                     <td class="num">{{ $cl['nb_pannes'] }}</td>
                     <td class="num neg">{{ number_format($cl['cout_pannes'],0,',',' ') }}</td>
                     <td class="num neg">{{ number_format($cl['penalites'],0,',',' ') }}</td>
@@ -432,31 +427,19 @@
     @if($performanceChauffeurs->isEmpty())
         <p style="color:var(--gris);font-size:13px">Aucun chauffeur actif avec v&eacute;hicule affect&eacute;.</p>
     @else
-        {{-- Graphique comparaison recettes vs objectif --}}
-        @php $maxChR = max($performanceChauffeurs->max('recette'), $performanceChauffeurs->max('objectif'), 1); @endphp
+        {{-- Graphique comparaison recettes --}}
+        @php $maxChR = max($performanceChauffeurs->max('recette'), 1); @endphp
         <div style="margin-bottom:16px">
             @foreach($performanceChauffeurs as $ch)
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                     <div style="width:90px;font-size:11.5px;font-weight:600;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none" title="{{ $ch['nom'] }}">{{ $ch['nom'] }}</div>
-                    <div style="flex:1">
-                        <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
-                            <div style="height:12px;width:{{ round(($ch['recette']/$maxChR)*100) }}%;background:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};border-radius:3px;min-width:2px"></div>
-                            <span style="font-size:10px;color:#475569;white-space:nowrap">{{ number_format($ch['recette'],0,',',' ') }}</span>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:4px">
-                            <div style="height:6px;width:{{ round(($ch['objectif']/$maxChR)*100) }}%;background:#cbd5e1;border-radius:2px;min-width:2px"></div>
-                            <span style="font-size:9px;color:var(--gris);white-space:nowrap">{{ number_format($ch['objectif'],0,',',' ') }}</span>
-                        </div>
+                    <div style="flex:1;display:flex;align-items:center;gap:6px">
+                        <div style="height:16px;width:{{ round(($ch['recette']/$maxChR)*100) }}%;background:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};border-radius:4px;min-width:2px"></div>
+                        <span style="font-size:10.5px;font-weight:700;color:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};white-space:nowrap">{{ $ch['taux'] }}%</span>
                     </div>
                     <div style="width:80px;font-size:12px;font-weight:700;text-align:right;flex:none;color:{{ $ch['resultat']>=0?'var(--ok)':'var(--ko)' }}">{{ $ch['resultat']>=0?'+':'' }}{{ number_format($ch['resultat'],0,',',' ') }}</div>
                 </div>
             @endforeach
-            <div style="display:flex;gap:14px;font-size:11px;color:var(--gris);margin-top:4px;flex-wrap:wrap">
-                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ok);border-radius:2px;vertical-align:middle;margin-right:4px"></span>Recette &ge;100%</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:var(--warn);border-radius:2px;vertical-align:middle;margin-right:4px"></span>80-99%</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ko);border-radius:2px;vertical-align:middle;margin-right:4px"></span>&lt;80%</span>
-                <span><span style="display:inline-block;width:10px;height:6px;background:#cbd5e1;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Objectif</span>
-            </div>
         </div>
 
         {{-- Tableau détaillé avec jauges --}}
@@ -483,9 +466,7 @@
                     <td style="font-size:11px;color:var(--gris)">{{ $ch['vehicules'] }}</td>
                     <td class="num">{{ number_format($ch['recette'],0,',',' ') }}</td>
                     <td class="num">{{ number_format($ch['objectif'],0,',',' ') }}</td>
-                    <td>
-                        <div class="gauge"><div class="gauge-fill" style="width:{{ min($ch['taux'],100) }}%;background:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }}"></div><div class="gauge-txt">{{ $ch['taux'] }}%</div></div>
-                    </td>
+                    <td class="num"><span style="font-weight:700;color:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $ch['taux'] }}%</span></td>
                     <td class="num" style="color:var(--warn)">{{ $ch['nb_penalites'] }} <span style="font-size:10px">({{ number_format($ch['montant_penalites'],0,',',' ') }})</span></td>
                     <td class="num">{{ $ch['nb_pannes'] }} <span style="font-size:10px;color:var(--ko)">({{ number_format($ch['cout_pannes'],0,',',' ') }})</span></td>
                     <td class="num {{ $resCl }}"><strong>{{ $ch['resultat']>=0?'+':'' }}{{ number_format($ch['resultat'],0,',',' ') }}</strong></td>

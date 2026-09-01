@@ -8,7 +8,7 @@
 .projet-code{background:var(--accent);color:#fff;font-weight:700;font-size:12px;padding:4px 10px;border-radius:6px;letter-spacing:.5px}
 .projet-nom{font-size:16px;font-weight:600;color:var(--bleu)}
 .projet-resp{font-size:12px;color:var(--gris)}
-.sprint-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.sprint-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 .sprint-card{background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:16px;position:relative;transition:box-shadow .2s}
 .sprint-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
 .sprint-num{font-size:18px;font-weight:700;color:var(--bleu)}

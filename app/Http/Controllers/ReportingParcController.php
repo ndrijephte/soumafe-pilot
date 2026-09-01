@@ -302,6 +302,24 @@ class ReportingParcController extends Controller
         }
         $typesDepenseLabels = TypeParc::depenses()->pluck('libelle', 'code')->toArray();
 
+        // Coûts véhicules par jour (pannes + pénalités)
+        $depVehJour = collect();
+        $pannesJ = Panne::whereIn('vehicule_id', $vehiculeIds)
+            ->whereBetween('date_declaration', [$debut, $fin])
+            ->selectRaw('DATE(date_declaration) as date, SUM(cout_reel) as total')
+            ->groupBy(DB::raw('DATE(date_declaration)'))->get()
+            ->mapWithKeys(fn($d) => [$d->date => (int) $d->total]);
+        $penalJ = collect();
+        if (Schema::hasTable('penalites')) {
+            $penalJ = Penalite::whereIn('vehicule_id', $vehiculeIds)
+                ->whereBetween('date_infraction', [$debut, $fin])
+                ->selectRaw('DATE(date_infraction) as date, SUM(montant) as total')
+                ->groupBy(DB::raw('DATE(date_infraction)'))->get()
+                ->mapWithKeys(fn($d) => [$d->date => (int) $d->total]);
+        }
+        $allVehDates = $pannesJ->keys()->merge($penalJ->keys())->unique();
+        $depVehJour = $allVehDates->mapWithKeys(fn($d) => [$d => ($pannesJ[$d] ?? 0) + ($penalJ[$d] ?? 0)]);
+
         // Rentabilité = Recettes - Dépenses - Pénalités - Coût pannes
         $rentabilite = $recetteTotal - $depensesTotal - $montantPenalites - $coutPannes;
 
@@ -319,7 +337,7 @@ class ReportingParcController extends Controller
             'tousVehicules', 'tousChauffeurs',
             'filtreVehicule', 'filtreChauffeur',
             'detailJour', 'filtreNom',
-            'depensesTotal', 'depensesJour', 'depensesType', 'typesDepenseLabels', 'rentabilite'
+            'depensesTotal', 'depensesJour', 'depVehJour', 'depensesType', 'typesDepenseLabels', 'rentabilite'
         ));
     }
 

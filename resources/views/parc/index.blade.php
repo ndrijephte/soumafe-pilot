@@ -63,9 +63,9 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .header-actions{display:flex;gap:8px;align-items:center}
 .empty-msg{text-align:center;color:var(--gris);padding:24px;font-size:12.5px}
 .dg-mode .act-row,.dg-mode .gc-detail,.dg-mode .gc-chevron,.dg-mode #form-grille-ind{display:none!important}
-@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.form-row,.form-row3{grid-template-columns:1fr}table{display:block;overflow-x:auto}.panel-head{flex-wrap:wrap;gap:8px}.header-actions{flex-wrap:wrap}}
-@media(max-width:600px){.kpis{grid-template-columns:1fr}.kpi .val{font-size:22px}.tab-btn{padding:8px 12px;font-size:12px}.tab-btn svg{width:14px;height:14px}.panneau{padding:10px 8px}.panel-head h3{font-size:13px}.btn.sm{padding:4px 8px;font-size:10.5px}dialog{padding:16px;width:95vw}}
-@media(max-width:400px){.tab-btn span.pill{display:none}.tab-btn{padding:6px 8px;gap:4px}.kpi{padding:10px}}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.form-row,.form-row3{grid-template-columns:1fr}table{display:block;overflow-x:auto}thead{display:table-header-group}tbody{display:table-row-group}.panel-head{flex-wrap:wrap;gap:8px}.header-actions{flex-wrap:wrap}.filtre-bar{flex-direction:column;align-items:stretch}}
+@media(max-width:600px){.kpis{grid-template-columns:1fr}.kpi .val{font-size:22px}.tab-btn{padding:8px 12px;font-size:12px}.tab-btn svg{width:14px;height:14px}.panneau{padding:10px 8px}.panel-head h3{font-size:13px}.btn.sm{padding:4px 8px;font-size:10.5px}dialog{padding:16px;width:95vw}.act-row{gap:2px}.type-item{flex-wrap:wrap;gap:6px}.type-item .code{display:none}}
+@media(max-width:400px){.tab-btn span.pill{display:none}.tab-btn{padding:6px 8px;gap:4px}.kpi{padding:10px}.gc-row{padding:10px 12px;gap:8px}.gc-montant{font-size:13px;min-width:60px}}
 /* Grille chauffeurs recettes */
 .gc-list{display:flex;flex-direction:column;gap:6px}
 .gc-item{background:var(--carte);border:1px solid var(--bord);border-radius:10px;overflow:hidden;transition:box-shadow .15s}
@@ -1102,7 +1102,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </dialog>
 
 {{-- Dialog Fiche véhicule --}}
-<dialog id="dlg-fiche" style="width:620px">
+<dialog id="dlg-fiche" style="width:620px;max-width:95vw">
 <h3>{!! $icEye !!} Fiche véhicule</h3>
 <div id="fiche-contenu" style="font-size:13px;line-height:1.7">
     <p style="text-align:center;color:var(--gris)">Chargement...</p>
@@ -1124,20 +1124,24 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 @if(!auth()->user()->aRole('direction'))
 <div id="form-depense" style="display:none;margin-bottom:16px">
-<form method="POST" action="{{ route('parc.depenses.store') }}" class="panneau" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;align-items:end">
+<form method="POST" action="{{ route('parc.depenses.store') }}" class="panneau">
     @csrf
-    <div><label style="font-size:11px;color:var(--gris);font-weight:600">Date</label><input type="date" name="date_depense" value="{{ date('Y-m-d') }}" class="champ" required></div>
-    <div><label style="font-size:11px;color:var(--gris);font-weight:600">Type</label>
-        <select name="type_depense" class="champ" required>
-            <option value="">-- Choisir --</option>
-            @foreach($typesDepense ?? [] as $td)
-            <option value="{{ $td->code }}">{{ $td->libelle }}</option>
-            @endforeach
-        </select>
+    <div class="form-row3">
+        <div><label>Date</label><input type="date" name="date_depense" value="{{ date('Y-m-d') }}" required></div>
+        <div><label>Type</label>
+            <select name="type_depense" required>
+                <option value="">-- Choisir --</option>
+                @foreach($typesDepense ?? [] as $td)
+                <option value="{{ $td->code }}">{{ $td->libelle }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div><label>Montant (F)</label><input type="number" name="montant" min="1" required></div>
     </div>
-    <div><label style="font-size:11px;color:var(--gris);font-weight:600">Montant (F)</label><input type="number" name="montant" class="champ" min="1" required></div>
-    <div><label style="font-size:11px;color:var(--gris);font-weight:600">Commentaire</label><input type="text" name="commentaire" class="champ" maxlength="500" placeholder="Optionnel"></div>
-    <div><button class="btn sm">Enregistrer</button></div>
+    <div class="form-row" style="margin-top:8px">
+        <div><label>Commentaire</label><input type="text" name="commentaire" maxlength="500" placeholder="Optionnel"></div>
+        <div style="display:flex;align-items:end"><button class="btn sm">Enregistrer</button></div>
+    </div>
 </form>
 </div>
 @endif
@@ -1151,14 +1155,15 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     Total dépenses : <strong style="color:var(--ko)">{{ number_format($totalDepenses, 0, ',', ' ') }} F</strong>
 </div>
 
+<div class="panneau" style="overflow-x:auto">
 <table class="tableau" style="width:100%">
 <thead><tr>
     <th style="width:100px">Date</th>
     <th>Type</th>
-    <th style="text-align:right">Montant</th>
+    <th style="text-align:right;width:120px">Montant</th>
     <th>Commentaire</th>
     <th style="width:80px">Par</th>
-    @if(!auth()->user()->aRole('direction'))<th style="width:100px">Actions</th>@endif
+    @if(!auth()->user()->aRole('direction'))<th style="width:120px">Actions</th>@endif
 </tr></thead>
 <tbody>
 @forelse($depenses ?? [] as $dep)
@@ -1169,26 +1174,28 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <td style="font-size:12px;color:var(--gris)">{{ $dep->commentaire ?? '—' }}</td>
     <td style="font-size:11px;color:var(--gris)">{{ $dep->cree_par }}</td>
     @if(!auth()->user()->aRole('direction'))
-    <td style="display:flex;gap:4px">
-        <button class="btn sm sec" onclick="editerDepense({{ $dep->id }})">Modifier</button>
-        <form method="POST" action="{{ route('parc.depenses.destroy', $dep) }}" onsubmit="return confirm('Supprimer cette dépense ?')">@csrf @method('DELETE')<button class="btn sm ko">Suppr.</button></form>
+    <td>
+        <div class="act-row">
+            <button class="act-btn" title="Modifier" onclick="editerDepense({{ $dep->id }})">{!! $icEdit !!}</button>
+            <form method="POST" action="{{ route('parc.depenses.destroy', $dep) }}" onsubmit="return confirm('Supprimer cette dépense ?')" style="display:inline">@csrf @method('DELETE')<button class="act-btn del" title="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></form>
+        </div>
     </td>
     @endif
 </tr>
 {{-- Formulaire d'édition inline (masqué) --}}
 @if(!auth()->user()->aRole('direction'))
 <tr id="dep-edit-{{ $dep->id }}" style="display:none;background:#f8fafc">
-    <td colspan="6">
+    <td colspan="{{ auth()->user()->aRole('direction') ? 5 : 6 }}">
         <form method="POST" action="{{ route('parc.depenses.update', $dep) }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0">
             @csrf @method('PUT')
-            <input type="date" name="date_depense" value="{{ $dep->date_depense->format('Y-m-d') }}" class="champ" style="width:130px" required>
-            <select name="type_depense" class="champ" style="width:160px" required>
+            <input type="date" name="date_depense" value="{{ $dep->date_depense->format('Y-m-d') }}" style="padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:13px;width:130px" required>
+            <select name="type_depense" style="padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:13px;width:160px" required>
                 @foreach($typesDepense ?? [] as $td)
                 <option value="{{ $td->code }}" {{ $dep->type_depense === $td->code ? 'selected' : '' }}>{{ $td->libelle }}</option>
                 @endforeach
             </select>
-            <input type="number" name="montant" value="{{ $dep->montant }}" class="champ" style="width:120px" min="1" required>
-            <input type="text" name="commentaire" value="{{ $dep->commentaire }}" class="champ" style="flex:1;min-width:150px" maxlength="500" placeholder="Commentaire">
+            <input type="number" name="montant" value="{{ $dep->montant }}" style="padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:13px;width:120px" min="1" required>
+            <input type="text" name="commentaire" value="{{ $dep->commentaire }}" style="padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:13px;flex:1;min-width:150px" maxlength="500" placeholder="Commentaire">
             <button class="btn sm">OK</button>
             <button type="button" class="btn sm sec" onclick="document.getElementById('dep-edit-{{ $dep->id }}').style.display='none'">Annuler</button>
         </form>
@@ -1196,10 +1203,11 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </tr>
 @endif
 @empty
-<tr><td colspan="6" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
+<tr><td colspan="{{ auth()->user()->aRole('direction') ? 5 : 6 }}" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
 @endforelse
 </tbody>
 </table>
+</div>
 </div>
 
 @endsection
@@ -1301,7 +1309,7 @@ function changerOnglet(nom){
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('actif')});
     document.getElementById('tab-'+nom).classList.add('actif');
     var btns=document.querySelectorAll('.tab-btn');
-    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs'];
+    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses'];
     var idx=noms.indexOf(nom);
     if(idx>=0 && btns[idx]) btns[idx].classList.add('actif');
 }

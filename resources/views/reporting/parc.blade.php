@@ -216,29 +216,34 @@
 @php
     $jours = $recettesJour->values();
     $nbPts = $jours->count();
-    $depMax = ($depensesJour ?? collect())->isNotEmpty() ? ($depensesJour ?? collect())->max() : 0;
-    $maxR = max($jours->max('total'), $jours->max('obj'), $depMax, 1);
+    $depBurMax = ($depensesJour ?? collect())->isNotEmpty() ? ($depensesJour ?? collect())->max() : 0;
+    $depVehMax = ($depVehJour ?? collect())->isNotEmpty() ? ($depVehJour ?? collect())->max() : 0;
+    $maxR = max($jours->max('total'), $jours->max('obj'), $depBurMax, $depVehMax, 1);
     $svgW = 700; $svgH = 240; $padL = 55; $padR = 15; $padT = 25; $padB = 40;
     $chartW = $svgW - $padL - $padR;
     $chartH = $svgH - $padT - $padB;
     $stepX = $nbPts > 1 ? $chartW / ($nbPts - 1) : $chartW;
-    $ptsRec = []; $ptsObj = []; $ptsDep = []; $labels = [];
+    $ptsRec = []; $ptsObj = []; $ptsBur = []; $ptsVeh = []; $labels = [];
     $nbOk = 0; $nbWarn = 0; $nbKo = 0;
     foreach ($jours as $idx => $jr) {
         $x = round($padL + $idx * $stepX, 1);
         $yR = round($padT + $chartH - ($jr['total'] / $maxR) * $chartH, 1);
         $yO = round($padT + $chartH - ($jr['obj'] / $maxR) * $chartH, 1);
-        $depJ = (int) (($depensesJour ?? collect())[$jr['jour']] ?? 0);
-        $yD = round($padT + $chartH - ($depJ / $maxR) * $chartH, 1);
-        $ptsRec[] = "$x,$yR"; $ptsObj[] = "$x,$yO"; $ptsDep[] = "$x,$yD";
+        $burJ = (int) (($depensesJour ?? collect())[$jr['jour']] ?? 0);
+        $vehJ = (int) (($depVehJour ?? collect())[$jr['jour']] ?? 0);
+        $yB = round($padT + $chartH - ($burJ / $maxR) * $chartH, 1);
+        $yV = round($padT + $chartH - ($vehJ / $maxR) * $chartH, 1);
+        $ptsRec[] = "$x,$yR"; $ptsObj[] = "$x,$yO"; $ptsBur[] = "$x,$yB"; $ptsVeh[] = "$x,$yV";
         $tauxJ = $jr['obj'] > 0 ? ($jr['total'] / $jr['obj']) * 100 : 0;
         if ($tauxJ >= 100) $nbOk++; elseif ($tauxJ >= 80) $nbWarn++; else $nbKo++;
-        $labels[] = ['x' => $x, 'jour' => \Carbon\Carbon::parse($jr['jour'])->format('d/m'), 'rec' => $jr['total'], 'obj' => $jr['obj'], 'dep' => $depJ];
+        $labels[] = ['x' => $x, 'jour' => \Carbon\Carbon::parse($jr['jour'])->format('d/m'), 'rec' => $jr['total'], 'obj' => $jr['obj'], 'bur' => $burJ, 'veh' => $vehJ];
     }
     $lineRec = implode(' ', $ptsRec);
     $lineObj = implode(' ', $ptsObj);
-    $lineDep = implode(' ', $ptsDep);
-    $hasDep = collect($labels)->sum('dep') > 0;
+    $lineBur = implode(' ', $ptsBur);
+    $lineVeh = implode(' ', $ptsVeh);
+    $hasBur = collect($labels)->sum('bur') > 0;
+    $hasVeh = collect($labels)->sum('veh') > 0;
     $gradY = [];
     $step = ceil($maxR / 5 / 1000) * 1000;
     if ($step < 1) $step = 1;
@@ -267,22 +272,26 @@
                 @endforeach
                 <polyline points="{{ $lineObj }}" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4"/>
                 <polyline points="{{ $lineRec }}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-                @if($hasDep)<polyline points="{{ $lineDep }}" fill="none" stroke="var(--ko)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>@endif
+                @if($hasVeh)<polyline points="{{ $lineVeh }}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>@endif
+                @if($hasBur)<polyline points="{{ $lineBur }}" fill="none" stroke="var(--ko)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>@endif
                 @foreach($labels as $lb)
                     @php
                         $yPt = round($padT + $chartH - ($lb['rec'] / $maxR) * $chartH, 1);
                         $cPt = $lb['rec'] >= $lb['obj'] ? 'var(--ok)' : ($lb['rec'] >= $lb['obj'] * 0.8 ? 'var(--warn)' : 'var(--ko)');
-                        $yDp = round($padT + $chartH - (($lb['dep'] ?? 0) / $maxR) * $chartH, 1);
+                        $yBp = round($padT + $chartH - (($lb['bur'] ?? 0) / $maxR) * $chartH, 1);
+                        $yVp = round($padT + $chartH - (($lb['veh'] ?? 0) / $maxR) * $chartH, 1);
                     @endphp
                     <circle cx="{{ $lb['x'] }}" cy="{{ $yPt }}" r="3.5" fill="{{ $cPt }}" stroke="#fff" stroke-width="1.5"/>
-                    @if(($lb['dep'] ?? 0) > 0)<circle cx="{{ $lb['x'] }}" cy="{{ $yDp }}" r="3" fill="var(--ko)" stroke="#fff" stroke-width="1.5"/>@endif
+                    @if(($lb['veh'] ?? 0) > 0)<circle cx="{{ $lb['x'] }}" cy="{{ $yVp }}" r="3" fill="#f59e0b" stroke="#fff" stroke-width="1.5"/>@endif
+                    @if(($lb['bur'] ?? 0) > 0)<circle cx="{{ $lb['x'] }}" cy="{{ $yBp }}" r="3" fill="var(--ko)" stroke="#fff" stroke-width="1.5"/>@endif
                     <text x="{{ $lb['x'] }}" y="{{ $svgH - $padB + 14 }}" fill="#64748b" font-size="9" text-anchor="middle">{{ $lb['jour'] }}</text>
                 @endforeach
             </svg>
         </div>
-        <div style="display:flex;gap:16px;font-size:11px;color:var(--gris);margin-top:4px;flex-wrap:wrap">
-            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--accent);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Recettes (entrées)</span>
-            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--ko);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Dépenses (sorties)</span>
+        <div style="display:flex;gap:14px;font-size:11px;color:var(--gris);margin-top:4px;flex-wrap:wrap">
+            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--accent);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Recettes</span>
+            <span><span style="display:inline-block;width:14px;height:2.5px;background:#f59e0b;vertical-align:middle;margin-right:4px;border-radius:2px"></span>Coûts véhicules</span>
+            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--ko);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Dépenses bureau</span>
             <span><span style="display:inline-block;width:14px;height:0;border-top:1.5px dashed #94a3b8;vertical-align:middle;margin-right:4px"></span>Objectif</span>
         </div>
     </div>

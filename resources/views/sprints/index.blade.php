@@ -29,7 +29,7 @@
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 .alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
-dialog{border:none;border-radius:14px;padding:24px;width:460px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
+dialog{border:none;border-radius:14px;padding:24px;width:460px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18);max-height:85vh;overflow-y:auto}
 dialog::backdrop{background:rgba(22,56,92,.35)}
 dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px}
 dialog input,dialog select{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px}
@@ -39,7 +39,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 .filtre-bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
 .filtre-bar input,.filtre-bar select{padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 .filtre-bar input{min-width:180px}
-@media(max-width:900px){.sprint-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}.filtre-bar{flex-direction:column}}
+@media(max-width:900px){.sprint-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}.filtre-bar{flex-direction:column}.projet-header{flex-wrap:wrap}}
+@media(max-width:600px){dialog{padding:16px}.sprint-card{padding:12px}.sprint-num{font-size:16px}.btn{padding:6px 12px;font-size:12px}}
 </style>
 @endpush
 @section('contenu')

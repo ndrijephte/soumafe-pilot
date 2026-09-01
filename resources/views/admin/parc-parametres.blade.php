@@ -3,7 +3,6 @@
 @section('titre', 'Paramètres parc automobile')
 @push('styles')
 <style>
-.form-admin{max-width:700px}
 .param-section{font-size:12px;font-weight:700;text-transform:uppercase;color:var(--accent);margin:20px 0 10px;padding-bottom:4px;border-bottom:1px solid #e8f0fe;letter-spacing:.5px}
 .param-section:first-child{margin-top:0}
 .param-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:10px}
@@ -25,7 +24,8 @@
 .type-item .code{font-size:11px;color:var(--gris);font-family:monospace}
 .add-type-row{display:flex;gap:8px;margin-top:8px;align-items:flex-end}
 .add-type-row input{padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px;flex:1}
-@media(max-width:900px){.param-grid{grid-template-columns:1fr}}
+.types-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.param-grid{grid-template-columns:1fr}.types-grid{grid-template-columns:1fr}}
 </style>
 @endpush
 @section('contenu')
@@ -34,7 +34,7 @@
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
 
-<div class="carte form-admin">
+<div class="carte">
 <div class="info-box">
     Les objectifs de recette sont appliqués automatiquement lors de la saisie d'une recette, selon la catégorie du véhicule et le type de jour.
 </div>
@@ -66,8 +66,10 @@
 </form>
 </div>
 
+<div class="types-grid" style="margin-top:16px">
+
 {{-- ===== TYPES PÉNALITÉS ===== --}}
-<div class="carte form-admin" style="margin-top:20px">
+<div class="carte">
     <div class="param-section" style="margin-top:0">Types de pénalités</div>
     <ul class="type-list">
     @foreach($typesPenalite as $tp)
@@ -95,7 +97,7 @@
 </div>
 
 {{-- ===== TYPES MAINTENANCE ===== --}}
-<div class="carte form-admin" style="margin-top:20px">
+<div class="carte">
     <div class="param-section" style="margin-top:0">Types de maintenance</div>
     <ul class="type-list">
     @foreach($typesMaintenance as $tm)
@@ -121,8 +123,9 @@
         <button class="btn sm">+ Ajouter</button>
     </form>
 </div>
+
 {{-- ===== MOTIFS D'ABSENCE DE RECETTE ===== --}}
-<div class="carte form-admin" style="margin-top:20px">
+<div class="carte">
     <div class="param-section" style="margin-top:0">Motifs d'absence de recette</div>
     <div class="info-box" style="background:#fff7ed;border-color:#fed7aa;color:#92400e">
         Lorsqu'un chauffeur ne verse pas de recette (montant = 0), il doit obligatoirement sélectionner un motif dans cette liste.
@@ -153,7 +156,7 @@
 </div>
 
 {{-- ===== TYPES DÉPENSES ===== --}}
-<div class="carte form-admin" style="margin-top:20px">
+<div class="carte">
     <div class="param-section" style="margin-top:0">Types de dépenses</div>
     <div class="info-box" style="background:#fef3c7;border-color:#fcd34d;color:#92400e">
         Les types de dépenses sont utilisés pour catégoriser les autres dépenses de l'entreprise (salaire, réparation, factures, etc.).
@@ -182,4 +185,6 @@
         <button class="btn sm">+ Ajouter</button>
     </form>
 </div>
+
+</div>{{-- fin .types-grid --}}
 @endsection

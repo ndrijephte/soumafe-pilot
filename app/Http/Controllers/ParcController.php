@@ -895,10 +895,10 @@ class ParcController extends Controller
             $recouvrement->recalculerSolde();
             AuditLog::log('creation', 'versement', "Versement #{$vers->id}", "Recouvrement #{$recouvrement->id}, Montant: {$data['montant']} F");
 
-            return redirect()->route('parc.index', ['tab' => 'recouvrements'])
+            return redirect()->route('parc.index', ['tab' => 'recouv'])
                 ->with('succes', 'Versement de ' . number_format($data['montant'], 0, ',', ' ') . ' F enregistré.');
         } catch (\Exception $e) {
-            return redirect()->route('parc.index', ['tab' => 'recouvrements'])
+            return redirect()->route('parc.index', ['tab' => 'recouv'])
                 ->withErrors(['Erreur : ' . $e->getMessage()]);
         }
     }
@@ -917,7 +917,7 @@ class ParcController extends Controller
             'annule_le' => now(),
         ]);
         AuditLog::log('annulation', 'recouvrement', "Recouvrement #{$recouvrement->id}", "Chauffeur: {$recouvrement->chauffeur}, Montant: {$recouvrement->montant_initial} F, Motif: {$r->motif_annulation}");
-        return redirect()->route('parc.index', ['tab' => 'recouvrements'])->with('succes', 'Recouvrement annulé.');
+        return redirect()->route('parc.index', ['tab' => 'recouv'])->with('succes', 'Recouvrement annulé.');
     }
 
     /* ═══════════════════════════ DÉPENSES ═══════════════════════════ */

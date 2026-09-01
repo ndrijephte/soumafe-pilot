@@ -30,7 +30,7 @@
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 .alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
-dialog{border:none;border-radius:14px;padding:24px;width:500px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
+dialog{border:none;border-radius:14px;padding:24px;width:500px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18);max-height:85vh;overflow-y:auto}
 dialog::backdrop{background:rgba(22,56,92,.35)}
 dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px;font-weight:600;text-transform:uppercase}
 dialog input,dialog select{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px}
@@ -47,7 +47,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 .filtre-bar input{min-width:160px}
 .tache-nom{display:inline;text-decoration:none;color:#1e293b;font-weight:500;line-height:1.5}
 .tache-nom:hover{color:var(--accent)}
-@media(max-width:768px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}.filtre-bar{flex-direction:column}.taches-table{table-layout:auto}.col-tache,.col-assigne,.col-prio,.col-debut,.col-ech,.col-pts,.col-statut,.col-edit{width:auto}}
+@media(max-width:900px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}.filtre-bar{flex-direction:column}.taches-table{display:block;overflow-x:auto;table-layout:auto}.col-tache,.col-assigne,.col-prio,.col-debut,.col-ech,.col-pts,.col-statut,.col-edit{width:auto}}
+@media(max-width:600px){dialog{padding:16px}.btn{padding:6px 12px;font-size:12px}.stats-row{gap:12px;font-size:12px}}
 </style>
 @endpush
 @section('contenu')

@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Administration')
 @section('titre', $user->exists ? 'Modifier ' . $user->nomComplet() : 'Nouveau compte')
 @push('styles')
 <style>

@@ -24,8 +24,11 @@ class ParcParametreController extends Controller
         $motifsAbsence = Schema::hasTable('types_parc')
             ? TypeParc::where('categorie', 'motif_absence')->orderBy('ordre')->get()
             : collect();
+        $typesDepense = Schema::hasTable('types_parc')
+            ? TypeParc::where('categorie', 'depense')->orderBy('ordre')->get()
+            : collect();
 
-        return view('admin.parc-parametres', compact('parametres', 'typesPenalite', 'typesMaintenance', 'motifsAbsence'));
+        return view('admin.parc-parametres', compact('parametres', 'typesPenalite', 'typesMaintenance', 'motifsAbsence', 'typesDepense'));
     }
 
     public function update(Request $r)
@@ -43,7 +46,7 @@ class ParcParametreController extends Controller
     {
         abort_unless($r->user()->estAdmin(), 403);
         $data = $r->validate([
-            'categorie' => 'required|in:penalite,maintenance,motif_absence',
+            'categorie' => 'required|in:penalite,maintenance,motif_absence,depense',
             'code' => 'required|string|max:50',
             'libelle' => 'required|string|max:80',
         ]);

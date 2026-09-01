@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Projets & Sprints')
 @section('titre', 'Projets & Sprints')
 @push('styles')
 <style>

@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Comptes rendus')
 @section('titre', 'Rédiger — ' . $cr->titre)
 @section('contenu')
 <style>

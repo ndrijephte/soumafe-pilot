@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Administration')
 @section('titre', 'Administration — Types d\'événement')
 @push('styles')
 <style>

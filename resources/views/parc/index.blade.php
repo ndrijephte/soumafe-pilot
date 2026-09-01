@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Gestion du parc')
 @section('titre', 'Parc automobile')
 @push('styles')
 <style>
@@ -166,6 +167,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
         Recouvrements @if(($recouvrements ?? collect())->where('statut','actif')->count()>0)<span class="pill p-ko">{{ ($recouvrements ?? collect())->where('statut','actif')->count() }}</span>@endif</button>
     <button class="tab-btn" onclick="changerOnglet('chauffeurs')">{!! $icUser !!} Chauffeurs <span class="pill p-cours">{{ $chauffeurs->count() }}</span></button>
+    <button class="tab-btn" onclick="changerOnglet('depenses')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/></svg>
+        Dépenses <span class="pill p-cours">{{ ($depenses ?? collect())->count() }}</span></button>
 </div>
 
 {{-- ==================== TAB VÉHICULES ==================== --}}
@@ -1109,6 +1113,95 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </dialog>
 </div>{{-- /dg-mode --}}
 
+{{-- ==================== TAB DÉPENSES ==================== --}}
+<div class="tab-panel" id="tab-depenses">
+<div class="panel-head">
+    <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/></svg> Autres dépenses <span class="pill p-cours">{{ ($depenses ?? collect())->count() }}</span></h3>
+    @if(!auth()->user()->aRole('direction'))
+    <button class="btn sm" onclick="document.getElementById('form-depense').style.display=document.getElementById('form-depense').style.display==='none'?'block':'none'">+ Nouvelle dépense</button>
+    @endif
+</div>
+
+@if(!auth()->user()->aRole('direction'))
+<div id="form-depense" style="display:none;margin-bottom:16px">
+<form method="POST" action="{{ route('parc.depenses.store') }}" class="panneau" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;align-items:end">
+    @csrf
+    <div><label style="font-size:11px;color:var(--gris);font-weight:600">Date</label><input type="date" name="date_depense" value="{{ date('Y-m-d') }}" class="champ" required></div>
+    <div><label style="font-size:11px;color:var(--gris);font-weight:600">Type</label>
+        <select name="type_depense" class="champ" required>
+            <option value="">-- Choisir --</option>
+            @foreach($typesDepense ?? [] as $td)
+            <option value="{{ $td->code }}">{{ $td->libelle }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div><label style="font-size:11px;color:var(--gris);font-weight:600">Montant (F)</label><input type="number" name="montant" class="champ" min="1" required></div>
+    <div><label style="font-size:11px;color:var(--gris);font-weight:600">Commentaire</label><input type="text" name="commentaire" class="champ" maxlength="500" placeholder="Optionnel"></div>
+    <div><button class="btn sm">Enregistrer</button></div>
+</form>
+</div>
+@endif
+
+@php
+    $totalDepenses = ($depenses ?? collect())->sum('montant');
+    $typesLabels = ($typesDepense ?? collect())->pluck('libelle', 'code')->toArray();
+@endphp
+
+<div style="margin-bottom:12px;font-size:13px;color:var(--gris)">
+    Total dépenses : <strong style="color:var(--ko)">{{ number_format($totalDepenses, 0, ',', ' ') }} F</strong>
+</div>
+
+<table class="tableau" style="width:100%">
+<thead><tr>
+    <th style="width:100px">Date</th>
+    <th>Type</th>
+    <th style="text-align:right">Montant</th>
+    <th>Commentaire</th>
+    <th style="width:80px">Par</th>
+    @if(!auth()->user()->aRole('direction'))<th style="width:100px">Actions</th>@endif
+</tr></thead>
+<tbody>
+@forelse($depenses ?? [] as $dep)
+<tr id="dep-row-{{ $dep->id }}">
+    <td>{{ $dep->date_depense->format('d/m/Y') }}</td>
+    <td>{{ $typesLabels[$dep->type_depense] ?? ucfirst(str_replace('_', ' ', $dep->type_depense)) }}</td>
+    <td style="text-align:right;font-weight:600;color:var(--ko)">{{ number_format($dep->montant, 0, ',', ' ') }} F</td>
+    <td style="font-size:12px;color:var(--gris)">{{ $dep->commentaire ?? '—' }}</td>
+    <td style="font-size:11px;color:var(--gris)">{{ $dep->cree_par }}</td>
+    @if(!auth()->user()->aRole('direction'))
+    <td style="display:flex;gap:4px">
+        <button class="btn sm sec" onclick="editerDepense({{ $dep->id }})">Modifier</button>
+        <form method="POST" action="{{ route('parc.depenses.destroy', $dep) }}" onsubmit="return confirm('Supprimer cette dépense ?')">@csrf @method('DELETE')<button class="btn sm ko">Suppr.</button></form>
+    </td>
+    @endif
+</tr>
+{{-- Formulaire d'édition inline (masqué) --}}
+@if(!auth()->user()->aRole('direction'))
+<tr id="dep-edit-{{ $dep->id }}" style="display:none;background:#f8fafc">
+    <td colspan="6">
+        <form method="POST" action="{{ route('parc.depenses.update', $dep) }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0">
+            @csrf @method('PUT')
+            <input type="date" name="date_depense" value="{{ $dep->date_depense->format('Y-m-d') }}" class="champ" style="width:130px" required>
+            <select name="type_depense" class="champ" style="width:160px" required>
+                @foreach($typesDepense ?? [] as $td)
+                <option value="{{ $td->code }}" {{ $dep->type_depense === $td->code ? 'selected' : '' }}>{{ $td->libelle }}</option>
+                @endforeach
+            </select>
+            <input type="number" name="montant" value="{{ $dep->montant }}" class="champ" style="width:120px" min="1" required>
+            <input type="text" name="commentaire" value="{{ $dep->commentaire }}" class="champ" style="flex:1;min-width:150px" maxlength="500" placeholder="Commentaire">
+            <button class="btn sm">OK</button>
+            <button type="button" class="btn sm sec" onclick="document.getElementById('dep-edit-{{ $dep->id }}').style.display='none'">Annuler</button>
+        </form>
+    </td>
+</tr>
+@endif
+@empty
+<tr><td colspan="6" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
+@endforelse
+</tbody>
+</table>
+</div>
+
 @endsection
 
 @php
@@ -1569,6 +1662,12 @@ function demanderMotifAnnulation(form){
     if(!motif||motif.trim().length<5){alert('Le motif est obligatoire (5 caractères minimum).');return false;}
     form.querySelector('.motif-annul-input').value=motif.trim();
     return true;
+}
+function editerDepense(id){
+    var rows=document.querySelectorAll('[id^="dep-edit-"]');
+    rows.forEach(function(r){r.style.display='none'});
+    var row=document.getElementById('dep-edit-'+id);
+    if(row) row.style.display='table-row';
 }
 </script>
 @endpush

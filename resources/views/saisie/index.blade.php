@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Suivi de saisie')
 @section('titre', 'Suivi de saisie')
 @push('styles')
 <style>

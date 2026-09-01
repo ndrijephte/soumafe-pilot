@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Pilotage des tâches')
 @section('titre', 'Toutes les tâches — Pilote')
 @push('styles')
 <style>

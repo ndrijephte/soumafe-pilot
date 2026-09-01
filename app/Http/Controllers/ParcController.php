@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, Chauffeur, Depense, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -57,10 +57,17 @@ class ParcController extends Controller
             ? Recouvrement::with(['vehicule', 'versements'])->orderByDesc('date_recette')->get()
             : collect();
 
+        // --- Dépenses ---
+        $depenses = Schema::hasTable('depenses')
+            ? Depense::orderByDesc('date_depense')->get()
+            : collect();
+        $typesDepense = TypeParc::depenses();
+
         return view('parc.index', compact(
             'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes',
             'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
-            'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements'
+            'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
+            'depenses', 'typesDepense'
         ));
     }
 
@@ -755,6 +762,7 @@ class ParcController extends Controller
     public function affecterChauffeur(Request $r)
     {
         $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403, 'La direction ne peut pas affecter un chauffeur.');
         $data = $r->validate([
             'chauffeur_id' => 'required|exists:chauffeurs,id',
             'vehicule_id' => 'required|exists:vehicules,id',
@@ -770,6 +778,7 @@ class ParcController extends Controller
     public function detacherChauffeur(Request $r, Vehicule $vehicule, Chauffeur $chauffeur)
     {
         $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403, 'La direction ne peut pas détacher un chauffeur.');
         $vehicule->chauffeurs()->detach($chauffeur->id);
         AuditLog::log('detachement', 'chauffeur', "Chauffeur #{$chauffeur->id}", "Détaché de véhicule {$vehicule->immatriculation}");
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur détaché.');
@@ -909,5 +918,47 @@ class ParcController extends Controller
         ]);
         AuditLog::log('annulation', 'recouvrement', "Recouvrement #{$recouvrement->id}", "Chauffeur: {$recouvrement->chauffeur}, Montant: {$recouvrement->montant_initial} F, Motif: {$r->motif_annulation}");
         return redirect()->route('parc.index', ['tab' => 'recouvrements'])->with('succes', 'Recouvrement annulé.');
+    }
+
+    /* ═══════════════════════════ DÉPENSES ═══════════════════════════ */
+
+    public function storeDepense(Request $r)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403, 'La direction ne peut pas saisir de dépenses.');
+        $v = $r->validate([
+            'date_depense' => 'required|date',
+            'type_depense' => 'required|string|max:100',
+            'montant'      => 'required|integer|min:1',
+            'commentaire'  => 'nullable|string|max:500',
+        ]);
+        $v['cree_par'] = auth()->user()->name;
+        $dep = Depense::create($v);
+        AuditLog::log('creation', 'depense', "Dépense #{$dep->id}", "Type: {$dep->type_depense}, Montant: {$dep->montant} F");
+        return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense enregistrée.');
+    }
+
+    public function updateDepense(Request $r, Depense $depense)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403);
+        $v = $r->validate([
+            'date_depense' => 'required|date',
+            'type_depense' => 'required|string|max:100',
+            'montant'      => 'required|integer|min:1',
+            'commentaire'  => 'nullable|string|max:500',
+        ]);
+        $depense->update($v);
+        AuditLog::log('modification', 'depense', "Dépense #{$depense->id}", "Type: {$depense->type_depense}, Montant: {$depense->montant} F");
+        return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense modifiée.');
+    }
+
+    public function destroyDepense(Request $r, Depense $depense)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403);
+        AuditLog::log('suppression', 'depense', "Dépense #{$depense->id}", "Type: {$depense->type_depense}, Montant: {$depense->montant} F");
+        $depense->delete();
+        return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense supprimée.');
     }
 }

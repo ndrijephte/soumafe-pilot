@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Projets & Sprints')
 @section('titre', 'Sprint ' . $sprint->numero . ' — ' . $sprint->projet->libelle)
 @push('styles')
 <style>

@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Détail tâche')
 @section('titre', $tache->intitule)
 @push('styles')
 <style>

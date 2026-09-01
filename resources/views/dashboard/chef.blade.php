@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Vue responsable projet')
 @section('titre', 'Tableau de bord Responsable projet')
 @push('styles')
 <style>

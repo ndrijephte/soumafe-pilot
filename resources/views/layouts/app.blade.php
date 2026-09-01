@@ -61,6 +61,13 @@
         .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:15}
         .overlay.visible{display:block}
 
+        .date-bandeau{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:0 2px}
+        .date-cercle{width:14px;height:14px;border-radius:50%;border:2.5px solid var(--accent);position:relative;flex-shrink:0}
+        .date-cercle::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
+        .date-texte{font-size:14px;color:var(--bleu);font-weight:600;letter-spacing:.2px}
+        .date-texte .date-sep{color:var(--gris);font-weight:400;margin:0 6px}
+        .date-texte .date-ctx{color:var(--accent);font-weight:500;font-size:13px}
+
         .onglets-page{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--bord)}
         .onglets-page a{padding:8px 18px;font-size:13px;font-weight:600;color:var(--gris);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s}
         .onglets-page a:hover{color:var(--accent)}
@@ -163,6 +170,13 @@
             <div class="user-info"><span class="user-nom">{{ $u?->nomComplet() }}</span><span class="user-role">{{ $u->roleLibelle() }}</span></div>
             <a href="{{ route('profil.index') }}" class="avatar" style="text-decoration:none;color:#fff" title="Mon profil">{{ $initiales }}</a>
         </div>
+    </div>
+    <div class="date-bandeau">
+        <span class="date-cercle"></span>
+        <span class="date-texte">
+            {{ \Carbon\Carbon::now()->locale('fr')->isoFormat('dddd D MMMM YYYY') }}
+            @hasSection('sousTitre')<span class="date-sep">&mdash;</span><span class="date-ctx">@yield('sousTitre')</span>@endif
+        </span>
     </div>
     @yield('contenu')
 </main>

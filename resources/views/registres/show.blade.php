@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Registres')
 @section('titre', $registre->libelle)
 @push('styles')
 <style>

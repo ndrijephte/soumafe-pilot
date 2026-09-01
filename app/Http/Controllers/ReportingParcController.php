@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, MaintenancePreventive, Panne, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
+use App\Models\{AuditLog, Chauffeur, Depense, MaintenancePreventive, Panne, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -285,6 +285,26 @@ class ReportingParcController extends Controller
                 ->orderBy('date')->get();
         }
 
+        // ═══════ DÉPENSES + RENTABILITÉ ═══════
+        $depensesTotal = 0;
+        $depensesJour = collect();
+        $depensesType = collect();
+        if (Schema::hasTable('depenses')) {
+            $depsQuery = Depense::whereBetween('date_depense', [$debut, $fin]);
+            $depensesTotal = (clone $depsQuery)->sum('montant');
+            // Par jour (pour courbe)
+            $depensesJour = (clone $depsQuery)->selectRaw('date_depense as date, SUM(montant) as total')
+                ->groupBy('date_depense')->orderBy('date_depense')->get()
+                ->mapWithKeys(fn($d) => [$d->date => $d->total]);
+            // Par type
+            $depensesType = (clone $depsQuery)->selectRaw('type_depense, SUM(montant) as total')
+                ->groupBy('type_depense')->orderByDesc('total')->get();
+        }
+        $typesDepenseLabels = TypeParc::depenses()->pluck('libelle', 'code')->toArray();
+
+        // Rentabilité = Recettes - Dépenses - Pénalités - Coût pannes
+        $rentabilite = $recetteTotal - $depensesTotal - $montantPenalites - $coutPannes;
+
         return view('reporting.parc', compact(
             'periode', 'debut', 'fin', 'categorie',
             'recetteTotal', 'objectifTotal', 'tauxRecette',
@@ -298,7 +318,8 @@ class ReportingParcController extends Controller
             'performanceChauffeurs', 'gestionnairesActuels', 'historiqueGestionnaires',
             'tousVehicules', 'tousChauffeurs',
             'filtreVehicule', 'filtreChauffeur',
-            'detailJour', 'filtreNom'
+            'detailJour', 'filtreNom',
+            'depensesTotal', 'depensesJour', 'depensesType', 'typesDepenseLabels', 'rentabilite'
         ));
     }
 

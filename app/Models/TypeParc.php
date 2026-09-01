@@ -27,4 +27,10 @@ class TypeParc extends Model
         if (!Schema::hasTable('types_parc')) return collect();
         return static::where('categorie', 'motif_absence')->where('actif', true)->orderBy('ordre')->get();
     }
+
+    public static function depenses()
+    {
+        if (!Schema::hasTable('types_parc')) return collect();
+        return static::where('categorie', 'depense')->where('actif', true)->orderBy('ordre')->get();
+    }
 }

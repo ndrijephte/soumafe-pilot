@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Paramètres parc')
 @section('titre', 'Paramètres parc automobile')
 @push('styles')
 <style>
@@ -147,6 +148,37 @@
         <input type="hidden" name="categorie" value="motif_absence">
         <input name="code" placeholder="Code (ex: accident)" required>
         <input name="libelle" placeholder="Libellé (ex: Accident de circulation)" required>
+        <button class="btn sm">+ Ajouter</button>
+    </form>
+</div>
+
+{{-- ===== TYPES DÉPENSES ===== --}}
+<div class="carte form-admin" style="margin-top:20px">
+    <div class="param-section" style="margin-top:0">Types de dépenses</div>
+    <div class="info-box" style="background:#fef3c7;border-color:#fcd34d;color:#92400e">
+        Les types de dépenses sont utilisés pour catégoriser les autres dépenses de l'entreprise (salaire, réparation, factures, etc.).
+    </div>
+    <ul class="type-list">
+    @foreach($typesDepense as $td)
+        <li class="type-item {{ $td->actif ? '' : 'inactif' }}">
+            <span class="code">{{ $td->code }}</span>
+            <span class="libelle">{{ $td->libelle }}</span>
+            <form method="POST" action="{{ route('admin.parc-parametres.types.toggle', $td) }}" style="display:inline">
+                @csrf @method('PUT')
+                <button class="btn sm {{ $td->actif ? 'sec' : '' }}">{{ $td->actif ? 'Actif' : 'Inactif' }}</button>
+            </form>
+            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $td) }}" style="display:inline" onsubmit="return confirm('Supprimer ce type ?')">
+                @csrf @method('DELETE')
+                <button class="btn sm ko">Suppr.</button>
+            </form>
+        </li>
+    @endforeach
+    </ul>
+    <form method="POST" action="{{ route('admin.parc-parametres.types.store') }}" class="add-type-row">
+        @csrf
+        <input type="hidden" name="categorie" value="depense">
+        <input name="code" placeholder="Code (ex: carburant)" required>
+        <input name="libelle" placeholder="Libellé (ex: Carburant)" required>
         <button class="btn sm">+ Ajouter</button>
     </form>
 </div>

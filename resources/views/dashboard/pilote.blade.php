@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Vue pilotage')
 @section('titre', 'Tableau de bord — Pilotage')
 @push('styles')
 <style>

@@ -133,6 +133,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/chauffeurs/affecter', [ParcController::class, 'affecterChauffeur'])->name('parc.chauffeurs.affecter');
     Route::delete('/parc/vehicules/{vehicule}/chauffeurs/{chauffeur}', [ParcController::class, 'detacherChauffeur'])->name('parc.chauffeurs.detacher');
     Route::get('/parc/vehicules/{vehicule}/fiche', [ParcController::class, 'ficheVehicule'])->name('parc.vehicules.fiche');
+    // Dépenses
+    Route::post('/parc/depenses', [ParcController::class, 'storeDepense'])->name('parc.depenses.store');
+    Route::put('/parc/depenses/{depense}', [ParcController::class, 'updateDepense'])->name('parc.depenses.update');
+    Route::delete('/parc/depenses/{depense}', [ParcController::class, 'destroyDepense'])->name('parc.depenses.destroy');
     Route::get('/parc/reporting', [ReportingParcController::class, 'index'])->name('reporting.parc');
 
     // M8 — Administration (US-01→05)

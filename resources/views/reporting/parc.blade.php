@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@section('sousTitre', 'Reporting parc automobile')
 @section('titre', 'Reporting Parc')
 
 @push('styles')
@@ -145,6 +146,15 @@
         <div class="kpi-l">Maintenances en retard</div>
         <div class="kpi-sub kpi-warn">{{ $maintenancesProches }} à venir (15j)</div>
     </div>
+    <div class="kpi-c">
+        <div class="kpi-v" style="color:var(--ko)">{{ number_format($depensesTotal, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Autres dépenses (FCFA)</div>
+    </div>
+    <div class="kpi-c">
+        <div class="kpi-v" style="color:{{ $rentabilite >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rentabilite >= 0 ? '+' : '' }}{{ number_format($rentabilite, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Rentabilité nette (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - Dépenses - Pénalités - Pannes</div>
+    </div>
 </div>
 
 {{-- ═══ DÉTAIL JOUR PAR JOUR (si filtre actif) ═══ --}}
@@ -206,24 +216,29 @@
 @php
     $jours = $recettesJour->values();
     $nbPts = $jours->count();
-    $maxR = max($jours->max('total'), $jours->max('obj'), 1);
+    $depMax = ($depensesJour ?? collect())->isNotEmpty() ? ($depensesJour ?? collect())->max() : 0;
+    $maxR = max($jours->max('total'), $jours->max('obj'), $depMax, 1);
     $svgW = 700; $svgH = 240; $padL = 55; $padR = 15; $padT = 25; $padB = 40;
     $chartW = $svgW - $padL - $padR;
     $chartH = $svgH - $padT - $padB;
     $stepX = $nbPts > 1 ? $chartW / ($nbPts - 1) : $chartW;
-    $ptsRec = []; $ptsObj = []; $labels = [];
+    $ptsRec = []; $ptsObj = []; $ptsDep = []; $labels = [];
     $nbOk = 0; $nbWarn = 0; $nbKo = 0;
     foreach ($jours as $idx => $jr) {
         $x = round($padL + $idx * $stepX, 1);
         $yR = round($padT + $chartH - ($jr['total'] / $maxR) * $chartH, 1);
         $yO = round($padT + $chartH - ($jr['obj'] / $maxR) * $chartH, 1);
-        $ptsRec[] = "$x,$yR"; $ptsObj[] = "$x,$yO";
+        $depJ = (int) (($depensesJour ?? collect())[$jr['jour']] ?? 0);
+        $yD = round($padT + $chartH - ($depJ / $maxR) * $chartH, 1);
+        $ptsRec[] = "$x,$yR"; $ptsObj[] = "$x,$yO"; $ptsDep[] = "$x,$yD";
         $tauxJ = $jr['obj'] > 0 ? ($jr['total'] / $jr['obj']) * 100 : 0;
         if ($tauxJ >= 100) $nbOk++; elseif ($tauxJ >= 80) $nbWarn++; else $nbKo++;
-        $labels[] = ['x' => $x, 'jour' => \Carbon\Carbon::parse($jr['jour'])->format('d/m'), 'rec' => $jr['total'], 'obj' => $jr['obj']];
+        $labels[] = ['x' => $x, 'jour' => \Carbon\Carbon::parse($jr['jour'])->format('d/m'), 'rec' => $jr['total'], 'obj' => $jr['obj'], 'dep' => $depJ];
     }
     $lineRec = implode(' ', $ptsRec);
     $lineObj = implode(' ', $ptsObj);
+    $lineDep = implode(' ', $ptsDep);
+    $hasDep = collect($labels)->sum('dep') > 0;
     $gradY = [];
     $step = ceil($maxR / 5 / 1000) * 1000;
     if ($step < 1) $step = 1;
@@ -237,7 +252,7 @@
 @endphp
 <div class="rp-grid2">
     <div class="rp-section">
-        <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Évolution des recettes journalières</h3>
+        <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Évolution entrées / sorties</h3>
         <div style="overflow-x:auto">
             <svg viewBox="0 0 {{ $svgW }} {{ $svgH }}" width="100%" style="max-width:{{ $svgW }}px;font-family:inherit">
                 {{-- Axe Y label --}}
@@ -252,18 +267,22 @@
                 @endforeach
                 <polyline points="{{ $lineObj }}" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4"/>
                 <polyline points="{{ $lineRec }}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+                @if($hasDep)<polyline points="{{ $lineDep }}" fill="none" stroke="var(--ko)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>@endif
                 @foreach($labels as $lb)
                     @php
                         $yPt = round($padT + $chartH - ($lb['rec'] / $maxR) * $chartH, 1);
                         $cPt = $lb['rec'] >= $lb['obj'] ? 'var(--ok)' : ($lb['rec'] >= $lb['obj'] * 0.8 ? 'var(--warn)' : 'var(--ko)');
+                        $yDp = round($padT + $chartH - (($lb['dep'] ?? 0) / $maxR) * $chartH, 1);
                     @endphp
                     <circle cx="{{ $lb['x'] }}" cy="{{ $yPt }}" r="3.5" fill="{{ $cPt }}" stroke="#fff" stroke-width="1.5"/>
+                    @if(($lb['dep'] ?? 0) > 0)<circle cx="{{ $lb['x'] }}" cy="{{ $yDp }}" r="3" fill="var(--ko)" stroke="#fff" stroke-width="1.5"/>@endif
                     <text x="{{ $lb['x'] }}" y="{{ $svgH - $padB + 14 }}" fill="#64748b" font-size="9" text-anchor="middle">{{ $lb['jour'] }}</text>
                 @endforeach
             </svg>
         </div>
         <div style="display:flex;gap:16px;font-size:11px;color:var(--gris);margin-top:4px;flex-wrap:wrap">
-            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--accent);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Recettes</span>
+            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--accent);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Recettes (entrées)</span>
+            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--ko);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Dépenses (sorties)</span>
             <span><span style="display:inline-block;width:14px;height:0;border-top:1.5px dashed #94a3b8;vertical-align:middle;margin-right:4px"></span>Objectif</span>
         </div>
     </div>
@@ -549,6 +568,66 @@
             </tbody>
         </table>
     @endif
+</div>
+
+{{-- ═══ ANALYSE DES SORTIES D'ARGENT ═══ --}}
+<div class="rp-section">
+    <h3>{!! $ico('<path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/>') !!} Analyse des sorties d'argent</h3>
+    @php
+        $coutVeh = ($coutPannes ?? 0) + ($montantPenalites ?? 0);
+        $totalSort = $coutVeh + ($depensesTotal ?? 0);
+        $pctVeh = $totalSort > 0 ? round(($coutVeh / $totalSort) * 100) : 0;
+        $pctAutre = 100 - $pctVeh;
+    @endphp
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    {{-- Comparaison coûts véhicules vs autres dépenses --}}
+    <div>
+        <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">Coûts véhicules vs Autres dépenses</h4>
+        @if($totalSort > 0)
+        <div class="donut-wrap" style="padding:8px 0">
+            <div class="donut" style="width:130px;height:130px;background:conic-gradient(#f59e0b 0% {{ $pctVeh }}%, var(--ko) {{ $pctVeh }}% 100%)">
+                <div class="donut-center" style="inset:26px;font-size:14px">{{ number_format($totalSort,0,',',' ') }}</div>
+            </div>
+            <div class="donut-legend" style="font-size:12px;line-height:2.4">
+                <div><span style="background:#f59e0b"></span>Véhicules : {{ number_format($coutVeh,0,',',' ') }} F ({{ $pctVeh }}%)</div>
+                <div style="font-size:11px;color:var(--gris);padding-left:18px">Pannes : {{ number_format($coutPannes,0,',',' ') }} F</div>
+                <div style="font-size:11px;color:var(--gris);padding-left:18px">Pénalités : {{ number_format($montantPenalites,0,',',' ') }} F</div>
+                <div><span style="background:var(--ko)"></span>Autres : {{ number_format($depensesTotal,0,',',' ') }} F ({{ $pctAutre }}%)</div>
+            </div>
+        </div>
+        @if($coutVeh > $depensesTotal)
+        <div style="padding:8px 12px;background:#fef3c7;border-radius:8px;font-size:12px;color:#92400e;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:6px">
+            {!! $ico('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>') !!}
+            Les coûts véhicules dépassent les autres dépenses
+        </div>
+        @endif
+        @else
+        <p style="font-size:12px;color:var(--gris)">Aucune sortie sur la période</p>
+        @endif
+    </div>
+
+    {{-- Répartition par type de dépense --}}
+    <div>
+        <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">Détail autres dépenses</h4>
+        @if(($depensesType ?? collect())->isNotEmpty())
+        @php $maxDep = ($depensesType ?? collect())->max('total') ?: 1; @endphp
+        @foreach($depensesType ?? [] as $dt)
+        @php $pctDep = round(($dt->total / $maxDep) * 100); @endphp
+        <div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
+                <span style="font-weight:600">{{ $typesDepenseLabels[$dt->type_depense] ?? ucfirst(str_replace('_', ' ', $dt->type_depense)) }}</span>
+                <span style="color:var(--ko);font-weight:600">{{ number_format($dt->total, 0, ',', ' ') }} F</span>
+            </div>
+            <div style="height:8px;background:#fee2e2;border-radius:4px;overflow:hidden">
+                <div style="height:100%;width:{{ $pctDep }}%;background:var(--ko);border-radius:4px"></div>
+            </div>
+        </div>
+        @endforeach
+        @else
+        <p style="font-size:12px;color:var(--gris)">Aucune dépense sur la période</p>
+        @endif
+    </div>
+    </div>
 </div>
 
 @endsection

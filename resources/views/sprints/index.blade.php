@@ -29,6 +29,12 @@
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 .alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
+.btn-toggle-termines{display:inline-flex;align-items:center;gap:6px;background:var(--fond);border:1px solid var(--bord);border-radius:8px;padding:6px 14px;font-size:12px;color:var(--gris);cursor:pointer;margin-top:8px;transition:background .2s}
+.btn-toggle-termines:hover{background:#e2e8f0;color:var(--bleu)}
+.btn-toggle-termines svg{transition:transform .2s}
+.btn-toggle-termines.ouvert svg{transform:rotate(180deg)}
+.sprints-termines{display:none;margin-top:12px}
+.sprints-termines.visible{display:grid}
 dialog{border:none;border-radius:14px;padding:24px;width:460px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18);max-height:85vh;overflow-y:auto}
 dialog::backdrop{background:rgba(22,56,92,.35)}
 dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px}
@@ -90,8 +96,12 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             @endif
         </div>
     </div>
+    @php
+        $sprintsActifs = $p->sprints->whereIn('statut', ['en_cours', 'planifie']);
+        $sprintsTermines = $p->sprints->where('statut', 'termine');
+    @endphp
     <div class="sprint-grid">
-        @foreach($p->sprints as $s)
+        @foreach($sprintsActifs as $s)
         @php
             $totalTaches = $s->taches->count();
             $terminees = $s->taches->where('statut', 'termine')->count();
@@ -117,11 +127,44 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         </a>
         @endforeach
     </div>
+    @if($sprintsTermines->count() > 0)
+    <button class="btn-toggle-termines" onclick="toggleTermines(this)">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        Voir les {{ $sprintsTermines->count() }} sprint{{ $sprintsTermines->count() > 1 ? 's' : '' }} termin&eacute;{{ $sprintsTermines->count() > 1 ? 's' : '' }}
+    </button>
+    <div class="sprints-termines sprint-grid">
+        @foreach($sprintsTermines as $s)
+        @php
+            $totalTaches = $s->taches->count();
+            $terminees = $s->taches->where('statut', 'termine')->count();
+            $pct = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
+        @endphp
+        <a href="{{ route('sprints.show', $s) }}" class="sprint-card" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <span class="sprint-num">Sprint {{ $s->numero }}</span>
+                <span class="pill s-{{ $s->statut }}">{{ ucfirst(str_replace('_',' ',$s->statut)) }}</span>
+            </div>
+            <div class="sprint-obj">{{ $s->objectif }}</div>
+            <div class="sprint-dates">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                {{ $s->date_debut->format('d/m') }} &rarr; {{ $s->date_fin->format('d/m/Y') }}
+            </div>
+            <div class="sprint-bar"><div style="width:{{ $pct }}%"></div></div>
+            <div class="sprint-stats">
+                <div>T&acirc;ches : <strong>{{ $totalTaches }}</strong></div>
+                <div>Termin&eacute;es : <strong>{{ $terminees }}</strong></div>
+                <div>Points : <strong>{{ $s->pointsLivres() }}</strong>@if($s->engagement_points) / {{ $s->engagement_points }}@endif</div>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:600">Voir le d&eacute;tail &rarr;</div>
+        </a>
+        @endforeach
+    </div>
+    @endif
 </div>
 @endif
 @endforeach
 
-@if($projets->every(fn ($p) => $p->sprints->isEmpty()))
+@if($projets->every(fn($p) => $p->sprints->isEmpty()))
 <div class="carte" style="text-align:center;padding:40px">
     <p style="color:var(--gris);font-size:14px;margin-bottom:12px">Aucun sprint cr&eacute;&eacute; pour le moment.</p>
     @if(auth()->user()->peutGererProjet())
@@ -192,6 +235,16 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 @push('scripts')
 <script>
 @if($errors->any())document.addEventListener('DOMContentLoaded',function(){var d=document.getElementById('dlg-sprint');if(d)d.showModal();});@endif
+function toggleTermines(btn){
+    const section=btn.closest('.projet-section');
+    const grid=section.querySelector('.sprints-termines');
+    const ouvert=grid.classList.toggle('visible');
+    btn.classList.toggle('ouvert',ouvert);
+    const n=grid.querySelectorAll('[data-sprint]').length;
+    btn.querySelector('span')&&btn.querySelector('span').remove();
+    const txt=ouvert?'Masquer les sprints terminés':'Voir les '+n+' sprint'+(n>1?'s':'')+' terminé'+(n>1?'s':'');
+    btn.childNodes[btn.childNodes.length-1].textContent=txt;
+}
 function filtrer(){
     const txt=document.getElementById('filtreProjet').value.toLowerCase();
     const statut=document.getElementById('filtreStatut').value;
@@ -200,12 +253,23 @@ function filtrer(){
         const code=section.querySelector('.projet-code').textContent.toLowerCase();
         const matchProjet=!txt||nom.includes(txt)||code.includes(txt);
         if(!matchProjet){section.style.display='none';return;}
+        // Si filtre sur terminé, ouvrir automatiquement la section terminés
+        const gridT=section.querySelector('.sprints-termines');
+        const btnT=section.querySelector('.btn-toggle-termines');
+        if(statut==='termine'&&gridT&&!gridT.classList.contains('visible')){
+            gridT.classList.add('visible');
+            if(btnT)btnT.classList.add('ouvert');
+        }
         let anyVisible=false;
         section.querySelectorAll('[data-sprint]').forEach(card=>{
             const ok=!statut||card.dataset.statut===statut;
             card.style.display=ok?'':'none';
             if(ok) anyVisible=true;
         });
+        // Masquer le bouton toggle si filtre actif sur un statut non-terminé
+        if(btnT){
+            btnT.style.display=(statut&&statut!=='termine')?'none':'';
+        }
         section.style.display=anyVisible?'':'none';
     });
 }

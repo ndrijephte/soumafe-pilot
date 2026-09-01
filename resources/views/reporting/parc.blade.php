@@ -42,11 +42,11 @@
 .bar-val{font-size:11px;color:#475569;width:60px;flex:none;font-variant-numeric:tabular-nums}
 
 /* Donut CSS */
-.donut-wrap{display:flex;align-items:center;gap:20px;justify-content:center;flex-wrap:wrap}
-.donut{width:120px;height:120px;border-radius:50%;position:relative}
-.donut-center{position:absolute;inset:25px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--bleu)}
-.donut-legend{font-size:12px;line-height:2}
-.donut-legend span{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.donut-wrap{display:flex;align-items:center;gap:24px;justify-content:center;flex-wrap:wrap;padding:16px 0}
+.donut{width:160px;height:160px;border-radius:50%;position:relative;flex-shrink:0}
+.donut-center{position:absolute;inset:32px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--bleu)}
+.donut-legend{font-size:13px;line-height:2.2}
+.donut-legend span{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:middle}
 
 /* Jauge taux */
 .gauge{width:100%;height:22px;background:#f1f5f9;border-radius:6px;overflow:hidden;position:relative;margin-top:6px}

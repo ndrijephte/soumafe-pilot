@@ -511,14 +511,15 @@ class ParcController extends Controller
                 ];
 
                 $existant = RecetteVehicule::where('vehicule_id', $vehiculeId)->whereDate('date', $dateJour)->first();
+                $aColVerrou = Schema::hasColumn('recettes_vehicules', 'valide_par');
                 if ($existant) {
                     // Vérifier verrouillage : seul charge_operations peut modifier une recette validée
                     $estChargeOps = auth()->user()->estAdmin();
-                    if ($existant->valide_par && !$estChargeOps) {
+                    if ($aColVerrou && $existant->valide_par && !$estChargeOps) {
                         $erreurs[] = ($ligne['chauffeur'] ?? $v->immatriculation) . ' : recette verrouillée, modification non autorisée';
                         continue;
                     }
-                    if ($existant->valide_par && $estChargeOps) {
+                    if ($aColVerrou && $existant->valide_par && $estChargeOps) {
                         $donnees['motif_modification'] = $ligne['motif_modification'] ?? 'Correction par ' . auth()->user()->name;
                         $donnees['modifie_par'] = auth()->user()->name;
                         $donnees['modifie_le'] = now();
@@ -527,8 +528,10 @@ class ParcController extends Controller
                     $recetteObj = $existant;
                     $nbMaj++;
                 } else {
-                    $donnees['valide_par'] = auth()->user()->name;
-                    $donnees['valide_le'] = now();
+                    if ($aColVerrou) {
+                        $donnees['valide_par'] = auth()->user()->name;
+                        $donnees['valide_le'] = now();
+                    }
                     $recetteObj = RecetteVehicule::create($donnees);
                     $nbCrees++;
                 }

@@ -196,6 +196,12 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/audit', function (\Illuminate\Http\Request $r) {
             abort_unless($r->user()->estAdmin(), 403);
+            if (!\Illuminate\Support\Facades\Schema::hasTable('audit_logs')) {
+                $logs = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
+                $modules = collect();
+                $actions = collect();
+                return view('admin.audit', compact('logs', 'modules', 'actions'));
+            }
             $query = \App\Models\AuditLog::query()->orderByDesc('created_at');
             if ($r->filled('module')) $query->where('module', $r->module);
             if ($r->filled('action')) $query->where('action', $r->action);

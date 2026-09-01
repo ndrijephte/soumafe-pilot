@@ -61,7 +61,9 @@ jobs:
 
       - name: Upload application to cPanel
         env:
-          FTP_HOST: ${{ secrets.CPANEL_FTP_HOST }}
+          # Utiliser le hostname cPanel couvert par le certificat TLS. Le domaine
+          # FTP personnalisé peut présenter un certificat dont le nom diffère.
+          FTP_HOST: web53.lws-hosting.com
           FTP_USERNAME: ${{ secrets.CPANEL_FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.CPANEL_FTP_PASSWORD }}
           FTP_SERVER_DIR: ${{ secrets.CPANEL_FTP_SERVER_DIR }}

@@ -27,7 +27,7 @@
         .ic{flex:none}
         .bas-barre{margin-top:auto;border-top:1px solid rgba(255,255,255,.15);padding-top:8px}
         .reduire{opacity:.85}
-        main{margin-left:230px;flex:1;padding:22px 26px}
+        main{margin-left:230px;flex:1;padding:22px 26px;min-width:0;overflow-x:hidden}
         .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px}
         .recherche{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--bord);border-radius:8px;padding:0 12px;color:var(--gris);flex:1;max-width:380px}
         .recherche input{border:none;outline:none;padding:8px 0;width:100%;font-size:13px}

@@ -88,5 +88,12 @@ jobs:
             --exclude-glob 'storage/framework/views/**' \
             --exclude-glob 'storage/logs/**' \
             ./ "$FTP_SERVER_DIR"
+          # Les dossiers vides ne sont pas recréés par le miroir lorsque leur
+          # contenu est exclu. Laravel en a besoin pour les vues et les caches.
+          mkdir -p "$FTP_SERVER_DIR/storage/framework/cache/data"
+          mkdir -p "$FTP_SERVER_DIR/storage/framework/sessions"
+          mkdir -p "$FTP_SERVER_DIR/storage/framework/views"
+          mkdir -p "$FTP_SERVER_DIR/storage/logs"
+          mkdir -p "$FTP_SERVER_DIR/bootstrap/cache"
           bye
           LFTP_COMMANDS

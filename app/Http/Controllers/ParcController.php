@@ -619,7 +619,7 @@ class ParcController extends Controller
         $m = MaintenancePreventive::create($r->only([
             'vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations',
         ]));
-        AuditLog::log('creation', 'maintenance', "Maintenance #{$m->id}", "Type: {$r->type_echeance}, Véhicule ID: {$r->vehicule_id}");
+        AuditLog::log('creation', 'maintenance', "Maintenance #{$m->id}", "Type: {$m->type_echeance}, Véhicule ID: {$m->vehicule_id}");
 
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance ajoutée.');
     }
@@ -638,7 +638,7 @@ class ParcController extends Controller
         $maintenance->update($r->only([
             'vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations',
         ]));
-        AuditLog::log('modification', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$r->type_echeance}");
+        AuditLog::log('modification', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}");
 
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance mise à jour.');
     }
@@ -672,7 +672,7 @@ class ParcController extends Controller
             'vehicule_id', 'date_infraction', 'type', 'chauffeur', 'lieu',
             'description', 'montant', 'statut', 'date_paiement', 'observations',
         ]));
-        AuditLog::log('creation', 'penalite', "Pénalité #{$p->id}", "Type: {$r->type}, Montant: {$r->montant}, Chauffeur: {$r->chauffeur}");
+        AuditLog::log('creation', 'penalite', "Pénalité #{$p->id}", "Type: {$p->type}, Montant: {$p->montant} F, Chauffeur: {$p->chauffeur}");
 
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité enregistrée.');
     }
@@ -697,7 +697,7 @@ class ParcController extends Controller
             'vehicule_id', 'date_infraction', 'type', 'chauffeur', 'lieu',
             'description', 'montant', 'statut', 'date_paiement', 'observations',
         ]));
-        AuditLog::log('modification', 'penalite', "Pénalité #{$penalite->id}", "Type: {$r->type}, Montant: {$r->montant}");
+        AuditLog::log('modification', 'penalite', "Pénalité #{$penalite->id}", "Type: {$penalite->type}, Montant: {$penalite->montant} F");
 
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité mise à jour.');
     }
@@ -762,8 +762,8 @@ class ParcController extends Controller
         ]);
         $v = Vehicule::findOrFail($data['vehicule_id']);
         $v->chauffeurs()->syncWithoutDetaching([$data['chauffeur_id'] => ['role' => $data['role'], 'actif' => true]]);
-        $chNom = Chauffeur::find($data['chauffeur_id']);
-        AuditLog::log('affectation', 'chauffeur', "Chauffeur #{$data['chauffeur_id']}", "Affecté à véhicule {$v->immatriculation} ({$data['role']})");
+        $chAff = Chauffeur::find($data['chauffeur_id']);
+        AuditLog::log('affectation', 'chauffeur', "Chauffeur #{$data['chauffeur_id']}", ($chAff ? "{$chAff->nom} {$chAff->prenom}" : '') . " → {$v->immatriculation} ({$data['role']})");
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur affecté.');
     }
 
@@ -897,11 +897,17 @@ class ParcController extends Controller
     public function annulerRecouvrement(Request $r, Recouvrement $recouvrement)
     {
         $this->autoriser($r);
+        $r->validate(['motif_annulation' => 'required|string|min:5|max:500']);
         if ($recouvrement->montant_recouvre > 0) {
             return back()->withErrors(['Impossible d\'annuler : des versements ont déjà été effectués.']);
         }
-        $recouvrement->update(['statut' => 'annule']);
-        AuditLog::log('annulation', 'recouvrement', "Recouvrement #{$recouvrement->id}", "Chauffeur: {$recouvrement->chauffeur}, Montant: {$recouvrement->montant_initial} F");
+        $recouvrement->update([
+            'statut' => 'annule',
+            'motif_annulation' => $r->motif_annulation,
+            'annule_par' => auth()->user()->name,
+            'annule_le' => now(),
+        ]);
+        AuditLog::log('annulation', 'recouvrement', "Recouvrement #{$recouvrement->id}", "Chauffeur: {$recouvrement->chauffeur}, Montant: {$recouvrement->montant_initial} F, Motif: {$r->motif_annulation}");
         return redirect()->route('parc.index', ['tab' => 'recouvrements'])->with('succes', 'Recouvrement annulé.');
     }
 }

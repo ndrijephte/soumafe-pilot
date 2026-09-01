@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Chauffeur, MaintenancePreventive, Panne, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
+use App\Models\{AuditLog, Chauffeur, MaintenancePreventive, Panne, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -216,13 +216,19 @@ class ReportingParcController extends Controller
                 })->filter()->sortByDesc('resultat')->values();
         }
 
-        // ═══════ GESTIONNAIRE PARC DÉSIGNÉ ═══════
-        $gestionnaireParc = User::where('actif', true)->where('delegation_parc', true)->get()
-            ->map(fn($u) => $u->nomComplet())->join(', ');
-        if (!$gestionnaireParc) {
-            $gestionnaireParc = User::where('actif', true)
+        // ═══════ GESTIONNAIRES PARC — ACTUEL + HISTORIQUE ═══════
+        $gestionnairesActuels = User::where('actif', true)->where('delegation_parc', true)->get()
+            ->map(fn($u) => $u->nomComplet());
+        if ($gestionnairesActuels->isEmpty()) {
+            $gestionnairesActuels = User::where('actif', true)
                 ->whereIn('role', ['administrateur', 'charge_operations'])->get()
-                ->map(fn($u) => $u->nomComplet())->join(', ');
+                ->map(fn($u) => $u->nomComplet());
+        }
+        $historiqueGestionnaires = collect();
+        if (Schema::hasTable('audit_logs')) {
+            $historiqueGestionnaires = AuditLog::where('module', 'utilisateur')
+                ->where('action', 'delegation_parc')
+                ->orderByDesc('created_at')->take(20)->get();
         }
 
         // ═══════ CLASSEMENT VÉHICULES (performance globale) ═══════
@@ -289,7 +295,7 @@ class ReportingParcController extends Controller
             'pannesVehicule', 'pannesUrgence',
             'penalitesType', 'penalitesStatut',
             'maintenanceType', 'classement',
-            'performanceChauffeurs', 'gestionnaireParc',
+            'performanceChauffeurs', 'gestionnairesActuels', 'historiqueGestionnaires',
             'tousVehicules', 'tousChauffeurs',
             'filtreVehicule', 'filtreChauffeur',
             'detailJour', 'filtreNom'

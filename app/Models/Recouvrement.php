@@ -10,6 +10,7 @@ class Recouvrement extends Model
         'recette_vehicule_id', 'chauffeur_id', 'chauffeur_nom', 'vehicule_id',
         'date_recette', 'montant_verse', 'objectif', 'deficit', 'montant_recouvre',
         'solde', 'statut', 'motif', 'justification_valable', 'observations', 'cree_par',
+        'motif_annulation', 'annule_par', 'annule_le',
     ];
 
     protected $casts = ['date_recette' => 'date', 'justification_valable' => 'boolean'];

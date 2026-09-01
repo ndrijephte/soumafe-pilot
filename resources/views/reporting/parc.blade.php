@@ -469,11 +469,29 @@
     @endif
 </div>
 
-{{-- ═══ GESTIONNAIRE PARC ═══ --}}
-@if($gestionnaireParc)
+{{-- ═══ GESTIONNAIRES PARC ═══ --}}
+@if($gestionnairesActuels->isNotEmpty())
 <div class="rp-section" style="margin-bottom:18px">
-    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!} Gestionnaire parc d&eacute;sign&eacute;</h3>
-    <p style="font-size:14px;font-weight:600;color:var(--bleu)">{{ $gestionnaireParc }}</p>
+    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!} Gestionnaire(s) parc en fonction</h3>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        @foreach($gestionnairesActuels as $gn)
+        <span style="background:var(--accent);color:#fff;padding:5px 14px;border-radius:8px;font-size:13px;font-weight:600">{{ $gn }}</span>
+        @endforeach
+    </div>
+    @if($historiqueGestionnaires->isNotEmpty())
+    <details style="margin-top:8px">
+        <summary style="cursor:pointer;font-size:12px;color:var(--gris);font-weight:600">Historique des changements</summary>
+        <div style="margin-top:6px;font-size:12px;max-height:200px;overflow-y:auto">
+            @foreach($historiqueGestionnaires as $hg)
+            <div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--bord)">
+                <span style="color:var(--gris);min-width:100px">{{ $hg->created_at?->format('d/m/Y H:i') }}</span>
+                <span style="font-weight:600">{{ $hg->user_name }}</span>
+                <span style="color:#666">{{ $hg->details }}</span>
+            </div>
+            @endforeach
+        </div>
+    </details>
+    @endif
 </div>
 @endif
 

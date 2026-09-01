@@ -628,7 +628,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
                 @if($rc->montant_recouvre == 0)
-                <form method="POST" action="{{ route('parc.recouvrements.annuler', $rc) }}" onsubmit="return confirm('Annuler ce recouvrement ?')">@csrf @method('PATCH')
+                <form method="POST" action="{{ route('parc.recouvrements.annuler', $rc) }}" onsubmit="return demanderMotifAnnulation(this)">@csrf @method('PATCH')
+                    <input type="hidden" name="motif_annulation" class="motif-annul-input">
                     <button class="act-btn del" title="Annuler">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
@@ -1562,5 +1563,12 @@ document.querySelectorAll('dialog').forEach(function(dlg){
         if(dlg.id==='dlg-chauffeur'&&form)form.action='{{ route("parc.chauffeurs.store") }}';
     });
 });
+
+function demanderMotifAnnulation(form){
+    var motif=prompt('Motif de l\'annulation (obligatoire) :');
+    if(!motif||motif.trim().length<5){alert('Le motif est obligatoire (5 caractères minimum).');return false;}
+    form.querySelector('.motif-annul-input').value=motif.trim();
+    return true;
+}
 </script>
 @endpush

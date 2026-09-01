@@ -2,7 +2,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Pole, ProfilMesure, Role, User};
+use App\Models\{AuditLog, Pole, ProfilMesure, Role, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Hash, Schema};
 use Illuminate\Validation\Rule;
@@ -103,8 +103,16 @@ class UtilisateurController extends Controller
         if (empty($v['password'])) unset($v['password']);
         else $v['password'] = Hash::make($v['password']);
         $v['actif'] = $r->boolean('actif');
+        $ancienneDelegation = (bool) $utilisateur->delegation_parc;
         $v['delegation_parc'] = $r->boolean('delegation_parc');
         $utilisateur->update($v);
+        // Audit modification utilisateur
+        AuditLog::log('modification', 'utilisateur', "Utilisateur #{$utilisateur->id}", "{$utilisateur->name} {$utilisateur->prenom}, rôle: {$v['role']}");
+        // Audit spécifique changement délégation parc
+        if ($ancienneDelegation !== $v['delegation_parc']) {
+            $action = $v['delegation_parc'] ? 'Délégation parc accordée' : 'Délégation parc retirée';
+            AuditLog::log('delegation_parc', 'utilisateur', "Utilisateur #{$utilisateur->id}", "{$action} à {$utilisateur->name} {$utilisateur->prenom}");
+        }
         return redirect()->route('admin.utilisateurs.index')->with('succes', 'Compte mis à jour.');
     }
 

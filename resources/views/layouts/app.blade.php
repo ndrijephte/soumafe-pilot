@@ -124,8 +124,10 @@
         {!! $svg('<rect x="1" y="6" width="22" height="12" rx="3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M5 10h14"/>') !!}<span class="txt">Parc automobile</span></a>
     @endif
     @if($u?->estAdmin())
-    <a href="{{ route('admin.utilisateurs.index') }}" data-tip="Administration" class="{{ request()->is('admin*') ? 'actif' : '' }}">
+    <a href="{{ route('admin.utilisateurs.index') }}" data-tip="Administration" class="{{ request()->is('admin*') && !request()->routeIs('admin.audit.*') ? 'actif' : '' }}">
         {!! $svg('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>') !!}<span class="txt">Administration</span></a>
+    <a href="{{ route('admin.audit.index') }}" data-tip="Journal d'audit" class="{{ request()->routeIs('admin.audit.*') ? 'actif' : '' }}">
+        {!! $svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>') !!}<span class="txt">Journal d'audit</span></a>
     @endif
     <div class="bas-barre">
         <a class="reduire" data-tip="Agrandir" onclick="basculer()">

@@ -130,7 +130,7 @@ class AlerteParcService
                     'type' => $type,
                     'contenu' => $contenu,
                     'lu' => false,
-                    'canal' => 'app',
+                    'canal' => 'in_app',
                 ]);
             }
         }

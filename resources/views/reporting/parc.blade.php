@@ -201,39 +201,95 @@
 </div>
 @endif
 
-{{-- ═══ GRAPHIQUES RECETTES ═══ --}}
-<div class="rp-section">
-    <h3>{!! $ico('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>') !!} Recettes journalières</h3>
-    @if($recettesJour->isEmpty())
-        <p style="color:var(--gris);font-size:13px">Aucune recette sur cette période.</p>
-    @else
-        @php
-            $maxR = max($recettesJour->max('total'), $recettesJour->max('obj'), 1);
-        @endphp
+{{-- ═══ COURBE RECETTES + DONUT ATTEINTE ═══ --}}
+@if($recettesJour->isNotEmpty())
+@php
+    $jours = $recettesJour->values();
+    $nbPts = $jours->count();
+    $maxR = max($jours->max('total'), $jours->max('obj'), 1);
+    $svgW = 700; $svgH = 240; $padL = 55; $padR = 15; $padT = 25; $padB = 40;
+    $chartW = $svgW - $padL - $padR;
+    $chartH = $svgH - $padT - $padB;
+    $stepX = $nbPts > 1 ? $chartW / ($nbPts - 1) : $chartW;
+    $ptsRec = []; $ptsObj = []; $labels = [];
+    $nbOk = 0; $nbWarn = 0; $nbKo = 0;
+    foreach ($jours as $idx => $jr) {
+        $x = round($padL + $idx * $stepX, 1);
+        $yR = round($padT + $chartH - ($jr['total'] / $maxR) * $chartH, 1);
+        $yO = round($padT + $chartH - ($jr['obj'] / $maxR) * $chartH, 1);
+        $ptsRec[] = "$x,$yR"; $ptsObj[] = "$x,$yO";
+        $tauxJ = $jr['obj'] > 0 ? ($jr['total'] / $jr['obj']) * 100 : 0;
+        if ($tauxJ >= 100) $nbOk++; elseif ($tauxJ >= 80) $nbWarn++; else $nbKo++;
+        $labels[] = ['x' => $x, 'jour' => \Carbon\Carbon::parse($jr['jour'])->format('d/m'), 'rec' => $jr['total'], 'obj' => $jr['obj']];
+    }
+    $lineRec = implode(' ', $ptsRec);
+    $lineObj = implode(' ', $ptsObj);
+    $gradY = [];
+    $step = ceil($maxR / 5 / 1000) * 1000;
+    if ($step < 1) $step = 1;
+    for ($v = 0; $v <= $maxR; $v += $step) { $gradY[] = $v; }
+    if (end($gradY) < $maxR) $gradY[] = ceil($maxR / $step) * $step;
+    $maxR = max(end($gradY), $maxR);
+    // Donut
+    $pOk = $nbPts > 0 ? round($nbOk / $nbPts * 100) : 0;
+    $pWarn = $nbPts > 0 ? round($nbWarn / $nbPts * 100) : 0;
+    $pKo = 100 - $pOk - $pWarn;
+@endphp
+<div class="rp-grid2">
+    <div class="rp-section">
+        <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Évolution des recettes journalières</h3>
         <div style="overflow-x:auto">
-            <div style="display:flex;align-items:flex-end;gap:3px;min-width:{{ $recettesJour->count() * 32 }}px;height:200px;padding-bottom:24px;position:relative">
-                @foreach($recettesJour as $jr)
-                    @php
-                        $tauxJ = $jr['obj'] > 0 ? round(($jr['total'] / $jr['obj']) * 100) : 0;
-                        $hR = max(round(($jr['total'] / $maxR) * 155), 2);
-                        $colorJ = $tauxJ >= 100 ? 'var(--ok)' : ($tauxJ >= 80 ? 'var(--warn)' : 'var(--ko)');
-                        $jour = \Carbon\Carbon::parse($jr['jour'])->format('d');
-                    @endphp
-                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:26px">
-                        <span style="font-size:9px;font-weight:700;color:{{ $colorJ }}">{{ $tauxJ }}%</span>
-                        <div style="width:18px;height:{{ $hR }}px;background:{{ $colorJ }};border-radius:4px 4px 0 0;cursor:default" title="{{ number_format($jr['total'],0,',',' ') }} / {{ number_format($jr['obj'],0,',',' ') }} FCFA"></div>
-                        <span style="font-size:10px;color:var(--gris)">{{ $jour }}</span>
-                    </div>
+            <svg viewBox="0 0 {{ $svgW }} {{ $svgH }}" width="100%" style="max-width:{{ $svgW }}px;font-family:inherit">
+                {{-- Axe Y label --}}
+                <text x="12" y="{{ $padT + $chartH / 2 }}" fill="#94a3b8" font-size="10" text-anchor="middle" transform="rotate(-90,12,{{ $padT + $chartH / 2 }})">Montant (FCFA)</text>
+                {{-- Axe X label --}}
+                <text x="{{ $padL + $chartW / 2 }}" y="{{ $svgH - 2 }}" fill="#94a3b8" font-size="10" text-anchor="middle">Jours</text>
+                {{-- Grille horizontale + labels Y --}}
+                @foreach($gradY as $gv)
+                    @php $gy = round($padT + $chartH - ($gv / $maxR) * $chartH, 1); @endphp
+                    <line x1="{{ $padL }}" y1="{{ $gy }}" x2="{{ $svgW - $padR }}" y2="{{ $gy }}" stroke="#e2e8f0" stroke-width="1"/>
+                    <text x="{{ $padL - 6 }}" y="{{ $gy + 3.5 }}" fill="#94a3b8" font-size="10" text-anchor="end">{{ number_format($gv / 1000, 0) }}k</text>
                 @endforeach
+                <polyline points="{{ $lineObj }}" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4"/>
+                <polyline points="{{ $lineRec }}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+                @foreach($labels as $lb)
+                    @php
+                        $yPt = round($padT + $chartH - ($lb['rec'] / $maxR) * $chartH, 1);
+                        $cPt = $lb['rec'] >= $lb['obj'] ? 'var(--ok)' : ($lb['rec'] >= $lb['obj'] * 0.8 ? 'var(--warn)' : 'var(--ko)');
+                    @endphp
+                    <circle cx="{{ $lb['x'] }}" cy="{{ $yPt }}" r="3.5" fill="{{ $cPt }}" stroke="#fff" stroke-width="1.5"/>
+                    <text x="{{ $lb['x'] }}" y="{{ $svgH - $padB + 14 }}" fill="#64748b" font-size="9" text-anchor="middle">{{ $lb['jour'] }}</text>
+                @endforeach
+            </svg>
+        </div>
+        <div style="display:flex;gap:16px;font-size:11px;color:var(--gris);margin-top:4px;flex-wrap:wrap">
+            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--accent);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Recettes</span>
+            <span><span style="display:inline-block;width:14px;height:0;border-top:1.5px dashed #94a3b8;vertical-align:middle;margin-right:4px"></span>Objectif</span>
+        </div>
+    </div>
+    <div class="rp-section">
+        <h3>{!! $ico('<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>') !!} Taux d'atteinte des objectifs</h3>
+        <div class="donut-wrap">
+            <div class="donut" style="background:conic-gradient(var(--ok) 0% {{ $pOk }}%, var(--warn) {{ $pOk }}% {{ $pOk + $pWarn }}%, var(--ko) {{ $pOk + $pWarn }}% 100%)">
+                <div class="donut-center">{{ $pOk }}%</div>
             </div>
-            <div style="display:flex;gap:16px;font-size:11px;color:var(--gris);margin-top:4px">
-                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ok);border-radius:2px;vertical-align:middle;margin-right:4px"></span>&ge; 100%</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:var(--warn);border-radius:2px;vertical-align:middle;margin-right:4px"></span>80 — 99%</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:var(--ko);border-radius:2px;vertical-align:middle;margin-right:4px"></span>&lt; 80%</span>
+            <div class="donut-legend">
+                <div><span style="background:var(--ok)"></span> &ge; 100% — {{ $nbOk }} jour(s)</div>
+                <div><span style="background:var(--warn)"></span> 80-99% — {{ $nbWarn }} jour(s)</div>
+                <div><span style="background:var(--ko)"></span> &lt; 80% — {{ $nbKo }} jour(s)</div>
             </div>
         </div>
-    @endif
+        <div style="margin-top:16px;text-align:center;font-size:13px;color:var(--bleu);font-weight:600">
+            {{ $nbPts }} jour(s) analysé(s)
+        </div>
+    </div>
 </div>
+@else
+<div class="rp-section">
+    <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Évolution des recettes journalières</h3>
+    <p style="color:var(--gris);font-size:13px">Aucune recette sur cette période.</p>
+</div>
+@endif
 
 <div class="rp-grid2">
     {{-- ═══ PANNES PAR URGENCE ═══ --}}

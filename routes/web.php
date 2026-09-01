@@ -194,6 +194,20 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/parc-parametres/types/{type}', [ParcParametreController::class, 'toggleType'])->name('parc-parametres.types.toggle');
         Route::delete('/parc-parametres/types/{type}', [ParcParametreController::class, 'destroyType'])->name('parc-parametres.types.destroy');
 
+        Route::get('/audit', function (\Illuminate\Http\Request $r) {
+            abort_unless($r->user()->estAdmin(), 403);
+            $query = \App\Models\AuditLog::query()->orderByDesc('created_at');
+            if ($r->filled('module')) $query->where('module', $r->module);
+            if ($r->filled('action')) $query->where('action', $r->action);
+            if ($r->filled('user_name')) $query->where('user_name', 'like', '%'.$r->user_name.'%');
+            if ($r->filled('date_debut')) $query->whereDate('created_at', '>=', $r->date_debut);
+            if ($r->filled('date_fin'))   $query->whereDate('created_at', '<=', $r->date_fin);
+            $logs = $query->paginate(50)->appends($r->query());
+            $modules = \App\Models\AuditLog::select('module')->distinct()->orderBy('module')->pluck('module');
+            $actions = \App\Models\AuditLog::select('action')->distinct()->orderBy('action')->pluck('action');
+            return view('admin.audit', compact('logs', 'modules', 'actions'));
+        })->name('audit.index');
+
     });
 });
 

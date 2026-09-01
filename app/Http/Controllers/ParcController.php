@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, Chauffeur, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -238,6 +238,7 @@ class ParcController extends Controller
 
         $this->syncChauffeurs($vehicule, $r);
 
+        AuditLog::log('creation', 'vehicule', $vehicule->immatriculation);
         return redirect()->route('parc.index', ['tab' => 'vehicules'])->with('succes', 'Véhicule ajouté.');
     }
 
@@ -265,6 +266,7 @@ class ParcController extends Controller
 
         $this->syncChauffeurs($vehicule, $r);
 
+        AuditLog::log('modification', 'vehicule', $vehicule->immatriculation);
         return redirect()->route('parc.index', ['tab' => 'vehicules'])->with('succes', 'Véhicule mis à jour.');
     }
 
@@ -272,6 +274,7 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         abort_unless($r->user()->estPilote(), 403);
+        AuditLog::log('suppression', 'vehicule', $vehicule->immatriculation);
         $vehicule->delete();
         return redirect()->route('parc.index', ['tab' => 'vehicules'])->with('succes', 'Véhicule supprimé.');
     }
@@ -315,7 +318,8 @@ class ParcController extends Controller
             $data['delai_resolution'] = \Carbon\Carbon::parse($data['date_declaration'])->diffInDays(\Carbon\Carbon::parse($data['date_cloture']));
         }
 
-        Panne::create($data);
+        $p = Panne::create($data);
+        AuditLog::log('creation', 'panne', $p->vehicule?->immatriculation);
         return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne enregistrée.');
     }
 
@@ -340,12 +344,14 @@ class ParcController extends Controller
         }
 
         $panne->update($data);
+        AuditLog::log('modification', 'panne', $panne->vehicule?->immatriculation);
         return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne mise à jour.');
     }
 
     public function destroyPanne(Request $r, Panne $panne)
     {
         $this->autoriser($r);
+        AuditLog::log('suppression', 'panne', $panne->vehicule?->immatriculation);
         $panne->delete();
         return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne supprimée.');
     }
@@ -506,18 +512,31 @@ class ParcController extends Controller
 
                 $existant = RecetteVehicule::where('vehicule_id', $vehiculeId)->whereDate('date', $dateJour)->first();
                 if ($existant) {
+                    // Vérifier verrouillage : seul charge_operations peut modifier une recette validée
+                    $estChargeOps = auth()->user()->estAdmin();
+                    if ($existant->valide_par && !$estChargeOps) {
+                        $erreurs[] = ($ligne['chauffeur'] ?? $v->immatriculation) . ' : recette verrouillée, modification non autorisée';
+                        continue;
+                    }
+                    if ($existant->valide_par && $estChargeOps) {
+                        $donnees['motif_modification'] = $ligne['motif_modification'] ?? 'Correction par ' . auth()->user()->name;
+                        $donnees['modifie_par'] = auth()->user()->name;
+                        $donnees['modifie_le'] = now();
+                    }
                     $existant->update($donnees);
                     $recetteObj = $existant;
                     $nbMaj++;
                 } else {
+                    $donnees['valide_par'] = auth()->user()->name;
+                    $donnees['valide_le'] = now();
                     $recetteObj = RecetteVehicule::create($donnees);
                     $nbCrees++;
                 }
 
                 // ─── Gestion recouvrement si déficit ───
-                if (!$estRepos && Schema::hasTable('recouvrements') && $montant < $objectif) {
-                    $justifValable = filter_var($ligne['justification_valable'] ?? false, FILTER_VALIDATE_BOOLEAN);
-                    $deficit = $objectif - $montant;
+                if (!$estRepos && Schema::hasTable('recouvrements')) {
+                    $justifValable = filter_var($ligne['justification_valable'] ?? true, FILTER_VALIDATE_BOOLEAN);
+                    $deficit = $montant < $objectif ? ($objectif - $montant) : 0;
                     $chauffeurNom = $ligne['chauffeur'] ?? null;
 
                     // Chercher chauffeur_id
@@ -529,27 +548,42 @@ class ParcController extends Controller
                         $chauffeurId = $ch?->id;
                     }
 
-                    // Supprimer ancien recouvrement pour cette recette si justification a changé
-                    Recouvrement::where('recette_vehicule_id', $recetteObj->id)
-                        ->where('montant_recouvre', 0)->delete();
+                    $existantRecouv = Recouvrement::where('recette_vehicule_id', $recetteObj->id)
+                        ->where('statut', 'actif')->first();
 
-                    if (!$justifValable) {
-                        Recouvrement::create([
-                            'recette_vehicule_id' => $recetteObj->id,
-                            'chauffeur_id' => $chauffeurId,
-                            'chauffeur_nom' => $chauffeurNom,
-                            'vehicule_id' => $vehiculeId,
-                            'date_recette' => $dateJour,
-                            'montant_verse' => $montant,
-                            'objectif' => $objectif,
-                            'deficit' => $deficit,
-                            'montant_recouvre' => 0,
-                            'solde' => $deficit,
-                            'statut' => 'actif',
-                            'motif' => $motif,
-                            'justification_valable' => false,
-                            'cree_par' => $ligne['controle_par'] ?? auth()->user()->name,
-                        ]);
+                    if ($montant >= $objectif || $justifValable) {
+                        // Supprimer seulement si aucun versement effectué
+                        if ($existantRecouv && $existantRecouv->montant_recouvre == 0) {
+                            $existantRecouv->delete();
+                        }
+                    } elseif ($deficit > 0 && !$justifValable) {
+                        if ($existantRecouv && $existantRecouv->montant_recouvre == 0) {
+                            // MAJ recouvrement existant sans versement
+                            $existantRecouv->update([
+                                'montant_verse' => $montant,
+                                'objectif' => $objectif,
+                                'deficit' => $deficit,
+                                'solde' => $deficit,
+                                'motif' => $motif,
+                            ]);
+                        } elseif (!$existantRecouv) {
+                            Recouvrement::create([
+                                'recette_vehicule_id' => $recetteObj->id,
+                                'chauffeur_id' => $chauffeurId,
+                                'chauffeur_nom' => $chauffeurNom,
+                                'vehicule_id' => $vehiculeId,
+                                'date_recette' => $dateJour,
+                                'montant_verse' => $montant,
+                                'objectif' => $objectif,
+                                'deficit' => $deficit,
+                                'montant_recouvre' => 0,
+                                'solde' => $deficit,
+                                'statut' => 'actif',
+                                'motif' => $motif,
+                                'justification_valable' => false,
+                                'cree_par' => $ligne['controle_par'] ?? auth()->user()->name,
+                            ]);
+                        }
                     }
                 }
             }
@@ -559,6 +593,7 @@ class ParcController extends Controller
         }
 
         $msg = "Journée du " . \Carbon\Carbon::parse($dateJour)->format('d/m/Y') . " validée : {$nbCrees} créée(s), {$nbMaj} mise(s) à jour.";
+        AuditLog::log($nbMaj > 0 ? 'modification' : 'creation', 'recettes', $dateJour, "{$nbCrees} créée(s), {$nbMaj} MAJ");
         if (!empty($erreurs)) {
             $msg .= ' Erreurs : ' . implode(' | ', $erreurs);
             return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJour])->with('succes', $msg)->withErrors($erreurs);
@@ -578,9 +613,10 @@ class ParcController extends Controller
             'observations' => 'nullable|string|max:500',
         ]);
 
-        MaintenancePreventive::create($r->only([
+        $m = MaintenancePreventive::create($r->only([
             'vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations',
         ]));
+        AuditLog::log('creation', 'maintenance', "Maintenance #{$m->id}", "Type: {$r->type_echeance}, Véhicule ID: {$r->vehicule_id}");
 
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance ajoutée.');
     }
@@ -599,6 +635,7 @@ class ParcController extends Controller
         $maintenance->update($r->only([
             'vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations',
         ]));
+        AuditLog::log('modification', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$r->type_echeance}");
 
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance mise à jour.');
     }
@@ -606,6 +643,7 @@ class ParcController extends Controller
     public function destroyMaintenance(Request $r, MaintenancePreventive $maintenance)
     {
         $this->autoriser($r);
+        AuditLog::log('suppression', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}");
         $maintenance->delete();
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance supprimée.');
     }
@@ -627,10 +665,11 @@ class ParcController extends Controller
             'observations' => 'nullable|string|max:500',
         ]);
 
-        Penalite::create($r->only([
+        $p = Penalite::create($r->only([
             'vehicule_id', 'date_infraction', 'type', 'chauffeur', 'lieu',
             'description', 'montant', 'statut', 'date_paiement', 'observations',
         ]));
+        AuditLog::log('creation', 'penalite', "Pénalité #{$p->id}", "Type: {$r->type}, Montant: {$r->montant}, Chauffeur: {$r->chauffeur}");
 
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité enregistrée.');
     }
@@ -655,6 +694,7 @@ class ParcController extends Controller
             'vehicule_id', 'date_infraction', 'type', 'chauffeur', 'lieu',
             'description', 'montant', 'statut', 'date_paiement', 'observations',
         ]));
+        AuditLog::log('modification', 'penalite', "Pénalité #{$penalite->id}", "Type: {$r->type}, Montant: {$r->montant}");
 
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité mise à jour.');
     }
@@ -662,6 +702,7 @@ class ParcController extends Controller
     public function destroyPenalite(Request $r, Penalite $penalite)
     {
         $this->autoriser($r);
+        AuditLog::log('suppression', 'penalite', "Pénalité #{$penalite->id}", "Type: {$penalite->type}, Montant: {$penalite->montant}");
         $penalite->delete();
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité supprimée.');
     }
@@ -678,7 +719,8 @@ class ParcController extends Controller
             'statut' => 'required|in:actif,inactif',
             'observations' => 'nullable|string',
         ]);
-        Chauffeur::create($data);
+        $ch = Chauffeur::create($data);
+        AuditLog::log('creation', 'chauffeur', "Chauffeur #{$ch->id}", "{$data['nom']} {$data['prenom']}");
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur enregistré.');
     }
 
@@ -694,6 +736,7 @@ class ParcController extends Controller
             'observations' => 'nullable|string',
         ]);
         $chauffeur->update($data);
+        AuditLog::log('modification', 'chauffeur', "Chauffeur #{$chauffeur->id}", "{$data['nom']} {$data['prenom']}");
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur mis à jour.');
     }
 
@@ -701,6 +744,7 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         abort_unless($r->user()->estPilote(), 403);
+        AuditLog::log('suppression', 'chauffeur', "Chauffeur #{$chauffeur->id}", "{$chauffeur->nom} {$chauffeur->prenom}");
         $chauffeur->delete();
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur supprimé.');
     }
@@ -715,6 +759,8 @@ class ParcController extends Controller
         ]);
         $v = Vehicule::findOrFail($data['vehicule_id']);
         $v->chauffeurs()->syncWithoutDetaching([$data['chauffeur_id'] => ['role' => $data['role'], 'actif' => true]]);
+        $chNom = Chauffeur::find($data['chauffeur_id']);
+        AuditLog::log('affectation', 'chauffeur', "Chauffeur #{$data['chauffeur_id']}", "Affecté à véhicule {$v->immatriculation} ({$data['role']})");
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur affecté.');
     }
 
@@ -722,6 +768,7 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         $vehicule->chauffeurs()->detach($chauffeur->id);
+        AuditLog::log('detachement', 'chauffeur', "Chauffeur #{$chauffeur->id}", "Détaché de véhicule {$vehicule->immatriculation}");
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur détaché.');
     }
 
@@ -832,8 +879,9 @@ class ParcController extends Controller
 
             $data['recouvrement_id'] = $recouvrement->id;
             $data['recu_par'] = $r->user()->name;
-            VersementRecouvrement::create($data);
+            $vers = VersementRecouvrement::create($data);
             $recouvrement->recalculerSolde();
+            AuditLog::log('creation', 'versement', "Versement #{$vers->id}", "Recouvrement #{$recouvrement->id}, Montant: {$data['montant']} F");
 
             return redirect()->route('parc.index', ['tab' => 'recouvrements'])
                 ->with('succes', 'Versement de ' . number_format($data['montant'], 0, ',', ' ') . ' F enregistré.');
@@ -850,6 +898,7 @@ class ParcController extends Controller
             return back()->withErrors(['Impossible d\'annuler : des versements ont déjà été effectués.']);
         }
         $recouvrement->update(['statut' => 'annule']);
+        AuditLog::log('annulation', 'recouvrement', "Recouvrement #{$recouvrement->id}", "Chauffeur: {$recouvrement->chauffeur}, Montant: {$recouvrement->montant_initial} F");
         return redirect()->route('parc.index', ['tab' => 'recouvrements'])->with('succes', 'Recouvrement annulé.');
     }
 }

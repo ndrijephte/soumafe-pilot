@@ -85,7 +85,7 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .gc-chevron{width:20px;height:20px;color:var(--gris);transition:transform .2s;flex-shrink:0}
 .gc-item.gc-open .gc-chevron{transform:rotate(180deg)}
 .gc-detail{max-height:0;overflow:hidden;transition:max-height .25s ease-out}
-.gc-item.gc-open .gc-detail{max-height:300px}
+.gc-item.gc-open .gc-detail{max-height:600px}
 .gc-form{padding:0 16px 14px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end}
 .gc-form label{font-size:10.5px;color:var(--gris);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
 .gc-form input,.gc-form select{padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;width:100%}
@@ -111,6 +111,7 @@ $icEye = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="cu
 $icUser = $ic('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>');
 
 $estDG = auth()->user()->aRole('direction');
+$estChargeOps = auth()->user()->estAdmin();
 
 $marques = $vehicules->pluck('marque')->filter()->unique()->sort()->values()->toArray();
 $marquesSugg = array_unique(array_merge($marques, ['Toyota', 'Hyundai', 'Kia', 'Renault', 'Peugeot', 'Suzuki', 'Nissan', 'Mitsubishi']));
@@ -250,16 +251,23 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- ==================== TAB RECETTES ==================== --}}
 <div class="tab-panel" id="tab-recettes">
 
-    {{-- ===== ALERTES JOURS MANQUANTS ===== --}}
+    {{-- ===== ALERTES JOURS MANQUANTS (compact) ===== --}}
     @if(!empty($alertesManquants))
-    <div style="margin-bottom:16px">
-        @foreach($alertesManquants as $am)
-        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:10px 14px;font-size:12.5px;color:#991b1b;margin-bottom:6px;display:flex;align-items:center;gap:8px">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <span><strong>{{ $am['date_label'] }}</strong> — {{ $am['count'] }} véhicule(s) sans recette : {{ $am['vehicules'] }}</span>
-            <a href="{{ route('parc.index', ['tab' => 'recettes', 'date_recette' => $am['date']]) }}" class="btn sm" style="margin-left:auto;padding:3px 10px;font-size:11px">Saisir</a>
+    <div style="margin-bottom:12px">
+        <div onclick="document.getElementById('alertes-detail').style.display=document.getElementById('alertes-detail').style.display==='none'?'':'none'" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:5px 12px;font-size:12px;color:#991b1b">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <strong>{{ count($alertesManquants) }} jour(s) incomplet(s)</strong>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
-        @endforeach
+        <div id="alertes-detail" style="display:none;margin-top:6px">
+            @foreach($alertesManquants as $am)
+            <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:#991b1b;border-bottom:1px solid #fef2f2">
+                <span style="min-width:90px;font-weight:600">{{ $am['date_label'] }}</span>
+                <span style="flex:1;color:#6b7280">{{ $am['count'] }} véh. : {{ $am['vehicules'] }}</span>
+                <a href="{{ route('parc.index', ['tab' => 'recettes', 'date_recette' => $am['date']]) }}" class="btn sm" style="padding:2px 8px;font-size:10px">Saisir</a>
+            </div>
+            @endforeach
+        </div>
     </div>
     @endif
 
@@ -317,6 +325,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <input type="hidden" name="lignes[0][justification_valable]" id="gi-justif" value="1">
         <input type="hidden" name="lignes[0][controle_par]" value="{{ auth()->user()->name }}">
         <input type="hidden" name="lignes[0][est_repos]" id="gi-repos" value="0">
+        <input type="hidden" name="lignes[0][motif_modification]" id="gi-motif-modif" value="">
     </form>
 
     {{-- ===== FILTRE RECHERCHE ===== --}}
@@ -337,6 +346,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         $montantAff = $deja ? number_format($rec->recette, 0, ',', ' ') . ' F' : '';
         $ecartOk = $deja && $rec->ecart >= 0;
         $sousObjectif = $deja && $rec->ecart < 0 && $rec->recette > 0;
+        $aRecouvrement = $deja && ($recouvrements ?? collect())->where('recette_vehicule_id', $rec->id ?? 0)->where('statut', 'actif')->isNotEmpty();
     @endphp
     <div class="gc-item {{ $repos ? 'gc-repos' : ($deja ? 'gc-fait' : '') }}{{ !$chActif ? ' gc-inactif' : '' }}" id="gc-{{ $i }}" data-vid="{{ $v->id }}" data-repos="{{ $repos ? '1' : '0' }}" data-objectif="{{ $g['objectif'] }}" data-nom="{{ mb_strtolower($nomCh) }}">
         <div class="gc-row" onclick="toggleRecette({{ $i }})">
@@ -353,6 +363,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
             @if($repos)
             <span class="pill p-ok" style="font-size:11px">Repos</span>
+            @elseif($deja && $rec->recette == 0)
+            <span class="pill p-ko" style="font-size:11px">Pas en service</span>
             @elseif($deja)
             <div class="gc-montant {{ $ecartOk ? 'gc-ok' : 'gc-ko' }}">{{ $montantAff }}</div>
             @else
@@ -361,15 +373,32 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <svg class="gc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div class="gc-detail" id="gc-detail-{{ $i }}">
+            @php
+                $chNom = $g['chauffeur'] ?? '';
+                $chId = $g['chauffeur_obj']->id ?? null;
+                $moisDebut = \Carbon\Carbon::parse($dateJour)->startOfMonth();
+                $moisFin = \Carbon\Carbon::parse($dateJour)->endOfMonth();
+                $recsCh = $chNom !== '' ? $recettes->filter(fn($r) => $r->chauffeur === $chNom && $r->date && $r->date->gte($moisDebut) && $r->date->lte($moisFin)) : collect();
+                $totalMois = $recsCh->sum('recette');
+                $nbJours = $recsCh->count();
+                $penaCh = $chNom !== '' ? $penalites->where('chauffeur', $chNom)->where('statut', '!=', 'payee') : collect();
+                $recouvCh = $chId ? ($recouvrements ?? collect())->where('chauffeur_id', $chId)->where('statut', 'actif') : collect();
+            @endphp
+            <div style="padding:4px 16px 8px;display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:#6b7280;border-bottom:1px solid var(--bord)">
+                <span><strong style="color:var(--bleu)">{{ number_format($totalMois, 0, ',', ' ') }} F</strong> ce mois</span>
+                <span>{{ $nbJours }} jour(s) saisi(s)</span>
+                @if($penaCh->count())<span style="color:var(--ko)">{{ $penaCh->count() }} pénalité(s)</span>@endif
+                @if($recouvCh->count())<span style="color:var(--ko)">{{ $recouvCh->count() }} recouvrement(s) : {{ number_format($recouvCh->sum('solde'), 0, ',', ' ') }} F</span>@endif
+            </div>
             @if($repos)
-            <div style="padding:0 16px 12px;font-size:12px;color:var(--ok);font-weight:600">Repos automatique — recette enregistrée à 0 F</div>
+            <div style="padding:4px 16px 12px;font-size:12px;color:var(--ok);font-weight:600">Repos automatique — recette enregistrée à 0 F</div>
             @else
             <div class="gc-form" style="grid-template-columns:1fr 1fr 1fr auto">
                 <div>
                     <label>Recette (F)</label>
                     <input type="number" id="gr-rec-{{ $i }}" value="{{ $deja ? $rec->recette : '' }}" min="0" placeholder="Montant" oninput="recetteChange({{ $i }})">
                 </div>
-                <div>
+                <div id="gc-mode-wrap-{{ $i }}" style="{{ ($deja && $rec->recette == 0) ? 'display:none' : '' }}">
                     <label>Mode remise</label>
                     <select id="gr-mode-{{ $i }}">
                         <option value="">—</option>
@@ -380,7 +409,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                         <option value="autre"{{ $deja && ($rec->mode_remise ?? '') === 'autre' ? ' selected' : '' }}>Autre</option>
                     </select>
                 </div>
-                <div id="gc-motif-wrap-{{ $i }}" style="{{ ($sousObjectif || ($deja && $rec->recette == 0 && $rec->motif_absence)) ? '' : 'display:none' }}">
+                <div id="gc-motif-wrap-{{ $i }}" style="{{ ($sousObjectif || ($deja && $rec->recette == 0)) ? '' : 'display:none' }}">
                     <label>Motif</label>
                     <select id="grille-motif-{{ $i }}">
                         <option value="">—</option>
@@ -388,27 +417,40 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                         @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}"{{ $deja && ($rec->motif_absence ?? '') === $ma->code ? ' selected' : '' }}>{{ $ma->libelle }}</option>@endforeach
                     </select>
                 </div>
+                @php $recVerrouillee = $deja && ($rec->valide_par ?? null); @endphp
                 <div>
                     <label>&nbsp;</label>
+                    @if($recVerrouillee && !$estChargeOps)
+                    <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--ok);font-weight:600;padding:6px 10px">
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                        Validé
+                    </span>
+                    @else
                     <button type="button" class="gc-btn-val {{ $deja ? 'maj' : 'nouveau' }}" onclick="validerLigne({{ $i }})">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                         {{ $deja ? 'MAJ' : 'Valider' }}
                     </button>
+                    @endif
                 </div>
             </div>
+            @if($recVerrouillee && $estChargeOps)
+            <div style="padding:0 16px 8px">
+                <input type="text" id="gr-motif-modif-{{ $i }}" placeholder="Motif de la modification..." style="width:100%;padding:6px 10px;border:1px solid var(--warn);border-radius:6px;font-size:12px;background:#fffbeb">
+            </div>
+            @endif
             {{-- Perspective (visible si recette < objectif) --}}
-            <div class="gc-perspective" id="gc-persp-wrap-{{ $i }}" style="padding:0 16px 12px;{{ ($sousObjectif) ? '' : 'display:none' }}">
+            <div class="gc-perspective" id="gc-persp-wrap-{{ $i }}" style="padding:0 16px 12px;{{ ($sousObjectif || $aRecouvrement) ? '' : 'display:none' }}">
                 <div style="display:flex;gap:16px;align-items:center;margin-bottom:8px">
                     <span style="font-size:10.5px;color:var(--ko);font-weight:600;text-transform:uppercase;letter-spacing:.3px">Justification du déficit</span>
                     <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
-                        <input type="radio" name="justif-{{ $i }}" value="1" checked onchange="toggleJustif({{ $i }})"> Valable
+                        <input type="radio" name="justif-{{ $i }}" value="1"{{ !$aRecouvrement ? ' checked' : '' }} onchange="toggleJustif({{ $i }})"> Valable
                     </label>
                     <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ko)">
-                        <input type="radio" name="justif-{{ $i }}" value="0" onchange="toggleJustif({{ $i }})"> Non valable → Recouvrement
+                        <input type="radio" name="justif-{{ $i }}" value="0"{{ $aRecouvrement ? ' checked' : '' }} onchange="toggleJustif({{ $i }})"> Non valable → Recouvrement
                     </label>
                 </div>
                 <textarea id="gr-persp-{{ $i }}" rows="2" placeholder="Perspective de rattrapage ou justification..." style="width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;resize:vertical">{{ $deja ? ($rec->perspective ?? '') : '' }}</textarea>
-                <div id="gc-recouv-warn-{{ $i }}" style="display:none;margin-top:6px;padding:6px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:11.5px;color:#b91c1c">
+                <div id="gc-recouv-warn-{{ $i }}" style="{{ $aRecouvrement ? '' : 'display:none;' }}margin-top:6px;padding:6px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:11.5px;color:#b91c1c">
                     <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                     Une créance sera automatiquement créée pour le déficit.
                 </div>
@@ -1312,11 +1354,13 @@ function recetteChange(idx){
     var rec=document.getElementById('gr-rec-'+idx);
     var motifWrap=document.getElementById('gc-motif-wrap-'+idx);
     var perspWrap=document.getElementById('gc-persp-wrap-'+idx);
+    var modeWrap=document.getElementById('gc-mode-wrap-'+idx);
     var objectif=parseFloat(item.getAttribute('data-objectif'))||0;
     var val=rec?rec.value:'';
     var montant=parseFloat(val)||0;
     var sousObj=(val!=='' && montant<objectif);
 
+    if(modeWrap) modeWrap.style.display=(montant>0)?'':'none';
     if(motifWrap) motifWrap.style.display=sousObj?'':'none';
     if(perspWrap) perspWrap.style.display=(montant>0 && montant<objectif)?'':'none';
 }
@@ -1338,6 +1382,7 @@ function validerLigne(idx){
 
     var montant=parseFloat(rec?rec.value:0)||0;
     if(!repos && rec && rec.value===''){alert('Saisissez le montant de la recette.');return;}
+    if(!repos && montant>0 && mode && !mode.value){alert('Mode de remise obligatoire.');return;}
     if(!repos && montant<objectif && motif && !motif.value){alert('Recette inférieure à l\'objectif : motif obligatoire.');return;}
 
     document.getElementById('gi-vehicule').value=vid;
@@ -1350,6 +1395,9 @@ function validerLigne(idx){
     var justifRadio=item.querySelector('input[name="justif-'+idx+'"]:checked');
     document.getElementById('gi-justif').value=justifRadio?justifRadio.value:'1';
     document.getElementById('gi-repos').value=repos?'1':'0';
+    // Motif modification (si recette verrouillée)
+    var motifModif=document.getElementById('gr-motif-modif-'+idx);
+    document.getElementById('gi-motif-modif').value=motifModif?motifModif.value:'';
     document.getElementById('form-grille-ind').submit();
 }
 

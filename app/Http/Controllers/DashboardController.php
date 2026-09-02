@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{ArbitrageT3, Chauffeur, ConfirmationTache, Evenement, MaintenancePreventive, Panne, Penalite, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
+use App\Models\{ArbitrageT3, Chauffeur, ConfirmationTache, Evenement, MaintenancePreventive, Panne, Penalite, Pointage, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -131,12 +131,18 @@ class DashboardController extends Controller
             $projetData = compact('mesProjets', 'sprintsEnCours', 'membres', 'topBloquees');
         }
 
+        // Pointage du jour
+        $monPointage = null;
+        if (Schema::hasTable('pointages')) {
+            $monPointage = Pointage::where('user_id', $userId)->where('date', today()->toDateString())->first();
+        }
+
         return view('dashboard.index', compact(
             'tachesDuJour', 'total', 'terminees', 'enCours', 'bloquees',
             'enRetard', 'tauxCompletion', 'alertes', 'termineesSemaine', 'assiduite',
             'estResponsable', 'projetData', 'mesTachesActives',
             'pointsLivres', 'pointsTotalSprint', 'tendanceHebdo', 'tendanceMax',
-            'parPriorite', 'totalPrio'
+            'parPriorite', 'totalPrio', 'monPointage'
         ));
     }
 
@@ -215,8 +221,8 @@ class DashboardController extends Controller
             return $s;
         })->sortByDesc('date_fin')->take(6)->values();
 
-        // Performance collaborateurs
-        $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction'])
+        // Performance collaborateurs (exclut admin, DG, invité)
+        $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction', 'administrateur'])
             ->orderBy('name')->get()->map(function ($c) {
                 $c->taches_total = Tache::where('user_id', $c->id)->count();
                 $c->taches_terminees = Tache::where('user_id', $c->id)->where('statut', 'termine')->count();
@@ -320,12 +326,25 @@ class DashboardController extends Controller
             );
         }
 
+        // Pointage : stats du jour pour DG
+        $pointageStats = null;
+        if (Schema::hasTable('pointages')) {
+            $today = today()->toDateString();
+            $totalCollabs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction', 'administrateur'])->count();
+            $pointagesJour = Pointage::where('date', $today)->get();
+            $presentsJour = $pointagesJour->whereNotIn('statut', ['non_pointe', 'absent'])->count();
+            $retardsJour = $pointagesJour->where('statut', 'retard')->count();
+            $absentsJour = $pointagesJour->where('statut', 'absent')->count();
+            $tauxPresence = $totalCollabs > 0 ? round(($presentsJour / $totalCollabs) * 100) : 0;
+            $pointageStats = compact('totalCollabs', 'presentsJour', 'retardsJour', 'absentsJour', 'tauxPresence');
+        }
+
         return view('dashboard.dg', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
             'termineesSemaine', 'arbitragesEnAttente', 'sansSaisieHier',
             'sprintsEnCours', 'topBloquees', 'parProjet', 'evenements',
             'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'collaborateurs',
-            'parc'
+            'parc', 'pointageStats'
         ));
     }
 
@@ -390,8 +409,8 @@ class DashboardController extends Controller
             return $s;
         });
 
-        // Performance par collaborateur (enrichi : retards + points)
-        $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction'])
+        // Performance par collaborateur (exclut admin, DG, invité)
+        $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction', 'administrateur'])
             ->orderBy('name')->get()->map(function ($c) {
                 $c->taches_total = Tache::where('user_id', $c->id)->count();
                 $c->taches_terminees = Tache::where('user_id', $c->id)->where('statut', 'termine')->count();
@@ -470,12 +489,18 @@ class DashboardController extends Controller
             return $s;
         })->sortByDesc('date_fin')->take(6)->values();
 
+        // Pointage du jour (pilote)
+        $monPointage = null;
+        if (Schema::hasTable('pointages')) {
+            $monPointage = Pointage::where('user_id', $user->id)->where('date', today()->toDateString())->first();
+        }
+
         return view('dashboard.pilote', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
             'termineesSemaine', 'alertes', 'sansSaisieHier', 'arbitragesEnAttente',
             'sprintsEnCours', 'collaborateurs', 'topBloquees', 'tachesEnRetard',
             'parProjet', 'evenements', 'mesTachesActives', 'aValider',
-            'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines'
+            'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines', 'monPointage'
         ));
     }
 

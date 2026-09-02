@@ -72,6 +72,7 @@ class UtilisateurController extends Controller
         $v['password'] = Hash::make($v['password']);
         $v['actif'] = $r->boolean('actif');
         $v['delegation_parc'] = $r->boolean('delegation_parc');
+        $v['titre_poste'] = $r->input('titre_poste');
         User::create($v);
         return redirect()->route('admin.utilisateurs.index')->with('succes', 'Compte créé.');
     }
@@ -105,6 +106,7 @@ class UtilisateurController extends Controller
         $v['actif'] = $r->boolean('actif');
         $ancienneDelegation = (bool) $utilisateur->delegation_parc;
         $v['delegation_parc'] = $r->boolean('delegation_parc');
+        $v['titre_poste'] = $r->input('titre_poste');
         $utilisateur->update($v);
         // Audit modification utilisateur
         AuditLog::log('modification', 'utilisateur', "Utilisateur #{$utilisateur->id}", "{$utilisateur->name} {$utilisateur->prenom}, rôle: {$v['role']}");

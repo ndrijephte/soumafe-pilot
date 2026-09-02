@@ -1,5 +1,5 @@
 <?php
-use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController};
+use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController};
 use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController, ReportingParcController};
 use Illuminate\Support\Facades\Route;
@@ -138,6 +138,14 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/parc/depenses/{depense}', [ParcController::class, 'updateDepense'])->name('parc.depenses.update');
     Route::delete('/parc/depenses/{depense}', [ParcController::class, 'destroyDepense'])->name('parc.depenses.destroy');
     Route::get('/parc/reporting', [ReportingParcController::class, 'index'])->name('reporting.parc');
+
+    // Pointage & Présence
+    Route::get('/pointage', [PointageController::class, 'index'])->name('pointage.index');
+    Route::post('/pointage/arrivee', [PointageController::class, 'pointerArrivee'])->name('pointage.arrivee');
+    Route::post('/pointage/depart', [PointageController::class, 'pointerDepart'])->name('pointage.depart');
+    Route::post('/pointage/{pointage}/motif', [PointageController::class, 'sauverMotif'])->name('pointage.motif');
+    Route::post('/pointage/absent', [PointageController::class, 'marquerAbsent'])->name('pointage.absent');
+    Route::put('/pointage/{pointage}/corriger', [PointageController::class, 'corriger'])->name('pointage.corriger');
 
     // M8 — Administration (US-01→05)
     Route::prefix('admin')->name('admin.')->group(function () {

@@ -10,7 +10,7 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'prenom', 'email', 'password', 'pole_id', 'profil_mesure', 'role', 'actif', 'delegation_parc'];
+    protected $fillable = ['name', 'prenom', 'email', 'password', 'pole_id', 'profil_mesure', 'role', 'titre_poste', 'actif', 'delegation_parc'];
     protected $hidden = ['password', 'remember_token'];
     protected $casts = ['email_verified_at' => 'datetime', 'password' => 'hashed', 'actif' => 'boolean', 'delegation_parc' => 'boolean'];
 
@@ -36,7 +36,7 @@ class User extends Authenticatable
         };
     }
 
-    public function roleLibelle(): string { return self::libelleRole($this->role); }
+    public function roleLibelle(): string { return $this->titre_poste ?: self::libelleRole($this->role); }
     public function estAdmin(): bool { return in_array($this->role, ['administrateur', 'charge_operations'], true); }
     public function aRole(string ...$roles): bool { return in_array($this->role, $roles, true); }
     public function estPilote(): bool { return $this->aRole('administrateur', 'direction', 'charge_operations'); }

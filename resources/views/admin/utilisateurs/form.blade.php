@@ -67,6 +67,12 @@
     </div>
 
     <div class="form-group">
+        <label>Titre de poste</label>
+        <input type="text" name="titre_poste" value="{{ old('titre_poste', $user->titre_poste) }}" placeholder="Ex : Lead Developer, Développeur mobile, Comptable...">
+        <div style="font-size:10.5px;color:var(--gris);margin-top:2px">Optionnel. Remplace le libellé de rôle dans les affichages (pointage, performance, etc.)</div>
+    </div>
+
+    <div class="form-group">
         <label>Pôle</label>
         <select name="pole_id">
             <option value="">— Aucun —</option>

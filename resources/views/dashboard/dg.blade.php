@@ -67,6 +67,30 @@
     </div>
 </div>
 
+{{-- Pointage du jour --}}
+@if($pointageStats)
+<div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:22px">
+    <div class="kpi">
+        <div class="lbl">Présence aujourd'hui</div>
+        <div class="val" style="color:var(--ok)">{{ $pointageStats['tauxPresence'] }}%</div>
+        <div class="sub">{{ $pointageStats['presentsJour'] }} / {{ $pointageStats['totalCollabs'] }}</div>
+    </div>
+    <div class="kpi">
+        <div class="lbl">Retards</div>
+        <div class="val" style="color:{{ $pointageStats['retardsJour'] > 0 ? '#b45309' : 'var(--ok)' }}">{{ $pointageStats['retardsJour'] }}</div>
+    </div>
+    <div class="kpi">
+        <div class="lbl">Absents</div>
+        <div class="val" style="color:{{ $pointageStats['absentsJour'] > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $pointageStats['absentsJour'] }}</div>
+    </div>
+    <div class="kpi">
+        <div class="lbl">Non pointés</div>
+        <div class="val">{{ $pointageStats['totalCollabs'] - $pointageStats['presentsJour'] - $pointageStats['absentsJour'] }}</div>
+        <a href="{{ route('pointage.index') }}" class="lien">Détail &rarr;</a>
+    </div>
+</div>
+@endif
+
 {{-- Tendance + Taux livraison --}}
 <div class="grille">
     <div class="panneau">

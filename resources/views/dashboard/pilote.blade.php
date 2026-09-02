@@ -42,6 +42,44 @@
 <h2>Bonjour, {{ auth()->user()->prenom ?? auth()->user()->name }}</h2>
 <div class="crumb">{{ now()->translatedFormat('l j F Y') }} &mdash; Pilotage des op&eacute;rations</div>
 
+{{-- Bannière pointage --}}
+@if(isset($monPointage))
+@php $dejaArrive = $monPointage && $monPointage->heure_arrivee; $dejaParti = $monPointage && $monPointage->heure_depart; @endphp
+<div style="display:flex;align-items:center;justify-content:space-between;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:12px 18px;margin-bottom:14px;gap:12px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#dbeafe,#eff6ff);display:flex;align-items:center;justify-content:center">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--bleu)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div style="font-size:13px;color:var(--gris)">
+            @if(!$dejaArrive)
+                <strong style="color:var(--bleu);display:block">Pointage</strong>Vous n'avez pas encore pointé
+            @elseif(!$dejaParti)
+                <strong style="color:var(--ok);display:block">En poste depuis {{ \Carbon\Carbon::parse($monPointage->heure_arrivee)->format('H:i') }}</strong>Bonne journée !
+            @else
+                <strong style="color:var(--bleu);display:block">Journée terminée</strong>{{ \Carbon\Carbon::parse($monPointage->heure_arrivee)->format('H:i') }} — {{ \Carbon\Carbon::parse($monPointage->heure_depart)->format('H:i') }} ({{ $monPointage->dureeFormatee() }})
+            @endif
+        </div>
+    </div>
+    <div style="display:flex;gap:8px">
+        @if(!$dejaArrive)
+            <form method="POST" action="{{ route('pointage.arrivee') }}">@csrf<button style="display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;background:#f0fdf4;color:#15803d;border:1.5px solid #bbf7d0;transition:all .2s"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Pointer mon arrivée</button></form>
+        @elseif(!$dejaParti)
+            <form method="POST" action="{{ route('pointage.depart') }}">@csrf<button style="display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;transition:all .2s"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Pointer mon départ</button></form>
+        @endif
+    </div>
+</div>
+@elseif(\Illuminate\Support\Facades\Schema::hasTable('pointages'))
+<div style="display:flex;align-items:center;justify-content:space-between;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:12px 18px;margin-bottom:14px;gap:12px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#dbeafe,#eff6ff);display:flex;align-items:center;justify-content:center">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--bleu)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div style="font-size:13px;color:var(--gris)"><strong style="color:var(--bleu);display:block">Pointage</strong>Vous n'avez pas encore pointé</div>
+    </div>
+    <form method="POST" action="{{ route('pointage.arrivee') }}">@csrf<button style="display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;background:#f0fdf4;color:#15803d;border:1.5px solid #bbf7d0;transition:all .2s"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Pointer mon arrivée</button></form>
+</div>
+@endif
+
 {{-- Alertes --}}
 @foreach($alertes as $a)
 <div class="alerte {{ $a['type'] }}">

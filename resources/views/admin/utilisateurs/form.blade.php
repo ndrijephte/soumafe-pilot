@@ -68,8 +68,15 @@
 
     <div class="form-group">
         <label>Titre de poste</label>
-        <input type="text" name="titre_poste" value="{{ old('titre_poste', $user->titre_poste) }}" placeholder="Ex : Lead Developer, Développeur mobile, Comptable...">
-        <div style="font-size:10.5px;color:var(--gris);margin-top:2px">Optionnel. Remplace le libellé de rôle dans les affichages (pointage, performance, etc.)</div>
+        <select name="titre_poste">
+            <option value="">— Aucun —</option>
+            @if(\Illuminate\Support\Facades\Schema::hasTable('titres_poste'))
+            @foreach(\App\Models\TitrePoste::orderBy('libelle')->get() as $tp)
+            <option value="{{ $tp->libelle }}" @selected(old('titre_poste', $user->titre_poste)==$tp->libelle)>{{ $tp->libelle }}</option>
+            @endforeach
+            @endif
+        </select>
+        <div style="font-size:10.5px;color:var(--gris);margin-top:2px">S'affiche dans le profil, pointage et performance. Param&eacute;trable dans Administration &rsaquo; Titres de poste</div>
     </div>
 
     <div class="form-group">

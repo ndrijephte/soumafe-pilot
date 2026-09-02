@@ -14,6 +14,7 @@
     ['admin.feries.index', 'Jours f&eacute;ri&eacute;s'],
     ['admin.types-evenement.index', 'Types &eacute;v&eacute;nement'],
     ['admin.types-blocage.index', 'Types blocage'],
+    ['admin.titres-poste.index', 'Titres de poste'],
 ]; @endphp
 @foreach($liens as [$route, $label])
 @if(Route::has($route))

@@ -34,7 +34,8 @@
         <div class="avatar-lg">{{ mb_strtoupper(mb_substr($user->name,0,1).mb_substr($user->prenom,0,1)) }}</div>
         <h3 style="text-align:center;margin-bottom:16px">{{ $user->nomComplet() }}</h3>
         <div class="info-line"><span class="info-label">Email</span><span class="info-val">{{ $user->email }}</span></div>
-        <div class="info-line"><span class="info-label">R&ocirc;le</span><span class="info-val">{{ $user->roleLibelle() }}</span></div>
+        <div class="info-line"><span class="info-label">R&ocirc;le</span><span class="info-val">{{ \App\Models\User::libelleRole($user->role) }}</span></div>
+        @if($user->titre_poste)<div class="info-line"><span class="info-label">Titre de poste</span><span class="info-val">{{ $user->titre_poste }}</span></div>@endif
         <div class="info-line"><span class="info-label">P&ocirc;le</span><span class="info-val">{{ $user->pole?->libelle ?? '—' }}</span></div>
         <div class="info-line"><span class="info-label">Profil mesure</span><span class="info-val">{{ ucfirst($user->profil_mesure) }}</span></div>
         <div class="info-line"><span class="info-label">Compte cr&eacute;&eacute;</span><span class="info-val">{{ $user->created_at?->format('d/m/Y') ?? '—' }}</span></div>

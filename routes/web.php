@@ -1,6 +1,6 @@
 <?php
 use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController};
-use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController};
+use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController, TitrePosteController};
 use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController, ReportingParcController};
 use Illuminate\Support\Facades\Route;
 
@@ -199,6 +199,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/types-blocage', [TypeBlocageController::class, 'store'])->name('types-blocage.store');
         Route::put('/types-blocage/{type}', [TypeBlocageController::class, 'update'])->name('types-blocage.update');
         Route::delete('/types-blocage/{type}', [TypeBlocageController::class, 'destroy'])->name('types-blocage.destroy');
+
+        Route::get('/titres-poste', [TitrePosteController::class, 'index'])->name('titres-poste.index');
+        Route::post('/titres-poste', [TitrePosteController::class, 'store'])->name('titres-poste.store');
+        Route::put('/titres-poste/{titre}', [TitrePosteController::class, 'update'])->name('titres-poste.update');
+        Route::delete('/titres-poste/{titre}', [TitrePosteController::class, 'destroy'])->name('titres-poste.destroy');
 
         Route::get('/parc-parametres', [ParcParametreController::class, 'index'])->name('parc-parametres.index');
         Route::post('/parc-parametres', [ParcParametreController::class, 'update'])->name('parc-parametres.update');

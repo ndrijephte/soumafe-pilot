@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Observation extends Model
 {
     protected $fillable = [
-        'code', 'date_reception', 'description', 'type_difficulte', 'priorite',
+        'code', 'projet_id', 'date_reception', 'description', 'type_difficulte', 'priorite',
         'responsable_id', 'statut', 'origine', 'commentaires',
         'mode_execution', 'date_livraison', 'commentaire_resolution',
         'resolu_par', 'resolu_le', 'declare_par',
@@ -20,6 +20,7 @@ class Observation extends Model
     ];
 
     /* --- Relations --- */
+    public function projet(): BelongsTo      { return $this->belongsTo(Projet::class); }
     public function responsable(): BelongsTo { return $this->belongsTo(User::class, 'responsable_id'); }
     public function declarant(): BelongsTo   { return $this->belongsTo(User::class, 'declare_par'); }
     public function resoluteur(): BelongsTo  { return $this->belongsTo(User::class, 'resolu_par'); }

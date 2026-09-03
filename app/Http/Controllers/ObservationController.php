@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\{Observation, User};
+use App\Models\{Observation, NotificationApp, Projet, User, Tache, Objectif};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -15,15 +15,17 @@ class ObservationController extends Controller
                 'observations' => collect(),
                 'stats'        => ['total' => 0, 'nouveau' => 0, 'en_cours' => 0, 'resolu' => 0, 'bloque' => 0],
                 'responsables' => collect(),
+                'projets'      => collect(),
             ]);
         }
 
-        $query = Observation::with(['responsable', 'declarant'])->orderByDesc('date_reception');
+        $query = Observation::with(['responsable', 'declarant', 'projet'])->orderByDesc('date_reception');
 
-        if ($r->filled('statut'))   $query->where('statut', $r->statut);
-        if ($r->filled('priorite')) $query->where('priorite', $r->priorite);
-        if ($r->filled('type'))     $query->where('type_difficulte', $r->type);
-        if ($r->filled('responsable')) $query->where('responsable_id', $r->responsable);
+        if ($r->filled('statut'))       $query->where('statut', $r->statut);
+        if ($r->filled('priorite'))     $query->where('priorite', $r->priorite);
+        if ($r->filled('type'))         $query->where('type_difficulte', $r->type);
+        if ($r->filled('responsable'))  $query->where('responsable_id', $r->responsable);
+        if ($r->filled('projet'))       $query->where('projet_id', $r->projet);
 
         $observations = $query->get();
 
@@ -41,13 +43,16 @@ class ObservationController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('observations.index', compact('observations', 'stats', 'responsables'));
+        $projets = Projet::orderBy('libelle')->get();
+
+        return view('observations.index', compact('observations', 'stats', 'responsables', 'projets'));
     }
 
     /** Phase 1 — Déclaration */
     public function store(Request $r)
     {
         $r->validate([
+            'projet_id'        => 'nullable|exists:projets,id',
             'description'      => 'required|string|max:2000',
             'type_difficulte'  => 'required|string|max:100',
             'priorite'         => 'required|string|max:30',
@@ -56,8 +61,9 @@ class ObservationController extends Controller
             'commentaires'     => 'nullable|string|max:2000',
         ]);
 
-        Observation::create([
+        $obs = Observation::create([
             'code'            => Observation::prochainCode(),
+            'projet_id'       => $r->projet_id ?: null,
             'date_reception'  => now()->toDateString(),
             'description'     => $r->description,
             'type_difficulte' => $r->type_difficulte,
@@ -69,7 +75,10 @@ class ObservationController extends Controller
             'declare_par'     => auth()->id(),
         ]);
 
-        $this->auditer('declarer_observation', $r->description);
+        // Notification au responsable désigné
+        $this->notifierResponsable($obs, $r->responsable_id);
+
+        $this->auditer('declarer_observation', $obs->code . ' — ' . $r->description);
 
         return redirect()->route('observations.index')
             ->with('succes', 'Observation déclarée avec succès.');
@@ -86,6 +95,8 @@ class ObservationController extends Controller
             'responsable_id'          => 'nullable|exists:users,id',
         ]);
 
+        $ancienResp = $observation->responsable_id;
+
         $observation->statut                 = $r->statut;
         $observation->mode_execution         = $r->mode_execution;
         $observation->date_livraison         = $r->date_livraison;
@@ -101,6 +112,12 @@ class ObservationController extends Controller
         }
 
         $observation->save();
+
+        // Notification si responsable changé
+        if ($r->filled('responsable_id') && (int) $r->responsable_id !== (int) $ancienResp) {
+            $this->notifierResponsable($observation, $r->responsable_id);
+        }
+
         $this->auditer('traiter_observation', $observation->code . ' → ' . $observation->statutLibelle());
 
         return redirect()->route('observations.index')
@@ -118,7 +135,146 @@ class ObservationController extends Controller
             ->with('succes', 'Observation supprimée.');
     }
 
-    private function auditer(string $action, string $cible)
+    /** Stats collaborateur pour dialog résolution (AJAX) */
+    public function statsCollaborateur(Request $r)
+    {
+        $userId = $r->input('user_id');
+        if (!$userId) return response()->json([]);
+
+        $user = User::find($userId);
+        if (!$user) return response()->json([]);
+
+        $periode = now()->format('Y-m');
+
+        // Tâches
+        $taches = Tache::where('user_id', $userId)->withTrashed();
+        $tachesTotal     = (clone $taches)->count();
+        $tachesTerminees = (clone $taches)->where('statut', 'termine')->count();
+        $tachesEnRetard  = (clone $taches)->whereNull('date_fin_reelle')
+            ->whereDate('echeance', '<', today())->count();
+
+        // Objectifs du mois
+        $objectifs = Objectif::where('user_id', $userId)->where('periode', $periode);
+        $objTotal     = (clone $objectifs)->count();
+        $objAtteints  = (clone $objectifs)->where('avancement', '>=', 100)->count();
+        $objScore     = (clone $objectifs)->avg('avancement') ?? 0;
+
+        // Observations assignées
+        $obsTotal   = Observation::where('responsable_id', $userId)->count();
+        $obsResolus = Observation::where('responsable_id', $userId)->where('statut', 'resolu')->count();
+
+        return response()->json([
+            'nom'              => $user->nomComplet(),
+            'poste'            => $user->roleLibelle(),
+            'taches_total'     => $tachesTotal,
+            'taches_terminees' => $tachesTerminees,
+            'taches_retard'    => $tachesEnRetard,
+            'obj_total'        => $objTotal,
+            'obj_atteints'     => $objAtteints,
+            'obj_score'        => round($objScore),
+            'obs_total'        => $obsTotal,
+            'obs_resolus'      => $obsResolus,
+        ]);
+    }
+
+    /** Fiche historique collaborateur */
+    public function ficheCollaborateur(Request $r)
+    {
+        $u = $r->user();
+        abort_unless($u->estPilote(), 403);
+
+        $collaborateurs = User::where('actif', true)
+            ->whereNotIn('role', ['invite', 'administrateur', 'direction'])
+            ->orderBy('name')->get();
+
+        $collab  = null;
+        $data    = null;
+        $debut   = $r->input('debut', now()->startOfMonth()->toDateString());
+        $fin     = $r->input('fin', now()->toDateString());
+        $periode = now()->format('Y-m');
+
+        if ($r->filled('collaborateur_id')) {
+            $collab = User::findOrFail($r->collaborateur_id);
+
+            // Tâches sur la période
+            $taches = Tache::where('user_id', $collab->id)
+                ->where(function ($q) use ($debut, $fin) {
+                    $q->whereBetween('date_debut', [$debut, $fin])
+                      ->orWhereBetween('echeance', [$debut, $fin]);
+                })
+                ->with('projet')
+                ->withTrashed()
+                ->orderByDesc('date_debut')
+                ->get();
+
+            // Objectifs
+            $objectifs = Objectif::where('user_id', $collab->id)
+                ->where(function ($q) use ($debut, $fin) {
+                    $q->whereBetween('date_debut', [$debut, $fin])
+                      ->orWhereBetween('date_echeance', [$debut, $fin])
+                      ->orWhere('periode', now()->format('Y-m'));
+                })
+                ->with('projet')
+                ->orderByDesc('created_at')
+                ->get();
+
+            // Observations assignées
+            $observations = Observation::where('responsable_id', $collab->id)
+                ->whereBetween('date_reception', [$debut, $fin])
+                ->with('projet')
+                ->orderByDesc('date_reception')
+                ->get();
+
+            // Pointages
+            $pointages = collect();
+            if (Schema::hasTable('pointages')) {
+                $pointages = \App\Models\Pointage::where('user_id', $collab->id)
+                    ->whereBetween('date', [$debut, $fin])
+                    ->orderByDesc('date')
+                    ->get();
+            }
+
+            // Stats résumé
+            $data = [
+                'taches'       => $taches,
+                'objectifs'    => $objectifs,
+                'observations' => $observations,
+                'pointages'    => $pointages,
+                'stats'        => [
+                    'taches_total'     => $taches->count(),
+                    'taches_terminees' => $taches->where('statut', 'termine')->count(),
+                    'taches_retard'    => $taches->filter(fn($t) => !$t->date_fin_reelle && $t->echeance && $t->echeance->isPast())->count(),
+                    'obj_total'        => $objectifs->count(),
+                    'obj_atteints'     => $objectifs->where('avancement', '>=', 100)->count(),
+                    'obj_score'        => $objectifs->count() > 0 ? round($objectifs->avg('avancement')) : 0,
+                    'obs_total'        => $observations->count(),
+                    'obs_resolus'      => $observations->where('statut', 'resolu')->count(),
+                    'jours_presents'   => $pointages->whereIn('statut', ['present', 'retard'])->count(),
+                    'jours_absents'    => $pointages->where('statut', 'absent')->count(),
+                    'retards'          => $pointages->where('statut', 'retard')->count(),
+                ],
+            ];
+        }
+
+        return view('observations.fiche-collaborateur', compact('collaborateurs', 'collab', 'data', 'debut', 'fin'));
+    }
+
+    private function notifierResponsable(Observation $obs, $responsableId): void
+    {
+        if (!$responsableId || (int) $responsableId === auth()->id()) return;
+        if (!Schema::hasTable('notifications_app')) return;
+
+        $projetLib = $obs->projet ? ' (' . $obs->projet->libelle . ')' : '';
+        NotificationApp::create([
+            'user_id' => $responsableId,
+            'type'    => 'observation',
+            'contenu' => 'Observation ' . $obs->code . $projetLib . ' vous a été assignée : ' . mb_substr($obs->description, 0, 80),
+            'lu'      => false,
+            'canal'   => 'app',
+        ]);
+    }
+
+    private function auditer(string $action, string $cible): void
     {
         if (Schema::hasTable('audit_logs') && class_exists(\App\Models\AuditLog::class)) {
             \App\Models\AuditLog::log($action, 'observations', $cible);

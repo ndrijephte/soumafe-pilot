@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('sousTitre', 'Suivi des observations')
-@section('titre', 'Observations')
+@section('sousTitre', 'Suivi Production')
+@section('titre', 'Suivi Production')
 @push('styles')
 <style>
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px}
@@ -32,7 +32,7 @@
 .b-info{background:#dbeafe;color:#1d4ed8}
 .b-gris{background:#e2e8f0;color:#475569}
 .b-violet{background:#ede9fe;color:#6d28d9}
-dialog{border:none;border-radius:14px;padding:24px;width:480px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18);max-height:85vh;overflow-y:auto}
+dialog{border:none;border-radius:14px;padding:24px;width:520px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18);max-height:85vh;overflow-y:auto}
 dialog::backdrop{background:rgba(22,56,92,.35)}
 dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px}
 dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;font-family:inherit}
@@ -45,8 +45,12 @@ dialog textarea{resize:vertical}
 .ph1{background:#dbeafe;color:#1d4ed8}
 .ph2{background:#fef3c7;color:#92400e}
 .code-obs{font-family:'Courier New',monospace;font-size:11px;font-weight:700;color:var(--accent);background:#eff6ff;padding:2px 6px;border-radius:4px}
-@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.filtre-bar{flex-direction:column;align-items:stretch}.mini-table{display:block;overflow-x:auto}}
-@media(max-width:600px){.kpis{grid-template-columns:1fr}.kpi .val{font-size:20px}dialog{padding:16px;width:95vw}}
+.perf-box{background:var(--fond);border-radius:8px;padding:10px 12px;margin:8px 0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11.5px}
+.perf-box .perf-item{text-align:center}
+.perf-box .perf-val{font-size:18px;font-weight:700;color:var(--bleu)}
+.perf-box .perf-lbl{font-size:10px;color:var(--gris);text-transform:uppercase}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.filtre-bar{flex-direction:column;align-items:stretch}.mini-table{display:block;overflow-x:auto}.perf-box{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.kpis{grid-template-columns:1fr}.kpi .val{font-size:20px}dialog{padding:16px;width:95vw}.perf-box{grid-template-columns:1fr}}
 </style>
 @endpush
 @section('contenu')
@@ -54,7 +58,6 @@ dialog textarea{resize:vertical}
     $ic = fn(string $d, int $s=16) => '<svg viewBox="0 0 24 24" width="'.$s.'" height="'.$s.'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'.$d.'</svg>';
     $icCheck = $ic('<polyline points="20 6 9 17 4 12"/>');
     $icAlert = $ic('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
-    $icEye = $ic('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>');
     $icEdit = $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>');
     $icTrash = $ic('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>');
     $icPlus = $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>');
@@ -89,14 +92,14 @@ dialog textarea{resize:vertical}
 @endphp
 
 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-    <h2>Suivi des Observations</h2>
+    <h2>Suivi Production</h2>
     @if($isPilote)
     <button class="btn" onclick="document.getElementById('dlg-declaration').showModal()">
         {!! $icPlus !!} Déclarer une observation
     </button>
     @endif
 </div>
-<div class="crumb">Observations des applications en production</div>
+<div class="crumb">Suivi des observations sur les applications en production</div>
 
 @if(session('succes'))<div class="alerte ok">{!! $icCheck !!} {{ session('succes') }}</div>@endif
 @if(session('erreur'))<div class="alerte ko">{!! $icAlert !!} {{ session('erreur') }}</div>@endif
@@ -113,6 +116,12 @@ dialog textarea{resize:vertical}
 {{-- Filtres --}}
 <div class="filtre-bar">
     <form method="GET" action="{{ route('observations.index') }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select name="projet" onchange="this.form.submit()">
+            <option value="">Tous projets</option>
+            @foreach($projets as $p)
+            <option value="{{ $p->id }}" {{ request('projet') == $p->id ? 'selected' : '' }}>{{ $p->code }} — {{ $p->libelle }}</option>
+            @endforeach
+        </select>
         <select name="statut" onchange="this.form.submit()">
             <option value="">Tous statuts</option>
             @foreach($statuts as $s)
@@ -131,7 +140,7 @@ dialog textarea{resize:vertical}
             <option value="{{ $t }}" {{ request('type') === $t ? 'selected' : '' }}>{{ $t }}</option>
             @endforeach
         </select>
-        @if(request()->hasAny(['statut','priorite','type','responsable']))
+        @if(request()->hasAny(['statut','priorite','type','responsable','projet']))
         <a href="{{ route('observations.index') }}" class="btn sec sm">Réinitialiser</a>
         @endif
     </form>
@@ -149,27 +158,27 @@ dialog textarea{resize:vertical}
         <thead>
         <tr>
             <th>Code</th>
+            <th>Projet</th>
             <th>Date</th>
             <th>Description</th>
             <th>Type</th>
             <th>Priorité</th>
             <th>Responsable</th>
             <th>Statut</th>
-            <th>Origine</th>
             @if($isPilote)<th style="width:90px">Actions</th>@endif
         </tr>
         </thead>
         <tbody>
         @foreach($observations as $obs)
-        <tr data-search="{{ strtolower($obs->code.' '.$obs->description.' '.($obs->responsable?->nomComplet() ?? '')) }}">
+        <tr data-search="{{ strtolower($obs->code.' '.$obs->description.' '.($obs->responsable?->nomComplet() ?? '').' '.($obs->projet?->libelle ?? '')) }}">
             <td><span class="code-obs">{{ $obs->code }}</span></td>
+            <td style="font-size:11px">{{ $obs->projet?->code ?? '—' }}</td>
             <td style="white-space:nowrap;font-size:11.5px">{{ $obs->date_reception->format('d/m/Y') }}</td>
-            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $obs->description }}">{{ $obs->description }}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $obs->description }}">{{ $obs->description }}</td>
             <td style="font-size:11px">{{ $obs->type_difficulte }}</td>
             <td><span class="badge {{ $prioCls($obs->priorite) }}">{{ ucfirst($obs->priorite) }}</span></td>
             <td style="font-size:11.5px">{{ $obs->responsable?->nomComplet() ?? '—' }}</td>
             <td><span class="badge {{ $badgeCls($obs->statut) }}">{{ $obs->statutLibelle() }}</span></td>
-            <td style="font-size:11px">{{ $obs->origine }}</td>
             @if($isPilote)
             <td>
                 <div class="act-row">
@@ -202,6 +211,14 @@ dialog textarea{resize:vertical}
     </div>
     <p style="font-size:12px;color:var(--gris);margin-bottom:10px">Enregistrez une observation, un bug ou un besoin détecté sur une application en production.</p>
     <form method="POST" action="{{ route('observations.store') }}">@csrf
+        <label>Projet / Application <span class="req">*</span></label>
+        <select name="projet_id" required>
+            <option value="">— Sélectionner le projet —</option>
+            @foreach($projets as $p)
+            <option value="{{ $p->id }}">{{ $p->code }} — {{ $p->libelle }}</option>
+            @endforeach
+        </select>
+
         <label>Description <span class="req">*</span></label>
         <textarea name="description" required rows="3" placeholder="Décrivez l'observation ou le problème constaté..."></textarea>
 
@@ -263,7 +280,17 @@ dialog textarea{resize:vertical}
     </div>
 
     {{-- Résumé phase 1 --}}
-    <div id="res-resume" style="background:var(--fond);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--gris)"></div>
+    <div id="res-resume" style="background:var(--fond);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12px;color:var(--gris)"></div>
+
+    {{-- Performance collaborateur --}}
+    <div id="res-perf" style="display:none">
+        <div style="font-size:11px;color:var(--gris);margin-bottom:4px;font-weight:600">Performance du responsable désigné</div>
+        <div class="perf-box">
+            <div class="perf-item"><div class="perf-val" id="perf-taches">—</div><div class="perf-lbl">Tâches terminées</div></div>
+            <div class="perf-item"><div class="perf-val" id="perf-obj">—</div><div class="perf-lbl">Score objectifs</div></div>
+            <div class="perf-item"><div class="perf-val" id="perf-obs">—</div><div class="perf-lbl">Obs. résolues</div></div>
+        </div>
+    </div>
 
     <form method="POST" id="form-resolution">@csrf @method('PUT')
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
@@ -286,7 +313,7 @@ dialog textarea{resize:vertical}
             </div>
             <div>
                 <label>Responsable technique</label>
-                <select name="responsable_id" id="res-responsable">
+                <select name="responsable_id" id="res-responsable" onchange="chargerPerf(this.value)">
                     <option value="">— Non assigné —</option>
                     @foreach($responsables as $resp)
                     <option value="{{ $resp->id }}">{{ $resp->nomComplet() }}</option>
@@ -322,9 +349,11 @@ function filtrerObs(){
 }
 
 @if($isPilote)
-const obsData = @json($observations->map(fn($o) => [
+@php
+$obsJson = $observations->map(fn($o) => [
     'id'              => $o->id,
     'code'            => $o->code,
+    'projet'          => $o->projet ? $o->projet->code . ' — ' . $o->projet->libelle : null,
     'description'     => $o->description,
     'type_difficulte' => $o->type_difficulte,
     'priorite'        => ucfirst($o->priorite),
@@ -337,24 +366,45 @@ const obsData = @json($observations->map(fn($o) => [
     'commentaire_resolution' => $o->commentaire_resolution,
     'commentaires'    => $o->commentaires,
     'declarant'       => $o->declarant?->nomComplet() ?? '—',
-])->values());
+])->values();
+@endphp
+const obsData = @json($obsJson);
 
 function ouvrirResolution(id){
     const o = obsData.find(x => x.id === id);
     if(!o) return;
     document.getElementById('res-code').textContent = o.code;
-    document.getElementById('res-resume').innerHTML =
-        '<strong>'+o.description+'</strong><br>'+
-        '<span>Type : '+o.type_difficulte+' · Priorité : '+o.priorite+' · Origine : '+o.origine+'</span><br>'+
-        '<span>Déclaré le '+o.date_reception+' par '+o.declarant+'</span>'+
-        (o.commentaires ? '<br><em>'+o.commentaires+'</em>' : '');
+    let resume = '<strong>'+o.description+'</strong><br>';
+    if(o.projet) resume += '<span style="color:var(--accent)">'+o.projet+'</span><br>';
+    resume += '<span>Type : '+o.type_difficulte+' · Priorité : '+o.priorite+' · Origine : '+o.origine+'</span><br>';
+    resume += '<span>Déclaré le '+o.date_reception+' par '+o.declarant+'</span>';
+    if(o.commentaires) resume += '<br><em>'+o.commentaires+'</em>';
+    document.getElementById('res-resume').innerHTML = resume;
     document.getElementById('form-resolution').action = '{{ url("observations") }}/'+o.id;
     document.getElementById('res-statut').value = o.statut;
     document.getElementById('res-mode').value = o.mode_execution || '';
     document.getElementById('res-responsable').value = o.responsable_id || '';
     document.getElementById('res-date-livraison').value = o.date_livraison || '';
     document.getElementById('res-commentaire').value = o.commentaire_resolution || '';
+    // Charger perf du responsable
+    if(o.responsable_id) chargerPerf(o.responsable_id);
+    else document.getElementById('res-perf').style.display='none';
     document.getElementById('dlg-resolution').showModal();
+}
+
+function chargerPerf(userId){
+    const box = document.getElementById('res-perf');
+    if(!userId){ box.style.display='none'; return; }
+    fetch('{{ route("observations.stats-collaborateur") }}?user_id='+userId)
+        .then(r=>r.json())
+        .then(d=>{
+            if(!d.nom){ box.style.display='none'; return; }
+            document.getElementById('perf-taches').textContent = d.taches_terminees+'/'+d.taches_total;
+            document.getElementById('perf-obj').textContent = d.obj_score+'%';
+            document.getElementById('perf-obs').textContent = d.obs_resolus+'/'+d.obs_total;
+            box.style.display='block';
+        })
+        .catch(()=>{ box.style.display='none'; });
 }
 @endif
 </script>

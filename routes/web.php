@@ -144,6 +144,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/observations', [ObservationController::class, 'store'])->name('observations.store');
     Route::put('/observations/{observation}', [ObservationController::class, 'update'])->name('observations.update');
     Route::delete('/observations/{observation}', [ObservationController::class, 'destroy'])->name('observations.destroy');
+    Route::get('/observations/stats-collaborateur', [ObservationController::class, 'statsCollaborateur'])->name('observations.stats-collaborateur');
+    Route::get('/observations/fiche-collaborateur', [ObservationController::class, 'ficheCollaborateur'])->name('observations.fiche-collaborateur');
 
     Route::get('/pointage', [PointageController::class, 'index'])->name('pointage.index');
     Route::post('/pointage/arrivee', [PointageController::class, 'pointerArrivee'])->name('pointage.arrivee');

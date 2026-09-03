@@ -50,10 +50,14 @@
     <button class="btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer">Actualiser</button>
     <span style="font-size:11px;color:var(--gris);margin-left:8px">{{ $debut->format('d/m/Y') }} &mdash; {{ $fin->format('d/m/Y') }}</span>
 </form>
-<div style="margin-bottom:14px">
+<div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
     <a href="{{ route('reporting.imprimer', ['periode' => $periode, 'date_debut' => $debut->format('Y-m-d'), 'date_fin' => $fin->format('Y-m-d')]) }}" class="btn" style="font-size:12px;padding:6px 14px;text-decoration:none" target="_blank">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:middle;margin-right:4px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
         Imprimer / PDF
+    </a>
+    <a href="{{ route('observations.fiche-collaborateur') }}" class="btn" style="font-size:12px;padding:6px 14px;text-decoration:none;background:#fff;color:var(--accent);border:1px solid var(--accent)">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:middle;margin-right:4px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Fiche collaborateur
     </a>
 </div>
 
@@ -76,7 +80,7 @@
 </div>
 <div class="carte" style="padding:0;overflow-x:auto">
 <table class="tbl">
-<thead><tr><th>Collaborateur</th><th>P&ocirc;le</th><th>Total</th><th>P&eacute;riode</th><th>Retard</th><th>Bloq.</th><th>Taux</th><th>Objectifs</th><th>Assiduit&eacute;</th></tr></thead>
+<thead><tr><th>Collaborateur</th><th>P&ocirc;le</th><th>Total</th><th>P&eacute;riode</th><th>Retard</th><th>Bloq.</th><th>Taux</th><th>Objectifs</th><th>Assiduit&eacute;</th><th style="width:50px"></th></tr></thead>
 <tbody>
 @foreach($collaborateurs as $c)
 @php
@@ -101,6 +105,7 @@
     </td>
     <td><span class="badge {{ $coulObj }}">{{ $sObj !== null ? $sObj.'%' : '—' }}</span></td>
     <td><span class="badge {{ $coulAss }}">{{ $s['assiduite'] }}%</span></td>
+    <td><a href="{{ route('observations.fiche-collaborateur', ['collaborateur_id' => $c->id, 'debut' => $debut->format('Y-m-d'), 'fin' => $fin->format('Y-m-d')]) }}" title="Fiche détaillée" style="display:inline-flex;align-items:center;padding:4px 6px;border:1px solid var(--bord);border-radius:6px;color:var(--accent);text-decoration:none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a></td>
 </tr>
 @endforeach
 </tbody>

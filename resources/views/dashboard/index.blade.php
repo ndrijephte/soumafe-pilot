@@ -42,7 +42,6 @@
 @endpush
 @section('contenu')
 <h2>Bonjour, {{ auth()->user()->prenom ?? auth()->user()->name }}</h2>
-<div class="crumb">{{ now()->translatedFormat('l j F Y') }} — votre tableau de bord</div>
 
 {{-- Bannière pointage --}}
 @if(isset($monPointage))
@@ -66,7 +65,7 @@
         @if(!$dejaArrive)
             <form method="POST" action="{{ route('pointage.arrivee') }}">@csrf<button style="display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;background:#f0fdf4;color:#15803d;border:1.5px solid #bbf7d0;transition:all .2s"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Pointer mon arrivée</button></form>
         @elseif(!$dejaParti)
-            <form method="POST" action="{{ route('pointage.depart') }}">@csrf<button style="display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;transition:all .2s"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Pointer mon départ</button></form>
+            <form method="POST" action="{{ route('pointage.depart') }}" onsubmit="return confirm('Confirmez-vous votre départ ?')">@csrf<button style="display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;transition:all .2s"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Pointer mon départ</button></form>
         @endif
     </div>
 </div>
@@ -165,7 +164,7 @@
             <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Progression (4 semaines)
         </h3>
-        <div style="display:flex;align-items:flex-end;gap:12px;height:100px;padding:8px 0">
+        <div style="display:flex;align-items:flex-end;gap:12px;height:110px;padding:12px 0 8px">
             @foreach($tendanceHebdo as $s)
             @php $h = round(($s['count'] / $tendanceMax) * 80); @endphp
             <div style="flex:1;display:flex;flex-direction:column;align-items:center">

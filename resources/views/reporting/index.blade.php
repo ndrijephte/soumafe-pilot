@@ -218,6 +218,38 @@
     @endforeach
 </div>
 @endif
+{{-- Assiduité pointage --}}
+@if(isset($pointageStats) && $pointageStats->count() > 0)
+<div class="section-titre">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Assiduit&eacute; &amp; Ponctualit&eacute;
+</div>
+<div class="carte" style="padding:0;overflow-x:auto">
+<table class="tbl">
+<thead><tr><th>Collaborateur</th><th>Poste</th><th>Pr&eacute;sents</th><th>Retards</th><th>Sortis t&ocirc;t</th><th>Absents</th><th>Pr&eacute;sence</th><th>Ponctualit&eacute;</th></tr></thead>
+<tbody>
+@foreach($pointageStats as $ps)
+@php
+    $u = $ps['user'];
+    $coulPres = $ps['taux_presence'] >= 80 ? 'b-ok' : ($ps['taux_presence'] >= 50 ? 'b-warn' : 'b-ko');
+    $coulPonc = $ps['taux_ponctualite'] >= 80 ? 'b-ok' : ($ps['taux_ponctualite'] >= 50 ? 'b-warn' : 'b-ko');
+@endphp
+<tr>
+    <td><strong>{{ $u->nomComplet() }}</strong></td>
+    <td style="font-size:11px;color:var(--gris)">{{ $u->roleLibelle() }}</td>
+    <td style="color:var(--ok);font-weight:600">{{ $ps['presents'] }}</td>
+    <td>@if($ps['retards'] > 0)<span style="color:#b45309;font-weight:600">{{ $ps['retards'] }}</span>@else — @endif</td>
+    <td>@if($ps['sortis_tot'] > 0)<span style="color:#2e7d32">{{ $ps['sortis_tot'] }}</span>@else — @endif</td>
+    <td>@if($ps['absents'] > 0)<span style="color:var(--ko);font-weight:600">{{ $ps['absents'] }}</span>@else — @endif</td>
+    <td><span class="badge {{ $coulPres }}">{{ $ps['taux_presence'] }}%</span></td>
+    <td><span class="badge {{ $coulPonc }}">{{ $ps['taux_ponctualite'] }}%</span></td>
+</tr>
+@endforeach
+</tbody>
+</table>
+</div>
+@endif
+
 {{-- Exports --}}
 <div class="section-titre" style="margin-top:20px">
     <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>

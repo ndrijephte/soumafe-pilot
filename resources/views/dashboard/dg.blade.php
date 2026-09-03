@@ -35,7 +35,6 @@
 @endpush
 @section('contenu')
 <h2>Tableau de bord Direction</h2>
-<div class="crumb">{{ now()->translatedFormat('l j F Y') }} &mdash; Vue strat&eacute;gique</div>
 
 {{-- KPI principaux --}}
 <div class="kpis">
@@ -98,7 +97,7 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Tendance (4 semaines)
         </h3>
-        <div style="display:flex;align-items:flex-end;gap:12px;height:100px;padding:8px 0">
+        <div style="display:flex;align-items:flex-end;gap:12px;height:110px;padding:12px 0 8px">
             @foreach($tendanceHebdo as $s)
             @php $h = round(($s['count'] / $tendanceMax) * 80); @endphp
             <div style="flex:1;display:flex;flex-direction:column;align-items:center">

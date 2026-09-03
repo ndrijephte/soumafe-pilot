@@ -778,7 +778,9 @@ class ParcController extends Controller
     public function detacherChauffeur(Request $r, Vehicule $vehicule, Chauffeur $chauffeur)
     {
         $this->autoriser($r);
-        abort_if($r->user()->aRole('direction'), 403, 'La direction ne peut pas détacher un chauffeur.');
+        if ($r->user()->aRole('direction')) {
+            return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('erreur', 'La direction ne peut pas détacher un chauffeur.');
+        }
         $vehicule->chauffeurs()->detach($chauffeur->id);
         AuditLog::log('detachement', 'chauffeur', "Chauffeur #{$chauffeur->id}", "Détaché de véhicule {$vehicule->immatriculation}");
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur détaché.');

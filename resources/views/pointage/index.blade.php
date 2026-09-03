@@ -32,6 +32,7 @@
 .mini-table tr:hover{background:#f8fafc}
 .badge{padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600;display:inline-block}
 .b-ok{background:#dcfce7;color:var(--ok)}
+.b-tot{background:#e8f5e9;color:#2e7d32}
 .b-warn{background:#fef3c7;color:#b45309}
 .b-ko{background:#fee2e2;color:var(--ko)}
 .b-info{background:#dbeafe;color:#1d4ed8}
@@ -109,7 +110,7 @@ dialog textarea{resize:vertical}
                 </button>
             </form>
         @elseif(!$dejaParti)
-            <form method="POST" action="{{ route('pointage.depart') }}">@csrf
+            <form method="POST" action="{{ route('pointage.depart') }}" onsubmit="return confirm('Confirmez-vous votre départ ?')">@csrf
                 <button class="btn-pointage depart">
                     {!! $ic('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>') !!}
                     Pointer mon départ
@@ -145,7 +146,7 @@ dialog textarea{resize:vertical}
         <thead>
         <tr>
             <th>Collaborateur</th>
-            <th>Rôle</th>
+            <th>Poste</th>
             <th>Arrivée</th>
             <th>Départ</th>
             <th>Durée</th>
@@ -162,7 +163,7 @@ dialog textarea{resize:vertical}
             $badgeCls = match($statut) {
                 'present' => 'b-ok',
                 'retard' => 'b-warn',
-                'sorti_tot' => 'b-warn',
+                'sorti_tot' => 'b-tot',
                 'absent' => 'b-ko',
                 default => 'b-gris',
             };
@@ -217,7 +218,7 @@ dialog textarea{resize:vertical}
 </dialog>
 @endif
 
-{{-- Dialog motif départ anticipé --}}
+{{-- Dialog motif départ anticipé (après pointage) --}}
 @if(session('demande_motif_depart'))
 <dialog id="dlg-motif-depart" open>
     <h3 style="color:var(--bleu);margin-bottom:4px">Motif du départ anticipé</h3>
@@ -228,6 +229,22 @@ dialog textarea{resize:vertical}
         <textarea name="motif" required rows="3" placeholder="Raison du départ anticipé..."></textarea>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button class="btn">Enregistrer</button>
+        </div>
+    </form>
+</dialog>
+@endif
+
+{{-- Dialog motif départ AVANT pointage (avant 18h) --}}
+@if(session('demande_motif_depart_avant'))
+<dialog id="dlg-motif-depart-avant" open>
+    <h3 style="color:var(--bleu);margin-bottom:4px">Départ avant 18h00</h3>
+    <p style="font-size:12px;color:var(--gris)">Il n'est pas encore 18h00. Veuillez justifier votre départ anticipé.</p>
+    <form method="POST" action="{{ route('pointage.depart') }}">@csrf
+        <label>Motif <span class="req">*</span></label>
+        <textarea name="motif_depart" required rows="3" placeholder="Raison du départ anticipé..."></textarea>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Confirmer le départ</button>
         </div>
     </form>
 </dialog>

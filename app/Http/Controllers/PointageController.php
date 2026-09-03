@@ -17,6 +17,9 @@ class PointageController extends Controller
             return view('pointage.index', ['users' => collect(), 'pointages' => collect(), 'date' => today(), 'stats' => []]);
         }
 
+        // Clôturer automatiquement les oublis de départ des jours précédents
+        $this->cloturerOublis();
+
         $date = $r->input('date', today()->toDateString());
         $date = Carbon::parse($date);
 
@@ -117,21 +120,22 @@ class PointageController extends Controller
                 ->with('erreur', 'Départ déjà enregistré.');
         }
 
+        // Motif obligatoire si départ avant 18h
+        $hDepart = Carbon::parse($now);
+        if ($hDepart->lt(Carbon::parse('18:00')) && !$r->filled('motif_depart')) {
+            return redirect()->route('pointage.index')
+                ->with('demande_motif_depart_avant', $pointage->id);
+        }
+
         $pointage->heure_depart = $now;
         $pointage->statut = $pointage->calculerStatut();
 
-        if ($pointage->statut === 'sorti_tot' && $r->filled('motif_depart')) {
+        if ($r->filled('motif_depart')) {
             $pointage->motif_depart = $r->input('motif_depart');
         }
 
         $pointage->save();
         $this->auditer('pointer_depart', $pointage);
-
-        // Si sorti tôt sans motif
-        if ($pointage->statut === 'sorti_tot' && !$pointage->motif_depart) {
-            return redirect()->route('pointage.index')
-                ->with('demande_motif_depart', $pointage->id);
-        }
 
         return redirect()->route('dashboard')
             ->with('succes', 'Départ pointé à ' . Carbon::parse($now)->format('H:i'));
@@ -198,6 +202,25 @@ class PointageController extends Controller
 
         return redirect()->route('pointage.index', ['date' => $pointage->date->toDateString()])
             ->with('succes', 'Pointage corrigé.');
+    }
+
+    /** Clôturer les oublis de départ de la veille (appelé dans index) */
+    private function cloturerOublis()
+    {
+        $hier = today()->subDay()->toDateString();
+        $oublis = Pointage::where('date', '<', today()->toDateString())
+            ->whereNotNull('heure_arrivee')
+            ->whereNull('heure_depart')
+            ->where('statut', '!=', 'absent')
+            ->get();
+
+        foreach ($oublis as $p) {
+            $p->heure_depart = '18:00:00';
+            $p->motif_depart = 'Oubli de pointage départ — clôturé automatiquement';
+            $p->statut = $p->calculerStatut();
+            $p->save();
+            $this->auditer('cloture_oubli_depart', $p);
+        }
     }
 
     /** Audit si table existe */

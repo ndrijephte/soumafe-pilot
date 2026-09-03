@@ -63,14 +63,15 @@
 
 <div class="carte" style="padding:0;overflow-x:auto">
 <table class="admin-tbl">
-<thead><tr><th>Nom</th><th>Email</th><th>Pôle</th><th>Rôle</th><th>Profil mesure</th><th>Actif</th><th>Actions</th></tr></thead>
+<thead><tr><th>Nom</th><th>Email</th><th>Pôle</th><th>Rôle</th><th>Poste</th><th>Profil mesure</th><th>Actif</th><th>Actions</th></tr></thead>
 <tbody>
 @forelse($users as $u)
 <tr>
     <td><strong>{{ $u->name }}</strong> {{ $u->prenom }}</td>
     <td>{{ $u->email }}</td>
     <td>{{ $u->pole?->libelle ?? '—' }}</td>
-    <td><span class="badge-role r-{{ $u->role }}">{{ $u->roleLibelle() }}</span></td>
+    <td><span class="badge-role r-{{ $u->role }}">{{ \App\Models\User::libelleRole($u->role) }}</span></td>
+    <td style="font-size:11.5px;color:var(--gris)">{{ $u->titre_poste ?: '—' }}</td>
     <td>{{ ucfirst($u->profil_mesure) }}</td>
     <td class="{{ $u->actif ? 'actif-oui' : 'actif-non' }}">{{ $u->actif ? 'Oui' : 'Non' }}</td>
     <td style="white-space:nowrap">
@@ -84,7 +85,7 @@
     </td>
 </tr>
 @empty
-<tr><td colspan="7" style="text-align:center;color:var(--gris);padding:24px">Aucun compte trouvé.</td></tr>
+<tr><td colspan="8" style="text-align:center;color:var(--gris);padding:24px">Aucun compte trouvé.</td></tr>
 @endforelse
 </tbody>
 </table>

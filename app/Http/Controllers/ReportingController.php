@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Absence, ConfirmationTache, Evenement, JourFerie, JourSaisie, Objectif, Projet, Sprint, Tache, User};
+use App\Models\{Absence, ConfirmationTache, Evenement, JourFerie, JourSaisie, Objectif, Pointage, Projet, Sprint, Tache, User};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -122,11 +122,52 @@ class ReportingController extends Controller
                 ->orderByDesc('date')->get();
         }
 
+        // ─── Assiduité pointage ───
+        $pointageStats = collect();
+        if (Schema::hasTable('pointages')) {
+            $collabIds = $collaborateurs->pluck('id');
+            $pointages = Pointage::whereBetween('date', [$debut, $fin])
+                ->whereIn('user_id', $collabIds)->get();
+
+            $pointageStats = $collaborateurs->map(function ($u) use ($pointages, $debut, $fin) {
+                $up = $pointages->where('user_id', $u->id);
+                $presents = $up->where('statut', 'present')->count();
+                $retards = $up->where('statut', 'retard')->count();
+                $sortisTot = $up->where('statut', 'sorti_tot')->count();
+                $absents = $up->where('statut', 'absent')->count();
+                $totalPointes = $up->count();
+
+                // Jours ouvrés dans la période
+                $ouvres = 0;
+                $c = $debut->copy();
+                $endDate = $fin->copy()->min(today());
+                while ($c->lte($endDate)) {
+                    if (!$c->isWeekend()) $ouvres++;
+                    $c->addDay();
+                }
+                $tauxPresence = $ouvres > 0 ? round((($presents + $retards + $sortisTot) / $ouvres) * 100) : 0;
+                $tauxPonctualite = ($presents + $retards + $sortisTot) > 0
+                    ? round(($presents / ($presents + $retards + $sortisTot)) * 100) : 0;
+
+                return [
+                    'user' => $u,
+                    'presents' => $presents,
+                    'retards' => $retards,
+                    'sortis_tot' => $sortisTot,
+                    'absents' => $absents,
+                    'ouvres' => $ouvres,
+                    'taux_presence' => $tauxPresence,
+                    'taux_ponctualite' => $tauxPonctualite,
+                ];
+            });
+        }
+
         return view('reporting.index', compact(
             'periode', 'debut', 'fin',
             'terminees', 'creees', 'enRetardClotures', 'anticipees', 'aTemps',
             'tauxGlobal', 'bloquees', 'enRetardOuvert',
-            'collaborateurs', 'projets', 'sprints', 'absences', 'evenements'
+            'collaborateurs', 'projets', 'sprints', 'absences', 'evenements',
+            'pointageStats'
         ));
     }
 

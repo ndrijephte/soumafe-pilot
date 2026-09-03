@@ -1,5 +1,5 @@
 <?php
-use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController};
+use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController, ObservationController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController, TitrePosteController};
 use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController, ReportingParcController};
 use Illuminate\Support\Facades\Route;
@@ -140,6 +140,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/parc/reporting', [ReportingParcController::class, 'index'])->name('reporting.parc');
 
     // Pointage & Présence
+    Route::get('/observations', [ObservationController::class, 'index'])->name('observations.index');
+    Route::post('/observations', [ObservationController::class, 'store'])->name('observations.store');
+    Route::put('/observations/{observation}', [ObservationController::class, 'update'])->name('observations.update');
+    Route::delete('/observations/{observation}', [ObservationController::class, 'destroy'])->name('observations.destroy');
+
     Route::get('/pointage', [PointageController::class, 'index'])->name('pointage.index');
     Route::post('/pointage/arrivee', [PointageController::class, 'pointerArrivee'])->name('pointage.arrivee');
     Route::post('/pointage/depart', [PointageController::class, 'pointerDepart'])->name('pointage.depart');

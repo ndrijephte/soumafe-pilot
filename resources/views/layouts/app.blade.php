@@ -128,6 +128,10 @@
     @endif
     <a href="{{ route('pointage.index') }}" data-tip="Pointage" class="{{ request()->routeIs('pointage.*') ? 'actif' : '' }}">
         {!! $svg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>') !!}<span class="txt">Pointage</span></a>
+    @if($u?->estPilote())
+    <a href="{{ route('observations.index') }}" data-tip="Observations" class="{{ request()->routeIs('observations.*') ? 'actif' : '' }}">
+        {!! $svg('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/>') !!}<span class="txt">Observations</span></a>
+    @endif
     @if($u?->peutGererParc())
     <a href="{{ route('parc.index') }}" data-tip="Parc auto" class="{{ request()->routeIs('parc.*') || request()->routeIs('reporting.parc') ? 'actif' : '' }}">
         {!! $svg('<rect x="1" y="6" width="22" height="12" rx="3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M5 10h14"/>') !!}<span class="txt">Parc automobile</span></a>

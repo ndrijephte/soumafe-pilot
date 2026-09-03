@@ -204,7 +204,7 @@ dialog textarea{resize:vertical}
 
 {{-- Dialog motif retard --}}
 @if(session('demande_motif_retard'))
-<dialog id="dlg-motif-retard" open>
+<dialog id="dlg-motif-retard">
     <h3 style="color:var(--bleu);margin-bottom:4px">Motif du retard</h3>
     <p style="font-size:12px;color:var(--gris)">Votre arrivée a été enregistrée après 08h00. Veuillez justifier.</p>
     <form method="POST" action="{{ route('pointage.motif', session('demande_motif_retard')) }}">@csrf
@@ -220,7 +220,7 @@ dialog textarea{resize:vertical}
 
 {{-- Dialog motif départ anticipé (après pointage) --}}
 @if(session('demande_motif_depart'))
-<dialog id="dlg-motif-depart" open>
+<dialog id="dlg-motif-depart">
     <h3 style="color:var(--bleu);margin-bottom:4px">Motif du départ anticipé</h3>
     <p style="font-size:12px;color:var(--gris)">Votre départ a été enregistré avant 18h00. Veuillez justifier.</p>
     <form method="POST" action="{{ route('pointage.motif', session('demande_motif_depart')) }}">@csrf
@@ -236,7 +236,7 @@ dialog textarea{resize:vertical}
 
 {{-- Dialog motif départ AVANT pointage (avant 18h) --}}
 @if(session('demande_motif_depart_avant'))
-<dialog id="dlg-motif-depart-avant" open>
+<dialog id="dlg-motif-depart-avant">
     <h3 style="color:var(--bleu);margin-bottom:4px">Départ avant 18h00</h3>
     <p style="font-size:12px;color:var(--gris)">Il n'est pas encore 18h00. Veuillez justifier votre départ anticipé.</p>
     <form method="POST" action="{{ route('pointage.depart') }}">@csrf
@@ -309,5 +309,12 @@ function ouvrirAbsence(userId, date, nom){
     document.getElementById('abs-date').value=date;
     document.getElementById('dlg-absence').showModal();
 }
+// Ouvrir automatiquement les dialogs motif au chargement (modal = au-dessus sidebar)
+document.addEventListener('DOMContentLoaded', function(){
+    ['dlg-motif-retard','dlg-motif-depart','dlg-motif-depart-avant'].forEach(function(id){
+        var d=document.getElementById(id);
+        if(d) d.showModal();
+    });
+});
 </script>
 @endpush

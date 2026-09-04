@@ -10,10 +10,13 @@ class VersementRecouvrement extends Model
 
     protected $fillable = [
         'recouvrement_id', 'montant', 'date_versement', 'mode_paiement',
-        'recu_par', 'observations',
+        'source_paiement', 'depense_id', 'recu_par', 'observations',
     ];
 
     protected $casts = ['date_versement' => 'date'];
 
     public function recouvrement(): BelongsTo { return $this->belongsTo(Recouvrement::class); }
+    public function depense(): BelongsTo { return $this->belongsTo(Depense::class); }
+
+    public function estEntreprise(): bool { return $this->source_paiement === 'entreprise'; }
 }

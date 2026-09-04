@@ -11,14 +11,27 @@ class MaintenancePreventive extends Model
     protected $fillable = [
         'vehicule_id', 'type_echeance', 'derniere_realisation',
         'prochaine_echeance', 'observations',
+        'statut', 'date_realisation', 'cout', 'prestataire', 'depense_id',
     ];
 
     protected $casts = [
         'derniere_realisation' => 'date',
         'prochaine_echeance' => 'date',
+        'date_realisation' => 'date',
     ];
 
     public function vehicule(): BelongsTo { return $this->belongsTo(Vehicule::class); }
+    public function depense(): BelongsTo { return $this->belongsTo(Depense::class); }
+
+    public function estRealisee(): bool { return $this->statut === 'realisee'; }
+
+    public function statutLabel(): string
+    {
+        return match($this->statut) {
+            'realisee' => 'Réalisée',
+            default => 'Planifiée',
+        };
+    }
 
     public function joursRestants(): ?int
     {

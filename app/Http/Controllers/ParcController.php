@@ -704,6 +704,41 @@ class ParcController extends Controller
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance mise à jour.');
     }
 
+    public function realiserMaintenance(Request $r, MaintenancePreventive $maintenance)
+    {
+        $this->autoriser($r);
+        $r->validate([
+            'date_realisation' => 'required|date',
+            'cout'             => 'required|integer|min:0',
+            'prestataire'      => 'nullable|string|max:150',
+            'observations'     => 'nullable|string|max:500',
+        ]);
+
+        $maintenance->statut = 'realisee';
+        $maintenance->date_realisation = $r->date_realisation;
+        $maintenance->cout = $r->cout;
+        $maintenance->prestataire = $r->prestataire;
+        $maintenance->derniere_realisation = $r->date_realisation;
+        if ($r->observations) $maintenance->observations = $r->observations;
+
+        // Créer la dépense liée au véhicule
+        if ($r->cout > 0) {
+            $dep = Depense::create([
+                'date_depense'  => $r->date_realisation,
+                'type_depense'  => 'maintenance',
+                'montant'       => $r->cout,
+                'commentaire'   => 'Maintenance ' . $maintenance->typeLabel() . ' — ' . ($maintenance->vehicule->immatriculation ?? ''),
+                'cree_par'      => auth()->user()->name,
+            ]);
+            $maintenance->depense_id = $dep->id;
+        }
+
+        $maintenance->save();
+        AuditLog::log('realisation', 'maintenance', "Maintenance #{$maintenance->id}", "Coût: {$maintenance->cout} F, Véhicule: " . ($maintenance->vehicule->immatriculation ?? ''));
+
+        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Maintenance réalisée.');
+    }
+
     public function destroyMaintenance(Request $r, MaintenancePreventive $maintenance)
     {
         $this->autoriser($r);
@@ -947,6 +982,61 @@ class ParcController extends Controller
         ]);
     }
 
+    /* ===== FICHE RÉSUMÉ CHAUFFEUR (JSON) ===== */
+    public function ficheChauffeur(Request $r, Chauffeur $chauffeur)
+    {
+        $this->autoriser($r);
+        $moisDebut = today()->startOfMonth();
+        $moisFin   = today()->endOfMonth();
+
+        // Véhicules affectés
+        $vehiculesAffectes = $chauffeur->vehicules()
+            ->wherePivot('actif', true)->get()
+            ->map(fn($v) => [
+                'immatriculation' => $v->immatriculation,
+                'categorie' => $v->categorieLabel(),
+                'role' => $v->pivot->role === 'principal' ? 'Principal' : 'Alternant',
+            ]);
+
+        // Recettes ce mois
+        $nomComplet = $chauffeur->nomComplet();
+        $recetteMois = RecetteVehicule::where('chauffeur', $nomComplet)
+            ->whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
+        $objectifMois = RecetteVehicule::where('chauffeur', $nomComplet)
+            ->whereBetween('date', [$moisDebut, $moisFin])->sum('objectif');
+        $nbJoursSaisis = RecetteVehicule::where('chauffeur', $nomComplet)
+            ->whereBetween('date', [$moisDebut, $moisFin])->count();
+
+        // Pénalités
+        $penalitesTotal = Schema::hasTable('penalites')
+            ? Penalite::where('chauffeur', $nomComplet)->count() : 0;
+        $penalitesImpayees = Schema::hasTable('penalites')
+            ? Penalite::where('chauffeur', $nomComplet)->where('statut', 'non_payee')->count() : 0;
+        $penalitesMontant = Schema::hasTable('penalites')
+            ? (int) Penalite::where('chauffeur', $nomComplet)->where('statut', 'non_payee')->sum('montant') : 0;
+
+        // Recouvrements
+        $recouvrActifs = Recouvrement::where('chauffeur_nom', $nomComplet)->where('statut', 'actif')->get();
+        $soldeRecouvr  = (int) $recouvrActifs->sum('solde');
+
+        return response()->json([
+            'nom' => $nomComplet,
+            'statut' => $chauffeur->statut,
+            'telephone' => $chauffeur->telephone,
+            'permis' => $chauffeur->numero_permis,
+            'vehicules' => $vehiculesAffectes,
+            'recette_mois' => (int) $recetteMois,
+            'objectif_mois' => (int) $objectifMois,
+            'taux_recette' => $objectifMois > 0 ? round(($recetteMois / $objectifMois) * 100) : 0,
+            'jours_saisis' => $nbJoursSaisis,
+            'penalites_total' => $penalitesTotal,
+            'penalites_impayees' => $penalitesImpayees,
+            'penalites_montant' => $penalitesMontant,
+            'recouvrements_actifs' => $recouvrActifs->count(),
+            'solde_recouvrement' => $soldeRecouvr,
+        ]);
+    }
+
     /* ===== KPI ===== */
     private function calculerKpi($vehicules): array
     {
@@ -1005,6 +1095,7 @@ class ParcController extends Controller
             'montant' => 'required|integer|min:1',
             'date_versement' => 'required|date',
             'mode_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'source_paiement' => 'nullable|in:chauffeur,entreprise',
             'observations' => 'nullable|string|max:500',
         ]);
 
@@ -1015,12 +1106,28 @@ class ParcController extends Controller
 
             $data['recouvrement_id'] = $recouvrement->id;
             $data['recu_par'] = $r->user()->name;
+            $data['source_paiement'] = $data['source_paiement'] ?? 'chauffeur';
+
+            // Si entreprise paie → créer une dépense liée
+            if ($data['source_paiement'] === 'entreprise') {
+                $typeRecouvr = ($recouvrement->type_recouvrement ?? 'recette') === 'penalite' ? 'Pénalité' : 'Déficit recette';
+                $dep = Depense::create([
+                    'date_depense' => $data['date_versement'],
+                    'type_depense' => 'recouvrement',
+                    'montant' => $data['montant'],
+                    'commentaire' => "Recouvrement #{$recouvrement->id} — {$typeRecouvr} — {$recouvrement->chauffeur_nom}",
+                    'cree_par' => $r->user()->name,
+                ]);
+                $data['depense_id'] = $dep->id;
+            }
+
             $vers = VersementRecouvrement::create($data);
             $recouvrement->recalculerSolde();
-            AuditLog::log('creation', 'versement', "Versement #{$vers->id}", "Recouvrement #{$recouvrement->id}, Montant: {$data['montant']} F");
+            $sourceLabel = $data['source_paiement'] === 'entreprise' ? ' (pris en charge par l\'entreprise)' : '';
+            AuditLog::log('creation', 'versement', "Versement #{$vers->id}", "Recouvrement #{$recouvrement->id}, Montant: {$data['montant']} F{$sourceLabel}");
 
             return redirect()->route('parc.index', ['tab' => 'recouv'])
-                ->with('succes', 'Versement de ' . number_format($data['montant'], 0, ',', ' ') . ' F enregistré.');
+                ->with('succes', 'Versement de ' . number_format($data['montant'], 0, ',', ' ') . ' F enregistré.' . $sourceLabel);
         } catch (\Exception $e) {
             return redirect()->route('parc.index', ['tab' => 'recouv'])
                 ->withErrors(['Erreur : ' . $e->getMessage()]);

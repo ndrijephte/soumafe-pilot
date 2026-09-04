@@ -309,11 +309,30 @@ function ouvrirAbsence(userId, date, nom){
     document.getElementById('abs-date').value=date;
     document.getElementById('dlg-absence').showModal();
 }
-// Ouvrir automatiquement les dialogs motif au chargement (modal = au-dessus sidebar)
+// Ouvrir automatiquement les dialogs motif au chargement + bloquer Echap
 document.addEventListener('DOMContentLoaded', function(){
     ['dlg-motif-retard','dlg-motif-depart','dlg-motif-depart-avant'].forEach(function(id){
         var d=document.getElementById(id);
-        if(d) d.showModal();
+        if(d){
+            d.showModal();
+            d.addEventListener('cancel', function(e){ e.preventDefault(); });
+            d.addEventListener('keydown', function(e){
+                if(e.key==='Escape') e.preventDefault();
+            });
+            // Valider motif suffisant (min 5 caractères significatifs)
+            var form=d.querySelector('form');
+            if(form) form.addEventListener('submit', function(e){
+                var ta=form.querySelector('textarea');
+                if(ta && ta.value.replace(/[\s.\-_,;!?]+/g,'').length<5){
+                    e.preventDefault();
+                    ta.style.borderColor='var(--ko)';
+                    var msg=ta.parentNode.querySelector('.motif-err');
+                    if(!msg){msg=document.createElement('div');msg.className='motif-err';msg.style.cssText='color:var(--ko);font-size:11px;margin-top:4px';ta.parentNode.appendChild(msg);}
+                    msg.textContent='Le motif doit contenir au moins 5 caractères significatifs.';
+                    ta.focus();
+                }
+            });
+        }
     });
 });
 </script>

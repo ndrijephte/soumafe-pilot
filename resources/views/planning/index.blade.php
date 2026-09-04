@@ -17,11 +17,17 @@
 .nav-semaine a{text-decoration:none;color:var(--accent);font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px}
 .nav-semaine .sem-label{font-size:15px;font-weight:700;color:var(--bleu)}
 
-/* Onglets type réunion */
-.onglets-type{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--bord);overflow-x:auto}
-.onglets-type a{padding:8px 18px;font-size:13px;font-weight:600;color:var(--gris);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s,border-color .15s}
-.onglets-type a:hover{color:var(--accent)}
-.onglets-type a.actif{color:var(--accent);border-bottom-color:var(--accent)}
+/* Cards types réunion */
+.types-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.type-card{background:var(--carte);border:2px solid var(--bord);border-radius:12px;padding:14px;cursor:pointer;transition:all .2s;text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px}
+.type-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.type-card.actif{border-color:var(--type-color);box-shadow:0 2px 10px rgba(0,0,0,.1)}
+.type-card .tc-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
+.type-card .tc-info{flex:1;min-width:0}
+.type-card .tc-nom{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.type-card .tc-meta{font-size:10px;color:var(--gris);margin-top:2px;display:flex;align-items:center;gap:4px}
+.type-card .tc-rec{font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;color:#fff}
+.type-card .tc-roles{font-size:10px;color:var(--gris)}
 
 /* Tableau planning */
 .plan-table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -30,6 +36,13 @@
 .plan-table td{padding:8px 10px;border-bottom:1px solid var(--bord);text-align:center;vertical-align:middle}
 .plan-table td:first-child{text-align:left;font-weight:600;color:var(--bleu);white-space:nowrap}
 .plan-table tr:hover{background:#f8fafc}
+
+/* En-tête type coloré */
+.type-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.type-header .th-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
+.type-header .th-info{flex:1}
+.type-header .th-nom{font-size:16px;font-weight:700}
+.type-header .th-rec{font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;color:#fff;margin-left:6px}
 
 /* Cellule affectation */
 .cell-aff{display:flex;flex-direction:column;align-items:center;gap:3px}
@@ -53,24 +66,22 @@
 .admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .admin-grid .panneau{margin-bottom:0}
 
-/* Badge récurrence */
-.rec-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:6px;background:#e2e8f0;color:#475569;margin-left:6px}
-
 /* Dialog */
 dialog{border:none;border-radius:14px;padding:24px;width:440px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18);max-height:85vh;overflow-y:auto}
 dialog::backdrop{background:rgba(22,56,92,.35)}
 dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px}
 dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;font-family:inherit}
 .req{color:var(--ko)}
-
-/* Vide */
 .vide{text-align:center;padding:30px;color:var(--gris);font-size:13px}
 
-/* Responsive */
 @media(max-width:768px){
     .admin-grid{grid-template-columns:1fr}
+    .types-grid{grid-template-columns:1fr 1fr}
     .plan-table{display:block;overflow-x:auto}
     .nav-semaine{gap:8px}
+}
+@media(max-width:480px){
+    .types-grid{grid-template-columns:1fr}
 }
 </style>
 @endpush
@@ -81,11 +92,9 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
     $semainePrecedente = $debut->copy()->subWeek()->format('Y-m-d');
     $semaineSuivante = $debut->copy()->addWeek()->format('Y-m-d');
 
-    // Indexer affectations par date + rôle
     $affMap = [];
     foreach ($affectations as $a) {
-        $key = $a->date_reunion->format('Y-m-d') . '_' . $a->role_reunion_id;
-        $affMap[$key] = $a;
+        $affMap[$a->date_reunion->format('Y-m-d') . '_' . $a->role_reunion_id] = $a;
     }
 @endphp
 
@@ -95,12 +104,38 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
     {{ session('succes') }}
 </div>
 @endif
-
 @if($errors->any())
 <div style="background:#fef2f2;border:1px solid #fecaca;color:var(--ko);padding:10px 14px;border-radius:10px;margin-bottom:14px;font-size:13px">
-    @foreach($errors->all() as $e) <div>{{ $e }}</div> @endforeach
+    @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
 </div>
 @endif
+
+{{-- Cards types de réunion --}}
+<div class="types-grid">
+    @foreach($types as $t)
+    @php $c = $t->couleur(); @endphp
+    <a href="{{ route('planning.index', ['type' => $t->id, 'semaine' => $debut->format('Y-m-d')]) }}"
+       class="type-card {{ $type && $type->id === $t->id ? 'actif' : '' }}"
+       style="{{ $type && $type->id === $t->id ? '--type-color:'.$c : '' }}">
+        <div class="tc-icon" style="background:{{ $c }}15;color:{{ $c }}">
+            {!! $ic($t->iconePath(), 20) !!}
+        </div>
+        <div class="tc-info">
+            <div class="tc-nom">{{ $t->libelle }}</div>
+            <div class="tc-meta">
+                <span class="tc-rec" style="background:{{ $c }}">{{ $t->recurrenceLabel() }}</span>
+                <span class="tc-roles">{{ $t->roles->count() }} rôles</span>
+            </div>
+        </div>
+    </a>
+    @endforeach
+    @if($estPilote && auth()->user()->estAdmin())
+    <div class="type-card" style="border-style:dashed;cursor:pointer;justify-content:center;color:var(--gris)" onclick="document.getElementById('dlg-type').showModal()">
+        {!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',20) !!}
+        <span style="font-size:12px;font-weight:600">Nouveau type</span>
+    </div>
+    @endif
+</div>
 
 {{-- Navigation semaine --}}
 <div class="nav-semaine">
@@ -115,49 +150,46 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
     </a>
 </div>
 
-{{-- Onglets types de réunion --}}
-@if($types->count() > 1)
-<div class="onglets-type">
-    @foreach($types as $t)
-    <a href="{{ route('planning.index', ['type' => $t->id, 'semaine' => $debut->format('Y-m-d')]) }}"
-       class="{{ $type && $type->id === $t->id ? 'actif' : '' }}">
-        {{ $t->libelle }}
-        <span class="rec-badge">{{ $t->recurrenceLabel() }}</span>
-    </a>
-    @endforeach
-</div>
-@endif
-
 @if($type)
-{{-- Tableau planning --}}
+@php $tc = $type->couleur(); @endphp
+
+{{-- En-tête type + tableau --}}
 <div class="panneau">
-    <h3>
-        {!! $ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>') !!}
-        {{ $type->libelle }}
-        <span class="rec-badge">{{ $type->recurrenceLabel() }}</span>
-    </h3>
+    <div class="type-header">
+        <div class="th-icon" style="background:{{ $tc }}15;color:{{ $tc }}">
+            {!! $ic($type->iconePath(), 22) !!}
+        </div>
+        <div class="th-info">
+            <span class="th-nom" style="color:{{ $tc }}">{{ $type->libelle }}</span>
+            <span class="th-rec" style="background:{{ $tc }}">{{ $type->recurrenceLabel() }}</span>
+        </div>
+    </div>
 
     @if($type->roles->isEmpty())
-        <div class="vide">Aucun rôle défini pour ce type de réunion.</div>
+        <div class="vide">Aucun rôle défini pour ce type.
+            @if($estPilote && auth()->user()->estAdmin())
+            <button class="btn sm sec" style="margin-top:8px" onclick="document.getElementById('dlg-role').showModal()">
+                {!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',14) !!} Ajouter un rôle
+            </button>
+            @endif
+        </div>
     @elseif($jours)
+        <div style="overflow-x:auto">
         <table class="plan-table">
             <thead>
                 <tr>
                     <th>Rôle</th>
                     @foreach($jours as $j)
-                    <th>{{ $j->isoFormat('ddd D MMM') }}</th>
+                    <th style="border-bottom-color:{{ $tc }}">{{ $j->isoFormat('ddd D MMM') }}</th>
                     @endforeach
                 </tr>
             </thead>
             <tbody>
                 @foreach($type->roles as $role)
                 <tr>
-                    <td>{{ $role->libelle }}</td>
+                    <td>{!! $ic('<circle cx="12" cy="12" r="3"/>',12) !!} {{ $role->libelle }}</td>
                     @foreach($jours as $j)
-                    @php
-                        $key = $j->format('Y-m-d') . '_' . $role->id;
-                        $aff = $affMap[$key] ?? null;
-                    @endphp
+                    @php $aff = $affMap[$j->format('Y-m-d') . '_' . $role->id] ?? null; @endphp
                     <td>
                         @if($aff)
                         <div class="cell-aff">
@@ -166,13 +198,11 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                             @if($aff->statut === 'remplace' && $aff->remplacant)
                                 <span class="remplac">par {{ $aff->remplacant->nomComplet() }}</span>
                             @endif
-                            @if($estPilote || auth()->id() === $aff->user_id)
-                                @if($aff->statut === 'prevu')
-                                <button class="btn-abs" title="Signaler absence"
-                                    onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ $aff->role->libelle }}', '{{ $j->format('d/m/Y') }}')">
-                                    {!! $ic('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',14) !!}
-                                </button>
-                                @endif
+                            @if(($estPilote || auth()->id() === $aff->user_id) && $aff->statut === 'prevu')
+                            <button class="btn-abs" title="Signaler absence"
+                                onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
+                                {!! $ic('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',14) !!}
+                            </button>
                             @endif
                         </div>
                         @else
@@ -184,6 +214,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                 @endforeach
             </tbody>
         </table>
+        </div>
     @endif
 </div>
 
@@ -239,10 +270,16 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             <input type="date" name="date_debut" required value="{{ $debut->format('Y-m-d') }}" style="margin-bottom:8px">
             <label>Date fin <span class="req">*</span></label>
             <input type="date" name="date_fin" required value="{{ $fin->format('Y-m-d') }}" style="margin-bottom:12px">
-            <p style="font-size:11px;color:var(--gris);margin-bottom:12px">
-                Les rôles seront attribués par rotation entre les {{ $participants->count() }} participants actifs.
-                Les affectations « Prévu » existantes seront remplacées.
+            @if($type->recurrence === 'fin_sprint')
+            <p style="font-size:11px;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin-bottom:12px">
+                {!! $ic('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',14) !!}
+                Ce type est lié à la fin de sprint. Une seule date de réunion sera créée sur le premier jour ouvré de la période.
             </p>
+            @else
+            <p style="font-size:11px;color:var(--gris);margin-bottom:12px">
+                Rotation entre {{ $participants->count() }} participants. Les affectations « Prévu » existantes seront remplacées.
+            </p>
+            @endif
             <button type="submit" class="btn" onclick="return confirm('Générer le planning pour cette période ?')">
                 {!! $ic('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',14) !!} Générer
             </button>
@@ -251,54 +288,27 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
     @endif
 </div>
 
-{{-- Admin : types et rôles --}}
+{{-- Admin rôles --}}
 @if($estPilote)
-<div class="admin-grid" style="margin-top:16px">
-    <div class="panneau">
-        <h3>
-            {!! $ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>') !!}
-            Types de réunion
-        </h3>
-        <table class="plan-table" style="margin-bottom:10px">
-            <thead><tr><th style="text-align:left">Libellé</th><th>Récurrence</th><th>Rôles</th></tr></thead>
-            <tbody>
-                @foreach($types as $t)
-                <tr>
-                    <td style="text-align:left">{{ $t->libelle }}</td>
-                    <td><span class="rec-badge">{{ $t->recurrenceLabel() }}</span></td>
-                    <td>{{ $t->roles->count() }}</td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-        @if(auth()->user()->estAdmin())
-        <button class="btn sm sec" onclick="document.getElementById('dlg-type').showModal()">
-            {!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',14) !!} Nouveau type
-        </button>
-        @endif
+<div class="panneau" style="margin-top:16px">
+    <h3>
+        {!! $ic('<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>') !!}
+        Rôles — {{ $type->libelle }}
+    </h3>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        @forelse($type->roles as $r)
+        <span style="background:{{ $tc }}12;color:{{ $tc }};border:1px solid {{ $tc }}30;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600">
+            {{ $r->ordre }}. {{ $r->libelle }}
+        </span>
+        @empty
+        <span style="color:var(--gris);font-size:12px">Aucun rôle</span>
+        @endforelse
     </div>
-
-    <div class="panneau">
-        <h3>
-            {!! $ic('<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>') !!}
-            Rôles — {{ $type->libelle }}
-        </h3>
-        <table class="plan-table" style="margin-bottom:10px">
-            <thead><tr><th style="text-align:left">Libellé</th><th>Ordre</th></tr></thead>
-            <tbody>
-                @forelse($type->roles as $r)
-                <tr><td style="text-align:left">{{ $r->libelle }}</td><td>{{ $r->ordre }}</td></tr>
-                @empty
-                <tr><td colspan="2" class="vide">Aucun rôle</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-        @if(auth()->user()->estAdmin())
-        <button class="btn sm sec" onclick="document.getElementById('dlg-role').showModal()">
-            {!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',14) !!} Nouveau rôle
-        </button>
-        @endif
-    </div>
+    @if(auth()->user()->estAdmin())
+    <button class="btn sm sec" onclick="document.getElementById('dlg-role').showModal()">
+        {!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',14) !!} Nouveau rôle
+    </button>
+    @endif
 </div>
 @endif
 
@@ -346,6 +356,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             <option value="hebdomadaire">Hebdomadaire</option>
             <option value="bimensuel">Bimensuel</option>
             <option value="mensuel">Mensuel</option>
+            <option value="fin_sprint">Fin de sprint</option>
         </select>
         <div style="display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>

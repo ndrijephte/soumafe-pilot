@@ -111,6 +111,7 @@ $icDel = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="cu
 $icPlus = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
 $icEye = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 $icUser = $ic('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+$icDepense = $ic('<path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/>');
 
 $estDG = auth()->user()->aRole('direction');
 $estChargeOps = auth()->user()->estAdmin();
@@ -535,29 +536,35 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     <div class="panneau" style="overflow-x:auto">
     <table>
-    <thead><tr><th>Véhicule</th><th>Type</th><th>Dernière</th><th>Prochaine</th><th>Jours</th><th>Alerte</th><th>Observations</th><th></th></tr></thead>
+    <thead><tr><th>Véhicule</th><th>Type</th><th>Statut</th><th>Prochaine</th><th>Jours</th><th>Alerte</th><th>Coût</th><th>Observations</th><th></th></tr></thead>
     <tbody>
     @forelse($maintenances as $m)
-    @php $al = $m->alerte(); $jr = $m->joursRestants(); @endphp
+    @php $al = $m->alerte(); $jr = $m->joursRestants(); $estReal = $m->estRealisee(); @endphp
     <tr>
         <td><strong>{{ $m->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $m->typeLabel() }}</td>
-        <td>{{ $m->derniere_realisation ? $m->derniere_realisation->format('d/m/Y') : '—' }}</td>
-        <td>{{ $m->prochaine_echeance ? $m->prochaine_echeance->format('d/m/Y') : '—' }}</td>
-        <td style="font-weight:600;color:{{ $al === 'en_retard' ? 'var(--ko)' : ($al === 'proche' ? 'var(--warn)' : 'var(--ok)') }}">{{ $jr !== null ? $jr.'j' : '—' }}</td>
-        <td><span class="pill {{ $al === 'en_retard' ? 'p-ko' : ($al === 'proche' ? 'p-warn' : 'p-ok') }}">{{ $al === 'en_retard' ? 'En retard' : ($al === 'proche' ? 'Proche' : 'OK') }}</span></td>
+        <td><span class="pill {{ $estReal ? 'p-ok' : 'p-warn' }}">{{ $m->statutLabel() }}</span></td>
+        <td>{{ $estReal ? ($m->date_realisation ? $m->date_realisation->format('d/m/Y') : '—') : ($m->prochaine_echeance ? $m->prochaine_echeance->format('d/m/Y') : '—') }}</td>
+        <td style="font-weight:600;color:{{ $estReal ? 'var(--ok)' : ($al === 'en_retard' ? 'var(--ko)' : ($al === 'proche' ? 'var(--warn)' : 'var(--ok)')) }}">{{ $estReal ? '—' : ($jr !== null ? $jr.'j' : '—') }}</td>
+        <td>@if($estReal)<span class="pill p-ok">Fait</span>@else<span class="pill {{ $al === 'en_retard' ? 'p-ko' : ($al === 'proche' ? 'p-warn' : 'p-ok') }}">{{ $al === 'en_retard' ? 'En retard' : ($al === 'proche' ? 'Proche' : 'OK') }}</span>@endif</td>
+        <td style="font-weight:600;color:var(--ko)">{{ $m->cout ? number_format($m->cout, 0, ',', ' ').' F' : '—' }}</td>
         <td style="max-width:150px">{{ Str::limit($m->observations, 40) }}</td>
         <td>
             <div class="act-row">
+                @if(!$estReal && !$estDG)
+                <button class="act-btn" title="Réaliser" onclick="realiserMaint({{ $m->id }})" style="color:var(--ok)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></button>
+                @endif
+                @if(!$estDG)
                 <button class="act-btn" title="Modifier" onclick="editMaint({{ $m->id }})">{!! $icEdit !!}</button>
                 <form method="POST" action="{{ route('parc.maintenances.destroy', $m) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
+                @endif
             </div>
         </td>
     </tr>
     @empty
-    <tr><td colspan="8" class="empty-msg">Aucune échéance enregistrée.</td></tr>
+    <tr><td colspan="9" class="empty-msg">Aucune échéance enregistrée.</td></tr>
     @endforelse
     </tbody>
     </table>
@@ -677,7 +684,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div style="background:#f0fdf4;padding:6px 16px;font-size:11.5px">
             <strong style="color:var(--ok)">Versements :</strong>
             @foreach($rc->versements as $vs)
-            <span style="margin-left:8px">{{ $vs->date_versement->format('d/m') }} — {{ number_format($vs->montant, 0, ',', ' ') }} F ({{ $vs->mode_paiement ? ucfirst(str_replace('_',' ',$vs->mode_paiement)) : '—' }})</span>{{ !$loop->last ? ' |' : '' }}
+            <span style="margin-left:8px">{{ $vs->date_versement->format('d/m') }} — {{ number_format($vs->montant, 0, ',', ' ') }} F ({{ $vs->mode_paiement ? ucfirst(str_replace('_',' ',$vs->mode_paiement)) : '—' }})@if(($vs->source_paiement ?? 'chauffeur') === 'entreprise') <span class="pill p-cours" style="font-size:9px">Entreprise</span>@endif</span>{{ !$loop->last ? ' |' : '' }}
             @endforeach
         </div>
     </td></tr>
@@ -733,16 +740,29 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                     <label>Date versement</label>
                     <input type="date" name="date_versement" id="vs-date" value="{{ date('Y-m-d') }}" required>
                 </div>
-                <div>
-                    <label>Mode de paiement</label>
-                    <select name="mode_paiement">
-                        <option value="">—</option>
-                        <option value="especes">Espèces</option>
-                        <option value="mobile_money">Mobile Money</option>
-                        <option value="cheque">Chèque</option>
-                        <option value="virement">Virement</option>
-                        <option value="autre">Autre</option>
-                    </select>
+                <div class="form-row" style="grid-template-columns:1fr 1fr">
+                    <div>
+                        <label>Payeur</label>
+                        <select name="source_paiement" id="vs-source">
+                            <option value="chauffeur">Chauffeur</option>
+                            <option value="entreprise">Entreprise</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Mode de paiement</label>
+                        <select name="mode_paiement">
+                            <option value="">—</option>
+                            <option value="especes">Espèces</option>
+                            <option value="mobile_money">Mobile Money</option>
+                            <option value="cheque">Chèque</option>
+                            <option value="virement">Virement</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="vs-entreprise-info" style="display:none;background:#dbeafe;border:1px solid #93c5fd;border-radius:8px;padding:8px 12px;font-size:11.5px;color:var(--accent)">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Ce versement sera automatiquement enregistré en dépense entreprise.
                 </div>
                 <div>
                     <label>Observations</label>
@@ -828,6 +848,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill {{ $ch->statut === 'actif' ? 'p-ok' : 'p-gris' }}">{{ ucfirst($ch->statut) }}</span></td>
         <td>
             <div class="act-row">
+                <button class="act-btn" title="Résumé" onclick="ficheChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icEye !!}</button>
                 <button class="act-btn" title="Affecter" onclick="affecterChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icCar !!}</button>
                 <button class="act-btn" title="Modifier" onclick="editChauffeur({{ $ch->id }})">{!! $icEdit !!}</button>
                 @if(auth()->user()->estPilote())
@@ -967,14 +988,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="form-row3">
         <div><label>Date <span class="req">*</span></label><input type="date" name="date" id="r-date" value="{{ date('Y-m-d') }}" required></div>
         <div><label>Véhicule <span class="req">*</span></label>
-            <select name="vehicule_id" id="r-vehic" required>
+            <select name="vehicule_id" id="r-vehic" required onchange="majChauffeurs(this.value,'r-chauff')">
                 @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
             </select>
         </div>
         <div><label>Chauffeur</label>
             <select name="chauffeur" id="r-chauff">
                 <option value="">— Chauffeur —</option>
-                @foreach($chauffeurs->where('statut','actif') as $ch)<option value="{{ $ch->nomComplet() }}">{{ $ch->nomComplet() }}</option>@endforeach
             </select>
         </div>
     </div>
@@ -1036,6 +1056,30 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </form>
 </dialog>
 
+{{-- Dialog Réaliser maintenance --}}
+<dialog id="dlg-realiser-maint">
+<h3>{!! $icCalCheck !!} Réaliser la maintenance</h3>
+<form id="form-realiser-maint" method="POST" action="">
+    @csrf <input type="hidden" name="_method" value="PUT">
+    <div class="dlg-section" style="margin-top:0">Échéance planifiée</div>
+    <div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
+        <strong id="rm-info-vehic"></strong> — <span id="rm-info-type"></span><br>
+        <span id="rm-info-echeance" style="color:var(--gris)"></span>
+    </div>
+    <div class="dlg-section">Réalisation</div>
+    <div class="form-row3">
+        <div><label>Date réalisation <span class="req">*</span></label><input type="date" name="date_realisation" id="rm-date" value="{{ date('Y-m-d') }}" required></div>
+        <div><label>Coût (F) <span class="req">*</span></label><input type="number" name="cout" id="rm-cout" min="0" required placeholder="0"></div>
+        <div><label>Prestataire</label><input type="text" name="prestataire" id="rm-prest" maxlength="150" placeholder="Nom du prestataire"></div>
+    </div>
+    <div><label>Observations</label><textarea name="observations" id="rm-obs" rows="2" placeholder="Détails de l'intervention"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+        <button class="btn">Valider la réalisation</button>
+    </div>
+</form>
+</dialog>
+
 {{-- Dialog Déclaration pénalité --}}
 <dialog id="dlg-penal">
 <h3 id="dlg-penal-titre">{!! $icAlert !!} Déclarer une pénalité</h3>
@@ -1046,7 +1090,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <input type="hidden" name="observations" id="pe-obs" value="">
     <div class="form-row3">
         <div><label>Véhicule <span class="req">*</span></label>
-            <select name="vehicule_id" id="pe-vehic" required>
+            <select name="vehicule_id" id="pe-vehic" required onchange="majChauffeurs(this.value,'pe-chauff')">
                 @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
             </select>
         </div>
@@ -1061,7 +1105,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div><label>Chauffeur</label>
             <select name="chauffeur" id="pe-chauff">
                 <option value="">— Chauffeur —</option>
-                @foreach($chauffeurs->where('statut','actif') as $ch)<option value="{{ $ch->nomComplet() }}">{{ $ch->nomComplet() }}</option>@endforeach
             </select>
         </div>
         <div><label>Lieu</label>
@@ -1178,6 +1221,18 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Fermer</button>
 </div>
 </dialog>
+
+{{-- Dialog Fiche chauffeur --}}
+<dialog id="dlg-fiche-ch" style="width:620px;max-width:95vw">
+<h3>{!! $icUser !!} Fiche chauffeur</h3>
+<div id="fiche-ch-contenu" style="font-size:13px;line-height:1.7">
+    <p style="text-align:center;color:var(--gris)">Chargement...</p>
+</div>
+<div style="display:flex;justify-content:flex-end;margin-top:16px">
+    <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Fermer</button>
+</div>
+</dialog>
+
 </div>{{-- /dg-mode --}}
 
 {{-- ==================== TAB DÉPENSES ==================== --}}
@@ -1185,33 +1240,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <div class="panel-head">
     <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/></svg> Autres dépenses <span class="pill p-cours">{{ ($depenses ?? collect())->count() }}</span></h3>
     @if(!auth()->user()->aRole('direction'))
-    <button class="btn sm" onclick="document.getElementById('form-depense').style.display=document.getElementById('form-depense').style.display==='none'?'block':'none'">+ Nouvelle dépense</button>
+    <button class="btn sm" onclick="document.getElementById('dlg-depense').showModal()">{!! $icPlus !!} Dépense</button>
     @endif
 </div>
-
-@if(!auth()->user()->aRole('direction'))
-<div id="form-depense" style="display:none;margin-bottom:16px">
-<form method="POST" action="{{ route('parc.depenses.store') }}" class="panneau">
-    @csrf
-    <div class="form-row3">
-        <div><label>Date</label><input type="date" name="date_depense" value="{{ date('Y-m-d') }}" required></div>
-        <div><label>Type</label>
-            <select name="type_depense" required>
-                <option value="">-- Choisir --</option>
-                @foreach($typesDepense ?? [] as $td)
-                <option value="{{ $td->code }}">{{ $td->libelle }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div><label>Montant (F)</label><input type="number" name="montant" min="1" required></div>
-    </div>
-    <div class="form-row" style="margin-top:8px">
-        <div><label>Commentaire</label><input type="text" name="commentaire" maxlength="500" placeholder="Optionnel"></div>
-        <div style="display:flex;align-items:end"><button class="btn sm">Enregistrer</button></div>
-    </div>
-</form>
-</div>
-@endif
 
 @php
     $totalDepenses = ($depenses ?? collect())->sum('montant');
@@ -1249,26 +1280,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </td>
     @endif
 </tr>
-{{-- Formulaire d'édition inline (masqué) --}}
-@if(!auth()->user()->aRole('direction'))
-<tr id="dep-edit-{{ $dep->id }}" style="display:none;background:#f8fafc">
-    <td colspan="{{ auth()->user()->aRole('direction') ? 5 : 6 }}">
-        <form method="POST" action="{{ route('parc.depenses.update', $dep) }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0">
-            @csrf @method('PUT')
-            <input type="date" name="date_depense" value="{{ $dep->date_depense->format('Y-m-d') }}" style="padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:13px;width:130px" required>
-            <select name="type_depense" style="padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:13px;width:160px" required>
-                @foreach($typesDepense ?? [] as $td)
-                <option value="{{ $td->code }}" {{ $dep->type_depense === $td->code ? 'selected' : '' }}>{{ $td->libelle }}</option>
-                @endforeach
-            </select>
-            <input type="number" name="montant" value="{{ $dep->montant }}" style="padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:13px;width:120px" min="1" required>
-            <input type="text" name="commentaire" value="{{ $dep->commentaire }}" style="padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:13px;flex:1;min-width:150px" maxlength="500" placeholder="Commentaire">
-            <button class="btn sm">OK</button>
-            <button type="button" class="btn sm sec" onclick="document.getElementById('dep-edit-{{ $dep->id }}').style.display='none'">Annuler</button>
-        </form>
-    </td>
-</tr>
-@endif
 @empty
 <tr><td colspan="{{ auth()->user()->aRole('direction') ? 5 : 6 }}" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
 @endforelse
@@ -1277,13 +1288,38 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 </div>
 
+{{-- Dialog Dépense --}}
+<dialog id="dlg-depense">
+<h3 id="dlg-depense-titre">{!! $icDepense !!} Nouvelle dépense</h3>
+<form id="form-depense" method="POST" action="{{ route('parc.depenses.store') }}">
+    @csrf <div id="depense-method"></div>
+    <div class="form-row3">
+        <div><label>Date <span class="req">*</span></label><input type="date" name="date_depense" id="de-date" value="{{ date('Y-m-d') }}" required></div>
+        <div><label>Type <span class="req">*</span></label>
+            <select name="type_depense" id="de-type" required>
+                <option value="">— Choisir —</option>
+                @foreach($typesDepense ?? [] as $td)
+                <option value="{{ $td->code }}">{{ $td->libelle }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" id="de-montant" min="1" required placeholder="0"></div>
+    </div>
+    <div><label>Commentaire</label><textarea name="commentaire" id="de-comment" rows="2" maxlength="500" placeholder="Commentaire optionnel"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
+        <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+        <button class="btn">Enregistrer</button>
+    </div>
+</form>
+</dialog>
+
 @endsection
 
 @php
 $_vData = [];
 foreach($vehicules as $_v) {
     $_vChauffs = $_v->chauffeurs->where('pivot.actif', true)->map(fn($c) => [
-        'id' => $c->id, 'role' => $c->pivot->role,
+        'id' => $c->id, 'nom' => $c->nomComplet(), 'role' => $c->pivot->role,
     ])->values()->toArray();
     $_vData[$_v->id] = [
         'immatriculation' => $_v->immatriculation,
@@ -1335,6 +1371,12 @@ foreach($maintenances as $_m) {
         'derniere_realisation' => $_m->derniere_realisation ? $_m->derniere_realisation->format('Y-m-d') : '',
         'prochaine_echeance' => $_m->prochaine_echeance ? $_m->prochaine_echeance->format('Y-m-d') : '',
         'observations' => $_m->observations,
+        'statut' => $_m->statut ?? 'planifiee',
+        'date_realisation' => $_m->date_realisation ? $_m->date_realisation->format('Y-m-d') : '',
+        'cout' => $_m->cout,
+        'prestataire' => $_m->prestataire,
+        'vehicule_label' => $_m->vehicule->immatriculation ?? '?',
+        'type_label' => $_m->typeLabel(),
     ];
 }
 $_peData = [];
@@ -1361,6 +1403,15 @@ foreach($chauffeurs as $_ch) {
         'telephone' => $_ch->telephone,
         'statut' => $_ch->statut,
         'observations' => $_ch->observations,
+    ];
+}
+$_depData = [];
+foreach($depenses ?? [] as $_dep) {
+    $_depData[$_dep->id] = [
+        'date_depense' => $_dep->date_depense->format('Y-m-d'),
+        'type_depense' => $_dep->type_depense,
+        'montant' => $_dep->montant,
+        'commentaire' => $_dep->commentaire,
     ];
 }
 $_vLabels = [];
@@ -1413,10 +1464,42 @@ function ajouterChauffeurRow(chauffeurId, role){
 
 var vehiculesData = @json($_vData);
 var pannesData = @json($_pData);
+
+/* --- Liaison dynamique véhicule → chauffeur(s) affecté(s) --- */
+function majChauffeurs(vehicId, selectId, valeur){
+    var sel=document.getElementById(selectId); if(!sel)return;
+    sel.innerHTML='<option value="">— Chauffeur —</option>';
+    var v=vehiculesData[vehicId];
+    if(v && v.chauffeurs && v.chauffeurs.length>0){
+        v.chauffeurs.forEach(function(c){
+            var opt=document.createElement('option');
+            opt.value=c.nom;
+            opt.textContent=c.nom+' ('+c.role+')';
+            sel.appendChild(opt);
+        });
+    } else {
+        // Aucun chauffeur affecté → proposer tous les actifs
+        chauffeursActifs.forEach(function(c){
+            var opt=document.createElement('option');
+            opt.value=c.nom;
+            opt.textContent=c.nom;
+            sel.appendChild(opt);
+        });
+    }
+    if(valeur) sel.value=valeur;
+}
+// Init au chargement de la page : peupler le premier véhicule sélectionné
+document.addEventListener('DOMContentLoaded',function(){
+    var rv=document.getElementById('r-vehic');
+    if(rv && rv.value) majChauffeurs(rv.value,'r-chauff');
+    var pv=document.getElementById('pe-vehic');
+    if(pv && pv.value) majChauffeurs(pv.value,'pe-chauff');
+});
 var recettesData = @json($_rData);
 var maintData = @json($_mData);
 var penalData = @json($_peData);
 var chauffeurData = @json($_chData);
+var depensesData = @json($_depData);
 var vLabels = @json($_vLabels);
 
 function editVehicule(id){
@@ -1599,7 +1682,7 @@ function editRecette(id){
     document.getElementById('recette-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
     document.getElementById('r-date').value=d.date;
     document.getElementById('r-vehic').value=d.vehicule_id;
-    document.getElementById('r-chauff').value=d.chauffeur||'';
+    majChauffeurs(d.vehicule_id,'r-chauff',d.chauffeur||'');
     document.getElementById('r-montant').value=d.recette;
     document.getElementById('r-mode').value=d.mode_remise||'';
     document.getElementById('r-ctrl').value=d.controle_par||'';
@@ -1622,15 +1705,28 @@ function editMaint(id){
     document.getElementById('dlg-maint').showModal();
 }
 
+function realiserMaint(id){
+    var d=maintData[id]; if(!d)return;
+    document.getElementById('form-realiser-maint').action='{{ url("parc/maintenances") }}/'+id+'/realiser';
+    document.getElementById('rm-info-vehic').textContent=d.vehicule_label||'?';
+    document.getElementById('rm-info-type').textContent=d.type_label||d.type_echeance;
+    document.getElementById('rm-info-echeance').textContent='Échéance : '+(d.prochaine_echeance||'Non définie');
+    document.getElementById('rm-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('rm-cout').value='';
+    document.getElementById('rm-prest').value='';
+    document.getElementById('rm-obs').value='';
+    document.getElementById('dlg-realiser-maint').showModal();
+}
+
 function editPenal(id){
     var d=penalData[id]; if(!d)return;
     document.getElementById('dlg-penal-titre').innerHTML='{!! $icAlert !!} Modifier la déclaration';
     document.getElementById('form-penal').action='{{ url("parc/penalites") }}/'+id;
     document.getElementById('penal-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
     document.getElementById('pe-vehic').value=d.vehicule_id;
+    majChauffeurs(d.vehicule_id,'pe-chauff',d.chauffeur||'');
     document.getElementById('pe-date').value=d.date_infraction;
     document.getElementById('pe-type').value=d.type;
-    document.getElementById('pe-chauff').value=d.chauffeur||'';
     document.getElementById('pe-lieu').value=d.lieu||'';
     document.getElementById('pe-desc').value=d.description||'';
     document.getElementById('pe-mont').value=d.montant;
@@ -1714,6 +1810,42 @@ function ficheVehicule(vehiculeId){
         .catch(function(){contenu.innerHTML='<p style="color:var(--ko)">Erreur de chargement.</p>'});
 }
 
+function ficheChauffeur(chauffeurId){
+    var dlg=document.getElementById('dlg-fiche-ch');
+    var contenu=document.getElementById('fiche-ch-contenu');
+    contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
+    dlg.showModal();
+    fetch('{{ url("parc/chauffeurs") }}/'+chauffeurId+'/fiche')
+        .then(function(r){return r.json()})
+        .then(function(d){
+            var html='<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:14px;margin-bottom:12px">';
+            html+='<div style="font-size:18px;font-weight:700;color:var(--bleu)">'+d.nom+'</div>';
+            html+='<div style="font-size:12px;color:var(--gris);margin-top:4px">';
+            html+='<span class="pill '+(d.statut==='actif'?'p-ok':'p-gris')+'">'+d.statut.charAt(0).toUpperCase()+d.statut.slice(1)+'</span>';
+            if(d.telephone) html+=' &middot; '+d.telephone;
+            if(d.permis) html+=' &middot; Permis: '+d.permis;
+            html+='</div></div>';
+            // Véhicules
+            if(d.vehicules && d.vehicules.length>0){
+                html+='<div class="dlg-section" style="margin-top:8px">Véhicules affectés</div><ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
+                d.vehicules.forEach(function(v){html+='<li>'+v.immatriculation+' <span style="color:var(--gris)">('+v.categorie+' — '+v.role+')</span></li>'});
+                html+='</ul>';
+            } else {
+                html+='<div style="font-size:12px;color:var(--gris);margin-bottom:10px">Aucun véhicule affecté</div>';
+            }
+            // KPIs
+            html+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px">';
+            var tauxCol=d.taux_recette>=100?'var(--ok)':(d.taux_recette>=80?'#b45309':'var(--ko)');
+            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent)">'+new Intl.NumberFormat('fr-FR').format(d.recette_mois)+' F</div><div style="font-size:11px;color:var(--gris)">Recettes ce mois ('+d.jours_saisis+' j.)</div></div>';
+            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:11px;color:var(--gris)">Taux obj. ('+new Intl.NumberFormat('fr-FR').format(d.objectif_mois)+' F)</div></div>';
+            html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:11px;color:var(--gris)">Pénalités impayées ('+new Intl.NumberFormat('fr-FR').format(d.penalites_montant)+' F)</div></div>';
+            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:#b45309">'+d.recouvrements_actifs+'</div><div style="font-size:11px;color:var(--gris)">Recouvrements ('+new Intl.NumberFormat('fr-FR').format(d.solde_recouvrement)+' F)</div></div>';
+            html+='</div>';
+            contenu.innerHTML=html;
+        })
+        .catch(function(){contenu.innerHTML='<p style="color:var(--ko)">Erreur de chargement.</p>'});
+}
+
 function filtrerChauffeurs(){
     var statut=document.getElementById('fc-statut').value;
     var vehic=document.getElementById('fc-vehicule').value;
@@ -1733,14 +1865,15 @@ document.querySelectorAll('dialog').forEach(function(dlg){
     dlg.addEventListener('close',function(){
         var form=dlg.querySelector('form');
         if(form){form.reset();var m=dlg.querySelector('[id$="-method"]');if(m)m.innerHTML='';}
-        var titles={'dlg-vehicule':'{!! $icCar !!} Nouveau véhicule','dlg-panne':'{!! $icWrench !!} Déclarer une panne','dlg-recette':'{!! $icWallet !!} Nouvelle recette','dlg-maint':'{!! $icCalCheck !!} Nouvelle échéance','dlg-penal':'{!! $icAlert !!} Déclarer une pénalité','dlg-chauffeur':'{!! $icUser !!} Nouveau chauffeur'};
+        var titles={'dlg-vehicule':'{!! $icCar !!} Nouveau véhicule','dlg-panne':'{!! $icWrench !!} Déclarer une panne','dlg-recette':'{!! $icWallet !!} Nouvelle recette','dlg-maint':'{!! $icCalCheck !!} Nouvelle échéance','dlg-penal':'{!! $icAlert !!} Déclarer une pénalité','dlg-chauffeur':'{!! $icUser !!} Nouveau chauffeur','dlg-depense':'{!! $icDepense !!} Nouvelle dépense'};
         var t=titles[dlg.id];if(t){var h=dlg.querySelector('h3[id]');if(h)h.innerHTML=t;}
         if(dlg.id==='dlg-vehicule'){if(form)form.action='{{ route("parc.vehicules.store") }}';document.getElementById('v-chauffeurs-list').innerHTML='';chauffRowIdx=0;}
         if(dlg.id==='dlg-panne'&&form)form.action='{{ route("parc.pannes.store") }}';
-        if(dlg.id==='dlg-recette'&&form)form.action='{{ route("parc.recettes.store") }}';
+        if(dlg.id==='dlg-recette'&&form){form.action='{{ route("parc.recettes.store") }}';var rv=document.getElementById('r-vehic');if(rv&&rv.value)majChauffeurs(rv.value,'r-chauff');}
         if(dlg.id==='dlg-maint'&&form)form.action='{{ route("parc.maintenances.store") }}';
-        if(dlg.id==='dlg-penal'&&form)form.action='{{ route("parc.penalites.store") }}';
+        if(dlg.id==='dlg-penal'&&form){form.action='{{ route("parc.penalites.store") }}';var pv=document.getElementById('pe-vehic');if(pv&&pv.value)majChauffeurs(pv.value,'pe-chauff');}
         if(dlg.id==='dlg-chauffeur'&&form)form.action='{{ route("parc.chauffeurs.store") }}';
+        if(dlg.id==='dlg-depense'&&form)form.action='{{ route("parc.depenses.store") }}';
     });
 });
 
@@ -1750,11 +1883,24 @@ function demanderMotifAnnulation(form){
     form.querySelector('.motif-annul-input').value=motif.trim();
     return true;
 }
+// Toggle info entreprise dans dialog versement
+(function(){
+    var src=document.getElementById('vs-source');
+    if(src) src.addEventListener('change',function(){
+        document.getElementById('vs-entreprise-info').style.display=(this.value==='entreprise')?'':'none';
+    });
+})();
+
 function editerDepense(id){
-    var rows=document.querySelectorAll('[id^="dep-edit-"]');
-    rows.forEach(function(r){r.style.display='none'});
-    var row=document.getElementById('dep-edit-'+id);
-    if(row) row.style.display='table-row';
+    var d=depensesData[id]; if(!d)return;
+    document.getElementById('dlg-depense-titre').innerHTML='{!! $icDepense !!} Modifier la dépense';
+    document.getElementById('form-depense').action='{{ url("parc/depenses") }}/'+id;
+    document.getElementById('depense-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
+    document.getElementById('de-date').value=d.date_depense;
+    document.getElementById('de-type').value=d.type_depense;
+    document.getElementById('de-montant').value=d.montant;
+    document.getElementById('de-comment').value=d.commentaire||'';
+    document.getElementById('dlg-depense').showModal();
 }
 </script>
 @endpush

@@ -144,7 +144,14 @@ class PointageController extends Controller
     /** Sauvegarder un motif (retard ou départ) */
     public function sauverMotif(Request $r, Pointage $pointage)
     {
-        $r->validate(['type' => 'required|in:retard,depart,absence', 'motif' => 'required|string|max:500']);
+        $r->validate([
+            'type' => 'required|in:retard,depart,absence',
+            'motif' => ['required', 'string', 'max:500', function ($attr, $val, $fail) {
+                if (mb_strlen(preg_replace('/[\s.\-_,;!?]+/', '', $val)) < 5) {
+                    $fail('Le motif doit contenir au moins 5 caractères significatifs.');
+                }
+            }],
+        ]);
 
         $champ = match ($r->type) {
             'retard'  => 'motif_retard',

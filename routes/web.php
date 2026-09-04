@@ -120,6 +120,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/recettes/valider-journee', [ParcController::class, 'validerJournee'])->name('parc.recettes.validerJournee');
     Route::post('/parc/maintenances', [ParcController::class, 'storeMaintenance'])->name('parc.maintenances.store');
     Route::put('/parc/maintenances/{maintenance}', [ParcController::class, 'updateMaintenance'])->name('parc.maintenances.update');
+    Route::put('/parc/maintenances/{maintenance}/realiser', [ParcController::class, 'realiserMaintenance'])->name('parc.maintenances.realiser');
     Route::delete('/parc/maintenances/{maintenance}', [ParcController::class, 'destroyMaintenance'])->name('parc.maintenances.destroy');
     Route::post('/parc/penalites', [ParcController::class, 'storePenalite'])->name('parc.penalites.store');
     Route::put('/parc/penalites/{penalite}', [ParcController::class, 'updatePenalite'])->name('parc.penalites.update');
@@ -134,6 +135,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/chauffeurs/affecter', [ParcController::class, 'affecterChauffeur'])->name('parc.chauffeurs.affecter');
     Route::delete('/parc/vehicules/{vehicule}/chauffeurs/{chauffeur}', [ParcController::class, 'detacherChauffeur'])->name('parc.chauffeurs.detacher');
     Route::get('/parc/vehicules/{vehicule}/fiche', [ParcController::class, 'ficheVehicule'])->name('parc.vehicules.fiche');
+    Route::get('/parc/chauffeurs/{chauffeur}/fiche', [ParcController::class, 'ficheChauffeur'])->name('parc.chauffeurs.fiche');
     // Dépenses
     Route::post('/parc/depenses', [ParcController::class, 'storeDepense'])->name('parc.depenses.store');
     Route::put('/parc/depenses/{depense}', [ParcController::class, 'updateDepense'])->name('parc.depenses.update');

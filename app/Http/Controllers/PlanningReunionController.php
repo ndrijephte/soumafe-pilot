@@ -95,9 +95,11 @@ class PlanningReunionController extends Controller
             if ($d->isWeekend()) continue;
 
             // Vérifier récurrence
-            if ($type->recurrence === 'hebdomadaire' && $d->dayOfWeek !== 1) continue; // Lundi seulement
+            if ($type->recurrence === 'hebdomadaire' && $d->dayOfWeek !== 1) continue;
             if ($type->recurrence === 'bimensuel' && ($d->dayOfWeek !== 1 || $d->weekOfMonth > 2)) continue;
             if ($type->recurrence === 'mensuel' && ($d->dayOfWeek !== 1 || $d->weekOfMonth !== 1)) continue;
+            // fin_sprint : une seule date = premier jour ouvré de la période
+            if ($type->recurrence === 'fin_sprint' && $jourIdx > 0) continue;
 
             foreach ($roles as $rIdx => $role) {
                 $userIndex = ($jourIdx * $nbRoles + $rIdx) % $nbUsers;
@@ -161,7 +163,7 @@ class PlanningReunionController extends Controller
         $r->validate([
             'code' => 'required|string|max:30|unique:types_reunion,code',
             'libelle' => 'required|string|max:100',
-            'recurrence' => 'required|in:quotidien,hebdomadaire,bimensuel,mensuel',
+            'recurrence' => 'required|in:quotidien,hebdomadaire,bimensuel,mensuel,fin_sprint',
         ]);
 
         TypeReunion::create($r->only('code', 'libelle', 'recurrence'));

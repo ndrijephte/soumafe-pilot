@@ -212,6 +212,7 @@ class TacheController extends Controller
     public function destroy(Request $r, Tache $tache)
     {
         abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $intitule = $tache->intitule;
         $tache->commentaires()->delete();
         $tache->blocages()->delete();

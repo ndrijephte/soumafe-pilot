@@ -59,7 +59,7 @@ class ParcController extends Controller
 
         // --- Dépenses ---
         $depenses = Schema::hasTable('depenses')
-            ? Depense::orderByDesc('date_depense')->get()
+            ? Depense::with('vehicule')->orderByDesc('date_depense')->get()
             : collect();
         $typesDepense = TypeParc::depenses();
 
@@ -300,7 +300,8 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         abort_unless($r->user()->estPilote(), 403);
-        AuditLog::log('suppression', 'vehicule', $vehicule->immatriculation);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'vehicule', $vehicule->immatriculation, "Motif: " . $r->motif_suppression);
         $vehicule->delete();
         return redirect()->route('parc.index', ['tab' => 'vehicules'])->with('succes', 'Véhicule supprimé.');
     }
@@ -377,7 +378,8 @@ class ParcController extends Controller
     public function destroyPanne(Request $r, Panne $panne)
     {
         $this->autoriser($r);
-        AuditLog::log('suppression', 'panne', $panne->vehicule?->immatriculation);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'panne', $panne->vehicule?->immatriculation, "Motif: " . $r->motif_suppression);
         $panne->delete();
         return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne supprimée.');
     }
@@ -483,6 +485,8 @@ class ParcController extends Controller
     public function destroyRecette(Request $r, RecetteVehicule $recette)
     {
         $this->autoriser($r);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'recette', "Recette #{$recette->id}", "Motif: " . $r->motif_suppression);
         $recette->delete();
         return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette supprimée.');
     }
@@ -726,6 +730,7 @@ class ParcController extends Controller
             $dep = Depense::create([
                 'date_depense'  => $r->date_realisation,
                 'type_depense'  => 'maintenance',
+                'vehicule_id'   => $maintenance->vehicule_id,
                 'montant'       => $r->cout,
                 'commentaire'   => 'Maintenance ' . $maintenance->typeLabel() . ' — ' . ($maintenance->vehicule->immatriculation ?? ''),
                 'cree_par'      => auth()->user()->name,
@@ -742,7 +747,8 @@ class ParcController extends Controller
     public function destroyMaintenance(Request $r, MaintenancePreventive $maintenance)
     {
         $this->autoriser($r);
-        AuditLog::log('suppression', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}");
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}, Motif: " . $r->motif_suppression);
         $maintenance->delete();
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance supprimée.');
     }
@@ -830,7 +836,8 @@ class ParcController extends Controller
     public function destroyPenalite(Request $r, Penalite $penalite)
     {
         $this->autoriser($r);
-        AuditLog::log('suppression', 'penalite', "Pénalité #{$penalite->id}", "Type: {$penalite->type}, Montant: {$penalite->montant}");
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'penalite', "Pénalité #{$penalite->id}", "Type: {$penalite->type}, Montant: {$penalite->montant}, Motif: " . $r->motif_suppression);
         $penalite->delete();
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité supprimée.');
     }
@@ -911,7 +918,8 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         abort_unless($r->user()->estPilote(), 403);
-        AuditLog::log('suppression', 'chauffeur', "Chauffeur #{$chauffeur->id}", "{$chauffeur->nom} {$chauffeur->prenom}");
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'chauffeur', "Chauffeur #{$chauffeur->id}", "{$chauffeur->nom} {$chauffeur->prenom}, Motif: " . $r->motif_suppression);
         $chauffeur->delete();
         return redirect()->route('parc.index', ['tab' => 'chauffeurs'])->with('succes', 'Chauffeur supprimé.');
     }
@@ -1160,6 +1168,7 @@ class ParcController extends Controller
         $v = $r->validate([
             'date_depense' => 'required|date',
             'type_depense' => 'required|string|max:100',
+            'vehicule_id'  => 'nullable|exists:vehicules,id',
             'montant'      => 'required|integer|min:1',
             'commentaire'  => 'nullable|string|max:500',
         ]);
@@ -1176,9 +1185,11 @@ class ParcController extends Controller
         $v = $r->validate([
             'date_depense' => 'required|date',
             'type_depense' => 'required|string|max:100',
+            'vehicule_id'  => 'nullable|exists:vehicules,id',
             'montant'      => 'required|integer|min:1',
             'commentaire'  => 'nullable|string|max:500',
         ]);
+        if (!$r->filled('vehicule_id')) $v['vehicule_id'] = null;
         $depense->update($v);
         AuditLog::log('modification', 'depense', "Dépense #{$depense->id}", "Type: {$depense->type_depense}, Montant: {$depense->montant} F");
         return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense modifiée.');
@@ -1188,7 +1199,8 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         abort_if($r->user()->aRole('direction'), 403);
-        AuditLog::log('suppression', 'depense', "Dépense #{$depense->id}", "Type: {$depense->type_depense}, Montant: {$depense->montant} F");
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'depense', "Dépense #{$depense->id}", "Type: {$depense->type_depense}, Montant: {$depense->montant} F, Motif: " . $r->motif_suppression);
         $depense->delete();
         return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense supprimée.');
     }

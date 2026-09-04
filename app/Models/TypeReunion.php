@@ -32,14 +32,7 @@ class TypeReunion extends Model
 
     public function couleur(): string
     {
-        return match ($this->code) {
-            'daily_scrum' => '#2E74B5',
-            'coordination' => '#16a34a',
-            'retrospective' => '#9333ea',
-            'sprint_review' => '#ea580c',
-            'planification' => '#0891b2',
-            default => '#64748b',
-        };
+        return '#2E74B5';
     }
 
     public function iconePath(): string

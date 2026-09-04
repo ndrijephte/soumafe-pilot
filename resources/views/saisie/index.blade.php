@@ -205,7 +205,8 @@ dialog textarea{min-height:60px;resize:vertical}
                 @if($a->motif) <span style="font-size:11px;color:var(--gris);margin-left:6px">&mdash; {{ $a->motif }}</span> @endif
             </div>
             @if($a->date_debut->isFuture())
-            <form method="POST" action="{{ route('saisie.absence.annuler', $a) }}" style="display:inline">@csrf @method('DELETE')
+            <form method="POST" action="{{ route('saisie.absence.annuler', $a) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'cette absence')">@csrf @method('DELETE')
+                <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                 <button type="submit" class="btn-ic-s ko" style="font-size:10px">Annuler</button>
             </form>
             @endif

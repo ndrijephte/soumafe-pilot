@@ -70,8 +70,9 @@
     <td style="white-space:nowrap">
         <button class="btn sm sec" onclick="editMode({{ $p->id }}, '{{ addslashes($p->libelle) }}', '{{ $p->service_id ?? '' }}')">Modifier</button>
         @if($p->users_count == 0)
-        <form method="POST" action="{{ route('admin.poles.destroy', $p) }}" style="display:inline">@csrf @method('DELETE')
-            <button class="btn sm danger" onclick="return confirm('Supprimer ?')">Supprimer</button>
+        <form method="POST" action="{{ route('admin.poles.destroy', $p) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce pôle')">@csrf @method('DELETE')
+            <input type="hidden" name="motif_suppression" class="motif-suppr-input">
+            <button class="btn sm danger">Supprimer</button>
         </form>
         @endif
     </td>

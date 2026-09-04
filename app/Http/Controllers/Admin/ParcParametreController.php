@@ -65,6 +65,7 @@ class ParcParametreController extends Controller
     public function destroyType(Request $r, TypeParc $type)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $type->delete();
         return back()->with('succes', 'Type supprimé.');
     }

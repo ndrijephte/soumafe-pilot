@@ -236,8 +236,9 @@
             Version PDF
         </a>
         @if(auth()->user()->estPilote())
-        <form method="POST" action="{{ route('comptes-rendus.destroy', $cr) }}" style="margin:0" onsubmit="return confirm('Supprimer définitivement ce compte rendu ? Cette action est irréversible.')">
+        <form method="POST" action="{{ route('comptes-rendus.destroy', $cr) }}" style="margin:0" onsubmit="return demanderMotifSuppression(this,'ce compte rendu')">
             @csrf @method('DELETE')
+            <input type="hidden" name="motif_suppression" class="motif-suppr-input">
             <button type="submit" class="btn-suppr">&#128465; Supprimer</button>
         </form>
         @endif

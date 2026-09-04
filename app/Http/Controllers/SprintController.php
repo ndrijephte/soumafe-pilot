@@ -238,6 +238,7 @@ class SprintController extends Controller
     {
         abort_unless($r->user()->estPilote(), 403);
         abort_unless($tache->sprint_id === $sprint->id, 404);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
 
         $intitule = $tache->intitule;
         $tache->delete();
@@ -249,6 +250,7 @@ class SprintController extends Controller
     public function destroy(Request $r, Sprint $sprint)
     {
         abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
 
         if ($sprint->statut === 'en_cours') {
             return back()->with('erreur', 'Impossible de supprimer un sprint en cours. Arrêtez-le d\'abord.');

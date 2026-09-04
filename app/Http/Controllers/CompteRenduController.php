@@ -231,6 +231,7 @@ class CompteRenduController extends Controller
     public function destroy(Request $r, CompteRendu $cr)
     {
         abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
 
         // Supprimer le fichier DOCX associé
         if ($cr->fichier_path && file_exists(storage_path('app/' . $cr->fichier_path))) {

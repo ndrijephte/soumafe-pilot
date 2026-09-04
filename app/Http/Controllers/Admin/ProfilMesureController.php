@@ -39,6 +39,7 @@ class ProfilMesureController extends Controller
     public function destroy(Request $r, ProfilMesure $profil)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         if ($profil->systeme) return back()->with('erreur', 'Impossible : profil système protégé.');
         if (User::where('profil_mesure', $profil->code)->exists()) return back()->with('erreur', 'Impossible : des utilisateurs ont ce profil.');
         $profil->delete();

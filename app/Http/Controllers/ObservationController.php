@@ -125,11 +125,12 @@ class ObservationController extends Controller
     }
 
     /** Suppression */
-    public function destroy(Observation $observation)
+    public function destroy(Request $r, Observation $observation)
     {
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $code = $observation->code;
         $observation->delete();
-        $this->auditer('supprimer_observation', $code);
+        $this->auditer('supprimer_observation', $code . ' — Motif: ' . $r->motif_suppression);
 
         return redirect()->route('observations.index')
             ->with('succes', 'Observation supprimée.');

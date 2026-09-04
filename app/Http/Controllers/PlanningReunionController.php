@@ -45,17 +45,18 @@ class PlanningReunionController extends Controller
             ->orderBy('name')->get();
 
         $estPilote = $r->user()->estPilote();
+        $estGestionnaire = $r->user()->estAdmin();
 
         return view('planning.index', compact(
             'types', 'type', 'jours', 'affectations', 'participants',
-            'collaborateurs', 'semaine', 'debut', 'fin', 'estPilote'
+            'collaborateurs', 'semaine', 'debut', 'fin', 'estPilote', 'estGestionnaire'
         ));
     }
 
     /* ===== GÉNÉRER LE PLANNING (rotation automatique) ===== */
     public function generer(Request $r)
     {
-        abort_unless($r->user()->estPilote(), 403);
+        abort_unless($r->user()->estAdmin(), 403);
         $r->validate([
             'type_reunion_id' => 'required|exists:types_reunion,id',
             'date_debut' => 'required|date',
@@ -134,7 +135,7 @@ class PlanningReunionController extends Controller
     /* ===== GESTION PARTICIPANTS ===== */
     public function ajouterParticipant(Request $r)
     {
-        abort_unless($r->user()->estPilote(), 403);
+        abort_unless($r->user()->estAdmin(), 403);
         $r->validate([
             'type_reunion_id' => 'required|exists:types_reunion,id',
             'user_id' => 'required|exists:users,id',
@@ -150,7 +151,8 @@ class PlanningReunionController extends Controller
 
     public function retirerParticipant(Request $r, ParticipantReunion $participant)
     {
-        abort_unless($r->user()->estPilote(), 403);
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $typeId = $participant->type_reunion_id;
         $participant->delete();
         return redirect()->route('planning.index', ['type' => $typeId])->with('succes', 'Participant retiré.');
@@ -194,7 +196,7 @@ class PlanningReunionController extends Controller
     /* ===== SIGNALER ABSENCE / REMPLACEMENT ===== */
     public function signalerAbsence(Request $r, AffectationReunion $affectation)
     {
-        abort_unless($r->user()->estPilote() || $r->user()->id === $affectation->user_id, 403);
+        abort_unless($r->user()->estAdmin() || $r->user()->id === $affectation->user_id, 403);
         $r->validate(['remplacant_id' => 'nullable|exists:users,id']);
 
         if ($r->remplacant_id) {

@@ -78,7 +78,7 @@
         </form>
     </div>
     <div class="export-card">
-        <h3><svg class="ic-export" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Recettes</h3>
+        <h3><svg class="ic-export" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg> Recettes</h3>
         <p>Recettes journali&egrave;res par v&eacute;hicule et chauffeur.</p>
         <form action="{{ route('export.recettes') }}" method="GET">
             <div class="filtres-export">

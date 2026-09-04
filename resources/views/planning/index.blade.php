@@ -73,6 +73,15 @@ dialog label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px}
 dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;font-family:inherit}
 .req{color:var(--ko)}
 .vide{text-align:center;padding:30px;color:var(--gris);font-size:13px}
+.panneau form label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px}
+.panneau form label:first-child{margin-top:0}
+.panneau form input[type="date"],
+.panneau form input[type="text"],
+.panneau form select,
+.panneau form textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;font-family:inherit;background:#fff}
+.part-list-ro{display:flex;flex-direction:column;gap:5px}
+.part-list-ro .part-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--fond);border-radius:8px;font-size:13px}
+.part-list-ro .part-idx{color:var(--gris);font-size:11px;min-width:18px}
 
 @media(max-width:768px){
     .admin-grid{grid-template-columns:1fr}
@@ -113,23 +122,22 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
 {{-- Cards types de réunion --}}
 <div class="types-grid">
     @foreach($types as $t)
-    @php $c = $t->couleur(); @endphp
     <a href="{{ route('planning.index', ['type' => $t->id, 'semaine' => $debut->format('Y-m-d')]) }}"
        class="type-card {{ $type && $type->id === $t->id ? 'actif' : '' }}"
-       style="{{ $type && $type->id === $t->id ? '--type-color:'.$c : '' }}">
-        <div class="tc-icon" style="background:{{ $c }}15;color:{{ $c }}">
+       style="{{ $type && $type->id === $t->id ? '--type-color:var(--accent)' : '' }}">
+        <div class="tc-icon" style="background:rgba(46,116,181,.08);color:var(--accent)">
             {!! $ic($t->iconePath(), 20) !!}
         </div>
         <div class="tc-info">
             <div class="tc-nom">{{ $t->libelle }}</div>
             <div class="tc-meta">
-                <span class="tc-rec" style="background:{{ $c }}">{{ $t->recurrenceLabel() }}</span>
+                <span class="tc-rec" style="background:var(--accent)">{{ $t->recurrenceLabel() }}</span>
                 <span class="tc-roles">{{ $t->roles->count() }} rôles</span>
             </div>
         </div>
     </a>
     @endforeach
-    @if($estPilote && auth()->user()->estAdmin())
+    @if($estGestionnaire)
     <div class="type-card" style="border-style:dashed;cursor:pointer;justify-content:center;color:var(--gris)" onclick="document.getElementById('dlg-type').showModal()">
         {!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',20) !!}
         <span style="font-size:12px;font-weight:600">Nouveau type</span>
@@ -151,17 +159,16 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
 </div>
 
 @if($type)
-@php $tc = $type->couleur(); @endphp
 
 {{-- En-tête type + tableau --}}
 <div class="panneau">
     <div class="type-header">
-        <div class="th-icon" style="background:{{ $tc }}15;color:{{ $tc }}">
+        <div class="th-icon" style="background:rgba(46,116,181,.08);color:var(--accent)">
             {!! $ic($type->iconePath(), 22) !!}
         </div>
         <div class="th-info">
-            <span class="th-nom" style="color:{{ $tc }}">{{ $type->libelle }}</span>
-            <span class="th-rec" style="background:{{ $tc }}">{{ $type->recurrenceLabel() }}</span>
+            <span class="th-nom" style="color:var(--bleu)">{{ $type->libelle }}</span>
+            <span class="th-rec" style="background:var(--accent)">{{ $type->recurrenceLabel() }}</span>
         </div>
     </div>
 
@@ -180,7 +187,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                 <tr>
                     <th>Rôle</th>
                     @foreach($jours as $j)
-                    <th style="border-bottom-color:{{ $tc }}">{{ $j->isoFormat('ddd D MMM') }}</th>
+                    <th style="border-bottom-color:var(--accent)">{{ $j->isoFormat('ddd D MMM') }}</th>
                     @endforeach
                 </tr>
             </thead>
@@ -198,7 +205,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                             @if($aff->statut === 'remplace' && $aff->remplacant)
                                 <span class="remplac">par {{ $aff->remplacant->nomComplet() }}</span>
                             @endif
-                            @if(($estPilote || auth()->id() === $aff->user_id) && $aff->statut === 'prevu')
+                            @if(($estGestionnaire || auth()->id() === $aff->user_id) && $aff->statut === 'prevu')
                             <button class="btn-abs" title="Signaler absence"
                                 onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
                                 {!! $ic('<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',14) !!}
@@ -219,28 +226,27 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
 </div>
 
 {{-- Participants + Générer --}}
-<div class="admin-grid">
+<div class="{{ $estGestionnaire ? 'admin-grid' : '' }}">
     <div class="panneau">
         <h3>
             {!! $ic('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!}
             Participants ({{ $participants->count() }})
         </h3>
+        @if($estGestionnaire)
         <div class="part-list">
             @forelse($participants as $p)
             <span class="part-chip">
                 {{ $p->user?->nomComplet() }}
-                @if($estPilote)
-                <form method="POST" action="{{ route('planning.retirer', $p) }}" style="display:inline" onsubmit="return confirm('Retirer ce participant ?')">
+                <form method="POST" action="{{ route('planning.retirer', $p) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce participant')">
                     @csrf
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button type="submit" class="retirer" title="Retirer">&times;</button>
                 </form>
-                @endif
             </span>
             @empty
             <span style="color:var(--gris);font-size:12px">Aucun participant</span>
             @endforelse
         </div>
-        @if($estPilote)
         <form method="POST" action="{{ route('planning.ajouter') }}" style="display:flex;gap:8px;align-items:center;margin-top:8px">
             @csrf
             <input type="hidden" name="type_reunion_id" value="{{ $type->id }}">
@@ -254,10 +260,22 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             </select>
             <button type="submit" class="btn sm">{!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',14) !!} Ajouter</button>
         </form>
+        @else
+        <div class="part-list-ro">
+            @forelse($participants as $i => $p)
+            <div class="part-item">
+                <span class="part-idx">{{ $i+1 }}.</span>
+                {!! $ic('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',14) !!}
+                {{ $p->user?->nomComplet() }}
+            </div>
+            @empty
+            <span style="color:var(--gris);font-size:12px">Aucun participant</span>
+            @endforelse
+        </div>
         @endif
     </div>
 
-    @if($estPilote)
+    @if($estGestionnaire)
     <div class="panneau">
         <h3>
             {!! $ic('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>') !!}
@@ -267,20 +285,26 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             @csrf
             <input type="hidden" name="type_reunion_id" value="{{ $type->id }}">
             <label>Date début <span class="req">*</span></label>
-            <input type="date" name="date_debut" required value="{{ $debut->format('Y-m-d') }}" style="margin-bottom:8px">
+            <input type="date" name="date_debut" required value="{{ $debut->format('Y-m-d') }}">
             <label>Date fin <span class="req">*</span></label>
             <input type="date" name="date_fin" required value="{{ $fin->format('Y-m-d') }}" style="margin-bottom:12px">
-            @if($type->recurrence === 'fin_sprint')
+            @if($participants->isEmpty())
+            <p style="font-size:11px;color:var(--ko);background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:12px">
+                {!! $ic('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',14) !!}
+                Ajoutez au moins un participant avant de générer.
+            </p>
+            @elseif($type->recurrence === 'fin_sprint')
             <p style="font-size:11px;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin-bottom:12px">
                 {!! $ic('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',14) !!}
-                Ce type est lié à la fin de sprint. Une seule date de réunion sera créée sur le premier jour ouvré de la période.
+                Fin de sprint : une seule réunion sera créée sur le premier jour ouvré de la période.
             </p>
             @else
             <p style="font-size:11px;color:var(--gris);margin-bottom:12px">
                 Rotation entre {{ $participants->count() }} participants. Les affectations « Prévu » existantes seront remplacées.
             </p>
             @endif
-            <button type="submit" class="btn" onclick="return confirm('Générer le planning pour cette période ?')">
+            <button type="submit" class="btn" {{ $participants->isEmpty() ? 'disabled style="opacity:.5;cursor:not-allowed"' : '' }}
+                onclick="return confirm('Générer le planning pour cette période ?')">
                 {!! $ic('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',14) !!} Générer
             </button>
         </form>
@@ -289,7 +313,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
 </div>
 
 {{-- Admin rôles --}}
-@if($estPilote)
+@if($estGestionnaire)
 <div class="panneau" style="margin-top:16px">
     <h3>
         {!! $ic('<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>') !!}
@@ -297,18 +321,16 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
     </h3>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         @forelse($type->roles as $r)
-        <span style="background:{{ $tc }}12;color:{{ $tc }};border:1px solid {{ $tc }}30;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600">
+        <span style="background:rgba(46,116,181,.08);color:var(--accent);border:1px solid rgba(46,116,181,.18);padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600">
             {{ $r->ordre }}. {{ $r->libelle }}
         </span>
         @empty
         <span style="color:var(--gris);font-size:12px">Aucun rôle</span>
         @endforelse
     </div>
-    @if(auth()->user()->estAdmin())
     <button class="btn sm sec" onclick="document.getElementById('dlg-role').showModal()">
         {!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',14) !!} Nouveau rôle
     </button>
-    @endif
 </div>
 @endif
 

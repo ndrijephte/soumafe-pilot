@@ -57,8 +57,9 @@ dialog input{width:100%;padding:7px 10px;border:1px solid var(--bord);border-rad
     <td style="white-space:nowrap">
         <button class="btn sm sec" onclick="openDlg({{ $t->id }}, '{{ addslashes($t->libelle) }}', '{{ $t->couleur_fond }}', '{{ $t->couleur_texte }}', {{ $t->systeme ? 'true' : 'false' }})">Modifier</button>
         @if(!$t->systeme)
-        <form method="POST" action="{{ url('admin/types-evenement/'.$t->id) }}" style="display:inline">@csrf @method('DELETE')
-            <button class="btn sm danger" onclick="return confirm('Supprimer ce type ?')">Supprimer</button>
+        <form method="POST" action="{{ url('admin/types-evenement/'.$t->id) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce type')">@csrf @method('DELETE')
+            <input type="hidden" name="motif_suppression" class="motif-suppr-input">
+            <button class="btn sm danger">Supprimer</button>
         </form>
         @endif
     </td>

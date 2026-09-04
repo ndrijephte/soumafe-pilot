@@ -51,6 +51,7 @@ class JourFerieController extends Controller
     public function destroy(Request $r, JourFerie $ferie)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $ferie->delete();
         return back()->with('succes', 'Jour férié supprimé.');
     }

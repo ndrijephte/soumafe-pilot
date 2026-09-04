@@ -66,6 +66,7 @@ class RegistreController extends Controller
     public function destroyEntree(Request $r, RegistreEntree $entree)
     {
         abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $entree->delete();
         return back()->with('succes', 'Entrée supprimée.');
     }
@@ -73,6 +74,7 @@ class RegistreController extends Controller
     public function destroy(Request $r, Registre $registre)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $registre->delete();
         return redirect()->route('registres.index')->with('succes', 'Registre supprimé.');
     }

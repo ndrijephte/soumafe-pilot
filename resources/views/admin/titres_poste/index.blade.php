@@ -48,8 +48,9 @@ dialog input{width:100%;padding:7px 10px;border:1px solid var(--bord);border-rad
     <td><strong>{{ $t->libelle }}</strong></td>
     <td style="white-space:nowrap">
         <button class="btn sm sec" onclick="openDlg({{ $t->id }}, '{{ addslashes($t->libelle) }}')">Modifier</button>
-        <form method="POST" action="{{ url('admin/titres-poste/'.$t->id) }}" style="display:inline">@csrf @method('DELETE')
-            <button class="btn sm danger" onclick="return confirm('Supprimer ce titre ?')">Supprimer</button>
+        <form method="POST" action="{{ url('admin/titres-poste/'.$t->id) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce titre')">@csrf @method('DELETE')
+            <input type="hidden" name="motif_suppression" class="motif-suppr-input">
+            <button class="btn sm danger">Supprimer</button>
         </form>
     </td>
 </tr>

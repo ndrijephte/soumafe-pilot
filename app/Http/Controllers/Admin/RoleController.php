@@ -41,6 +41,7 @@ class RoleController extends Controller
     public function destroy(Request $r, Role $role)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         if ($role->systeme) return back()->with('erreur', 'Impossible : rôle système protégé.');
         if (User::where('role', $role->code)->exists()) return back()->with('erreur', 'Impossible : des utilisateurs ont ce rôle.');
         $role->delete();

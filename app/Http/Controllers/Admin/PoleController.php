@@ -41,6 +41,7 @@ class PoleController extends Controller
     public function destroy(Request $r, Pole $pole)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         if ($pole->users()->exists()) return back()->with('erreur', 'Impossible : des collaborateurs sont rattachés à ce pôle.');
         $pole->delete();
         return back()->with('succes', 'Pôle supprimé.');

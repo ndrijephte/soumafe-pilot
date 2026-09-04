@@ -186,7 +186,8 @@ dialog textarea{resize:vertical}
                         {!! $icEdit !!}
                     </button>
                     @if($isAdmin)
-                    <form method="POST" action="{{ route('observations.destroy', $obs) }}" onsubmit="return confirm('Supprimer {{ $obs->code }} ?')">@csrf @method('DELETE')
+                    <form method="POST" action="{{ route('observations.destroy', $obs) }}" onsubmit="return demanderMotifSuppression(this,'cette observation')">@csrf @method('DELETE')
+                        <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                         <button class="act-btn" title="Supprimer" style="color:var(--ko)">{!! $icTrash !!}</button>
                     </form>
                     @endif

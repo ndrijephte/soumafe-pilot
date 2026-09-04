@@ -416,7 +416,7 @@
 
 {{-- ═══ TABLEAU RECETTES PAR VÉHICULE ═══ --}}
 <div class="rp-section">
-    <h3>{!! $ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Recettes par véhicule</h3>
+    <h3>{!! $ico('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/>') !!} Recettes par véhicule</h3>
     @if($recettesVehicule->isEmpty())
         <p style="color:var(--gris);font-size:13px">Aucune recette enregistrée.</p>
     @else

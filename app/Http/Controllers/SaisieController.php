@@ -301,6 +301,7 @@ class SaisieController extends Controller
     public function annulerAbsence(Request $r, Absence $absence)
     {
         abort_unless((int) $absence->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $absence->delete();
         return back()->with('succes', 'Absence annulée.');
     }

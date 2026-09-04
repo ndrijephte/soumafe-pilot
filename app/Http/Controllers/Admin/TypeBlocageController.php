@@ -37,6 +37,7 @@ class TypeBlocageController extends Controller
     public function destroy(Request $r, TypeBlocage $type)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         if ($type->systeme) return back()->with('erreur', 'Impossible : type système protégé.');
         $type->delete();
         return back()->with('succes', 'Type de blocage supprimé.');

@@ -57,7 +57,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         </div>
         <div style="margin-top:10px;display:flex;gap:6px">
             <a href="{{ route('registres.show', $reg) }}" class="btn sm">Ouvrir</a>
-            <form method="POST" action="{{ route('registres.destroy', $reg) }}" onsubmit="return confirm('Supprimer ce registre et toutes ses entrées ?')">@csrf <input type="hidden" name="_method" value="DELETE"><button class="btn sm danger">Suppr.</button></form>
+            <form method="POST" action="{{ route('registres.destroy', $reg) }}" onsubmit="return demanderMotifSuppression(this,'ce registre')">@csrf <input type="hidden" name="_method" value="DELETE"><input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="btn sm danger">Suppr.</button></form>
         </div>
     </div>
     @endforeach

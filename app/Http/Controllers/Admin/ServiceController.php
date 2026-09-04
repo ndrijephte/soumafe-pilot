@@ -41,6 +41,7 @@ class ServiceController extends Controller
     public function destroy(Request $r, Service $service)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         if ($service->poles()->exists()) return back()->with('erreur', 'Impossible : des pôles sont rattachés à ce service.');
         $service->delete();
         return back()->with('succes', 'Service supprimé.');

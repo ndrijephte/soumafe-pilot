@@ -166,7 +166,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <button class="tab-btn" onclick="changerOnglet('maint')">{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }}</span>@endif</button>
     <button class="tab-btn" onclick="changerOnglet('penal')">{!! $icAlert !!} Pénalités @if($kpi['penalites_non_payees']>0)<span class="pill p-ko">{{ $kpi['penalites_non_payees'] }}</span>@endif</button>
     <button class="tab-btn" onclick="changerOnglet('recouv')">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg>
         Recouvrements @if(($recouvrements ?? collect())->where('statut','actif')->count()>0)<span class="pill p-ko">{{ ($recouvrements ?? collect())->where('statut','actif')->count() }}</span>@endif</button>
     <button class="tab-btn" onclick="changerOnglet('chauffeurs')">{!! $icUser !!} Chauffeurs <span class="pill p-cours">{{ $chauffeurs->count() }}</span></button>
     <button class="tab-btn" onclick="changerOnglet('depenses')">
@@ -199,7 +199,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $v->id }})" style="color:var(--accent)">{!! $icEye !!}</button>
                 <button class="act-btn" title="Modifier" onclick="editVehicule({{ $v->id }})">{!! $icEdit !!}</button>
                 @if(auth()->user()->estPilote())
-                <form method="POST" action="{{ route('parc.vehicules.destroy', $v) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
+                <form method="POST" action="{{ route('parc.vehicules.destroy', $v) }}" onsubmit="return demanderMotifSuppression(this,'ce véhicule')">@csrf @method('DELETE')
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
                 @endif
@@ -240,7 +241,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <button class="act-btn" title="Statuer" onclick="statuerPanne({{ $p->id }})" style="color:var(--accent)">{!! $icWrench !!}</button>
                 @endif
                 <button class="act-btn" title="Modifier" onclick="editPanne({{ $p->id }})">{!! $icEdit !!}</button>
-                <form method="POST" action="{{ route('parc.pannes.destroy', $p) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
+                <form method="POST" action="{{ route('parc.pannes.destroy', $p) }}" onsubmit="return demanderMotifSuppression(this,'cette panne')">@csrf @method('DELETE')
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
             </div>
@@ -513,7 +515,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <td>
                 <div class="act-row">
                     <button type="button" class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
-                    <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
+                    <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return demanderMotifSuppression(this,'cette recette')">@csrf @method('DELETE')
+                        <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                         <button class="act-btn del">{!! $icDel !!}</button>
                     </form>
                 </div>
@@ -556,7 +559,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 @endif
                 @if(!$estDG)
                 <button class="act-btn" title="Modifier" onclick="editMaint({{ $m->id }})">{!! $icEdit !!}</button>
-                <form method="POST" action="{{ route('parc.maintenances.destroy', $m) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
+                <form method="POST" action="{{ route('parc.maintenances.destroy', $m) }}" onsubmit="return demanderMotifSuppression(this,'cette maintenance')">@csrf @method('DELETE')
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
                 @endif
@@ -597,13 +601,14 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <div class="act-row">
                 @if($pen->statut !== 'payee' && !$estDG)
                 <button class="act-btn" title="Enregistrer un paiement" onclick="ouvrirPaiementPenal({{ $pen->id }}, '{{ addslashes($pen->chauffeur ?? $pen->vehicule->immatriculation) }}', {{ $soldePen }})" style="color:var(--ok)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg>
                 </button>
                 @endif
                 <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $pen->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
                 @if(!$estDG)
                 <button class="act-btn" title="Modifier" onclick="editPenal({{ $pen->id }})">{!! $icEdit !!}</button>
-                <form method="POST" action="{{ route('parc.penalites.destroy', $pen) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
+                <form method="POST" action="{{ route('parc.penalites.destroy', $pen) }}" onsubmit="return demanderMotifSuppression(this,'cette pénalité')">@csrf @method('DELETE')
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
                 @endif
@@ -632,7 +637,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- ==================== TAB RECOUVREMENTS ==================== --}}
 <div class="tab-panel" id="tab-recouv">
     <div class="panel-head">
-        <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Recouvrements en cours</h3>
+        <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg> Recouvrements en cours</h3>
     </div>
     <div class="panneau">
 
@@ -843,7 +848,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><strong>{{ $ch->nomComplet() }}</strong></td>
         <td>{{ $ch->numero_permis ?? '—' }}</td>
         <td>{{ $ch->telephone ?? '—' }}</td>
-        <td>@if($affectations->isEmpty()) — @else @foreach($affectations as $aff)<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px">{{ $aff->immatriculation }}@if(!auth()->user()->aRole('direction'))<form method="POST" action="{{ route('parc.chauffeurs.detacher', [$aff, $ch]) }}" style="display:inline" onsubmit="return confirm('Détacher ce véhicule ?')">@csrf @method('DELETE')<button class="act-btn del" title="Détacher" style="padding:1px 3px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></form>@endif</span>@endforeach @endif</td>
+        <td>@if($affectations->isEmpty()) — @else @foreach($affectations as $aff)<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px">{{ $aff->immatriculation }}@if(!auth()->user()->aRole('direction'))<form method="POST" action="{{ route('parc.chauffeurs.detacher', [$aff, $ch]) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce détachement')">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="act-btn del" title="Détacher" style="padding:1px 3px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></form>@endif</span>@endforeach @endif</td>
         <td>{{ $affectations->map(fn($v) => ucfirst($v->pivot->role))->join(', ') ?: '—' }}</td>
         <td><span class="pill {{ $ch->statut === 'actif' ? 'p-ok' : 'p-gris' }}">{{ ucfirst($ch->statut) }}</span></td>
         <td>
@@ -852,7 +857,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <button class="act-btn" title="Affecter" onclick="affecterChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icCar !!}</button>
                 <button class="act-btn" title="Modifier" onclick="editChauffeur({{ $ch->id }})">{!! $icEdit !!}</button>
                 @if(auth()->user()->estPilote())
-                <form method="POST" action="{{ route('parc.chauffeurs.destroy', $ch) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
+                <form method="POST" action="{{ route('parc.chauffeurs.destroy', $ch) }}" onsubmit="return demanderMotifSuppression(this,'ce chauffeur')">@csrf @method('DELETE')
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
                 @endif
@@ -1258,6 +1264,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <thead><tr>
     <th style="width:100px">Date</th>
     <th>Type</th>
+    <th>Véhicule</th>
     <th style="text-align:right;width:120px">Montant</th>
     <th>Commentaire</th>
     <th style="width:80px">Par</th>
@@ -1268,6 +1275,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <tr id="dep-row-{{ $dep->id }}">
     <td>{{ $dep->date_depense->format('d/m/Y') }}</td>
     <td>{{ $typesLabels[$dep->type_depense] ?? ucfirst(str_replace('_', ' ', $dep->type_depense)) }}</td>
+    <td style="font-size:12px">{{ $dep->vehicule->immatriculation ?? '—' }}</td>
     <td style="text-align:right;font-weight:600;color:var(--ko)">{{ number_format($dep->montant, 0, ',', ' ') }} F</td>
     <td style="font-size:12px;color:var(--gris)">{{ $dep->commentaire ?? '—' }}</td>
     <td style="font-size:11px;color:var(--gris)">{{ $dep->cree_par }}</td>
@@ -1275,13 +1283,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <td>
         <div class="act-row">
             <button class="act-btn" title="Modifier" onclick="editerDepense({{ $dep->id }})">{!! $icEdit !!}</button>
-            <form method="POST" action="{{ route('parc.depenses.destroy', $dep) }}" onsubmit="return confirm('Supprimer cette dépense ?')" style="display:inline">@csrf @method('DELETE')<button class="act-btn del" title="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></form>
+            <form method="POST" action="{{ route('parc.depenses.destroy', $dep) }}" onsubmit="return demanderMotifSuppression(this,'cette dépense')" style="display:inline">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="act-btn del" title="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></form>
         </div>
     </td>
     @endif
 </tr>
 @empty
-<tr><td colspan="{{ auth()->user()->aRole('direction') ? 5 : 6 }}" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
+<tr><td colspan="{{ auth()->user()->aRole('direction') ? 6 : 7 }}" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
 @endforelse
 </tbody>
 </table>
@@ -1304,6 +1312,14 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </select>
         </div>
         <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" id="de-montant" min="1" required placeholder="0"></div>
+    </div>
+    <div class="form-row3">
+        <div style="grid-column:span 2"><label>Véhicule (optionnel)</label>
+            <select name="vehicule_id" id="de-vehicule">
+                <option value="">— Aucun (dépense bureau) —</option>
+                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option>@endforeach
+            </select>
+        </div>
     </div>
     <div><label>Commentaire</label><textarea name="commentaire" id="de-comment" rows="2" maxlength="500" placeholder="Commentaire optionnel"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
@@ -1410,6 +1426,7 @@ foreach($depenses ?? [] as $_dep) {
     $_depData[$_dep->id] = [
         'date_depense' => $_dep->date_depense->format('Y-m-d'),
         'type_depense' => $_dep->type_depense,
+        'vehicule_id' => $_dep->vehicule_id,
         'montant' => $_dep->montant,
         'commentaire' => $_dep->commentaire,
     ];
@@ -1898,6 +1915,7 @@ function editerDepense(id){
     document.getElementById('depense-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
     document.getElementById('de-date').value=d.date_depense;
     document.getElementById('de-type').value=d.type_depense;
+    document.getElementById('de-vehicule').value=d.vehicule_id||'';
     document.getElementById('de-montant').value=d.montant;
     document.getElementById('de-comment').value=d.commentaire||'';
     document.getElementById('dlg-depense').showModal();

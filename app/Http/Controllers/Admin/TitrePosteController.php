@@ -34,6 +34,7 @@ class TitrePosteController extends Controller
     public function destroy(Request $r, TitrePoste $titre)
     {
         abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $titre->delete();
         return back()->with('succes', 'Titre de poste supprimé.');
     }

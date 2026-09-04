@@ -80,8 +80,9 @@
                 @csrf @method('PUT')
                 <button class="btn sm {{ $tp->actif ? 'sec' : '' }}" title="{{ $tp->actif ? 'Désactiver' : 'Activer' }}">{{ $tp->actif ? 'Actif' : 'Inactif' }}</button>
             </form>
-            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $tp) }}" style="display:inline" onsubmit="return confirm('Supprimer ce type ?')">
+            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $tp) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce type')">
                 @csrf @method('DELETE')
+                <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                 <button class="btn sm ko">Suppr.</button>
             </form>
         </li>
@@ -108,8 +109,9 @@
                 @csrf @method('PUT')
                 <button class="btn sm {{ $tm->actif ? 'sec' : '' }}">{{ $tm->actif ? 'Actif' : 'Inactif' }}</button>
             </form>
-            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $tm) }}" style="display:inline" onsubmit="return confirm('Supprimer ce type ?')">
+            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $tm) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce type')">
                 @csrf @method('DELETE')
+                <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                 <button class="btn sm ko">Suppr.</button>
             </form>
         </li>
@@ -139,8 +141,9 @@
                 @csrf @method('PUT')
                 <button class="btn sm {{ $ma->actif ? 'sec' : '' }}">{{ $ma->actif ? 'Actif' : 'Inactif' }}</button>
             </form>
-            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $ma) }}" style="display:inline" onsubmit="return confirm('Supprimer ce motif ?')">
+            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $ma) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce motif')">
                 @csrf @method('DELETE')
+                <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                 <button class="btn sm ko">Suppr.</button>
             </form>
         </li>
@@ -170,8 +173,9 @@
                 @csrf @method('PUT')
                 <button class="btn sm {{ $td->actif ? 'sec' : '' }}">{{ $td->actif ? 'Actif' : 'Inactif' }}</button>
             </form>
-            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $td) }}" style="display:inline" onsubmit="return confirm('Supprimer ce type ?')">
+            <form method="POST" action="{{ route('admin.parc-parametres.types.destroy', $td) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce type')">
                 @csrf @method('DELETE')
+                <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                 <button class="btn sm ko">Suppr.</button>
             </form>
         </li>

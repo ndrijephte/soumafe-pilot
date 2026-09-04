@@ -314,6 +314,16 @@ chargerNotifs();setInterval(chargerNotifs,60000);
     });
 })();
 </script>
+{{-- Motif suppression obligatoire (global) --}}
+<script>
+function demanderMotifSuppression(form,label){
+    var motif=prompt('Motif de suppression'+(label?' de '+label:'')+' (obligatoire, 5 car. min) :');
+    if(!motif||motif.trim().length<5){alert('Le motif est obligatoire (5 caractères minimum).');return false;}
+    var inp=form.querySelector('.motif-suppr-input');
+    if(inp)inp.value=motif.trim();
+    return true;
+}
+</script>
 @stack('scripts')
 </body>
 </html>

@@ -66,8 +66,9 @@
     <td style="white-space:nowrap">
         <button class="btn sm sec" onclick="editMode({{ $d->id }}, '{{ addslashes($d->libelle) }}')">Modifier</button>
         @if($d->services_count === 0)
-        <form method="POST" action="{{ route('admin.domaines.destroy', $d) }}" style="display:inline">@csrf @method('DELETE')
-            <button class="btn sm danger" onclick="return confirm('Supprimer ce domaine ?')">Supprimer</button>
+        <form method="POST" action="{{ route('admin.domaines.destroy', $d) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce domaine')">@csrf @method('DELETE')
+            <input type="hidden" name="motif_suppression" class="motif-suppr-input">
+            <button class="btn sm danger">Supprimer</button>
         </form>
         @endif
     </td>

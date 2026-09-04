@@ -208,6 +208,7 @@ class ObjectifController extends Controller
     public function destroy(Request $r, Objectif $objectif)
     {
         abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
         $objectif->delete();
         return back()->with('succes', 'Objectif supprimé.');
     }

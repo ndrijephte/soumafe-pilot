@@ -163,7 +163,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             @if($o->statut_validation !== 'valide')
             <form method="POST" action="{{ route('objectifs.valider', $o) }}" style="display:inline"><button class="btn sm" style="background:var(--ok)">Valider</button>@csrf</form>
             @endif
-            <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')<button class="btn sm danger">Suppr.</button></form>
+            <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'cet objectif')">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="btn sm danger">Suppr.</button></form>
         </td>
     </tr>
     @endforeach
@@ -220,7 +220,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             @if($o->statut_validation !== 'valide')
             <form method="POST" action="{{ route('objectifs.valider', $o) }}" style="display:inline"><button class="btn sm" style="background:var(--ok)">Valider</button>@csrf</form>
             @endif
-            <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')<button class="btn sm danger">Suppr.</button></form>
+            <form method="POST" action="{{ route('objectifs.destroy', $o) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'cet objectif')">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="btn sm danger">Suppr.</button></form>
         </td>
     </tr>
     @endforeach

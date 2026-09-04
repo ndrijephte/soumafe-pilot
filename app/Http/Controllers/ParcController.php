@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, Depense, JourFerie, MaintenancePreventive, Panne, ParametreParc, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, Chauffeur, Depense, JourFerie, MaintenancePreventive, Panne, PaiementPenalite, ParametreParc, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -38,7 +38,7 @@ class ParcController extends Controller
         $pannes = Panne::with('vehicule')->orderByDesc('date_declaration')->get();
         $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->limit(200)->get();
         $maintenances = MaintenancePreventive::with('vehicule')->orderBy('prochaine_echeance')->get();
-        $penalites = Penalite::with('vehicule')->orderByDesc('date_infraction')->get();
+        $penalites = Penalite::with(['vehicule', 'paiements'])->orderByDesc('date_infraction')->get();
 
         $kpi = $this->calculerKpi($vehicules);
         $typesPenalite = TypeParc::penalites();
@@ -78,7 +78,11 @@ class ParcController extends Controller
         $typeJour = $this->detecterTypeJour($dateStr);
         $estDimanche = $date->isSunday();
 
-        $existantsData = RecetteVehicule::with('vehicule')->whereDate('date', $dateStr)->get()->keyBy('vehicule_id');
+        $existantsAll = RecetteVehicule::with('vehicule')->whereDate('date', $dateStr)->get();
+        // Indexer par clé composite vehicule_id + chauffeur pour recettes individuelles
+        $existantsParChauffeur = $existantsAll->keyBy(fn($r) => $r->vehicule_id . '_' . ($r->chauffeur ?? ''));
+        // Garder aussi l'index par vehicule_id (pour véhicules sans chauffeur nommé)
+        $existantsParVehicule = $existantsAll->keyBy('vehicule_id');
 
         // 1. Chauffeurs actifs avec véhicule en service
         $chauffeursActifs = Schema::hasTable('chauffeurs')
@@ -87,13 +91,14 @@ class ParcController extends Controller
                 ->orderBy('nom')->get()
             : collect();
 
-        // 1b. Chauffeurs inactifs ayant une recette déjà saisie ce jour (ne pas masquer)
+        // 1b. Chauffeurs inactifs ayant une recette déjà saisie ce jour
         $chauffeursInactifs = collect();
-        if (Schema::hasTable('chauffeurs') && $existantsData->isNotEmpty()) {
+        if (Schema::hasTable('chauffeurs') && $existantsAll->isNotEmpty()) {
+            $nomsExistants = $existantsAll->pluck('chauffeur')->filter()->unique()->toArray();
             $chauffeursInactifs = Chauffeur::where('statut', '!=', 'actif')
                 ->with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
                 ->orderBy('nom')->get()
-                ->filter(fn($ch) => $ch->vehicules->contains(fn($v) => $existantsData->has($v->id)));
+                ->filter(fn($ch) => in_array($ch->nomComplet(), $nomsExistants));
         }
 
         $grille = [];
@@ -103,12 +108,17 @@ class ParcController extends Controller
             $veh = $ch->vehicules->sortByDesc(fn($v) => $v->pivot->role === 'principal' ? 1 : 0)->first();
             if (!$veh) continue;
 
-            $vehiculesTraites[] = $veh->id;
+            $vehiculesTraites[] = $veh->id . '_' . $ch->id;
             $estRepos = $estDimanche && $veh->categorie === 'vtc';
             $objectif = ParametreParc::objectifRecette($veh->categorie, $typeJour);
             if ($objectif <= 0) $objectif = $veh->objectif_recette ?? 0;
-            $dejaSaisi = $existantsData->has($veh->id);
-            $recetteExistante = $dejaSaisi ? $existantsData->get($veh->id) : null;
+
+            // Chercher recette individuelle de CE chauffeur pour CE véhicule
+            $cle = $veh->id . '_' . $ch->nomComplet();
+            $dejaSaisi = $existantsParChauffeur->has($cle);
+            $recetteExistante = $dejaSaisi ? $existantsParChauffeur->get($cle) : null;
+            // Vérifier si un AUTRE chauffeur a déjà une recette pour ce véhicule ce jour
+            $autreRecette = $existantsAll->first(fn($r) => $r->vehicule_id == $veh->id && $r->chauffeur !== $ch->nomComplet());
 
             $grille[] = [
                 'chauffeur_obj' => $ch,
@@ -121,20 +131,26 @@ class ParcController extends Controller
                 'type_jour' => $typeJour,
                 'deja_saisi' => $dejaSaisi,
                 'recette' => $recetteExistante,
+                'vehicule_pris_par' => $autreRecette ? $autreRecette->chauffeur : null,
             ];
         }
 
         // 1c. Chauffeurs inactifs avec recette existante
         foreach ($chauffeursInactifs as $ch) {
             $veh = $ch->vehicules->first();
-            if (!$veh || in_array($veh->id, $vehiculesTraites)) continue;
+            if (!$veh) continue;
+            $cleTraite = $veh->id . '_' . $ch->id;
+            if (in_array($cleTraite, $vehiculesTraites)) continue;
 
-            $vehiculesTraites[] = $veh->id;
+            $vehiculesTraites[] = $cleTraite;
             $estRepos = $estDimanche && $veh->categorie === 'vtc';
             $objectif = ParametreParc::objectifRecette($veh->categorie, $typeJour);
             if ($objectif <= 0) $objectif = $veh->objectif_recette ?? 0;
-            $dejaSaisi = $existantsData->has($veh->id);
-            $recetteExistante = $dejaSaisi ? $existantsData->get($veh->id) : null;
+
+            $cle = $veh->id . '_' . $ch->nomComplet();
+            $dejaSaisi = $existantsParChauffeur->has($cle);
+            $recetteExistante = $dejaSaisi ? $existantsParChauffeur->get($cle) : null;
+            $autreRecette = $existantsAll->first(fn($r) => $r->vehicule_id == $veh->id && $r->chauffeur !== $ch->nomComplet());
 
             $grille[] = [
                 'chauffeur_obj' => $ch,
@@ -147,19 +163,21 @@ class ParcController extends Controller
                 'type_jour' => $typeJour,
                 'deja_saisi' => $dejaSaisi,
                 'recette' => $recetteExistante,
+                'vehicule_pris_par' => $autreRecette ? $autreRecette->chauffeur : null,
             ];
         }
 
         // 2. Véhicules en service sans chauffeur affecté
+        $vehIdsTraites = collect($vehiculesTraites)->map(fn($s) => (int) explode('_', $s)[0])->unique()->toArray();
         $actifsSansChauffeur = $vehicules->where('statut', 'en_service')
-            ->reject(fn($v) => in_array($v->id, $vehiculesTraites));
+            ->reject(fn($v) => in_array($v->id, $vehIdsTraites));
 
         foreach ($actifsSansChauffeur as $v) {
             $estRepos = $estDimanche && $v->categorie === 'vtc';
             $objectif = ParametreParc::objectifRecette($v->categorie, $typeJour);
             if ($objectif <= 0) $objectif = $v->objectif_recette ?? 0;
-            $dejaSaisi = $existantsData->has($v->id);
-            $recetteExistante = $dejaSaisi ? $existantsData->get($v->id) : null;
+            $dejaSaisi = $existantsParVehicule->has($v->id);
+            $recetteExistante = $dejaSaisi ? $existantsParVehicule->get($v->id) : null;
 
             $grille[] = [
                 'chauffeur_obj' => null,
@@ -172,6 +190,7 @@ class ParcController extends Controller
                 'type_jour' => $typeJour,
                 'deja_saisi' => $dejaSaisi,
                 'recette' => $recetteExistante,
+                'vehicule_pris_par' => null,
             ];
         }
 
@@ -391,6 +410,15 @@ class ParcController extends Controller
             $v = Vehicule::find($data['vehicule_id']);
             $data['type_jour'] = $this->detecterTypeJour($data['date']);
 
+            // Bloquer si un autre chauffeur a déjà une recette pour ce véhicule ce jour
+            $conflit = RecetteVehicule::where('vehicule_id', $data['vehicule_id'])
+                ->whereDate('date', $data['date'])
+                ->where('chauffeur', '!=', $data['chauffeur'] ?? '')
+                ->first();
+            if ($conflit) {
+                return back()->withInput()->withErrors(['vehicule_id' => 'Ce véhicule est déjà utilisé par ' . $conflit->chauffeur . ' le ' . $conflit->date->format('d/m/Y')]);
+            }
+
             $categorie = $v->categorie ?? 'taxi';
             $objectifParam = ParametreParc::objectifRecette($categorie, $data['type_jour']);
             $data['objectif'] = $objectifParam > 0 ? $objectifParam : ($v->objectif_recette ?? 0);
@@ -428,6 +456,17 @@ class ParcController extends Controller
         try {
             $v = Vehicule::find($data['vehicule_id']);
             $data['type_jour'] = $this->detecterTypeJour($data['date']);
+
+            // Bloquer si un autre chauffeur a déjà une recette pour ce véhicule ce jour (hors lui-même)
+            $conflit = RecetteVehicule::where('vehicule_id', $data['vehicule_id'])
+                ->whereDate('date', $data['date'])
+                ->where('chauffeur', '!=', $data['chauffeur'] ?? '')
+                ->where('id', '!=', $recette->id)
+                ->first();
+            if ($conflit) {
+                return back()->withInput()->withErrors(['vehicule_id' => 'Ce véhicule est déjà utilisé par ' . $conflit->chauffeur . ' le ' . $conflit->date->format('d/m/Y')]);
+            }
+
             $categorie = $v->categorie ?? 'taxi';
             $objectifParam = ParametreParc::objectifRecette($categorie, $data['type_jour']);
             $data['objectif'] = $objectifParam > 0 ? $objectifParam : ($v->objectif_recette ?? 0);
@@ -517,7 +556,22 @@ class ParcController extends Controller
                     'perspective' => $perspective,
                 ];
 
-                $existant = RecetteVehicule::where('vehicule_id', $vehiculeId)->whereDate('date', $dateJour)->first();
+                // Recette individuelle : chercher par véhicule + chauffeur + date
+                $chauffeurNomLigne = $ligne['chauffeur'] ?? null;
+                $existant = RecetteVehicule::where('vehicule_id', $vehiculeId)
+                    ->whereDate('date', $dateJour)
+                    ->where('chauffeur', $chauffeurNomLigne)
+                    ->first();
+
+                // Bloquer si un AUTRE chauffeur a déjà une recette pour ce véhicule ce jour
+                $autreRecette = RecetteVehicule::where('vehicule_id', $vehiculeId)
+                    ->whereDate('date', $dateJour)
+                    ->where('chauffeur', '!=', $chauffeurNomLigne ?? '')
+                    ->first();
+                if ($autreRecette && !$estRepos) {
+                    $erreurs[] = ($chauffeurNomLigne ?? $v->immatriculation) . ' : véhicule déjà utilisé par ' . $autreRecette->chauffeur . ' ce jour';
+                    continue;
+                }
                 $aColVerrou = Schema::hasColumn('recettes_vehicules', 'valide_par');
                 if ($existant) {
                     // Vérifier verrouillage : seul charge_operations peut modifier une recette validée
@@ -670,17 +724,46 @@ class ParcController extends Controller
             'lieu' => 'nullable|string|max:120',
             'description' => 'nullable|string|max:500',
             'montant' => 'required|integer|min:0',
-            'statut' => 'required|in:non_payee,payee,contestee',
+            'statut' => 'required|in:non_payee,payee,en_cours,contestee',
             'date_paiement' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
         ]);
 
-        $p = Penalite::create($r->only([
+        $data = $r->only([
             'vehicule_id', 'date_infraction', 'type', 'chauffeur', 'lieu',
             'description', 'montant', 'statut', 'date_paiement', 'observations',
-        ]));
-        AuditLog::log('creation', 'penalite', "Pénalité #{$p->id}", "Type: {$p->type}, Montant: {$p->montant} F, Chauffeur: {$p->chauffeur}");
+        ]);
+        $data['montant_paye'] = 0;
 
+        $p = Penalite::create($data);
+
+        // Créer un recouvrement lié si non payée
+        if ($p->statut !== 'payee' && $p->montant > 0 && Schema::hasTable('recouvrements') && Schema::hasColumn('recouvrements', 'penalite_id')) {
+            $chauffeurId = null;
+            if ($p->chauffeur && Schema::hasTable('chauffeurs')) {
+                $ch = Chauffeur::whereRaw("CONCAT(nom,' ',prenom) = ?", [$p->chauffeur])
+                    ->orWhereRaw("CONCAT(prenom,' ',nom) = ?", [$p->chauffeur])->first();
+                $chauffeurId = $ch?->id;
+            }
+            Recouvrement::create([
+                'penalite_id' => $p->id,
+                'chauffeur_id' => $chauffeurId,
+                'chauffeur_nom' => $p->chauffeur,
+                'vehicule_id' => $p->vehicule_id,
+                'date_recette' => $p->date_infraction,
+                'montant_verse' => 0,
+                'objectif' => $p->montant,
+                'deficit' => $p->montant,
+                'montant_recouvre' => 0,
+                'solde' => $p->montant,
+                'statut' => 'actif',
+                'type_recouvrement' => 'penalite',
+                'motif' => 'Pénalité — ' . $p->typeLabel(),
+                'cree_par' => auth()->user()->name,
+            ]);
+        }
+
+        AuditLog::log('creation', 'penalite', "Pénalité #{$p->id}", "Type: {$p->type}, Montant: {$p->montant} F, Chauffeur: {$p->chauffeur}");
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité enregistrée.');
     }
 
@@ -695,7 +778,7 @@ class ParcController extends Controller
             'lieu' => 'nullable|string|max:120',
             'description' => 'nullable|string|max:500',
             'montant' => 'required|integer|min:0',
-            'statut' => 'required|in:non_payee,payee,contestee',
+            'statut' => 'required|in:non_payee,payee,en_cours,contestee',
             'date_paiement' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
         ]);
@@ -715,6 +798,45 @@ class ParcController extends Controller
         AuditLog::log('suppression', 'penalite', "Pénalité #{$penalite->id}", "Type: {$penalite->type}, Montant: {$penalite->montant}");
         $penalite->delete();
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Pénalité supprimée.');
+    }
+
+    /* ===== PAIEMENTS PÉNALITÉS ===== */
+    public function storePaiementPenalite(Request $r, Penalite $penalite)
+    {
+        $this->autoriser($r);
+        $r->validate([
+            'montant' => 'required|integer|min:1|max:' . $penalite->soldeRestant(),
+            'date_paiement' => 'required|date',
+            'mode_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'observations' => 'nullable|string|max:500',
+        ]);
+
+        PaiementPenalite::create([
+            'penalite_id' => $penalite->id,
+            'montant' => $r->montant,
+            'date_paiement' => $r->date_paiement,
+            'mode_paiement' => $r->mode_paiement,
+            'recu_par' => auth()->user()->name,
+            'observations' => $r->observations,
+        ]);
+
+        $penalite->recalculerPaiement();
+
+        // Mettre à jour le recouvrement lié
+        if (Schema::hasTable('recouvrements') && Schema::hasColumn('recouvrements', 'penalite_id')) {
+            $recouv = Recouvrement::where('penalite_id', $penalite->id)->where('statut', 'actif')->first();
+            if ($recouv) {
+                $recouv->montant_recouvre = $penalite->montant_paye;
+                $recouv->solde = $penalite->soldeRestant();
+                if ($recouv->solde <= 0) {
+                    $recouv->statut = 'solde';
+                }
+                $recouv->save();
+            }
+        }
+
+        AuditLog::log('creation', 'paiement_penalite', "Pénalité #{$penalite->id}", "Versement: {$r->montant} F, Solde: {$penalite->soldeRestant()} F");
+        return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Paiement enregistré. Solde : ' . number_format($penalite->soldeRestant(), 0, ',', ' ') . ' F');
     }
 
     /* ===== CHAUFFEURS CRUD ===== */

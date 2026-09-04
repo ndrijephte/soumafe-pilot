@@ -1,5 +1,5 @@
 <?php
-use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController, ObservationController};
+use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController, ObservationController, PlanningReunionController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController, TitrePosteController};
 use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController, ReportingParcController};
 use Illuminate\Support\Facades\Route;
@@ -124,6 +124,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/penalites', [ParcController::class, 'storePenalite'])->name('parc.penalites.store');
     Route::put('/parc/penalites/{penalite}', [ParcController::class, 'updatePenalite'])->name('parc.penalites.update');
     Route::delete('/parc/penalites/{penalite}', [ParcController::class, 'destroyPenalite'])->name('parc.penalites.destroy');
+    Route::post('/parc/penalites/{penalite}/paiement', [ParcController::class, 'storePaiementPenalite'])->name('parc.penalites.paiement');
     // Recouvrements
     Route::post('/parc/recouvrements/{recouvrement}/versement', [ParcController::class, 'storeVersement'])->name('parc.recouvrements.versement');
     Route::patch('/parc/recouvrements/{recouvrement}/annuler', [ParcController::class, 'annulerRecouvrement'])->name('parc.recouvrements.annuler');
@@ -146,6 +147,15 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/observations/{observation}', [ObservationController::class, 'destroy'])->name('observations.destroy');
     Route::get('/observations/stats-collaborateur', [ObservationController::class, 'statsCollaborateur'])->name('observations.stats-collaborateur');
     Route::get('/observations/fiche-collaborateur', [ObservationController::class, 'ficheCollaborateur'])->name('observations.fiche-collaborateur');
+
+    // Planning Réunions
+    Route::get('/planning', [PlanningReunionController::class, 'index'])->name('planning.index');
+    Route::post('/planning/generer', [PlanningReunionController::class, 'generer'])->name('planning.generer');
+    Route::post('/planning/participant', [PlanningReunionController::class, 'ajouterParticipant'])->name('planning.ajouter');
+    Route::post('/planning/participant/{participant}/retirer', [PlanningReunionController::class, 'retirerParticipant'])->name('planning.retirer');
+    Route::post('/planning/type', [PlanningReunionController::class, 'storeType'])->name('planning.type.store');
+    Route::post('/planning/role', [PlanningReunionController::class, 'storeRole'])->name('planning.role.store');
+    Route::post('/planning/{affectation}/absence', [PlanningReunionController::class, 'signalerAbsence'])->name('planning.absence');
 
     Route::get('/pointage', [PointageController::class, 'index'])->name('pointage.index');
     Route::post('/pointage/arrivee', [PointageController::class, 'pointerArrivee'])->name('pointage.arrivee');

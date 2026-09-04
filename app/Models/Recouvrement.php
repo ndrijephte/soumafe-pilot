@@ -7,15 +7,16 @@ use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 class Recouvrement extends Model
 {
     protected $fillable = [
-        'recette_vehicule_id', 'chauffeur_id', 'chauffeur_nom', 'vehicule_id',
+        'recette_vehicule_id', 'penalite_id', 'chauffeur_id', 'chauffeur_nom', 'vehicule_id',
         'date_recette', 'montant_verse', 'objectif', 'deficit', 'montant_recouvre',
-        'solde', 'statut', 'motif', 'justification_valable', 'observations', 'cree_par',
+        'solde', 'statut', 'type_recouvrement', 'motif', 'justification_valable', 'observations', 'cree_par',
         'motif_annulation', 'annule_par', 'annule_le',
     ];
 
     protected $casts = ['date_recette' => 'date', 'justification_valable' => 'boolean'];
 
     public function recette(): BelongsTo { return $this->belongsTo(RecetteVehicule::class, 'recette_vehicule_id'); }
+    public function penalite(): BelongsTo { return $this->belongsTo(Penalite::class); }
     public function chauffeur(): BelongsTo { return $this->belongsTo(Chauffeur::class); }
     public function vehicule(): BelongsTo { return $this->belongsTo(Vehicule::class); }
     public function versements(): HasMany { return $this->hasMany(VersementRecouvrement::class); }

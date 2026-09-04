@@ -74,6 +74,7 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .gc-item.gc-inactif{opacity:.65;border-left:3px solid var(--gris)}
 .gc-av-off{background:var(--gris)!important;color:#fff!important}
 .gc-item.gc-fait{border-left:3px solid var(--accent)}
+.gc-item.gc-bloque{border-left:3px solid var(--ko);background:#fef2f2;opacity:.7}
 .gc-row{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;user-select:none}
 .gc-row:hover{background:rgba(46,116,181,.04)}
 .gc-avatar{width:36px;height:36px;border-radius:50%;background:var(--fond);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--bleu)}
@@ -347,12 +348,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         $repos = $g['est_repos'];
         $nomCh = $g['chauffeur'] ?: 'Sans chauffeur';
         $chActif = $g['chauffeur_actif'] ?? true;
+        $vehiculePrisPar = $g['vehicule_pris_par'] ?? null;
         $montantAff = $deja ? number_format($rec->recette, 0, ',', ' ') . ' F' : '';
         $ecartOk = $deja && $rec->ecart >= 0;
         $sousObjectif = $deja && $rec->ecart < 0 && $rec->recette > 0;
         $aRecouvrement = $deja && ($recouvrements ?? collect())->where('recette_vehicule_id', $rec->id ?? 0)->where('statut', 'actif')->isNotEmpty();
     @endphp
-    <div class="gc-item {{ $repos ? 'gc-repos' : ($deja ? 'gc-fait' : '') }}{{ !$chActif ? ' gc-inactif' : '' }}" id="gc-{{ $i }}" data-vid="{{ $v->id }}" data-repos="{{ $repos ? '1' : '0' }}" data-objectif="{{ $g['objectif'] }}" data-nom="{{ mb_strtolower($nomCh) }}">
+    <div class="gc-item {{ $repos ? 'gc-repos' : ($deja ? 'gc-fait' : ($vehiculePrisPar ? 'gc-bloque' : '')) }}{{ !$chActif ? ' gc-inactif' : '' }}" id="gc-{{ $i }}" data-vid="{{ $v->id }}" data-repos="{{ $repos ? '1' : '0' }}" data-objectif="{{ $g['objectif'] }}" data-nom="{{ mb_strtolower($nomCh) }}" data-pris="{{ $vehiculePrisPar ? '1' : '0' }}">
         <div class="gc-row" onclick="toggleRecette({{ $i }})">
             <div class="gc-avatar{{ !$chActif ? ' gc-av-off' : '' }}">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -372,7 +374,11 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             @elseif($deja)
             <div class="gc-montant {{ $ecartOk ? 'gc-ok' : 'gc-ko' }}">{{ $montantAff }}</div>
             @else
+            @if($vehiculePrisPar)
+            <span class="pill p-ko" style="font-size:10px">Véh. pris par {{ $vehiculePrisPar }}</span>
+            @else
             <span class="pill p-warn" style="font-size:11px">En attente</span>
+            @endif
             @endif
             <svg class="gc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
@@ -396,6 +402,11 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
             @if($repos)
             <div style="padding:4px 16px 12px;font-size:12px;color:var(--ok);font-weight:600">Repos automatique — recette enregistrée à 0 F</div>
+            @elseif($vehiculePrisPar && !$deja)
+            <div style="padding:8px 16px 12px;font-size:12px;color:#b91c1c;background:#fef2f2;border-radius:6px;margin:4px 16px 8px">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#dc2626" stroke-width="2" style="vertical-align:-2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Ce véhicule est déjà conduit par <strong>{{ $vehiculePrisPar }}</strong> aujourd'hui. Un seul chauffeur par véhicule par jour.
+            </div>
             @else
             <div class="gc-form" style="grid-template-columns:1fr 1fr 1fr auto">
                 <div>
@@ -561,9 +572,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     <div class="panneau" style="overflow-x:auto">
     <table>
-    <thead><tr><th>Véhicule</th><th>Date</th><th>Type</th><th>Chauffeur</th><th>Lieu</th><th>Montant</th><th>Statut</th><th>Paiement</th><th></th></tr></thead>
+    <thead><tr><th>Véhicule</th><th>Date</th><th>Type</th><th>Chauffeur</th><th>Lieu</th><th>Montant</th><th>Payé</th><th>Solde</th><th>Statut</th><th></th></tr></thead>
     <tbody>
     @forelse($penalites as $pen)
+    @php $soldePen = $pen->soldeRestant(); @endphp
     <tr>
         <td><strong>{{ $pen->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $pen->date_infraction->format('d/m/Y') }}</td>
@@ -571,23 +583,39 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>{{ $pen->chauffeur ?? '—' }}</td>
         <td>{{ Str::limit($pen->lieu, 30) ?? '—' }}</td>
         <td style="font-weight:600">{{ number_format($pen->montant, 0, ',', ' ') }}</td>
-        <td><span class="pill {{ $pen->statut === 'payee' ? 'p-ok' : ($pen->statut === 'contestee' ? 'p-warn' : 'p-ko') }}">{{ $pen->statutLabel() }}</span></td>
-        <td>{{ $pen->date_paiement ? $pen->date_paiement->format('d/m/Y') : '—' }}</td>
+        <td style="color:var(--ok)">{{ number_format($pen->montant_paye ?? 0, 0, ',', ' ') }}</td>
+        <td style="font-weight:700;color:{{ $soldePen > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($soldePen, 0, ',', ' ') }} F</td>
+        <td><span class="pill {{ $pen->statut === 'payee' ? 'p-ok' : ($pen->statut === 'en_cours' ? 'p-warn' : ($pen->statut === 'contestee' ? 'p-warn' : 'p-ko')) }}">{{ $pen->statutLabel() }}</span></td>
         <td>
             <div class="act-row">
-                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $pen->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
-                @if($pen->statut !== 'payee')
-                <button class="act-btn" title="Statuer" onclick="statuerPenal({{ $pen->id }})" style="color:var(--accent)">{!! $icWrench !!}</button>
+                @if($pen->statut !== 'payee' && !$estDG)
+                <button class="act-btn" title="Enregistrer un paiement" onclick="ouvrirPaiementPenal({{ $pen->id }}, '{{ addslashes($pen->chauffeur ?? $pen->vehicule->immatriculation) }}', {{ $soldePen }})" style="color:var(--ok)">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                </button>
                 @endif
+                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $pen->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
+                @if(!$estDG)
                 <button class="act-btn" title="Modifier" onclick="editPenal({{ $pen->id }})">{!! $icEdit !!}</button>
                 <form method="POST" action="{{ route('parc.penalites.destroy', $pen) }}" onsubmit="return confirm('Supprimer ?')">@csrf @method('DELETE')
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
+                @endif
             </div>
         </td>
     </tr>
+    {{-- Historique paiements --}}
+    @if($pen->paiements->count())
+    <tr><td colspan="11" style="padding:0">
+        <div style="background:#f0fdf4;padding:6px 16px;font-size:11.5px">
+            <strong style="color:var(--ok)">Paiements :</strong>
+            @foreach($pen->paiements as $pp)
+            <span style="margin-left:8px">{{ $pp->date_paiement->format('d/m') }} — {{ number_format($pp->montant, 0, ',', ' ') }} F ({{ $pp->mode_paiement ? ucfirst(str_replace('_',' ',$pp->mode_paiement)) : '—' }}){{ $pp->recu_par ? ' par '.$pp->recu_par : '' }}</span>{{ !$loop->last ? ' |' : '' }}
+            @endforeach
+        </div>
+    </td></tr>
+    @endif
     @empty
-    <tr><td colspan="9" class="empty-msg">Aucune pénalité enregistrée.</td></tr>
+    <tr><td colspan="11" class="empty-msg">Aucune pénalité enregistrée.</td></tr>
     @endforelse
     </tbody>
     </table>
@@ -613,11 +641,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
     <div style="overflow-x:auto">
     <table>
-    <thead><tr><th>Date</th><th>Chauffeur</th><th>Véhicule</th><th>Objectif</th><th>Versé</th><th>Déficit</th><th>Recouvré</th><th>Solde</th><th>Statut</th><th></th></tr></thead>
+    <thead><tr><th>Date</th><th>Type</th><th>Chauffeur</th><th>Véhicule</th><th>Objectif</th><th>Versé</th><th>Déficit</th><th>Recouvré</th><th>Solde</th><th>Statut</th><th></th></tr></thead>
     <tbody>
     @foreach($recActifs as $rc)
     <tr>
         <td>{{ $rc->date_recette->format('d/m/Y') }}</td>
+        <td><span class="pill {{ ($rc->type_recouvrement ?? 'recette') === 'penalite' ? 'p-ko' : 'p-cours' }}" style="font-size:10px">{{ ($rc->type_recouvrement ?? 'recette') === 'penalite' ? 'Pénalité' : 'Recette' }}</span></td>
         <td><strong>{{ $rc->chauffeur_nom ?? '—' }}</strong></td>
         <td>{{ $rc->vehicule?->immatriculation ?? '—' }}</td>
         <td>{{ number_format($rc->objectif, 0, ',', ' ') }}</td>
@@ -644,7 +673,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </tr>
     {{-- Versements existants --}}
     @if($rc->versements->count())
-    <tr><td colspan="10" style="padding:0">
+    <tr><td colspan="11" style="padding:0">
         <div style="background:#f0fdf4;padding:6px 16px;font-size:11.5px">
             <strong style="color:var(--ok)">Versements :</strong>
             @foreach($rc->versements as $vs)
@@ -720,6 +749,44 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                     <textarea name="observations" rows="2" placeholder="Notes..."></textarea>
                 </div>
                 <button type="submit" class="btn">Enregistrer le versement</button>
+            </div>
+        </form>
+    </dialog>
+
+    {{-- Dialog paiement pénalité --}}
+    <dialog id="dlg-paie-penal" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <h3 id="dlg-pp-titre" style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Paiement pénalité</h3>
+            <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+        </div>
+        <form method="POST" id="form-paie-penal">
+            @csrf
+            <div style="display:grid;gap:12px">
+                <div>
+                    <label>Montant (F)</label>
+                    <input type="number" name="montant" id="pp-montant" required min="1" placeholder="Montant du paiement">
+                    <div id="pp-solde-info" style="font-size:11px;color:var(--gris);margin-top:2px"></div>
+                </div>
+                <div>
+                    <label>Date paiement</label>
+                    <input type="date" name="date_paiement" id="pp-date" value="{{ date('Y-m-d') }}" required>
+                </div>
+                <div>
+                    <label>Mode de paiement</label>
+                    <select name="mode_paiement">
+                        <option value="">—</option>
+                        <option value="especes">Espèces</option>
+                        <option value="mobile_money">Mobile Money</option>
+                        <option value="cheque">Chèque</option>
+                        <option value="virement">Virement</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Observations</label>
+                    <textarea name="observations" rows="2" placeholder="Notes..."></textarea>
+                </div>
+                <button type="submit" class="btn">Enregistrer le paiement</button>
             </div>
         </form>
     </dialog>
@@ -1034,7 +1101,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="form-row3">
         <div><label>Statut <span class="req">*</span></label>
             <select name="statut" id="sp-statut" required>
-                <option value="non_payee">Non payée</option><option value="payee">Payée</option><option value="contestee">Contestée</option>
+                <option value="non_payee">Non payée</option><option value="en_cours">En cours</option><option value="payee">Payée</option><option value="contestee">Contestée</option>
             </select>
         </div>
         <div><label>Date paiement</label><input type="date" name="date_paiement" id="sp-dpay"></div>
@@ -1470,6 +1537,8 @@ function recetteChange(idx){
 function validerLigne(idx){
     var item=document.getElementById('gc-'+idx);
     if(!item) return;
+    // Bloquer si véhicule pris par un autre chauffeur
+    if(item.getAttribute('data-pris')==='1'){alert('Ce véhicule est déjà conduit par un autre chauffeur aujourd\'hui.');return;}
     var vid=item.getAttribute('data-vid');
     var repos=item.getAttribute('data-repos')==='1';
     var objectif=parseFloat(item.getAttribute('data-objectif'))||0;
@@ -1501,6 +1570,16 @@ function validerLigne(idx){
     var motifModif=document.getElementById('gr-motif-modif-'+idx);
     document.getElementById('gi-motif-modif').value=motifModif?motifModif.value:'';
     document.getElementById('form-grille-ind').submit();
+}
+
+function ouvrirPaiementPenal(penId, chauffeur, solde){
+    document.getElementById('dlg-pp-titre').textContent='Paiement — '+chauffeur;
+    document.getElementById('form-paie-penal').action='{{ url("parc/penalites") }}/'+penId+'/paiement';
+    document.getElementById('pp-montant').max=solde;
+    document.getElementById('pp-montant').value='';
+    document.getElementById('pp-solde-info').textContent='Solde restant : '+solde.toLocaleString('fr-FR')+' F';
+    document.getElementById('pp-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('dlg-paie-penal').showModal();
 }
 
 function ouvrirVersement(recId, chauffeur, solde){

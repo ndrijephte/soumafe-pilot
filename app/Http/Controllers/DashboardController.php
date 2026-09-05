@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{ArbitrageT3, Chauffeur, ConfirmationTache, Evenement, MaintenancePreventive, Panne, Penalite, Pointage, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
+use App\Models\{ArbitrageT3, Chauffeur, ConfirmationTache, Evenement, MaintenancePreventive, Objectif, Panne, Penalite, Pointage, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -49,6 +49,16 @@ class DashboardController extends Controller
         $estJourOuvre = !today()->isWeekend() && !JourFerie::whereDate('date', today())->exists();
         if (!$aSaisiAujourdhui && $estJourOuvre) {
             $alertes[] = ['type' => 'info', 'msg' => 'Aucune tâche saisie aujourd\'hui.'];
+        }
+
+        // Alertes objectifs
+        if (Schema::hasTable('objectifs')) {
+            $objUser = Objectif::where('user_id', $userId)->where('avancement', '<', 100)->get();
+            foreach ($objUser as $obj) {
+                foreach ($obj->alertes() as $al) {
+                    $alertes[] = ['type' => $al['type'] === 'retard' ? 'ko' : 'warn', 'msg' => "[Obj] {$al['msg']} — {$obj->libelle}"];
+                }
+            }
         }
 
         $termineesSemaine = Tache::where('user_id', $userId)->where('statut', 'termine')
@@ -386,6 +396,16 @@ class DashboardController extends Controller
         if ($sansSaisieHier > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$sansSaisieHier} collaborateur(s) sans saisie hier."];
         if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s) sur tous les projets."];
         if ($enRetard > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$enRetard} tâche(s) en retard."];
+
+        // Alertes objectifs (DG)
+        if (Schema::hasTable('objectifs')) {
+            $objRetard = Objectif::where('avancement', '<', 100)->get();
+            $countRetard = 0;
+            foreach ($objRetard as $obj) {
+                if ($obj->date_echeance && $obj->date_echeance->isPast()) $countRetard++;
+            }
+            if ($countRetard > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$countRetard} objectif(s) en retard d'échéance."];
+        }
 
         $arbitragesEnAttente = ArbitrageT3::where('decision', 'en_attente')->count();
 

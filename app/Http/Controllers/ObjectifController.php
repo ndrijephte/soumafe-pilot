@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{Objectif, Projet, User};
+use App\Models\{Objectif, Projet, ResultatCle, Tache, User};
 use App\Services\LecteurXlsx;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -16,6 +16,33 @@ class ObjectifController extends Controller
         $projets = Projet::where('statut', 'actif')->orderBy('libelle')->get();
         $hasType = Schema::hasColumn('objectifs', 'type');
 
+        $hasKR = Schema::hasTable('resultats_cles');
+        $hasHist = Schema::hasTable('historique_avancement');
+        $hasPivot = Schema::hasTable('objectif_tache');
+        $hasParent = Schema::hasColumn('objectifs', 'parent_id');
+
+        // Eager-load relations v2
+        $eagerLoad = ['user', 'projet'];
+        if ($hasKR) $eagerLoad[] = 'resultats';
+        if ($hasHist) $eagerLoad[] = 'historique';
+        if ($hasPivot) $eagerLoad[] = 'tachesLiees';
+        if ($hasParent) { $eagerLoad[] = 'enfants'; $eagerLoad[] = 'parent'; }
+
+        // Toutes les tâches actives pour le formulaire liaison
+        $tachesActives = collect();
+        if ($hasPivot) {
+            $tachesActives = Tache::whereIn('statut', ['a_faire','en_cours','en_revue'])
+                ->orderBy('intitule')->get(['id','intitule','statut','projet_id']);
+        }
+
+        // Objectifs parents possibles pour cascade
+        $objectifsParents = collect();
+        if ($hasParent) {
+            $objectifsParents = Objectif::where('periode', $periode)
+                ->whereNull('parent_id')
+                ->orderBy('libelle')->get(['id','libelle','type']);
+        }
+
         // Pilote (charge_operations, direction, admin) = vue complète
         if ($user->estPilote()) {
             $filtreUser = $r->get('user_id');
@@ -24,47 +51,42 @@ class ObjectifController extends Controller
                 ->whereNotIn('role', ['invite', 'direction'])
                 ->orderBy('name')->get();
 
-            // Individuels
-            $qI = Objectif::with(['user', 'projet'])->where('periode', $periode);
-            if ($hasType) $qI->where('type', 'individuel');
-            if ($filtreUser) $qI->where('user_id', $filtreUser);
-            if ($filtreProjet) $qI->where('projet_id', $filtreProjet);
-            $objectifsIndiv = $qI->orderBy('user_id')->orderByDesc('ponderation')->get();
-            $parCollab = $objectifsIndiv->groupBy('user_id');
+            // Tous les objectifs (individuel + projet) — vue unifiée par collaborateur
+            $q = Objectif::with($eagerLoad)->where('periode', $periode);
+            if ($filtreUser) $q->where('user_id', $filtreUser);
+            if ($filtreProjet) $q->where('projet_id', $filtreProjet);
+            $tousObjectifs = $q->orderBy('user_id')->orderByDesc('ponderation')->get();
+            $parCollab = $tousObjectifs->groupBy('user_id');
 
-            // Projet
-            $objectifsProjet = collect();
-            $parProjet = collect();
-            if ($hasType) {
-                $qP = Objectif::with('projet')->where('periode', $periode)->where('type', 'projet');
-                if ($filtreProjet) $qP->where('projet_id', $filtreProjet);
-                $objectifsProjet = $qP->orderBy('projet_id')->orderByDesc('ponderation')->get();
-                $parProjet = $objectifsProjet->groupBy('projet_id');
+            $scoreEquipe = Objectif::scoreGroupe($tousObjectifs);
+
+            // Alertes agrégées
+            $alertesObj = [];
+            foreach ($tousObjectifs as $obj) {
+                foreach ($obj->alertes() as $a) {
+                    $alertesObj[] = array_merge($a, ['objectif' => $obj->libelle, 'user' => $obj->user?->nomComplet()]);
+                }
             }
 
-            $scoreEquipe = Objectif::scoreGroupe($objectifsIndiv->merge($objectifsProjet));
-
             return view('objectifs.index', compact(
-                'objectifsIndiv', 'objectifsProjet', 'parCollab', 'parProjet',
+                'tousObjectifs', 'parCollab',
                 'collaborateurs', 'projets', 'moisMenu', 'periode',
-                'filtreUser', 'filtreProjet', 'scoreEquipe'
+                'filtreUser', 'filtreProjet', 'scoreEquipe',
+                'tachesActives', 'objectifsParents', 'alertesObj',
+                'hasKR', 'hasHist', 'hasPivot', 'hasParent'
             ));
         }
 
-        // Collaborateur
-        $qMes = Objectif::with('projet')->where('user_id', $user->id)->where('periode', $periode);
-        if ($hasType) $qMes->where('type', 'individuel');
-        $mesIndiv = $qMes->orderByDesc('ponderation')->get();
+        // Collaborateur — vue unifiée (individuel + projet)
+        $mesObjectifs = Objectif::with($eagerLoad)
+            ->where('user_id', $user->id)
+            ->where('periode', $periode)
+            ->orderByDesc('ponderation')->get();
 
-        $objProjets = collect();
-        if ($hasType) {
-            $mesProjetsIds = $user->taches()->distinct()->pluck('projet_id')->filter();
-            $objProjets = Objectif::with('projet')->where('type', 'projet')
-                ->where('periode', $periode)->whereIn('projet_id', $mesProjetsIds)
-                ->orderByDesc('ponderation')->get();
-        }
-
-        return view('objectifs.index', compact('mesIndiv', 'objProjets', 'projets', 'moisMenu', 'periode'));
+        return view('objectifs.index', compact(
+            'mesObjectifs', 'projets', 'moisMenu', 'periode',
+            'hasKR', 'hasHist', 'hasPivot', 'hasParent'
+        ));
     }
 
     public function store(Request $r)
@@ -85,8 +107,8 @@ class ObjectifController extends Controller
         if ($hasDateDebut) $rules['date_debut'] = 'required|date';
         if ($hasDateEcheance) $rules['date_echeance'] = 'required|date' . ($hasDateDebut ? '|after_or_equal:date_debut' : '');
 
+        $rules['user_id'] = 'required|exists:users,id';
         if ($type === 'individuel') {
-            $rules['user_id'] = 'required|exists:users,id';
             $rules['projet_id'] = 'nullable|exists:projets,id';
         } else {
             $rules['projet_id'] = 'required|exists:projets,id';
@@ -103,7 +125,7 @@ class ObjectifController extends Controller
         }
 
         $data = [
-            'user_id' => $type === 'individuel' ? $r->user_id : $r->user()->id,
+            'user_id' => $r->user_id,
             'projet_id' => $r->projet_id ?: null,
             'source' => 'pilote',
             'libelle' => $r->libelle,
@@ -113,6 +135,8 @@ class ObjectifController extends Controller
         if ($hasType) $data['type'] = $type;
         if ($hasDateDebut) $data['date_debut'] = $r->date_debut;
         if ($hasDateEcheance) $data['date_echeance'] = $r->date_echeance;
+        if (Schema::hasColumn('objectifs', 'parent_id') && $r->parent_id) $data['parent_id'] = $r->parent_id;
+        if (Schema::hasColumn('objectifs', 'priorite') && $r->priorite) $data['priorite'] = $r->priorite;
 
         try {
             Objectif::create($data);
@@ -128,11 +152,22 @@ class ObjectifController extends Controller
         $user = $r->user();
         $hasEval = Schema::hasColumn('objectifs', 'evaluation');
 
+        // Auto-évaluation collaborateur
+        if (!$user->estPilote() && $r->has('note_auto')) {
+            abort_unless((int) $objectif->user_id === (int) $user->id, 403);
+            $r->validate(['note_auto' => 'required|integer|min:1|max:5', 'commentaire_auto' => 'nullable|string|max:500']);
+            $upd = ['note_auto' => $r->note_auto];
+            if (Schema::hasColumn('objectifs', 'commentaire_auto')) $upd['commentaire_auto'] = $r->commentaire_auto;
+            $objectif->update($upd);
+            return back()->with('succes', 'Auto-évaluation enregistrée.');
+        }
+
         if (!$user->estPilote()) {
             abort_unless((int) $objectif->user_id === (int) $user->id, 403);
             $r->validate(['avancement' => 'required|integer|min:0|max:100']);
             $avanc = (int) $r->avancement;
             $objectif->update(['avancement' => $avanc]);
+            $objectif->snapshotHistorique('manuel');
             if ($hasEval) {
                 $objectif->refresh();
                 $objectif->update(['evaluation' => $objectif->evaluerAuto()]);
@@ -169,14 +204,28 @@ class ObjectifController extends Controller
         $cols = ['libelle', 'projet_id', 'ponderation', 'avancement', 'statut_validation', 'commentaire_pilote'];
         if ($hasDateDebut) $cols[] = 'date_debut';
         if ($hasDateEcheance) $cols[] = 'date_echeance';
+        if (Schema::hasColumn('objectifs', 'priorite')) $cols[] = 'priorite';
+        if (Schema::hasColumn('objectifs', 'parent_id')) $cols[] = 'parent_id';
+        if (Schema::hasColumn('objectifs', 'note_pilote')) $cols[] = 'note_pilote';
         $data = $r->only($cols);
         $data['projet_id'] = $data['projet_id'] ?: null;
+        $data['parent_id'] = $data['parent_id'] ?? null ?: null;
         if ($hasEval) $data['evaluation'] = $r->evaluation ?: $objectif->evaluerAuto();
+        if (Schema::hasColumn('objectifs', 'date_evaluation') && $r->note_pilote) {
+            $data['date_evaluation'] = now()->toDateString();
+        }
+
+        $ancienAvanc = $objectif->avancement;
 
         try {
             $objectif->update($data);
         } catch (\Illuminate\Database\QueryException $e) {
             return back()->with('erreur', 'Erreur base de données — exécutez "php artisan migrate". Détail : ' . $e->getMessage())->withInput();
+        }
+
+        // Snapshot historique si avancement a changé
+        if (isset($data['avancement']) && (int)$data['avancement'] !== $ancienAvanc) {
+            $objectif->snapshotHistorique('manuel');
         }
 
         return back()->with('succes', 'Objectif mis à jour.');
@@ -333,6 +382,132 @@ class ObjectifController extends Controller
         }
 
         return back()->with($importees > 0 ? 'succes' : 'erreur', $msg);
+    }
+
+    // ==================== RÉSULTATS CLÉS ====================
+
+    public function storeKR(Request $r, Objectif $objectif)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $r->validate([
+            'libelle' => 'required|string|max:255',
+            'type_mesure' => 'required|in:pourcentage,nombre,binaire,monnaie',
+            'valeur_cible' => 'required|numeric|min:0',
+            'unite' => 'nullable|string|max:30',
+            'poids' => 'required|integer|min:1|max:100',
+        ]);
+
+        $ordre = $objectif->resultats()->count();
+
+        try {
+            $objectif->resultats()->create([
+                'libelle' => $r->libelle,
+                'type_mesure' => $r->type_mesure,
+                'valeur_cible' => $r->valeur_cible,
+                'unite' => $r->unite,
+                'poids' => $r->poids,
+                'ordre' => $ordre,
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return back()->with('erreur', 'Erreur — exécutez php artisan migrate. ' . $e->getMessage());
+        }
+
+        return back()->with('succes', 'Résultat clé ajouté.');
+    }
+
+    public function updateKR(Request $r, ResultatCle $kr)
+    {
+        abort_unless($r->user()->estPilote() || (int) $kr->objectif->user_id === (int) $r->user()->id, 403);
+
+        // Collaborateur : ne peut mettre à jour que la valeur actuelle
+        if (!$r->user()->estPilote()) {
+            $r->validate(['valeur_actuelle' => 'required|numeric|min:0']);
+            $kr->update(['valeur_actuelle' => $r->valeur_actuelle]);
+            $kr->objectif->syncAvancementKR();
+            return back()->with('succes', 'Progression mise à jour.');
+        }
+
+        $r->validate([
+            'libelle' => 'required|string|max:255',
+            'type_mesure' => 'required|in:pourcentage,nombre,binaire,monnaie',
+            'valeur_cible' => 'required|numeric|min:0',
+            'valeur_actuelle' => 'required|numeric|min:0',
+            'unite' => 'nullable|string|max:30',
+            'poids' => 'required|integer|min:1|max:100',
+        ]);
+
+        $kr->update($r->only(['libelle', 'type_mesure', 'valeur_cible', 'valeur_actuelle', 'unite', 'poids']));
+        $kr->objectif->syncAvancementKR();
+
+        return back()->with('succes', 'Résultat clé mis à jour.');
+    }
+
+    public function destroyKR(Request $r, ResultatCle $kr)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        $objectif = $kr->objectif;
+        $kr->delete();
+        $objectif->syncAvancementKR();
+        return back()->with('succes', 'Résultat clé supprimé.');
+    }
+
+    // ==================== LIAISON TÂCHES ====================
+
+    public function lierTache(Request $r, Objectif $objectif)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['tache_id' => 'required|exists:taches,id']);
+
+        if ($objectif->tachesLiees()->where('tache_id', $r->tache_id)->exists()) {
+            return back()->with('erreur', 'Cette tâche est déjà liée à cet objectif.');
+        }
+
+        $objectif->tachesLiees()->attach($r->tache_id);
+        return back()->with('succes', 'Tâche liée à l\'objectif.');
+    }
+
+    public function delierTache(Request $r, Objectif $objectif, Tache $tache)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $objectif->tachesLiees()->detach($tache->id);
+        return back()->with('succes', 'Tâche retirée de l\'objectif.');
+    }
+
+    // ==================== VALIDATION INDICATEURS KPI ====================
+
+    public function validerIndicateur(Request $r, ResultatCle $kr)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $r->validate(['valide' => 'required|in:0,1']);
+
+        $kr->update([
+            'valide' => (bool) $r->valide,
+            'date_validation' => now()->toDateString(),
+        ]);
+
+        // Recalculer le verdict de l'objectif parent
+        $objectif = $kr->objectif;
+        $verdict = $objectif->verdictDepuisIndicateurs();
+        if ($verdict !== 'en_cours' && $objectif->evaluation !== $verdict) {
+            $objectif->update(['evaluation' => $verdict]);
+        }
+        // Sync avancement pondéré
+        $objectif->syncAvancementKR();
+
+        $label = $r->valide ? 'atteint' : 'non atteint';
+        return back()->with('succes', "Indicateur marqué « {$label} ».");
+    }
+
+    public function resetIndicateur(Request $r, ResultatCle $kr)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $kr->update(['valide' => null, 'date_validation' => null]);
+
+        $objectif = $kr->objectif;
+        $objectif->update(['evaluation' => $objectif->verdictDepuisIndicateurs()]);
+
+        return back()->with('succes', 'Validation de l\'indicateur réinitialisée.');
     }
 
     private function chercher(array $row, array $cles): ?string

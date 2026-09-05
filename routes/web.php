@@ -79,6 +79,21 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/objectifs/{objectif}', [ObjectifController::class, 'destroy'])->name('objectifs.destroy');
     Route::post('/objectifs/evaluer', [ObjectifController::class, 'evaluer'])->name('objectifs.evaluer');
 
+    // Résultats clés (KR)
+    Route::post('/objectifs/{objectif}/kr', [ObjectifController::class, 'storeKR'])->name('objectifs.kr.store');
+    Route::put('/kr/{kr}', [ObjectifController::class, 'updateKR'])->name('objectifs.kr.update');
+    Route::delete('/kr/{kr}', [ObjectifController::class, 'destroyKR'])->name('objectifs.kr.destroy');
+
+    // Liaison tâches ↔ objectifs
+    Route::post('/objectifs/{objectif}/taches', [ObjectifController::class, 'lierTache'])->name('objectifs.taches.lier');
+    Route::delete('/objectifs/{objectif}/taches/{tache}', [ObjectifController::class, 'delierTache'])->name('objectifs.taches.delier');
+
+    // Auto-évaluation / évaluation pilote
+    Route::post('/objectifs/{objectif}/auto-evaluer', [ObjectifController::class, 'autoEvaluer'])->name('objectifs.autoEvaluer');
+    Route::post('/objectifs/{objectif}/evaluer-pilote', [ObjectifController::class, 'evaluerPilote'])->name('objectifs.evaluerPilote');
+    Route::put('/kr/{kr}/valider', [ObjectifController::class, 'validerIndicateur'])->name('objectifs.kr.valider');
+    Route::put('/kr/{kr}/reset-validation', [ObjectifController::class, 'resetIndicateur'])->name('objectifs.kr.resetValidation');
+
     // Reporting (pilotes)
     Route::get('/reporting', [ReportingController::class, 'index'])->name('reporting.index');
     Route::get('/reporting/imprimer', [ReportingController::class, 'imprimer'])->name('reporting.imprimer');

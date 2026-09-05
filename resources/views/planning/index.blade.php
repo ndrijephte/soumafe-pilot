@@ -26,7 +26,7 @@
 .type-card .tc-info{flex:1;min-width:0}
 .type-card .tc-nom{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .type-card .tc-meta{font-size:10px;color:var(--gris);margin-top:2px;display:flex;align-items:center;gap:4px}
-.type-card .tc-rec{font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;color:#fff}
+.type-card .tc-rec{font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;color:var(--accent)}
 .type-card .tc-roles{font-size:10px;color:var(--gris)}
 
 /* Tableau planning */
@@ -42,7 +42,7 @@
 .type-header .th-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none}
 .type-header .th-info{flex:1}
 .type-header .th-nom{font-size:16px;font-weight:700}
-.type-header .th-rec{font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;color:#fff;margin-left:6px}
+.type-header .th-rec{font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;color:var(--accent);margin-left:6px}
 
 /* Cellule affectation */
 .cell-aff{display:flex;flex-direction:column;align-items:center;gap:3px}
@@ -131,7 +131,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         <div class="tc-info">
             <div class="tc-nom">{{ $t->libelle }}</div>
             <div class="tc-meta">
-                <span class="tc-rec" style="background:var(--accent)">{{ $t->recurrenceLabel() }}</span>
+                <span class="tc-rec" style="background:rgba(46,116,181,.1)">{{ $t->recurrenceLabel() }}</span>
                 <span class="tc-roles">{{ $t->roles->count() }} rôles</span>
             </div>
         </div>
@@ -168,7 +168,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         </div>
         <div class="th-info">
             <span class="th-nom" style="color:var(--bleu)">{{ $type->libelle }}</span>
-            <span class="th-rec" style="background:var(--accent)">{{ $type->recurrenceLabel() }}</span>
+            <span class="th-rec" style="background:rgba(46,116,181,.1)">{{ $type->recurrenceLabel() }}</span>
         </div>
     </div>
 
@@ -312,8 +312,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
     @endif
 </div>
 
-{{-- Admin rôles --}}
-@if($estGestionnaire)
+{{-- Rôles (consultation pour tous, modification admin/charge_ops) --}}
 <div class="panneau" style="margin-top:16px">
     <h3>
         {!! $ic('<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>') !!}
@@ -328,11 +327,12 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         <span style="color:var(--gris);font-size:12px">Aucun rôle</span>
         @endforelse
     </div>
+    @if($estGestionnaire)
     <button class="btn sm sec" onclick="document.getElementById('dlg-role').showModal()">
         {!! $ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',14) !!} Nouveau rôle
     </button>
+    @endif
 </div>
-@endif
 
 @else
 <div class="panneau">

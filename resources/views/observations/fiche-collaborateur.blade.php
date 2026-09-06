@@ -98,13 +98,15 @@
 @php $s = $data['stats']; @endphp
 <div class="kpis">
     <div class="kpi"><div class="val">{{ $s['taches_total'] }}</div><div class="lbl">Tâches</div></div>
-    <div class="kpi"><div class="val" style="color:var(--ok)">{{ $s['taches_terminees'] }}</div><div class="lbl">Terminées</div></div>
+    <div class="kpi"><div class="val" style="color:var(--ok)">{{ $s['taux_completion'] }}%</div><div class="lbl">Complétion</div></div>
     <div class="kpi"><div class="val" style="color:var(--ko)">{{ $s['taches_retard'] }}</div><div class="lbl">En retard</div></div>
-    <div class="kpi"><div class="val">{{ $s['obj_total'] }}</div><div class="lbl">Objectifs</div></div>
-    <div class="kpi"><div class="val" style="color:var(--accent)">{{ $s['obj_score'] }}%</div><div class="lbl">Score obj.</div></div>
-    <div class="kpi"><div class="val">{{ $s['obs_total'] }}</div><div class="lbl">Observations</div></div>
+    <div class="kpi"><div class="val" style="color:var(--accent)">{{ $s['productivite'] }}</div><div class="lbl">Productivité/j</div></div>
+    <div class="kpi"><div class="val" style="color:var(--accent)">{{ $s['obj_score'] }}%</div><div class="lbl">Score OKR</div></div>
+    <div class="kpi"><div class="val">{{ $s['kr_atteints'] }}/{{ $s['kr_total'] }}</div><div class="lbl">KR atteints</div></div>
     <div class="kpi"><div class="val" style="color:var(--ok)">{{ $s['jours_presents'] }}</div><div class="lbl">Jours présent</div></div>
     <div class="kpi"><div class="val" style="color:var(--ko)">{{ $s['retards'] }}</div><div class="lbl">Retards</div></div>
+    <div class="kpi"><div class="val">{{ $s['obs_total'] }}</div><div class="lbl">Observations</div></div>
+    <div class="kpi"><div class="val">{{ $s['reunions_total'] }}</div><div class="lbl">Réunions</div></div>
 </div>
 
 <div class="section-grid">
@@ -137,19 +139,22 @@
         <p style="color:var(--gris);font-size:12px;text-align:center;padding:10px 0">Aucun objectif sur cette période.</p>
     @else
     <table class="mini-table">
-        <thead><tr><th>Libellé</th><th>Projet</th><th>Avancement</th><th>Évaluation</th></tr></thead>
+        <thead><tr><th>Libellé</th><th>Projet</th><th>Pond.</th><th>KR</th><th>Verdict</th></tr></thead>
         <tbody>
         @foreach($data['objectifs'] as $obj)
+        @php
+            $verdict = $obj->evaluerAuto();
+            $badgeV = match($verdict) { 'atteint' => 'b-ok', 'partiel' => 'b-warn', 'non_atteint' => 'b-ko', default => 'b-gris' };
+            $labelV = match($verdict) { 'atteint' => 'Atteint', 'partiel' => 'Partiel', 'non_atteint' => 'Non atteint', default => 'En cours' };
+            $krCount = $obj->resultats->count();
+            $krOk = $obj->resultats->where('valide', true)->count();
+        @endphp
         <tr>
             <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $obj->libelle }}">{{ $obj->libelle }}</td>
             <td style="font-size:11px">{{ $obj->projet?->code ?? '—' }}</td>
-            <td>
-                <div style="display:flex;align-items:center;gap:6px">
-                    <div style="flex:1;background:#e5e7eb;height:6px;border-radius:3px;min-width:40px"><div style="height:100%;border-radius:3px;background:{{ $obj->avancement >= 100 ? 'var(--ok)' : ($obj->avancement >= 50 ? 'var(--accent)' : 'var(--ko)') }};width:{{ min(100, $obj->avancement) }}%"></div></div>
-                    <span style="font-size:11px;font-weight:600">{{ $obj->avancement }}%</span>
-                </div>
-            </td>
-            <td><span class="badge {{ $obj->avancement >= 100 ? 'b-ok' : ($obj->avancement >= 50 ? 'b-warn' : 'b-ko') }}">{{ $obj->evaluerAuto() }}</span></td>
+            <td style="text-align:center;font-size:11px;font-weight:600">{{ $obj->ponderation }}%</td>
+            <td style="text-align:center;font-size:11px">@if($krCount) {{ $krOk }}/{{ $krCount }} @else — @endif</td>
+            <td><span class="badge {{ $badgeV }}">{{ $labelV }}</span></td>
         </tr>
         @endforeach
         </tbody>
@@ -200,6 +205,31 @@
     </table>
     @if($data['pointages']->count() > 20)
     <p style="color:var(--gris);font-size:11px;text-align:center;margin-top:6px">+ {{ $data['pointages']->count() - 20 }} autres jours</p>
+    @endif
+    @endif
+</div>
+
+{{-- Planning réunions --}}
+<div class="panneau" style="overflow-x:auto">
+    <h3>{!! $ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>') !!} Réunions ({{ $data['reunions']->count() }})</h3>
+    @if($data['reunions']->isEmpty())
+        <p style="color:var(--gris);font-size:12px;text-align:center;padding:10px 0">Aucune réunion sur cette période.</p>
+    @else
+    <table class="mini-table">
+        <thead><tr><th>Date</th><th>Type</th><th>Rôle</th><th>Statut</th></tr></thead>
+        <tbody>
+        @foreach($data['reunions']->take(20) as $reu)
+        <tr>
+            <td style="font-size:11px;white-space:nowrap">{{ $reu->date_reunion->format('d/m/Y') }}</td>
+            <td style="font-size:11px">{{ $reu->typeReunion?->libelle ?? '—' }}</td>
+            <td style="font-size:11px">{{ $reu->role?->libelle ?? '—' }}</td>
+            <td><span class="badge {{ match($reu->statut) { 'present' => 'b-ok', 'absent' => 'b-ko', 'remplace' => 'b-warn', default => 'b-info' } }}">{{ $reu->statutLabel() }}</span></td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+    @if($data['reunions']->count() > 20)
+    <p style="color:var(--gris);font-size:11px;text-align:center;margin-top:6px">+ {{ $data['reunions']->count() - 20 }} autres</p>
     @endif
     @endif
 </div>

@@ -523,6 +523,42 @@
 </div>
 @endif
 
+{{-- ═══ PERFORMANCE OKR ═══ --}}
+@if($okrGestionnaire || $okrChauffeurs->isNotEmpty())
+<div class="rp-section" style="margin-bottom:18px">
+    <h3>{!! $ico('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>') !!} Performance OKR — {{ \Carbon\Carbon::parse($periodeOkr.'-01')->translatedFormat('F Y') }}</h3>
+
+    @if($okrGestionnaire)
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">
+        <div class="rp-kpi"><div class="rp-kpi-val" style="color:{{ $okrGestionnaire['score']>=80?'var(--ok)':($okrGestionnaire['score']>=50?'var(--warn)':'var(--ko)') }}">{{ $okrGestionnaire['score'] }}%</div><div class="rp-kpi-lab">Mon score OKR</div></div>
+        <div class="rp-kpi"><div class="rp-kpi-val">{{ $okrGestionnaire['total'] }}</div><div class="rp-kpi-lab">Objectifs</div></div>
+        <div class="rp-kpi"><div class="rp-kpi-val" style="color:var(--ok)">{{ $okrGestionnaire['atteints'] }}</div><div class="rp-kpi-lab">Atteints</div></div>
+        <div class="rp-kpi"><div class="rp-kpi-val" style="color:var(--warn)">{{ $okrGestionnaire['partiels'] }}</div><div class="rp-kpi-lab">Partiels</div></div>
+        <div class="rp-kpi"><div class="rp-kpi-val" style="color:var(--gris)">{{ $okrGestionnaire['en_cours'] }}</div><div class="rp-kpi-lab">En cours</div></div>
+    </div>
+    @endif
+
+    @if($okrChauffeurs->isNotEmpty())
+    <h4 style="font-size:12.5px;color:var(--bleu);margin:10px 0 6px">OKR Chauffeurs</h4>
+    <table class="rp-tbl">
+        <thead><tr><th>Chauffeur</th><th class="num">Score</th><th class="num">Objectifs</th><th class="num">Atteints</th></tr></thead>
+        <tbody>
+        @foreach($okrChauffeurs as $oc)
+        <tr>
+            <td style="font-weight:600">{{ $oc['nom'] }}</td>
+            <td class="num" style="font-weight:700;color:{{ $oc['score']>=80?'var(--ok)':($oc['score']>=50?'var(--warn)':'var(--ko)') }}">{{ $oc['score'] }}%</td>
+            <td class="num">{{ $oc['total'] }}</td>
+            <td class="num" style="color:var(--ok)">{{ $oc['atteints'] }}</td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+    @elseif($okrGestionnaire)
+    <p style="color:var(--gris);font-size:12px;margin-top:8px">Aucun chauffeur n'a d'objectifs OKR pour cette p&eacute;riode.</p>
+    @endif
+</div>
+@endif
+
 {{-- ═══ PERFORMANCE CHAUFFEURS ═══ --}}
 <div class="rp-section">
     <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/>') !!} Performance des chauffeurs</h3>

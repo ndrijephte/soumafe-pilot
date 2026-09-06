@@ -42,8 +42,8 @@
 <h2>Bonjour, {{ auth()->user()->prenom ?? auth()->user()->name }}</h2>
 <div class="crumb">{{ now()->translatedFormat('l j F Y') }} &mdash; Pilotage des op&eacute;rations</div>
 
-{{-- Bannière pointage --}}
-@if(isset($monPointage))
+{{-- Bannière pointage (masquée les jours non ouvrés) --}}
+@if(($pointageActif ?? true) && isset($monPointage))
 @php $dejaArrive = $monPointage && $monPointage->heure_arrivee; $dejaParti = $monPointage && $monPointage->heure_depart; @endphp
 <div style="display:flex;align-items:center;justify-content:space-between;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:12px 18px;margin-bottom:14px;gap:12px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:10px">
@@ -68,7 +68,7 @@
         @endif
     </div>
 </div>
-@elseif(\Illuminate\Support\Facades\Schema::hasTable('pointages'))
+@elseif(($pointageActif ?? true) && \Illuminate\Support\Facades\Schema::hasTable('pointages'))
 <div style="display:flex;align-items:center;justify-content:space-between;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:12px 18px;margin-bottom:14px;gap:12px;flex-wrap:wrap">
     <div style="display:flex;align-items:center;gap:10px">
         <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#dbeafe,#eff6ff);display:flex;align-items:center;justify-content:center">

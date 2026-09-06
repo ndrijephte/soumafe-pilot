@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, Depense, MaintenancePreventive, Panne, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
+use App\Models\{AuditLog, Chauffeur, Depense, MaintenancePreventive, Objectif, Panne, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -231,6 +231,43 @@ class ReportingParcController extends Controller
                 ->orderByDesc('created_at')->take(20)->get();
         }
 
+        // ═══════ PERFORMANCE OKR (gestionnaire + chauffeurs) ═══════
+        $okrGestionnaire = null;
+        $okrChauffeurs = collect();
+        $periodeOkr = now()->format('Y-m');
+        if (Schema::hasTable('objectifs') && Schema::hasColumn('objectifs', 'type')) {
+            $eagerOkr = ['resultats'];
+            // Score OKR du gestionnaire connecté
+            $mesObj = Objectif::with($eagerOkr)->where('user_id', $r->user()->id)
+                ->where('periode', $periodeOkr)->get();
+            if ($mesObj->isNotEmpty()) {
+                $okrGestionnaire = [
+                    'score' => Objectif::scoreGroupe($mesObj),
+                    'total' => $mesObj->count(),
+                    'atteints' => $mesObj->where('evaluation', 'atteint')->count(),
+                    'partiels' => $mesObj->where('evaluation', 'partiel')->count(),
+                    'en_cours' => $mesObj->whereIn('evaluation', ['en_cours', null])->count(),
+                ];
+            }
+            // Scores OKR des chauffeurs (via users liés aux chauffeurs)
+            if (Schema::hasTable('chauffeurs')) {
+                $chauffeursActifs = Chauffeur::where('statut', 'actif')->get();
+                foreach ($chauffeursActifs as $ch) {
+                    if (!$ch->user_id) continue;
+                    $objCh = Objectif::with($eagerOkr)->where('user_id', $ch->user_id)
+                        ->where('periode', $periodeOkr)->get();
+                    if ($objCh->isEmpty()) continue;
+                    $okrChauffeurs->push([
+                        'nom' => $ch->nomComplet(),
+                        'score' => Objectif::scoreGroupe($objCh),
+                        'total' => $objCh->count(),
+                        'atteints' => $objCh->where('evaluation', 'atteint')->count(),
+                    ]);
+                }
+                $okrChauffeurs = $okrChauffeurs->sortByDesc('score')->values();
+            }
+        }
+
         // ═══════ CLASSEMENT VÉHICULES (performance globale) ═══════
         $classement = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
             $rec = RecetteVehicule::where('vehicule_id', $v->id)
@@ -337,7 +374,8 @@ class ReportingParcController extends Controller
             'tousVehicules', 'tousChauffeurs',
             'filtreVehicule', 'filtreChauffeur',
             'detailJour', 'filtreNom',
-            'depensesTotal', 'depensesJour', 'depVehJour', 'depensesType', 'typesDepenseLabels', 'rentabilite'
+            'depensesTotal', 'depensesJour', 'depVehJour', 'depensesType', 'typesDepenseLabels', 'rentabilite',
+            'okrGestionnaire', 'okrChauffeurs', 'periodeOkr'
         ));
     }
 

@@ -80,7 +80,7 @@
 </div>
 <div class="carte" style="padding:0;overflow-x:auto">
 <table class="tbl">
-<thead><tr><th>Collaborateur</th><th>P&ocirc;le</th><th>Total</th><th>P&eacute;riode</th><th>Retard</th><th>Bloq.</th><th>Taux</th><th>Objectifs</th><th>Assiduit&eacute;</th><th style="width:50px"></th></tr></thead>
+<thead><tr><th>Collaborateur</th><th>P&ocirc;le</th><th>Total</th><th>P&eacute;riode</th><th>Prod./j</th><th>Retard</th><th>Taux</th><th>OKR</th><th>Assiduit&eacute;</th><th style="width:50px"></th></tr></thead>
 <tbody>
 @foreach($collaborateurs as $c)
 @php
@@ -95,15 +95,15 @@
     <td style="font-size:11px;color:var(--gris)">{{ $c->pole?->libelle ?? '—' }}</td>
     <td>{{ $s['terminees'] }}/{{ $s['total'] }}</td>
     <td><strong>{{ $s['terminees_periode'] }}</strong></td>
+    <td style="font-size:12px;color:var(--bleu);font-weight:600" title="Tâches terminées par jour ouvré">{{ $s['productivite'] ?? 0 }}</td>
     <td>@if($s['en_retard'] > 0)<span class="badge b-ko">{{ $s['en_retard'] }}</span>@else — @endif</td>
-    <td>@if($s['bloquees'] > 0)<span class="badge b-warn">{{ $s['bloquees'] }}</span>@else — @endif</td>
     <td>
         <div style="display:flex;align-items:center;gap:6px">
             <div class="bar-wrap"><div class="bar-fill {{ $coulBar }}" style="width:{{ $s['taux'] }}%"></div></div>
             <span style="font-size:11px;font-weight:600">{{ $s['taux'] }}%</span>
         </div>
     </td>
-    <td><span class="badge {{ $coulObj }}">{{ $sObj !== null ? $sObj.'%' : '—' }}</span></td>
+    <td title="{{ $s['nb_obj_atteints'] ?? 0 }}/{{ $s['nb_obj_total'] ?? 0 }} objectifs atteints"><span class="badge {{ $coulObj }}">{{ $sObj !== null ? $sObj.'%' : '—' }}</span></td>
     <td><span class="badge {{ $coulAss }}">{{ $s['assiduite'] }}%</span></td>
     <td><a href="{{ route('observations.fiche-collaborateur', ['collaborateur_id' => $c->id, 'debut' => $debut->format('Y-m-d'), 'fin' => $fin->format('Y-m-d')]) }}" title="Fiche détaillée" style="display:inline-flex;align-items:center;padding:4px 6px;border:1px solid var(--bord);border-radius:6px;color:var(--accent);text-decoration:none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a></td>
 </tr>

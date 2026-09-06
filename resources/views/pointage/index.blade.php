@@ -189,6 +189,9 @@ dialog textarea{resize:vertical}
                     </button>
                     @endif
                     @if(!$p || $statut === 'non_pointe')
+                    <button class="act-btn" title="Pointer pour" onclick="ouvrirPointerPour({{ $user->id }}, '{{ $date->toDateString() }}', '{{ addslashes($user->nomComplet()) }}')" style="color:var(--ok)">
+                        {!! $ic('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',14) !!}
+                    </button>
                     <button class="act-btn" title="Marquer absent" onclick="ouvrirAbsence({{ $user->id }}, '{{ $date->toDateString() }}', '{{ addslashes($user->nomComplet()) }}')">
                         {!! $icX !!}
                     </button>
@@ -258,13 +261,39 @@ dialog textarea{resize:vertical}
     <form method="POST" id="form-correction">@csrf @method('PUT')
         <label>Arrivée</label>
         <input type="time" name="heure_arrivee" id="corr-arrivee">
+        <label>Motif d'arrivée <span style="font-size:10px;color:var(--gris)">(si retard)</span></label>
+        <input type="text" name="motif_retard" id="corr-motif-arrivee" placeholder="Raison du retard..." maxlength="500">
         <label>Départ</label>
         <input type="time" name="heure_depart" id="corr-depart">
+        <label>Motif de départ <span style="font-size:10px;color:var(--gris)">(si anticipé)</span></label>
+        <input type="text" name="motif_depart" id="corr-motif-depart" placeholder="Raison du départ anticipé..." maxlength="500">
         <label>Motif de correction <span class="req">*</span></label>
         <textarea name="motif_correction" required rows="2" placeholder="Raison de la correction..."></textarea>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn">Corriger</button>
+        </div>
+    </form>
+</dialog>
+
+{{-- Dialog pointage manuel (admin) --}}
+<dialog id="dlg-pointer-pour">
+    <h3 style="color:var(--bleu);margin-bottom:4px">Pointer pour un collaborateur</h3>
+    <p style="font-size:12px;color:var(--gris)" id="pp-nom"></p>
+    <form method="POST" action="{{ route('pointage.pointer-pour') }}">@csrf
+        <input type="hidden" name="user_id" id="pp-user-id">
+        <input type="hidden" name="date" id="pp-date">
+        <label>Arrivée <span class="req">*</span></label>
+        <input type="time" name="heure_arrivee" required id="pp-arrivee">
+        <label>Motif d'arrivée <span style="font-size:10px;color:var(--gris)">(si retard)</span></label>
+        <input type="text" name="motif_retard" placeholder="Raison du retard..." maxlength="500">
+        <label>Départ <span style="font-size:10px;color:var(--gris)">(optionnel)</span></label>
+        <input type="time" name="heure_depart" id="pp-depart">
+        <label>Motif de départ <span style="font-size:10px;color:var(--gris)">(si anticipé)</span></label>
+        <input type="text" name="motif_depart" placeholder="Raison du départ anticipé..." maxlength="500">
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Enregistrer</button>
         </div>
     </form>
 </dialog>
@@ -286,10 +315,112 @@ dialog textarea{resize:vertical}
 </dialog>
 @endif
 
+{{-- Jours ouvrables + (gestionnaire) --}}
+@if($estGestionnaire ?? false)
+<div class="panneau" style="margin-top:20px">
+    <h3>
+        {!! $ic('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>') !!}
+        Jours ouvrables +
+    </h3>
+    <p style="font-size:12px;color:var(--gris);margin-bottom:12px">
+        Déclarez les jours spéciaux travaillés (samedis, dimanches, fériés). Le pointage sera obligatoire ces jours-là.
+    </p>
+
+    <form method="POST" action="{{ route('pointage.jour-special.ajouter') }}" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+        @csrf
+        <div>
+            <label style="font-size:11px;color:var(--gris);display:block;margin-bottom:2px">Date</label>
+            <input type="date" name="date" required style="padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;font-family:inherit">
+        </div>
+        <div>
+            <label style="font-size:11px;color:var(--gris);display:block;margin-bottom:2px">Motif <span class="req">*</span></label>
+            <input type="text" name="motif" required placeholder="Ex: inventaire, permanence, rattrapage" style="padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;font-family:inherit;width:240px">
+        </div>
+        <button type="submit" class="btn sm">Ajouter</button>
+    </form>
+
+    {{-- Filtre consultation --}}
+    @php $joursSp = $tousJoursSpeciaux ?? collect(); @endphp
+    @if($joursSp->isNotEmpty())
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <label style="font-size:11px;color:var(--gris)">Filtrer :</label>
+        <select id="filtreJourMois" onchange="filtrerJoursSpeciaux()" style="padding:4px 8px;border:1px solid var(--bord);border-radius:6px;font-size:12px">
+            <option value="">Tous les mois</option>
+            @foreach($joursSp->groupBy(fn($j) => $j->date->format('Y-m'))->keys() as $mois)
+            <option value="{{ $mois }}">{{ \Carbon\Carbon::parse($mois.'-01')->isoFormat('MMMM YYYY') }}</option>
+            @endforeach
+        </select>
+        <span style="font-size:11px;color:var(--gris)" id="compteurJours">{{ $joursSp->count() }} jour(s)</span>
+    </div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse" id="tableJoursSpeciaux">
+        <thead>
+            <tr style="border-bottom:1px solid var(--bord);text-align:left">
+                <th style="padding:6px 8px;font-weight:600;color:var(--bleu)">Date</th>
+                <th style="padding:6px 8px;font-weight:600;color:var(--bleu)">Jour</th>
+                <th style="padding:6px 8px;font-weight:600;color:var(--bleu)">Motif</th>
+                <th style="padding:6px 8px;font-weight:600;color:var(--bleu)">Défini par</th>
+                <th style="padding:6px 8px"></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach($joursSp as $js)
+            <tr style="border-bottom:1px solid var(--bord)" data-mois="{{ $js->date->format('Y-m') }}">
+                <td style="padding:6px 8px">{{ $js->date->isoFormat('D MMM YYYY') }}</td>
+                <td style="padding:6px 8px;color:var(--accent);font-weight:600;font-size:12px">{{ ucfirst($js->date->isoFormat('dddd')) }}</td>
+                <td style="padding:6px 8px;color:var(--gris)">{{ $js->motif ?? '—' }}</td>
+                <td style="padding:6px 8px;font-size:12px">{{ $js->createur?->nomComplet() ?? '—' }}</td>
+                <td style="padding:6px 8px;text-align:right">
+                    <button type="button" class="btn sm ko" style="font-size:11px"
+                        onclick="ouvrirSupprJour({{ $js->id }}, '{{ $js->date->isoFormat('dddd D MMM YYYY') }}')">
+                        Retirer
+                    </button>
+                </td>
+            </tr>
+        @endforeach
+        </tbody>
+    </table>
+    @else
+    <p style="font-size:12px;color:var(--gris);font-style:italic">Aucun jour ouvrable spécial défini.</p>
+    @endif
+</div>
+
+{{-- Dialog suppression jour spécial --}}
+<dialog id="dlg-suppr-jour">
+    <h3 style="margin:0 0 12px;font-size:15px;color:var(--bleu)">Retirer un jour ouvrable +</h3>
+    <p id="suppr-jour-info" style="font-size:13px;color:var(--gris);margin:0 0 10px"></p>
+    <form id="form-suppr-jour" method="POST">
+        @csrf
+        <label style="font-size:12px;color:var(--gris);display:block;margin-bottom:3px">Motif <span class="req">*</span></label>
+        <textarea name="motif_suppression" required minlength="5" rows="2" placeholder="Précisez le motif..." style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;font-family:inherit"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button type="submit" class="btn" style="background:var(--ko)">Retirer</button>
+        </div>
+    </form>
+</dialog>
+@endif
+
 @endsection
 
 @push('scripts')
 <script>
+function ouvrirSupprJour(id, dateStr) {
+    document.getElementById('form-suppr-jour').action = '/pointage/jour-special/' + id + '/retirer';
+    document.getElementById('suppr-jour-info').textContent = dateStr;
+    document.getElementById('form-suppr-jour').querySelector('textarea').value = '';
+    document.getElementById('dlg-suppr-jour').showModal();
+}
+function filtrerJoursSpeciaux() {
+    var mois = document.getElementById('filtreJourMois').value;
+    var rows = document.querySelectorAll('#tableJoursSpeciaux tbody tr');
+    var count = 0;
+    rows.forEach(function(tr) {
+        var show = !mois || tr.dataset.mois === mois;
+        tr.style.display = show ? '' : 'none';
+        if (show) count++;
+    });
+    document.getElementById('compteurJours').textContent = count + ' jour(s)';
+}
 function filtrerPresence(){
     const txt=document.getElementById('filtreNom').value.toLowerCase();
     document.querySelectorAll('#tablePresence tbody tr').forEach(tr=>{
@@ -308,6 +439,14 @@ function ouvrirAbsence(userId, date, nom){
     document.getElementById('abs-user-id').value=userId;
     document.getElementById('abs-date').value=date;
     document.getElementById('dlg-absence').showModal();
+}
+function ouvrirPointerPour(userId, date, nom){
+    document.getElementById('pp-nom').textContent=nom;
+    document.getElementById('pp-user-id').value=userId;
+    document.getElementById('pp-date').value=date;
+    var dlg=document.getElementById('dlg-pointer-pour');
+    dlg.querySelectorAll('input[type=text],input[type=time]').forEach(function(i){i.value='';});
+    dlg.showModal();
 }
 // Ouvrir automatiquement les dialogs motif au chargement + bloquer Echap
 document.addEventListener('DOMContentLoaded', function(){

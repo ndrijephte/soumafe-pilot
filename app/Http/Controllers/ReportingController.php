@@ -53,16 +53,33 @@ class ReportingController extends Controller
                     ->whereNotNull('echeance')->whereDate('echeance', '<', today())->count();
                 $bloq = Tache::where('user_id', $u->id)->where('statut', 'bloque')->count();
 
-                // Score objectifs du mois en cours
+                // Score OKR unifié (individuel + projet) du mois en cours
                 $scoreObj = null;
-                if (Schema::hasTable('objectifs')) {
+                $nbObjAtteints = 0;
+                $nbObjTotal = 0;
+                if (Schema::hasTable('objectifs') && Schema::hasColumn('objectifs', 'type')) {
                     $moisCourant = now()->format('Y-m');
-                    $objs = Objectif::where('user_id', $u->id)->where('periode', $moisCourant)->where('type', 'individuel')->get();
-                    $sommePond = $objs->sum('ponderation');
-                    $scoreObj = $sommePond > 0 ? round($objs->sum(fn($o) => $o->avancement * $o->ponderation / 100)) : null;
+                    $tousObj = Objectif::with('resultats')
+                        ->where('user_id', $u->id)
+                        ->where('periode', $moisCourant)->get();
+                    if ($tousObj->isNotEmpty()) {
+                        $scoreObj = Objectif::scoreGroupe($tousObj);
+                        $nbObjTotal = $tousObj->count();
+                        $nbObjAtteints = $tousObj->where('evaluation', 'atteint')->count();
+                    }
                 }
 
                 $assiduite = $this->assiduitePeriode($u->id, $debut, $fin);
+
+                // Productivité = tâches terminées sur la période / jours ouvrés
+                $joursOuvresPeriode = 0;
+                $cp = $debut->copy();
+                $ep = $fin->copy()->min(today());
+                while ($cp->lte($ep)) {
+                    if (!$cp->isWeekend()) $joursOuvresPeriode++;
+                    $cp->addDay();
+                }
+                $productivite = $joursOuvresPeriode > 0 ? round($termPeriode / $joursOuvresPeriode, 1) : 0;
 
                 $u->setAttribute('stats', [
                     'total' => $total,
@@ -72,6 +89,9 @@ class ReportingController extends Controller
                     'bloquees' => $bloq,
                     'taux' => $total > 0 ? round(($term / $total) * 100) : 0,
                     'score_objectifs' => $scoreObj,
+                    'nb_obj_atteints' => $nbObjAtteints,
+                    'nb_obj_total' => $nbObjTotal,
+                    'productivite' => $productivite,
                     'assiduite' => $assiduite,
                 ]);
                 return $u;
@@ -129,7 +149,10 @@ class ReportingController extends Controller
             $pointages = Pointage::whereBetween('date', [$debut, $fin])
                 ->whereIn('user_id', $collabIds)->get();
 
-            $pointageStats = $collaborateurs->map(function ($u) use ($pointages, $debut, $fin) {
+            $joursSpeciaux = Schema::hasTable('jours_ouvrables_speciaux')
+                ? \App\Models\JourOuvrableSpecial::dansLaPeriode($debut, $fin) : collect();
+
+            $pointageStats = $collaborateurs->map(function ($u) use ($pointages, $debut, $fin, $joursSpeciaux) {
                 $up = $pointages->where('user_id', $u->id);
                 $presents = $up->where('statut', 'present')->count();
                 $retards = $up->where('statut', 'retard')->count();
@@ -137,12 +160,12 @@ class ReportingController extends Controller
                 $absents = $up->where('statut', 'absent')->count();
                 $totalPointes = $up->count();
 
-                // Jours ouvrés dans la période
+                // Jours ouvrés dans la période (+ jours spéciaux)
                 $ouvres = 0;
                 $c = $debut->copy();
                 $endDate = $fin->copy()->min(today());
                 while ($c->lte($endDate)) {
-                    if (!$c->isWeekend()) $ouvres++;
+                    if (!$c->isWeekend() || $joursSpeciaux->contains($c->toDateString())) $ouvres++;
                     $c->addDay();
                 }
                 $tauxPresence = $ouvres > 0 ? round((($presents + $retards + $sortisTot) / $ouvres) * 100) : 0;
@@ -300,11 +323,14 @@ class ReportingController extends Controller
     {
         if (!Schema::hasTable('jours_saisie')) return 0;
 
+        $samOuv = Schema::hasTable('jours_ouvrables_speciaux')
+            ? \App\Models\JourOuvrableSpecial::dansLaPeriode($debut, $fin) : collect();
+
         $ouvres = 0; $saisis = 0;
         $c = $debut->copy();
         $endDate = $fin->copy()->min(today());
         while ($c->lte($endDate)) {
-            if (!$c->isWeekend() && !JourFerie::whereDate('date', $c)->exists()) {
+            if ((!$c->isWeekend() || $samOuv->contains($c->toDateString())) && !JourFerie::whereDate('date', $c)->exists()) {
                 $ouvres++;
                 $ok = JourSaisie::where('user_id', $userId)->whereDate('date', $c)
                     ->whereIn('statut', ['saisi', 'justifie'])->exists();

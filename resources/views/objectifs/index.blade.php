@@ -158,6 +158,9 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
 
 <div class="score-global">
     <div><div class="val">{{ $scoreEquipe }}%</div><div class="lab">Score &eacute;quipe (p&eacute;riode)</div></div>
+    @if(isset($monScore) && $monScore !== null)
+    <div style="border-left:1px solid var(--bord);padding-left:12px"><div class="val">{{ $monScore }}%</div><div class="lab">Mon score</div></div>
+    @endif
     <form method="POST" action="{{ route('objectifs.evaluer') }}" style="margin:0">
         @csrf
         <input type="hidden" name="periode" value="{{ $periode }}">

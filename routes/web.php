@@ -172,6 +172,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planning/participant/{participant}/retirer', [PlanningReunionController::class, 'retirerParticipant'])->name('planning.retirer');
     Route::post('/planning/type', [PlanningReunionController::class, 'storeType'])->name('planning.type.store');
     Route::post('/planning/role', [PlanningReunionController::class, 'storeRole'])->name('planning.role.store');
+    Route::post('/planning/role/{role}/supprimer', [PlanningReunionController::class, 'destroyRole'])->name('planning.role.destroy');
     Route::post('/planning/{affectation}/absence', [PlanningReunionController::class, 'signalerAbsence'])->name('planning.absence');
 
     Route::get('/pointage', [PointageController::class, 'index'])->name('pointage.index');
@@ -179,7 +180,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/pointage/depart', [PointageController::class, 'pointerDepart'])->name('pointage.depart');
     Route::post('/pointage/{pointage}/motif', [PointageController::class, 'sauverMotif'])->name('pointage.motif');
     Route::post('/pointage/absent', [PointageController::class, 'marquerAbsent'])->name('pointage.absent');
+    Route::post('/pointage/pointer-pour', [PointageController::class, 'pointerPour'])->name('pointage.pointer-pour');
     Route::put('/pointage/{pointage}/corriger', [PointageController::class, 'corriger'])->name('pointage.corriger');
+    Route::post('/pointage/jour-special', [PointageController::class, 'ajouterJourSpecial'])->name('pointage.jour-special.ajouter');
+    Route::post('/pointage/jour-special/{jour}/retirer', [PointageController::class, 'retirerJourSpecial'])->name('pointage.jour-special.retirer');
 
     // M8 — Administration (US-01→05)
     Route::prefix('admin')->name('admin.')->group(function () {

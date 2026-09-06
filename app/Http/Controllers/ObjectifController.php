@@ -60,6 +60,10 @@ class ObjectifController extends Controller
 
             $scoreEquipe = Objectif::scoreGroupe($tousObjectifs);
 
+            // Score personnel du pilote (s'il a des objectifs assignés)
+            $mesObjPilote = $tousObjectifs->where('user_id', $user->id);
+            $monScore = $mesObjPilote->isNotEmpty() ? Objectif::scoreGroupe($mesObjPilote) : null;
+
             // Alertes agrégées
             $alertesObj = [];
             foreach ($tousObjectifs as $obj) {
@@ -72,6 +76,7 @@ class ObjectifController extends Controller
                 'tousObjectifs', 'parCollab',
                 'collaborateurs', 'projets', 'moisMenu', 'periode',
                 'filtreUser', 'filtreProjet', 'scoreEquipe',
+                'monScore', 'mesObjPilote',
                 'tachesActives', 'objectifsParents', 'alertesObj',
                 'hasKR', 'hasHist', 'hasPivot', 'hasParent'
             ));

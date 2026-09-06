@@ -46,7 +46,7 @@ class DashboardController extends Controller
         if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s)."];
 
         $aSaisiAujourdhui = Tache::where('user_id', $userId)->whereDate('date_debut', today())->exists();
-        $estJourOuvre = !today()->isWeekend() && !JourFerie::whereDate('date', today())->exists();
+        $estJourOuvre = (!today()->isWeekend() || (Schema::hasTable('jours_ouvrables_speciaux') && \App\Models\JourOuvrableSpecial::where('date', today()->toDateString())->exists())) && !JourFerie::whereDate('date', today())->exists();
         if (!$aSaisiAujourdhui && $estJourOuvre) {
             $alertes[] = ['type' => 'info', 'msg' => 'Aucune tâche saisie aujourd\'hui.'];
         }
@@ -141,9 +141,10 @@ class DashboardController extends Controller
             $projetData = compact('mesProjets', 'sprintsEnCours', 'membres', 'topBloquees');
         }
 
-        // Pointage du jour
+        // Pointage du jour — masqué si jour non ouvré
         $monPointage = null;
-        if (Schema::hasTable('pointages')) {
+        $pointageActif = $estJourOuvre;
+        if (Schema::hasTable('pointages') && $pointageActif) {
             $monPointage = Pointage::where('user_id', $userId)->where('date', today()->toDateString())->first();
         }
 
@@ -152,7 +153,7 @@ class DashboardController extends Controller
             'enRetard', 'tauxCompletion', 'alertes', 'termineesSemaine', 'assiduite',
             'estResponsable', 'projetData', 'mesTachesActives',
             'pointsLivres', 'pointsTotalSprint', 'tendanceHebdo', 'tendanceMax',
-            'parPriorite', 'totalPrio', 'monPointage'
+            'parPriorite', 'totalPrio', 'monPointage', 'pointageActif'
         ));
     }
 
@@ -509,9 +510,11 @@ class DashboardController extends Controller
             return $s;
         })->sortByDesc('date_fin')->take(6)->values();
 
-        // Pointage du jour (pilote)
+        // Pointage du jour (pilote) — masqué si jour non ouvré
         $monPointage = null;
-        if (Schema::hasTable('pointages')) {
+        $estJourOuvreP = (!today()->isWeekend() || (Schema::hasTable('jours_ouvrables_speciaux') && \App\Models\JourOuvrableSpecial::where('date', today()->toDateString())->exists())) && !JourFerie::whereDate('date', today())->exists();
+        $pointageActif = $estJourOuvreP;
+        if (Schema::hasTable('pointages') && $pointageActif) {
             $monPointage = Pointage::where('user_id', $user->id)->where('date', today()->toDateString())->first();
         }
 
@@ -520,7 +523,7 @@ class DashboardController extends Controller
             'termineesSemaine', 'alertes', 'sansSaisieHier', 'arbitragesEnAttente',
             'sprintsEnCours', 'collaborateurs', 'topBloquees', 'tachesEnRetard',
             'parProjet', 'evenements', 'mesTachesActives', 'aValider',
-            'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines', 'monPointage'
+            'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines', 'monPointage', 'pointageActif'
         ));
     }
 

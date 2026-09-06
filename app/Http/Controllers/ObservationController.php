@@ -208,14 +208,14 @@ class ObservationController extends Controller
                 ->orderByDesc('date_debut')
                 ->get();
 
-            // Objectifs
+            // Objectifs (avec KR pour score pondéré + verdict)
             $objectifs = Objectif::where('user_id', $collab->id)
                 ->where(function ($q) use ($debut, $fin) {
                     $q->whereBetween('date_debut', [$debut, $fin])
                       ->orWhereBetween('date_echeance', [$debut, $fin])
                       ->orWhere('periode', now()->format('Y-m'));
                 })
-                ->with('projet')
+                ->with(['projet', 'resultats'])
                 ->orderByDesc('created_at')
                 ->get();
 
@@ -235,24 +235,69 @@ class ObservationController extends Controller
                     ->get();
             }
 
+            // Planning réunions (affectations sur la période)
+            $reunions = collect();
+            if (Schema::hasTable('affectations_reunion')) {
+                $reunions = \App\Models\AffectationReunion::with(['role', 'typeReunion'])
+                    ->where('user_id', $collab->id)
+                    ->whereBetween('date_reunion', [$debut, $fin])
+                    ->orderByDesc('date_reunion')
+                    ->get();
+            }
+
+            // Productivité (tâches terminées / jours ouvrés)
+            $termPeriode = $taches->where('statut', 'termine')
+                ->filter(fn($t) => $t->date_fin_reelle && $t->date_fin_reelle->between($debut, $fin))
+                ->count();
+            $joursSpeciaux = Schema::hasTable('jours_ouvrables_speciaux')
+                ? \App\Models\JourOuvrableSpecial::dansLaPeriode(\Carbon\Carbon::parse($debut), \Carbon\Carbon::parse($fin))
+                : collect();
+            $joursOuvres = 0;
+            $cp = \Carbon\Carbon::parse($debut)->copy();
+            $ep = \Carbon\Carbon::parse($fin)->copy()->min(today());
+            while ($cp->lte($ep)) {
+                if (!$cp->isWeekend() || $joursSpeciaux->contains($cp->toDateString())) $joursOuvres++;
+                $cp->addDay();
+            }
+            $productivite = $joursOuvres > 0 ? round($termPeriode / $joursOuvres, 1) : 0;
+
+            // Score OKR pondéré + KR indicateurs
+            $scoreOKR = $objectifs->isNotEmpty() ? Objectif::scoreGroupe($objectifs) : 0;
+            $krTotal = $objectifs->sum(fn($o) => $o->resultats->count());
+            $krValides = $objectifs->sum(fn($o) => $o->resultats->whereNotNull('valide')->count());
+            $krAtteints = $objectifs->sum(fn($o) => $o->resultats->where('valide', true)->count());
+
+            // Taux de complétion
+            $tauxCompletion = $taches->count() > 0
+                ? round($taches->where('statut', 'termine')->count() / $taches->count() * 100)
+                : 0;
+
             // Stats résumé
             $data = [
                 'taches'       => $taches,
                 'objectifs'    => $objectifs,
                 'observations' => $observations,
                 'pointages'    => $pointages,
+                'reunions'     => $reunions,
                 'stats'        => [
                     'taches_total'     => $taches->count(),
                     'taches_terminees' => $taches->where('statut', 'termine')->count(),
                     'taches_retard'    => $taches->filter(fn($t) => !$t->date_fin_reelle && $t->echeance && $t->echeance->isPast())->count(),
+                    'taux_completion'  => $tauxCompletion,
+                    'productivite'     => $productivite,
                     'obj_total'        => $objectifs->count(),
-                    'obj_atteints'     => $objectifs->where('avancement', '>=', 100)->count(),
-                    'obj_score'        => $objectifs->count() > 0 ? round($objectifs->avg('avancement')) : 0,
+                    'obj_atteints'     => $objectifs->where('evaluation', 'atteint')->count(),
+                    'obj_score'        => $scoreOKR,
+                    'kr_total'         => $krTotal,
+                    'kr_valides'       => $krValides,
+                    'kr_atteints'      => $krAtteints,
                     'obs_total'        => $observations->count(),
                     'obs_resolus'      => $observations->where('statut', 'resolu')->count(),
-                    'jours_presents'   => $pointages->whereIn('statut', ['present', 'retard'])->count(),
+                    'jours_presents'   => $pointages->whereIn('statut', ['present', 'retard', 'sorti_tot'])->count(),
                     'jours_absents'    => $pointages->where('statut', 'absent')->count(),
                     'retards'          => $pointages->where('statut', 'retard')->count(),
+                    'reunions_total'   => $reunions->count(),
+                    'reunions_present' => $reunions->whereIn('statut', ['prevu', 'present'])->count(),
                 ],
             ];
         }
@@ -271,7 +316,7 @@ class ObservationController extends Controller
             'type'    => 'observation',
             'contenu' => 'Observation ' . $obs->code . $projetLib . ' vous a été assignée : ' . mb_substr($obs->description, 0, 80),
             'lu'      => false,
-            'canal'   => 'app',
+            'canal'   => 'in_app',
         ]);
     }
 

@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Pointage;
-use App\Models\User;
+use App\Models\{Pointage, User, JourOuvrableSpecial};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
 use Carbon\Carbon;
@@ -40,6 +39,12 @@ class PointageController extends Controller
         $absents  = $pointages->where('statut', 'absent')->count();
         $nonPointes = $total - $pointages->count();
 
+        // Jours ouvrables spéciaux du mois (si table existe)
+        $joursSpeciaux = collect();
+        if (Schema::hasTable('jours_ouvrables_speciaux')) {
+            $joursSpeciaux = JourOuvrableSpecial::dansLaPeriode($date->copy()->startOfMonth(), $date->copy()->endOfMonth());
+        }
+
         // Stats du mois
         $debutMois = $date->copy()->startOfMonth();
         $finMois   = $date->copy()->endOfMonth();
@@ -47,7 +52,7 @@ class PointageController extends Controller
         $joursOuvres   = 0;
         $d = $debutMois->copy();
         while ($d->lte(min($date, $finMois))) {
-            if (!$d->isWeekend()) $joursOuvres++;
+            if (!$d->isWeekend() || $joursSpeciaux->contains($d->toDateString())) $joursOuvres++;
             $d->addDay();
         }
         $totalPointsMois = $moisPointages->where('statut', 'present')->count();
@@ -63,7 +68,27 @@ class PointageController extends Controller
         $stats = compact('total', 'pointes', 'retards', 'absents', 'nonPointes',
             'tauxPonctualite', 'totalRetardsMois', 'dureeMoy', 'joursOuvres');
 
-        return view('pointage.index', compact('users', 'pointages', 'date', 'stats'));
+        // Jours spéciaux pour la gestion (admin/charge_ops)
+        $estGestionnaire = auth()->user()->estAdmin();
+        $tousJoursSpeciaux = $estGestionnaire && Schema::hasTable('jours_ouvrables_speciaux')
+            ? JourOuvrableSpecial::orderBy('date', 'desc')->get()
+            : collect();
+
+        return view('pointage.index', compact('users', 'pointages', 'date', 'stats', 'joursSpeciaux', 'tousJoursSpeciaux', 'estGestionnaire'));
+    }
+
+    /**
+     * Vérifie si une date est un jour ouvré (lun-ven hors férié, ou jour ouvrable spécial).
+     */
+    private function estJourOuvre(Carbon $date): bool
+    {
+        $estFerie = \App\Models\JourFerie::whereDate('date', $date)->exists();
+        $estSpecial = Schema::hasTable('jours_ouvrables_speciaux')
+            && JourOuvrableSpecial::where('date', $date->toDateString())->exists();
+
+        if ($estSpecial) return true;
+        if ($date->isWeekend() || $estFerie) return false;
+        return true;
     }
 
     /** Auto-pointage arrivée */
@@ -72,6 +97,12 @@ class PointageController extends Controller
         $user = auth()->user();
         $today = today()->toDateString();
         $now   = now()->format('H:i:s');
+
+        // Bloquer pointage les jours non ouvrés
+        if (!$this->estJourOuvre(today())) {
+            return redirect()->route('dashboard')
+                ->with('erreur', 'Le pointage n\'est pas autorisé aujourd\'hui (jour non ouvré).');
+        }
 
         $pointage = Pointage::firstOrCreate(
             ['user_id' => $user->id, 'date' => $today],
@@ -197,18 +228,57 @@ class PointageController extends Controller
             'heure_arrivee'    => 'nullable|date_format:H:i',
             'heure_depart'     => 'nullable|date_format:H:i',
             'motif_correction' => 'required|string|max:500',
+            'motif_retard'     => 'nullable|string|max:500',
+            'motif_depart'     => 'nullable|string|max:500',
         ]);
 
         $pointage->heure_arrivee    = $r->heure_arrivee ? $r->heure_arrivee . ':00' : $pointage->heure_arrivee;
         $pointage->heure_depart     = $r->heure_depart ? $r->heure_depart . ':00' : $pointage->heure_depart;
         $pointage->corrige_par      = auth()->id();
         $pointage->motif_correction = $r->motif_correction;
+        if ($r->filled('motif_retard'))  $pointage->motif_retard  = $r->motif_retard;
+        if ($r->filled('motif_depart')) $pointage->motif_depart = $r->motif_depart;
         $pointage->statut           = $pointage->calculerStatut();
         $pointage->save();
         $this->auditer('corriger_pointage', $pointage);
 
         return redirect()->route('pointage.index', ['date' => $pointage->date->toDateString()])
             ->with('succes', 'Pointage corrigé.');
+    }
+
+    /** Pointage manuel par admin (pour un collaborateur non-pointé) */
+    public function pointerPour(Request $r)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate([
+            'user_id'       => 'required|exists:users,id',
+            'date'          => 'required|date',
+            'heure_arrivee' => 'required|date_format:H:i',
+            'heure_depart'  => 'nullable|date_format:H:i',
+            'motif_retard'  => 'nullable|string|max:500',
+            'motif_depart'  => 'nullable|string|max:500',
+        ]);
+
+        $pointage = Pointage::firstOrNew(
+            ['user_id' => $r->user_id, 'date' => $r->date]
+        );
+
+        $pointage->heure_arrivee = $r->heure_arrivee . ':00';
+        if ($r->filled('heure_depart')) {
+            $pointage->heure_depart = $r->heure_depart . ':00';
+        }
+        if ($r->filled('motif_retard'))  $pointage->motif_retard  = $r->motif_retard;
+        if ($r->filled('motif_depart')) $pointage->motif_depart = $r->motif_depart;
+        $pointage->corrige_par = auth()->id();
+        $pointage->motif_correction = 'Pointage manuel par ' . auth()->user()->nomComplet();
+        $pointage->statut = $pointage->calculerStatut();
+        $pointage->save();
+
+        $user = User::find($r->user_id);
+        \App\Models\AuditLog::log('pointage_manuel', 'pointage', $user->nomComplet(), "Arrivée: {$r->heure_arrivee}" . ($r->heure_depart ? ", Départ: {$r->heure_depart}" : ''));
+
+        return redirect()->route('pointage.index', ['date' => $r->date])
+            ->with('succes', 'Pointage enregistré pour ' . $user->nomComplet() . '.');
     }
 
     /** Clôturer les oublis de départ de la veille (appelé dans index) */
@@ -228,6 +298,54 @@ class PointageController extends Controller
             $p->save();
             $this->auditer('cloture_oubli_depart', $p);
         }
+    }
+
+    /* ===== JOURS OUVRABLES SPÉCIAUX ===== */
+
+    /** Ajouter un jour ouvrable spécial */
+    public function ajouterJourSpecial(Request $r)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate([
+            'date' => 'required|date',
+            'motif' => 'required|string|max:255',
+        ]);
+
+        $date = Carbon::parse($r->date);
+
+        // Vérifier que ce n'est pas déjà un jour ouvré normal (lun-ven hors férié)
+        if (!$date->isWeekend() && !\App\Models\JourFerie::whereDate('date', $date)->exists()) {
+            return back()->withErrors(['Cette date est déjà un jour ouvré normal.']);
+        }
+
+        JourOuvrableSpecial::firstOrCreate(
+            ['date' => $date->toDateString()],
+            ['motif' => $r->motif, 'created_by' => auth()->id()]
+        );
+
+        if (Schema::hasTable('audit_logs') && class_exists(\App\Models\AuditLog::class)) {
+            \App\Models\AuditLog::log('creation', 'pointage', 'Jour ouvrable + ' . $date->format('d/m/Y'), $r->motif);
+        }
+
+        return redirect()->route('pointage.index', ['date' => $r->input('retour_date', today()->toDateString())])
+            ->with('succes', $date->isoFormat('dddd D MMM YYYY') . ' défini comme jour ouvrable.');
+    }
+
+    /** Retirer un jour ouvrable spécial */
+    public function retirerJourSpecial(Request $r, JourOuvrableSpecial $jour)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+
+        $dateStr = $jour->date->format('d/m/Y');
+        $jour->delete();
+
+        if (Schema::hasTable('audit_logs') && class_exists(\App\Models\AuditLog::class)) {
+            \App\Models\AuditLog::log('suppression', 'pointage', 'Jour ouvrable + ' . $dateStr, "Motif: {$r->motif_suppression}");
+        }
+
+        return redirect()->route('pointage.index')
+            ->with('succes', $dateStr . ' retiré des jours ouvrables spéciaux.');
     }
 
     /** Audit si table existe */

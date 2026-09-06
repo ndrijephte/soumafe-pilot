@@ -15,15 +15,15 @@ class PlanningReunionController extends Controller
         $typeActif = $r->get('type', $types->first()?->id);
         $type = $types->firstWhere('id', $typeActif) ?? $types->first();
 
-        $semaine = $r->get('semaine', now()->startOfWeek()->format('Y-m-d'));
-        $debut = \Carbon\Carbon::parse($semaine)->startOfWeek();
-        $fin = $debut->copy()->endOfWeek();
+        $estPonctuel = $type && $type->recurrence !== 'quotidien';
+        $semaine = $r->get('semaine', $estPonctuel ? now()->startOfMonth()->format('Y-m-d') : now()->startOfWeek()->format('Y-m-d'));
 
-        // Jours de la semaine (lun-ven pour quotidien, ou jour spécifique)
-        $jours = [];
-        for ($d = $debut->copy(); $d->lte($fin); $d->addDay()) {
-            if ($d->isWeekend()) continue;
-            $jours[] = $d->copy();
+        if ($estPonctuel) {
+            $debut = \Carbon\Carbon::parse($semaine)->startOfMonth();
+            $fin = $debut->copy()->endOfMonth();
+        } else {
+            $debut = \Carbon\Carbon::parse($semaine)->startOfWeek();
+            $fin = $debut->copy()->endOfWeek();
         }
 
         $affectations = $type
@@ -32,6 +32,22 @@ class PlanningReunionController extends Controller
                 ->whereBetween('date_reunion', [$debut, $fin])
                 ->get()
             : collect();
+
+        if ($estPonctuel) {
+            // Jours = uniquement les dates ayant des affectations
+            $jours = $affectations->pluck('date_reunion')
+                ->map(fn($d) => $d instanceof \Carbon\Carbon ? $d : \Carbon\Carbon::parse($d))
+                ->unique(fn($d) => $d->format('Y-m-d'))
+                ->sortBy(fn($d) => $d->timestamp)
+                ->values()->all();
+        } else {
+            // Jours de la semaine (lun-ven)
+            $jours = [];
+            for ($d = $debut->copy(); $d->lte($fin); $d->addDay()) {
+                if ($d->isWeekend()) continue;
+                $jours[] = $d->copy();
+            }
+        }
 
         $participants = $type
             ? ParticipantReunion::with('user')
@@ -49,7 +65,7 @@ class PlanningReunionController extends Controller
 
         return view('planning.index', compact(
             'types', 'type', 'jours', 'affectations', 'participants',
-            'collaborateurs', 'semaine', 'debut', 'fin', 'estPilote', 'estGestionnaire'
+            'collaborateurs', 'semaine', 'debut', 'fin', 'estPilote', 'estGestionnaire', 'estPonctuel'
         ));
     }
 
@@ -80,6 +96,7 @@ class PlanningReunionController extends Controller
 
         $debut = \Carbon\Carbon::parse($r->date_debut);
         $fin = \Carbon\Carbon::parse($r->date_fin);
+        $ponctuel = $type->recurrence !== 'quotidien' && $debut->equalTo($fin);
 
         // Supprimer les affectations existantes dans la période (sauf si statut != prevu)
         AffectationReunion::where('type_reunion_id', $type->id)
@@ -92,44 +109,64 @@ class PlanningReunionController extends Controller
         $nbRoles = $roles->count();
         $jourIdx = 0;
 
-        for ($d = $debut->copy(); $d->lte($fin); $d->addDay()) {
-            if ($d->isWeekend()) continue;
-
-            // Vérifier récurrence
-            if ($type->recurrence === 'hebdomadaire' && $d->dayOfWeek !== 1) continue;
-            if ($type->recurrence === 'bimensuel' && ($d->dayOfWeek !== 1 || $d->weekOfMonth > 2)) continue;
-            if ($type->recurrence === 'mensuel' && ($d->dayOfWeek !== 1 || $d->weekOfMonth !== 1)) continue;
-            // fin_sprint : une seule date = premier jour ouvré de la période
-            if ($type->recurrence === 'fin_sprint' && $jourIdx > 0) continue;
-
+        if ($ponctuel) {
+            // Réunion ponctuelle : un seul jour, tous les rôles assignés par rotation
             foreach ($roles as $rIdx => $role) {
-                $userIndex = ($jourIdx * $nbRoles + $rIdx) % $nbUsers;
+                $userIndex = $rIdx % $nbUsers;
                 AffectationReunion::create([
                     'type_reunion_id' => $type->id,
                     'role_reunion_id' => $role->id,
                     'user_id' => $userIds[$userIndex],
-                    'date_reunion' => $d->format('Y-m-d'),
+                    'date_reunion' => $debut->format('Y-m-d'),
                     'statut' => 'prevu',
                 ]);
             }
-            $jourIdx++;
+            $jourIdx = 1;
+        } else {
+            for ($d = $debut->copy(); $d->lte($fin); $d->addDay()) {
+                if ($d->isWeekend()) continue;
+
+                // Vérifier récurrence (quotidien = tous les jours ouvrés)
+                if ($type->recurrence === 'hebdomadaire' && $d->dayOfWeek !== 1) continue;
+                if ($type->recurrence === 'bimensuel' && ($d->dayOfWeek !== 1 || $d->weekOfMonth > 2)) continue;
+                if ($type->recurrence === 'mensuel' && ($d->dayOfWeek !== 1 || $d->weekOfMonth !== 1)) continue;
+                if ($type->recurrence === 'fin_sprint' && $jourIdx > 0) continue;
+
+                foreach ($roles as $rIdx => $role) {
+                    $userIndex = ($jourIdx * $nbRoles + $rIdx) % $nbUsers;
+                    AffectationReunion::create([
+                        'type_reunion_id' => $type->id,
+                        'role_reunion_id' => $role->id,
+                        'user_id' => $userIds[$userIndex],
+                        'date_reunion' => $d->format('Y-m-d'),
+                        'statut' => 'prevu',
+                    ]);
+                }
+                $jourIdx++;
+            }
         }
 
         // Notifier les participants
+        $msgNotif = $ponctuel
+            ? 'Réunion "' . $type->libelle . '" programmée le ' . $debut->format('d/m/Y')
+            : 'Planning "' . $type->libelle . '" généré du ' . $debut->format('d/m') . ' au ' . $fin->format('d/m');
         foreach ($userIds as $uid) {
             if ($uid === auth()->id()) continue;
             NotificationApp::create([
                 'user_id' => $uid,
                 'type' => 'planning',
-                'contenu' => 'Planning "' . $type->libelle . '" généré du ' . $debut->format('d/m') . ' au ' . $fin->format('d/m'),
+                'contenu' => $msgNotif,
                 'lu' => false,
-                'canal' => 'app',
+                'canal' => 'in_app',
             ]);
         }
 
-        AuditLog::log('creation', 'planning', $type->libelle, "Période: {$debut->format('d/m/Y')} - {$fin->format('d/m/Y')}, {$nbUsers} participants");
+        $auditDetail = $ponctuel
+            ? "Ponctuel: {$debut->format('d/m/Y')}, {$nbUsers} participants"
+            : "Période: {$debut->format('d/m/Y')} - {$fin->format('d/m/Y')}, {$nbUsers} participants";
+        AuditLog::log('creation', 'planning', $type->libelle, $auditDetail);
         return redirect()->route('planning.index', ['type' => $type->id, 'semaine' => $debut->format('Y-m-d')])
-            ->with('succes', 'Planning généré avec succès.');
+            ->with('succes', $ponctuel ? 'Réunion programmée.' : 'Planning généré avec succès.');
     }
 
     /* ===== GESTION PARTICIPANTS ===== */
@@ -193,6 +230,27 @@ class PlanningReunionController extends Controller
         return redirect()->route('planning.index', ['type' => $r->type_reunion_id])->with('succes', 'Rôle ajouté.');
     }
 
+    /* ===== SUPPRIMER UN RÔLE ===== */
+    public function destroyRole(Request $r, RoleReunion $role)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+
+        $typeId = $role->type_reunion_id;
+        $libelle = $role->libelle;
+
+        // Supprimer les affectations futures liées à ce rôle
+        AffectationReunion::where('role_reunion_id', $role->id)
+            ->where('date_reunion', '>=', now()->format('Y-m-d'))
+            ->where('statut', 'prevu')
+            ->delete();
+
+        $role->delete();
+
+        AuditLog::log('suppression', 'planning', $libelle, "Rôle supprimé. Motif: {$r->motif_suppression}");
+        return redirect()->route('planning.index', ['type' => $typeId])->with('succes', 'Rôle supprimé.');
+    }
+
     /* ===== SIGNALER ABSENCE / REMPLACEMENT ===== */
     public function signalerAbsence(Request $r, AffectationReunion $affectation)
     {
@@ -207,7 +265,7 @@ class PlanningReunionController extends Controller
                 'type' => 'planning',
                 'contenu' => 'Vous remplacez ' . $affectation->user->name . ' comme ' . $affectation->role->libelle . ' le ' . $affectation->date_reunion->format('d/m/Y'),
                 'lu' => false,
-                'canal' => 'app',
+                'canal' => 'in_app',
             ]);
         } else {
             $affectation->update(['statut' => 'absent']);

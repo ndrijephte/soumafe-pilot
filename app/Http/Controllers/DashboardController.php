@@ -146,6 +146,11 @@ class DashboardController extends Controller
         $pointageActif = $estJourOuvre;
         if (Schema::hasTable('pointages') && $pointageActif) {
             $monPointage = Pointage::where('user_id', $userId)->where('date', today()->toDateString())->first();
+            // Rediriger si retard non justifié
+            if ($monPointage && $monPointage->statut === 'retard' && !$monPointage->motif_retard) {
+                return redirect()->route('pointage.index')
+                    ->with('demande_motif_retard', $monPointage->id);
+            }
         }
 
         return view('dashboard.index', compact(
@@ -516,6 +521,11 @@ class DashboardController extends Controller
         $pointageActif = $estJourOuvreP;
         if (Schema::hasTable('pointages') && $pointageActif) {
             $monPointage = Pointage::where('user_id', $user->id)->where('date', today()->toDateString())->first();
+            // Rediriger si retard non justifié
+            if ($monPointage && $monPointage->statut === 'retard' && !$monPointage->motif_retard) {
+                return redirect()->route('pointage.index')
+                    ->with('demande_motif_retard', $monPointage->id);
+            }
         }
 
         return view('dashboard.pilote', compact(

@@ -40,6 +40,11 @@ class PlanningReunionController extends Controller
                 ->unique(fn($d) => $d->format('Y-m-d'))
                 ->sortBy(fn($d) => $d->timestamp)
                 ->values()->all();
+
+            // Grouper en instances (réunions distinctes) par date + created_at
+            $instances = $affectations->sortBy('id')
+                ->groupBy(fn($a) => $a->date_reunion->format('Y-m-d'))
+                ->map(fn($dateAff) => $dateAff->groupBy(fn($a) => $a->created_at?->format('Y-m-d H:i') ?? $a->id)->values());
         } else {
             // Jours de la semaine (lun-ven)
             $jours = [];
@@ -63,9 +68,11 @@ class PlanningReunionController extends Controller
         $estPilote = $r->user()->estPilote();
         $estGestionnaire = $r->user()->estAdmin();
 
+        $instances = $instances ?? null;
+
         return view('planning.index', compact(
             'types', 'type', 'jours', 'affectations', 'participants',
-            'collaborateurs', 'semaine', 'debut', 'fin', 'estPilote', 'estGestionnaire', 'estPonctuel'
+            'collaborateurs', 'semaine', 'debut', 'fin', 'estPilote', 'estGestionnaire', 'estPonctuel', 'instances'
         ));
     }
 
@@ -77,6 +84,8 @@ class PlanningReunionController extends Controller
             'type_reunion_id' => 'required|exists:types_reunion,id',
             'date_debut' => 'required|date',
             'date_fin' => 'required|date|after_or_equal:date_debut',
+            'affectations' => 'nullable|array',
+            'affectations.*' => 'nullable|exists:users,id',
         ]);
 
         $type = TypeReunion::with('roles')->findOrFail($r->type_reunion_id);
@@ -98,11 +107,13 @@ class PlanningReunionController extends Controller
         $fin = \Carbon\Carbon::parse($r->date_fin);
         $ponctuel = $type->recurrence !== 'quotidien' && $debut->equalTo($fin);
 
-        // Supprimer les affectations existantes dans la période (sauf si statut != prevu)
-        AffectationReunion::where('type_reunion_id', $type->id)
-            ->whereBetween('date_reunion', [$debut, $fin])
-            ->where('statut', 'prevu')
-            ->delete();
+        // Supprimer les affectations existantes (sauf ponctuel — permet plusieurs le même jour)
+        if (!$ponctuel) {
+            AffectationReunion::where('type_reunion_id', $type->id)
+                ->whereBetween('date_reunion', [$debut, $fin])
+                ->where('statut', 'prevu')
+                ->delete();
+        }
 
         $userIds = $participants->pluck('user_id')->toArray();
         $nbUsers = count($userIds);
@@ -110,13 +121,14 @@ class PlanningReunionController extends Controller
         $jourIdx = 0;
 
         if ($ponctuel) {
-            // Réunion ponctuelle : un seul jour, tous les rôles assignés par rotation
+            // Réunion ponctuelle : affectation manuelle ou rotation par défaut
+            $manualAff = $r->input('affectations', []);
             foreach ($roles as $rIdx => $role) {
-                $userIndex = $rIdx % $nbUsers;
+                $userId = !empty($manualAff[$role->id]) ? (int)$manualAff[$role->id] : $userIds[$rIdx % $nbUsers];
                 AffectationReunion::create([
                     'type_reunion_id' => $type->id,
                     'role_reunion_id' => $role->id,
-                    'user_id' => $userIds[$userIndex],
+                    'user_id' => $userId,
                     'date_reunion' => $debut->format('Y-m-d'),
                     'statut' => 'prevu',
                 ]);

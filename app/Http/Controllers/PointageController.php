@@ -74,6 +74,12 @@ class PointageController extends Controller
             ? JourOuvrableSpecial::orderBy('date', 'desc')->get()
             : collect();
 
+        // Forcer le dialog motif retard si l'utilisateur a un retard non justifié aujourd'hui
+        $monPointage = Pointage::where('user_id', auth()->id())->where('date', today()->toDateString())->first();
+        if ($monPointage && $monPointage->statut === 'retard' && !$monPointage->motif_retard && !session('demande_motif_retard')) {
+            session()->flash('demande_motif_retard', $monPointage->id);
+        }
+
         return view('pointage.index', compact('users', 'pointages', 'date', 'stats', 'joursSpeciaux', 'tousJoursSpeciaux', 'estGestionnaire'));
     }
 

@@ -378,6 +378,7 @@ class ParcController extends Controller
     public function destroyPanne(Request $r, Panne $panne)
     {
         $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'panne', $panne->vehicule?->immatriculation, "Motif: " . $r->motif_suppression);
         $panne->delete();
@@ -485,6 +486,7 @@ class ParcController extends Controller
     public function destroyRecette(Request $r, RecetteVehicule $recette)
     {
         $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'recette', "Recette #{$recette->id}", "Motif: " . $r->motif_suppression);
         $recette->delete();
@@ -747,6 +749,7 @@ class ParcController extends Controller
     public function destroyMaintenance(Request $r, MaintenancePreventive $maintenance)
     {
         $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}, Motif: " . $r->motif_suppression);
         $maintenance->delete();
@@ -836,6 +839,7 @@ class ParcController extends Controller
     public function destroyPenalite(Request $r, Penalite $penalite)
     {
         $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'penalite', "Pénalité #{$penalite->id}", "Type: {$penalite->type}, Montant: {$penalite->montant}, Motif: " . $r->motif_suppression);
         $penalite->delete();
@@ -1145,6 +1149,7 @@ class ParcController extends Controller
     public function annulerRecouvrement(Request $r, Recouvrement $recouvrement)
     {
         $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent annuler.');
         $r->validate(['motif_annulation' => 'required|string|min:5|max:500']);
         if ($recouvrement->montant_recouvre > 0) {
             return back()->withErrors(['Impossible d\'annuler : des versements ont déjà été effectués.']);
@@ -1198,7 +1203,7 @@ class ParcController extends Controller
     public function destroyDepense(Request $r, Depense $depense)
     {
         $this->autoriser($r);
-        abort_if($r->user()->aRole('direction'), 403);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'depense', "Dépense #{$depense->id}", "Type: {$depense->type_depense}, Montant: {$depense->montant} F, Motif: " . $r->motif_suppression);
         $depense->delete();

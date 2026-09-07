@@ -41,8 +41,9 @@ class SaisieController extends Controller
             ->get();
 
         // Confirmations déjà faites aujourd'hui
-        $confirmations = ConfirmationTache::where('user_id', $userId)
-            ->whereDate('date', today())->pluck('statut', 'tache_id');
+        $confirmations = Schema::hasTable('confirmations_taches')
+            ? ConfirmationTache::where('user_id', $userId)->whereDate('date', today())->pluck('statut', 'tache_id')
+            : collect();
 
         // Jours à justifier
         $jours = JourSaisie::where('user_id', $userId)
@@ -87,7 +88,7 @@ class SaisieController extends Controller
                     ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->map(fn($v) => (int)$v)->toArray();
 
                 // IDs ayant confirmé/infirmé au moins une tâche hier (via saisie ou kanban)
-                if (Schema::hasTable('confirmation_taches')) {
+                if (Schema::hasTable('confirmations_taches')) {
                     $confirmesHier = ConfirmationTache::whereDate('date', $hier)->pluck('user_id')->map(fn($v) => (int)$v)->unique()->toArray();
                     $saisisHier = array_values(array_unique(array_merge($saisisHier, $confirmesHier)));
                 }

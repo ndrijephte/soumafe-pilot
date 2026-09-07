@@ -198,7 +198,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <div class="act-row">
                 <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $v->id }})" style="color:var(--accent)">{!! $icEye !!}</button>
                 <button class="act-btn" title="Modifier" onclick="editVehicule({{ $v->id }})">{!! $icEdit !!}</button>
-                @if(auth()->user()->estPilote())
+                @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.vehicules.destroy', $v) }}" onsubmit="return demanderMotifSuppression(this,'ce véhicule')">@csrf @method('DELETE')
                     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
@@ -241,10 +241,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <button class="act-btn" title="Statuer" onclick="statuerPanne({{ $p->id }})" style="color:var(--accent)">{!! $icWrench !!}</button>
                 @endif
                 <button class="act-btn" title="Modifier" onclick="editPanne({{ $p->id }})">{!! $icEdit !!}</button>
+                @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.pannes.destroy', $p) }}" onsubmit="return demanderMotifSuppression(this,'cette panne')">@csrf @method('DELETE')
                     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
+                @endif
             </div>
         </td>
     </tr>
@@ -515,10 +517,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <td>
                 <div class="act-row">
                     <button type="button" class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
+                    @if(auth()->user()->estAdmin())
                     <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return demanderMotifSuppression(this,'cette recette')">@csrf @method('DELETE')
                         <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                         <button class="act-btn del">{!! $icDel !!}</button>
                     </form>
+                    @endif
                 </div>
             </td>
         </tr>
@@ -559,10 +563,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 @endif
                 @if(!$estDG)
                 <button class="act-btn" title="Modifier" onclick="editMaint({{ $m->id }})">{!! $icEdit !!}</button>
+                @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.maintenances.destroy', $m) }}" onsubmit="return demanderMotifSuppression(this,'cette maintenance')">@csrf @method('DELETE')
                     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
+                @endif
                 @endif
             </div>
         </td>
@@ -607,10 +613,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $pen->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
                 @if(!$estDG)
                 <button class="act-btn" title="Modifier" onclick="editPenal({{ $pen->id }})">{!! $icEdit !!}</button>
+                @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.penalites.destroy', $pen) }}" onsubmit="return demanderMotifSuppression(this,'cette pénalité')">@csrf @method('DELETE')
                     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
                 </form>
+                @endif
                 @endif
             </div>
         </td>
@@ -672,7 +680,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <button type="button" class="act-btn" title="Enregistrer un versement" onclick="ouvrirVersement({{ $rc->id }}, '{{ $rc->chauffeur_nom }}', {{ $rc->solde }})">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
-                @if($rc->montant_recouvre == 0)
+                @if($rc->montant_recouvre == 0 && auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.recouvrements.annuler', $rc) }}" onsubmit="return demanderMotifAnnulation(this)">@csrf @method('PATCH')
                     <input type="hidden" name="motif_annulation" class="motif-annul-input">
                     <button class="act-btn del" title="Annuler">
@@ -856,7 +864,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <button class="act-btn" title="Résumé" onclick="ficheChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icEye !!}</button>
                 <button class="act-btn" title="Affecter" onclick="affecterChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icCar !!}</button>
                 <button class="act-btn" title="Modifier" onclick="editChauffeur({{ $ch->id }})">{!! $icEdit !!}</button>
-                @if(auth()->user()->estPilote())
+                @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.chauffeurs.destroy', $ch) }}" onsubmit="return demanderMotifSuppression(this,'ce chauffeur')">@csrf @method('DELETE')
                     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                     <button class="act-btn del">{!! $icDel !!}</button>
@@ -1283,7 +1291,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <td>
         <div class="act-row">
             <button class="act-btn" title="Modifier" onclick="editerDepense({{ $dep->id }})">{!! $icEdit !!}</button>
+            @if(auth()->user()->estAdmin())
             <form method="POST" action="{{ route('parc.depenses.destroy', $dep) }}" onsubmit="return demanderMotifSuppression(this,'cette dépense')" style="display:inline">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="act-btn del" title="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></form>
+            @endif
         </div>
     </td>
     @endif

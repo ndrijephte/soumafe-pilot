@@ -185,12 +185,17 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         </div>
     @elseif($jours)
         @if($estPonctuel)
-        {{-- Présentation ponctuelle : tableau Rôle / Participant par date --}}
+        {{-- Présentation ponctuelle : instances multiples par date --}}
         @foreach($jours as $j)
+        @php $dateInstances = $instances[$j->format('Y-m-d')] ?? collect(); @endphp
+        @foreach($dateInstances as $instIdx => $instance)
         <div style="background:var(--fond);border:1px solid var(--bord);border-radius:10px;padding:12px 16px;margin-bottom:10px">
             <div style="font-weight:700;color:var(--bleu);font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
                 {!! $ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',14) !!}
                 {{ $j->isoFormat('dddd D MMMM YYYY') }}
+                @if($dateInstances->count() > 1)
+                <span style="font-size:11px;font-weight:600;background:rgba(46,116,181,.1);color:var(--accent);padding:2px 8px;border-radius:6px">Réunion {{ $instIdx + 1 }}</span>
+                @endif
             </div>
             <table class="plan-table">
                 <thead>
@@ -201,12 +206,10 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                     </tr>
                 </thead>
                 <tbody>
-                @foreach($type->roles as $role)
-                @php $aff = $affMap[$j->format('Y-m-d') . '_' . $role->id] ?? null; @endphp
+                @foreach($instance as $aff)
                 <tr>
-                    <td>{!! $ic('<circle cx="12" cy="12" r="3"/>',10) !!} {{ $role->libelle }}</td>
+                    <td>{!! $ic('<circle cx="12" cy="12" r="3"/>',10) !!} {{ $aff->role->libelle ?? '—' }}</td>
                     <td>
-                        @if($aff)
                         {{ $aff->user?->nomComplet() ?? '—' }}
                         @if($estGestionnaire && $aff->statut !== 'prevu')
                         <span class="statut s-{{ $aff->statut }}" style="font-size:9px;margin-left:4px">{{ $aff->statutLabel() }}</span>
@@ -214,13 +217,10 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                         @if($aff->statut === 'remplace' && $aff->remplacant)
                             <span style="font-size:10px;color:var(--gris);font-style:italic"> par {{ $aff->remplacant->nomComplet() }}</span>
                         @endif
-                        @else
-                        <span style="color:var(--gris)">—</span>
-                        @endif
                     </td>
                     @if($estGestionnaire)
                     <td>
-                        @if($aff && $aff->statut === 'prevu')
+                        @if($aff->statut === 'prevu')
                         <button class="btn-abs" title="Substituer"
                             onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
                             {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',14) !!}
@@ -233,6 +233,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                 </tbody>
             </table>
         </div>
+        @endforeach
         @endforeach
         @else
         {{-- Présentation quotidien : grille semaine --}}
@@ -372,12 +373,21 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             <p style="font-size:11px;color:var(--ko);background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin:10px 0">
                 Ajoutez au moins un participant.
             </p>
-            @else
-            <p style="font-size:11px;color:var(--gris);margin:10px 0">
-                R&eacute;union ponctuelle. Les rôles seront assign&eacute;s par rotation parmi {{ $participants->count() }} participants.
-            </p>
+            @elseif($type->roles->isNotEmpty())
+            <div style="margin-top:10px;border-top:1px solid var(--bord);padding-top:10px">
+                <span style="font-size:12px;font-weight:600;color:var(--bleu);display:block;margin-bottom:6px">Affectation des rôles</span>
+                @foreach($type->roles as $role)
+                <label>{{ $role->libelle }} <span class="req">*</span></label>
+                <select name="affectations[{{ $role->id }}]" required style="margin-bottom:6px">
+                    <option value="">— Choisir —</option>
+                    @foreach($participants as $p)
+                    <option value="{{ $p->user_id }}">{{ $p->user?->nomComplet() }}</option>
+                    @endforeach
+                </select>
+                @endforeach
+            </div>
             @endif
-            <button type="submit" class="btn" {{ $participants->isEmpty() ? 'disabled style="opacity:.5;cursor:not-allowed"' : '' }}
+            <button type="submit" class="btn" style="margin-top:10px" {{ $participants->isEmpty() || $type->roles->isEmpty() ? 'disabled style="opacity:.5;cursor:not-allowed;margin-top:10px"' : '' }}
                 onclick="document.getElementById('ponctuelFin').value=this.form.date_debut.value;return confirm('Programmer cette réunion ?')">
                 Programmer
             </button>

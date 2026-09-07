@@ -36,14 +36,14 @@
 .plan-table td:first-child{text-align:left;font-weight:600;color:var(--bleu);white-space:nowrap}
 .plan-table tr:hover{background:#f8fafc}
 
-/* En-tête type coloré */
-.type-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.type-header .th-info{flex:1}
+/* En-tête type */
+.type-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.type-header .th-info{display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap}
 .type-header .th-nom{font-size:16px;font-weight:700}
-.type-header .th-rec{font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;color:var(--accent);margin-left:6px}
+.type-header .th-rec{font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;color:var(--accent)}
 
-/* Cellule affectation */
-.cell-aff{display:flex;flex-direction:column;align-items:center;gap:3px}
+/* Cellule affectation — actions au hover */
+.cell-aff{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
 .cell-aff .nom{font-size:12px;font-weight:600;color:#1e293b}
 .cell-aff .statut{font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px}
 .s-prevu{background:#dbeafe;color:#1d4ed8}
@@ -51,8 +51,25 @@
 .s-absent{background:#fee2e2;color:var(--ko)}
 .s-remplace{background:#fef3c7;color:#b45309}
 .cell-aff .remplac{font-size:10px;color:var(--gris);font-style:italic}
-.cell-aff .btn-abs{background:none;border:none;cursor:pointer;color:var(--gris);padding:2px;border-radius:4px}
-.cell-aff .btn-abs:hover{color:var(--ko);background:#fee2e2}
+.cell-actions{display:none;gap:2px;margin-top:2px}
+.cell-aff:hover .cell-actions,.plan-table tr:hover .cell-actions{display:flex;justify-content:center}
+.cell-actions .btn-act{background:none;border:none;cursor:pointer;color:var(--gris);padding:2px;border-radius:4px;line-height:1}
+.cell-actions .btn-act:hover{color:var(--accent);background:rgba(46,116,181,.08)}
+.cell-actions .btn-act.del:hover{color:var(--ko);background:#fee2e2}
+
+/* Instance ponctuelle — actions en-tête au hover */
+.inst-card{background:var(--fond);border:1px solid var(--bord);border-radius:10px;padding:12px 16px;margin-bottom:10px;position:relative}
+.inst-header{font-weight:700;color:var(--bleu);font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.inst-actions{display:none;gap:4px;margin-left:auto}
+.inst-card:hover .inst-actions{display:flex}
+.inst-actions .btn-act{background:none;border:none;cursor:pointer;color:var(--gris);padding:3px;border-radius:4px}
+.inst-actions .btn-act:hover{color:var(--ko);background:#fee2e2}
+
+/* Row actions ponctuel — hover */
+.row-acts{display:none;gap:2px;justify-content:center}
+.plan-table tr:hover .row-acts{display:flex}
+.row-acts .btn-act{background:none;border:none;cursor:pointer;color:var(--gris);padding:2px;border-radius:4px;line-height:1}
+.row-acts .btn-act:hover{color:var(--accent);background:rgba(46,116,181,.08)}
 
 /* Participants */
 .part-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
@@ -74,6 +91,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
 .panneau form label{font-size:12px;color:var(--gris);display:block;margin:10px 0 3px}
 .panneau form label:first-child{margin-top:0}
 .panneau form input[type="date"],
+.panneau form input[type="time"],
 .panneau form input[type="text"],
 .panneau form select,
 .panneau form textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;font-family:inherit;background:#fff}
@@ -86,6 +104,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
     .types-grid{grid-template-columns:1fr 1fr}
     .plan-table{display:block;overflow-x:auto}
     .nav-semaine{gap:8px}
+    .cell-actions,.inst-actions,.row-acts{display:flex!important}
 }
 @media(max-width:480px){
     .types-grid{grid-template-columns:1fr}
@@ -132,7 +151,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             <div class="tc-nom">{{ $t->libelle }}</div>
             <div class="tc-meta">
                 <span class="tc-rec" style="background:rgba(46,116,181,.1)">{{ $t->recurrenceLabel() }}</span>
-                @if($t->heure)<span class="tc-roles">{{ \Carbon\Carbon::parse($t->heure)->format('H:i') }}</span>@endif
+                @if($t->heure)<span class="tc-roles">{!! $ic('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',9) !!} {{ \Carbon\Carbon::parse($t->heure)->format('H:i') }}</span>@endif
                 <span class="tc-roles">{{ $t->roles->count() }} rôles</span>
             </div>
         </div>
@@ -174,12 +193,12 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             <span class="th-nom" style="color:var(--bleu)">{!! $ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',16) !!} {{ $type->libelle }}</span>
             <span class="th-rec" style="background:rgba(46,116,181,.1)">{{ $type->recurrenceLabel() }}</span>
             @if($type->heure)<span style="font-size:12px;color:var(--gris);font-weight:600">{!! $ic('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',13) !!} {{ \Carbon\Carbon::parse($type->heure)->format('H\hi') }}</span>@endif
-            @if($estGestionnaire)
-            <button class="btn sm sec" onclick="ouvrirEditType({{ $type->id }}, '{{ addslashes($type->libelle) }}', '{{ $type->heure ? \Carbon\Carbon::parse($type->heure)->format('H:i') : '' }}')" style="margin-left:auto;padding:3px 10px">
-                {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',13) !!}
-            </button>
-            @endif
         </div>
+        @if($estGestionnaire)
+        <button class="btn-act" title="Modifier le type" onclick="ouvrirEditType({{ $type->id }}, '{{ addslashes($type->libelle) }}', '{{ $type->heure ? \Carbon\Carbon::parse($type->heure)->format('H:i') : '' }}')" style="background:none;border:none;cursor:pointer;color:var(--gris);padding:4px">
+            {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',15) !!}
+        </button>
+        @endif
     </div>
 
     @if($type->roles->isEmpty())
@@ -196,12 +215,21 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         @foreach($jours as $j)
         @php $dateInstances = $instances[$j->format('Y-m-d')] ?? collect(); @endphp
         @foreach($dateInstances as $instIdx => $instance)
-        <div style="background:var(--fond);border:1px solid var(--bord);border-radius:10px;padding:12px 16px;margin-bottom:10px">
-            <div style="font-weight:700;color:var(--bleu);font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+        <div class="inst-card">
+            <div class="inst-header">
                 {!! $ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',14) !!}
                 {{ $j->isoFormat('dddd D MMMM YYYY') }}
+                @if($type->heure)<span style="font-size:11px;color:var(--gris);font-weight:600">{{ \Carbon\Carbon::parse($type->heure)->format('H\hi') }}</span>@endif
                 @if($dateInstances->count() > 1)
                 <span style="font-size:11px;font-weight:600;background:rgba(46,116,181,.1);color:var(--accent);padding:2px 8px;border-radius:6px">Réunion {{ $instIdx + 1 }}</span>
+                @endif
+                @if($estGestionnaire)
+                <div class="inst-actions">
+                    <button class="btn-act" title="Supprimer cette réunion"
+                        onclick="ouvrirSupprInstance('{{ $instance->pluck('id')->join(',') }}', '{{ $j->format('d/m/Y') }}')">
+                        {!! $ic('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>',14) !!}
+                    </button>
+                </div>
                 @endif
             </div>
             <table class="plan-table">
@@ -209,7 +237,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                     <tr>
                         <th style="text-align:left">Rôle</th>
                         <th>Acteur</th>
-                        @if($estGestionnaire)<th style="width:50px"></th>@endif
+                        @if($estGestionnaire)<th style="width:40px"></th>@endif
                     </tr>
                 </thead>
                 <tbody>
@@ -218,7 +246,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                     <td>{!! $ic('<circle cx="12" cy="12" r="3"/>',10) !!} {{ $aff->role->libelle ?? '—' }}</td>
                     <td>
                         {{ $aff->user?->nomComplet() ?? '—' }}
-                        @if($estGestionnaire && $aff->statut !== 'prevu')
+                        @if($aff->statut !== 'prevu')
                         <span class="statut s-{{ $aff->statut }}" style="font-size:9px;margin-left:4px">{{ $aff->statutLabel() }}</span>
                         @endif
                         @if($aff->statut === 'remplace' && $aff->remplacant)
@@ -227,32 +255,24 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                     </td>
                     @if($estGestionnaire)
                     <td>
-                        <div style="display:flex;gap:4px;justify-content:center">
                         @if($aff->statut === 'prevu')
-                        <button class="btn-abs" title="Modifier l'acteur"
-                            onclick="ouvrirModifAff({{ $aff->id }}, '{{ addslashes($aff->role->libelle) }}', {{ $aff->user_id }})">
-                            {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',13) !!}
-                        </button>
-                        <button class="btn-abs" title="Substituer"
-                            onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
-                            {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',14) !!}
-                        </button>
-                        @endif
+                        <div class="row-acts">
+                            <button class="btn-act" title="Modifier"
+                                onclick="ouvrirModifAff({{ $aff->id }}, '{{ addslashes($aff->role->libelle) }}', {{ $aff->user_id }})">
+                                {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',12) !!}
+                            </button>
+                            <button class="btn-act" title="Substituer"
+                                onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
+                                {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',12) !!}
+                            </button>
                         </div>
+                        @endif
                     </td>
                     @endif
                 </tr>
                 @endforeach
                 </tbody>
             </table>
-            @if($estGestionnaire)
-            <div style="display:flex;justify-content:flex-end;margin-top:8px">
-                <button class="btn sm" style="background:var(--ko);font-size:10px;padding:4px 10px"
-                    onclick="ouvrirSupprInstance('{{ $instance->pluck('id')->join(',') }}', '{{ $j->format('d/m/Y') }}')">
-                    {!! $ic('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>',12) !!} Supprimer cette réunion
-                </button>
-            </div>
-            @endif
         </div>
         @endforeach
         @endforeach
@@ -285,14 +305,16 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                                 <span class="remplac">par {{ $aff->remplacant->nomComplet() }}</span>
                             @endif
                             @if($estGestionnaire && $aff->statut === 'prevu')
-                            <button class="btn-abs" title="Modifier l'acteur"
-                                onclick="ouvrirModifAff({{ $aff->id }}, '{{ addslashes($aff->role->libelle) }}', {{ $aff->user_id }})">
-                                {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',13) !!}
-                            </button>
-                            <button class="btn-abs" title="Substituer"
-                                onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
-                                {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',14) !!}
-                            </button>
+                            <div class="cell-actions">
+                                <button class="btn-act" title="Modifier"
+                                    onclick="ouvrirModifAff({{ $aff->id }}, '{{ addslashes($aff->role->libelle) }}', {{ $aff->user_id }})">
+                                    {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',12) !!}
+                                </button>
+                                <button class="btn-act" title="Substituer"
+                                    onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
+                                    {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',12) !!}
+                                </button>
+                            </div>
                             @endif
                         </div>
                         @else
@@ -368,17 +390,25 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         <form method="POST" action="{{ route('planning.generer') }}">
             @csrf
             <input type="hidden" name="type_reunion_id" value="{{ $type->id }}">
-            <label>Date début <span class="req">*</span></label>
-            <input type="date" name="date_debut" required value="{{ $debut->format('Y-m-d') }}">
-            <label>Date fin <span class="req">*</span></label>
-            <input type="date" name="date_fin" required value="{{ $fin->format('Y-m-d') }}" style="margin-bottom:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                    <label>Date début <span class="req">*</span></label>
+                    <input type="date" name="date_debut" required value="{{ $debut->format('Y-m-d') }}">
+                </div>
+                <div>
+                    <label>Date fin <span class="req">*</span></label>
+                    <input type="date" name="date_fin" required value="{{ $fin->format('Y-m-d') }}">
+                </div>
+            </div>
+            <label>Heure de la réunion</label>
+            <input type="time" name="heure" value="{{ $type->heure ? \Carbon\Carbon::parse($type->heure)->format('H:i') : '' }}" style="margin-bottom:12px">
             @if($participants->isEmpty())
             <p style="font-size:11px;color:var(--ko);background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin-bottom:12px">
                 Ajoutez au moins un participant avant de générer.
             </p>
             @else
             <p style="font-size:11px;color:var(--gris);margin-bottom:12px">
-                Rotation entre {{ $participants->count() }} participants. Les affectations « Prévu » existantes seront remplacées.
+                Rotation entre {{ $participants->count() }} participants.
             </p>
             @endif
             <button type="submit" class="btn" {{ $participants->isEmpty() ? 'disabled style="opacity:.5;cursor:not-allowed"' : '' }}
@@ -391,8 +421,16 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         <form method="POST" action="{{ route('planning.generer') }}">
             @csrf
             <input type="hidden" name="type_reunion_id" value="{{ $type->id }}">
-            <label>Date de la réunion <span class="req">*</span></label>
-            <input type="date" name="date_debut" required value="{{ now()->format('Y-m-d') }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div>
+                    <label>Date <span class="req">*</span></label>
+                    <input type="date" name="date_debut" required value="{{ now()->format('Y-m-d') }}">
+                </div>
+                <div>
+                    <label>Heure</label>
+                    <input type="time" name="heure" value="{{ $type->heure ? \Carbon\Carbon::parse($type->heure)->format('H:i') : '' }}">
+                </div>
+            </div>
             <input type="hidden" name="date_fin" id="ponctuelFin" value="{{ now()->format('Y-m-d') }}">
             @if($participants->isEmpty())
             <p style="font-size:11px;color:var(--ko);background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin:10px 0">
@@ -489,15 +527,13 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         <label>Libellé <span class="req">*</span></label>
         <input type="text" name="libelle" required placeholder="ex: Daily Scrum" style="margin-bottom:8px">
         <label>Récurrence <span class="req">*</span></label>
-        <select name="recurrence" required style="margin-bottom:8px">
+        <select name="recurrence" required style="margin-bottom:14px">
             <option value="quotidien">Quotidien</option>
             <option value="hebdomadaire">Hebdomadaire</option>
             <option value="bimensuel">Bimensuel</option>
             <option value="mensuel">Mensuel</option>
             <option value="fin_sprint">Fin de sprint</option>
         </select>
-        <label>Heure de la réunion</label>
-        <input type="time" name="heure" style="margin-bottom:14px">
         <div style="display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button type="submit" class="btn">Créer</button>
@@ -535,6 +571,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         </div>
     </form>
 </dialog>
+
 {{-- Dialog Modifier type --}}
 <dialog id="dlg-edit-type">
     <h3 style="margin-bottom:14px;color:var(--bleu)">Modifier le type de réunion</h3>
@@ -543,7 +580,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         @method('PUT')
         <label>Libellé <span class="req">*</span></label>
         <input type="text" name="libelle" id="edit-type-libelle" required style="margin-bottom:8px">
-        <label>Heure de la réunion</label>
+        <label>Heure par défaut</label>
         <input type="time" name="heure" id="edit-type-heure" style="margin-bottom:14px">
         <div style="display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>

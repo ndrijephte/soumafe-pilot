@@ -86,9 +86,15 @@ class PlanningReunionController extends Controller
             'date_fin' => 'required|date|after_or_equal:date_debut',
             'affectations' => 'nullable|array',
             'affectations.*' => 'nullable|exists:users,id',
+            'heure' => 'nullable|date_format:H:i',
         ]);
 
         $type = TypeReunion::with('roles')->findOrFail($r->type_reunion_id);
+
+        // Sauvegarder l'heure sur le type
+        if ($r->filled('heure')) {
+            $type->update(['heure' => $r->heure]);
+        }
         $participants = ParticipantReunion::with('user')
             ->where('type_reunion_id', $type->id)
             ->where('actif', true)
@@ -217,7 +223,7 @@ class PlanningReunionController extends Controller
             'recurrence' => 'required|in:quotidien,hebdomadaire,bimensuel,mensuel,fin_sprint',
         ]);
 
-        TypeReunion::create($r->only('code', 'libelle', 'recurrence', 'heure'));
+        TypeReunion::create($r->only('code', 'libelle', 'recurrence'));
         return redirect()->route('planning.index')->with('succes', 'Type de réunion créé.');
     }
 

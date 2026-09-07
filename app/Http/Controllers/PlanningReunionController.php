@@ -217,7 +217,7 @@ class PlanningReunionController extends Controller
             'recurrence' => 'required|in:quotidien,hebdomadaire,bimensuel,mensuel,fin_sprint',
         ]);
 
-        TypeReunion::create($r->only('code', 'libelle', 'recurrence'));
+        TypeReunion::create($r->only('code', 'libelle', 'recurrence', 'heure'));
         return redirect()->route('planning.index')->with('succes', 'Type de réunion créé.');
     }
 
@@ -261,6 +261,82 @@ class PlanningReunionController extends Controller
 
         AuditLog::log('suppression', 'planning', $libelle, "Rôle supprimé. Motif: {$r->motif_suppression}");
         return redirect()->route('planning.index', ['type' => $typeId])->with('succes', 'Rôle supprimé.');
+    }
+
+    /* ===== MODIFIER UN TYPE (heure, libellé) ===== */
+    public function updateType(Request $r, TypeReunion $type)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate([
+            'libelle' => 'required|string|max:100',
+            'heure' => 'nullable|date_format:H:i',
+        ]);
+
+        $type->update($r->only('libelle', 'heure'));
+        AuditLog::log('modification', 'planning', $type->libelle, 'Type modifié' . ($r->heure ? " — Heure: {$r->heure}" : ''));
+        return redirect()->route('planning.index', ['type' => $type->id])->with('succes', 'Type de réunion modifié.');
+    }
+
+    /* ===== MODIFIER UNE AFFECTATION (changer le collaborateur) ===== */
+    public function modifierAffectation(Request $r, AffectationReunion $affectation)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['user_id' => 'required|exists:users,id']);
+
+        $ancien = $affectation->user?->nomComplet() ?? '—';
+        $affectation->update(['user_id' => $r->user_id]);
+        $nouveau = User::find($r->user_id)->nomComplet();
+
+        AuditLog::log('modification', 'planning', $affectation->role->libelle ?? '—',
+            "Affectation modifiée: {$ancien} → {$nouveau} le " . $affectation->date_reunion->format('d/m/Y'));
+
+        // Notifier le nouveau
+        if ((int) $r->user_id !== auth()->id()) {
+            NotificationApp::create([
+                'user_id' => $r->user_id,
+                'type' => 'planning',
+                'contenu' => 'Vous êtes désormais affecté comme ' . ($affectation->role->libelle ?? '') . ' le ' . $affectation->date_reunion->format('d/m/Y'),
+                'lu' => false,
+                'canal' => 'in_app',
+            ]);
+        }
+
+        return redirect()->route('planning.index', [
+            'type' => $affectation->type_reunion_id,
+            'semaine' => $affectation->date_reunion->startOfMonth()->format('Y-m-d'),
+        ])->with('succes', "Affectation modifiée: {$nouveau}.");
+    }
+
+    /* ===== SUPPRIMER UNE INSTANCE DE RÉUNION ===== */
+    public function supprimerInstance(Request $r)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate([
+            'motif_suppression' => 'required|string|min:5',
+            'affectation_ids' => 'required|string',
+        ]);
+
+        $ids = array_filter(explode(',', $r->affectation_ids));
+        if (empty($ids)) {
+            return back()->withErrors(['Aucune affectation à supprimer.']);
+        }
+
+        $first = AffectationReunion::with('typeReunion')->find($ids[0]);
+        if (!$first) return back()->withErrors(['Réunion introuvable.']);
+
+        $typeId = $first->type_reunion_id;
+        $date = $first->date_reunion->format('d/m/Y');
+        $typeName = $first->typeReunion->libelle ?? '—';
+
+        AffectationReunion::whereIn('id', $ids)->delete();
+
+        AuditLog::log('suppression', 'planning', $typeName,
+            "Réunion du {$date} supprimée. Motif: {$r->motif_suppression}");
+
+        return redirect()->route('planning.index', [
+            'type' => $typeId,
+            'semaine' => $first->date_reunion->startOfMonth()->format('Y-m-d'),
+        ])->with('succes', 'Réunion supprimée.');
     }
 
     /* ===== SIGNALER ABSENCE / REMPLACEMENT ===== */

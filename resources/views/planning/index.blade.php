@@ -132,6 +132,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             <div class="tc-nom">{{ $t->libelle }}</div>
             <div class="tc-meta">
                 <span class="tc-rec" style="background:rgba(46,116,181,.1)">{{ $t->recurrenceLabel() }}</span>
+                @if($t->heure)<span class="tc-roles">{{ \Carbon\Carbon::parse($t->heure)->format('H:i') }}</span>@endif
                 <span class="tc-roles">{{ $t->roles->count() }} rôles</span>
             </div>
         </div>
@@ -172,6 +173,12 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         <div class="th-info">
             <span class="th-nom" style="color:var(--bleu)">{!! $ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',16) !!} {{ $type->libelle }}</span>
             <span class="th-rec" style="background:rgba(46,116,181,.1)">{{ $type->recurrenceLabel() }}</span>
+            @if($type->heure)<span style="font-size:12px;color:var(--gris);font-weight:600">{!! $ic('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',13) !!} {{ \Carbon\Carbon::parse($type->heure)->format('H\hi') }}</span>@endif
+            @if($estGestionnaire)
+            <button class="btn sm sec" onclick="ouvrirEditType({{ $type->id }}, '{{ addslashes($type->libelle) }}', '{{ $type->heure ? \Carbon\Carbon::parse($type->heure)->format('H:i') : '' }}')" style="margin-left:auto;padding:3px 10px">
+                {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',13) !!}
+            </button>
+            @endif
         </div>
     </div>
 
@@ -220,18 +227,32 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                     </td>
                     @if($estGestionnaire)
                     <td>
+                        <div style="display:flex;gap:4px;justify-content:center">
                         @if($aff->statut === 'prevu')
+                        <button class="btn-abs" title="Modifier l'acteur"
+                            onclick="ouvrirModifAff({{ $aff->id }}, '{{ addslashes($aff->role->libelle) }}', {{ $aff->user_id }})">
+                            {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',13) !!}
+                        </button>
                         <button class="btn-abs" title="Substituer"
                             onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
                             {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',14) !!}
                         </button>
                         @endif
+                        </div>
                     </td>
                     @endif
                 </tr>
                 @endforeach
                 </tbody>
             </table>
+            @if($estGestionnaire)
+            <div style="display:flex;justify-content:flex-end;margin-top:8px">
+                <button class="btn sm" style="background:var(--ko);font-size:10px;padding:4px 10px"
+                    onclick="ouvrirSupprInstance('{{ $instance->pluck('id')->join(',') }}', '{{ $j->format('d/m/Y') }}')">
+                    {!! $ic('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>',12) !!} Supprimer cette réunion
+                </button>
+            </div>
+            @endif
         </div>
         @endforeach
         @endforeach
@@ -264,6 +285,10 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                                 <span class="remplac">par {{ $aff->remplacant->nomComplet() }}</span>
                             @endif
                             @if($estGestionnaire && $aff->statut === 'prevu')
+                            <button class="btn-abs" title="Modifier l'acteur"
+                                onclick="ouvrirModifAff({{ $aff->id }}, '{{ addslashes($aff->role->libelle) }}', {{ $aff->user_id }})">
+                                {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',13) !!}
+                            </button>
                             <button class="btn-abs" title="Substituer"
                                 onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
                                 {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',14) !!}
@@ -464,13 +489,15 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         <label>Libellé <span class="req">*</span></label>
         <input type="text" name="libelle" required placeholder="ex: Daily Scrum" style="margin-bottom:8px">
         <label>Récurrence <span class="req">*</span></label>
-        <select name="recurrence" required style="margin-bottom:14px">
+        <select name="recurrence" required style="margin-bottom:8px">
             <option value="quotidien">Quotidien</option>
             <option value="hebdomadaire">Hebdomadaire</option>
             <option value="bimensuel">Bimensuel</option>
             <option value="mensuel">Mensuel</option>
             <option value="fin_sprint">Fin de sprint</option>
         </select>
+        <label>Heure de la réunion</label>
+        <input type="time" name="heure" style="margin-bottom:14px">
         <div style="display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button type="submit" class="btn">Créer</button>
@@ -508,6 +535,63 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
         </div>
     </form>
 </dialog>
+{{-- Dialog Modifier type --}}
+<dialog id="dlg-edit-type">
+    <h3 style="margin-bottom:14px;color:var(--bleu)">Modifier le type de réunion</h3>
+    <form id="form-edit-type" method="POST">
+        @csrf
+        @method('PUT')
+        <label>Libellé <span class="req">*</span></label>
+        <input type="text" name="libelle" id="edit-type-libelle" required style="margin-bottom:8px">
+        <label>Heure de la réunion</label>
+        <input type="time" name="heure" id="edit-type-heure" style="margin-bottom:14px">
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button type="submit" class="btn">Enregistrer</button>
+        </div>
+    </form>
+</dialog>
+
+{{-- Dialog Modifier affectation --}}
+<dialog id="dlg-modif-aff">
+    <h3 style="margin-bottom:14px;color:var(--bleu);display:flex;align-items:center;gap:8px">
+        {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>') !!}
+        Modifier l'affectation
+    </h3>
+    <form id="form-modif-aff" method="POST">
+        @csrf
+        @method('PUT')
+        <p id="modif-aff-info" style="font-size:13px;color:#1e293b;margin-bottom:12px"></p>
+        <label>Nouveau collaborateur <span class="req">*</span></label>
+        <select name="user_id" id="modif-aff-user" required style="margin-bottom:14px">
+            <option value="">— Choisir —</option>
+            @foreach($collaborateurs as $c)
+            <option value="{{ $c->id }}">{{ $c->nomComplet() }}</option>
+            @endforeach
+        </select>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button type="submit" class="btn">Enregistrer</button>
+        </div>
+    </form>
+</dialog>
+
+{{-- Dialog Supprimer instance réunion --}}
+<dialog id="dlg-suppr-instance">
+    <h3 style="margin:0 0 12px;font-size:15px;color:var(--ko)">Supprimer une réunion</h3>
+    <p id="suppr-inst-info" style="font-size:13px;color:var(--bleu);margin:0 0 10px"></p>
+    <form id="form-suppr-instance" method="POST" action="{{ route('planning.instance.destroy') }}">
+        @csrf
+        @method('DELETE')
+        <input type="hidden" name="affectation_ids" id="suppr-inst-ids">
+        <label>Motif de suppression <span class="req">*</span></label>
+        <textarea name="motif_suppression" required minlength="5" rows="2" placeholder="Précisez le motif..."></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button type="submit" class="btn" style="background:var(--ko)">Supprimer</button>
+        </div>
+    </form>
+</dialog>
 @endif
 
 @endsection
@@ -525,6 +609,24 @@ function ouvrirSupprRole(roleId, libelle) {
     document.getElementById('suppr-role-info').textContent = 'Rôle : ' + libelle;
     document.getElementById('form-suppr-role').querySelector('textarea').value = '';
     document.getElementById('dlg-suppr-role').showModal();
+}
+function ouvrirEditType(typeId, libelle, heure) {
+    document.getElementById('form-edit-type').action = '/planning/type/' + typeId;
+    document.getElementById('edit-type-libelle').value = libelle;
+    document.getElementById('edit-type-heure').value = heure || '';
+    document.getElementById('dlg-edit-type').showModal();
+}
+function ouvrirModifAff(affId, role, userId) {
+    document.getElementById('form-modif-aff').action = '/planning/affectation/' + affId;
+    document.getElementById('modif-aff-info').textContent = 'Rôle : ' + role;
+    document.getElementById('modif-aff-user').value = userId;
+    document.getElementById('dlg-modif-aff').showModal();
+}
+function ouvrirSupprInstance(ids, date) {
+    document.getElementById('suppr-inst-ids').value = ids;
+    document.getElementById('suppr-inst-info').textContent = 'Réunion du ' + date;
+    document.getElementById('form-suppr-instance').querySelector('textarea').value = '';
+    document.getElementById('dlg-suppr-instance').showModal();
 }
 </script>
 @endpush

@@ -174,6 +174,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/planning/role', [PlanningReunionController::class, 'storeRole'])->name('planning.role.store');
     Route::post('/planning/role/{role}/supprimer', [PlanningReunionController::class, 'destroyRole'])->name('planning.role.destroy');
     Route::post('/planning/{affectation}/absence', [PlanningReunionController::class, 'signalerAbsence'])->name('planning.absence');
+    Route::put('/planning/type/{type}', [PlanningReunionController::class, 'updateType'])->name('planning.type.update');
+    Route::put('/planning/affectation/{affectation}', [PlanningReunionController::class, 'modifierAffectation'])->name('planning.affectation.update');
+    Route::delete('/planning/instance', [PlanningReunionController::class, 'supprimerInstance'])->name('planning.instance.destroy');
 
     Route::get('/pointage', [PointageController::class, 'index'])->name('pointage.index');
     Route::post('/pointage/arrivee', [PointageController::class, 'pointerArrivee'])->name('pointage.arrivee');

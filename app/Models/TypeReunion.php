@@ -8,7 +8,7 @@ class TypeReunion extends Model
 {
     protected $table = 'types_reunion';
 
-    protected $fillable = ['code', 'libelle', 'recurrence', 'actif'];
+    protected $fillable = ['code', 'libelle', 'recurrence', 'heure', 'actif'];
 
     protected $casts = ['actif' => 'boolean'];
 

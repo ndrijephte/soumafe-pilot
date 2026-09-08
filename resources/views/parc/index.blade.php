@@ -601,7 +601,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <tr class="detail-row" id="maint-{{ $m->id }}" style="display:none"><td colspan="9"><div class="detail-content">
         @if($m->observations)<strong>Observations :</strong> {{ $m->observations }}<br>@endif
         @if($m->prestataire)<strong>Prestataire :</strong> {{ $m->prestataire }}<br>@endif
-        @if($m->cout)<strong>Coût :</strong> {{ number_format($m->cout, 0, ',', ' ') }} F@endif
+        @if($m->cout)<strong>Coût :</strong> {{ number_format($m->cout, 0, ',', ' ') }} F @endif
     </div></td></tr>
     @endif
     @empty

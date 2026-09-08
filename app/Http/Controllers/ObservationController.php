@@ -51,7 +51,7 @@ class ObservationController extends Controller
     /** Phase 1 — Déclaration */
     public function store(Request $r)
     {
-        $r->validate([
+        $v = $r->validate([
             'projet_id'        => 'nullable|exists:projets,id',
             'description'      => 'required|string|max:2000',
             'type_difficulte'  => 'required|string|max:100',
@@ -63,14 +63,14 @@ class ObservationController extends Controller
 
         $obs = Observation::create([
             'code'            => Observation::prochainCode(),
-            'projet_id'       => $r->projet_id ?: null,
+            'projet_id'       => $v['projet_id'] ?? null ?: null,
             'date_reception'  => now()->toDateString(),
-            'description'     => $r->description,
-            'type_difficulte' => $r->type_difficulte,
-            'priorite'        => $r->priorite,
-            'responsable_id'  => $r->responsable_id ?: null,
-            'origine'         => $r->origine,
-            'commentaires'    => $r->commentaires,
+            'description'     => $v['description'],
+            'type_difficulte' => $v['type_difficulte'],
+            'priorite'        => $v['priorite'],
+            'responsable_id'  => $v['responsable_id'] ?? null ?: null,
+            'origine'         => $v['origine'],
+            'commentaires'    => trim($v['commentaires'] ?? '') ?: null,
             'statut'          => 'nouveau',
             'declare_par'     => auth()->id(),
         ]);
@@ -87,7 +87,7 @@ class ObservationController extends Controller
     /** Phase 2 — Résolution / mise à jour statut */
     public function update(Request $r, Observation $observation)
     {
-        $r->validate([
+        $v = $r->validate([
             'statut'                  => 'required|in:nouveau,en_cours,resolu,bloque,rejete',
             'mode_execution'          => 'nullable|string|max:100',
             'date_livraison'          => 'nullable|date',
@@ -97,10 +97,10 @@ class ObservationController extends Controller
 
         $ancienResp = $observation->responsable_id;
 
-        $observation->statut                 = $r->statut;
-        $observation->mode_execution         = $r->mode_execution;
-        $observation->date_livraison         = $r->date_livraison;
-        $observation->commentaire_resolution = $r->commentaire_resolution;
+        $observation->statut                 = $v['statut'];
+        $observation->mode_execution         = $v['mode_execution'] ?? null;
+        $observation->date_livraison         = $v['date_livraison'] ?? null;
+        $observation->commentaire_resolution = trim($v['commentaire_resolution'] ?? '') ?: null;
 
         if ($r->filled('responsable_id')) {
             $observation->responsable_id = $r->responsable_id;
@@ -315,6 +315,7 @@ class ObservationController extends Controller
             'user_id' => $responsableId,
             'type'    => 'observation',
             'contenu' => 'Observation ' . $obs->code . $projetLib . ' vous a été assignée : ' . mb_substr($obs->description, 0, 80),
+            'lien'    => route('observations.index'),
             'lu'      => false,
             'canal'   => 'in_app',
         ]);

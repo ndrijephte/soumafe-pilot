@@ -85,6 +85,7 @@
             .hamburger{display:flex;align-items:center}
             .recherche{max-width:none}
         }
+        .btn{justify-content:center}
     </style>
     @stack('styles')
 </head>
@@ -170,7 +171,10 @@
                 <div id="notif-panel" style="display:none;position:absolute;right:0;top:32px;width:320px;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50;max-height:360px;overflow-y:auto">
                     <div style="padding:10px 14px;border-bottom:1px solid var(--bord);display:flex;justify-content:space-between;align-items:center">
                         <strong style="font-size:13px">Notifications</strong>
-                        <a href="#" onclick="toutLireNotifs();return false" style="font-size:11px;color:var(--accent);text-decoration:none">Tout marquer lu</a>
+                        <div style="display:flex;gap:10px;align-items:center">
+                            <a href="#" onclick="toutLireNotifs();return false" style="font-size:11px;color:var(--accent);text-decoration:none">Tout marquer lu</a>
+                            <a href="{{ route('notifications.index') }}" style="font-size:11px;color:var(--bleu);text-decoration:none;font-weight:600">Voir tout</a>
+                        </div>
                     </div>
                     <div id="notif-list" style="padding:6px 0"></div>
                 </div>
@@ -210,7 +214,7 @@ function chargerNotifs(){
         const list=document.getElementById('notif-list');
         if(data.length>0){badge.textContent=data.length;badge.style.display='block'}
         else{badge.style.display='none'}
-        list.innerHTML=data.length?data.map(n=>`<div style="padding:8px 14px;border-bottom:1px solid #f1f5f9;font-size:12px;cursor:pointer" onclick="lireNotif(${n.id},this)"><div style="color:#1e293b">${n.contenu}</div><div style="color:var(--gris);font-size:10px;margin-top:2px">${new Date(n.created_at).toLocaleString('fr-FR')}</div></div>`).join(''):'<div style="padding:20px;text-align:center;color:var(--gris);font-size:12px">Aucune notification.</div>';
+        list.innerHTML=data.length?data.map(n=>`<div style="padding:8px 14px;border-bottom:1px solid #f1f5f9;font-size:12px;cursor:pointer" onclick="lireNotif(${n.id},this,'${n.lien||''}')"><div style="color:#1e293b">${n.contenu}</div><div style="color:var(--gris);font-size:10px;margin-top:2px">${new Date(n.created_at).toLocaleString('fr-FR')}</div></div>`).join('')+'<a href="/notifications" style="display:block;text-align:center;padding:8px;font-size:11px;color:var(--bleu);text-decoration:none;font-weight:600;border-top:1px solid var(--bord)">Voir toutes les notifications</a>':'<div style="padding:20px;text-align:center;color:var(--gris);font-size:12px">Aucune notification.</div>';
     }).catch(()=>{});
 }
 function toggleNotifs(){
@@ -218,9 +222,11 @@ function toggleNotifs(){
     p.style.display=p.style.display==='none'?'block':'none';
     if(p.style.display==='block')chargerNotifs();
 }
-function lireNotif(id,el){
-    fetch(`/api/notifications/${id}/lire`,{method:'PATCH',headers:{'X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]')?.content||''}});
-    el.style.opacity='.5';chargerNotifs();
+function lireNotif(id,el,lien){
+    fetch(`/api/notifications/${id}/lire`,{method:'PATCH',headers:{'X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]')?.content||''}}).then(()=>{
+        if(lien){window.location.href=lien;return;}
+        el.style.opacity='.5';chargerNotifs();
+    });
 }
 function toutLireNotifs(){
     fetch('{{ route("api.notifications.tout-lire") }}',{method:'POST',headers:{'X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]')?.content||''}}).then(()=>chargerNotifs());

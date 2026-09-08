@@ -1479,6 +1479,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Nouvel emprunt</h3>
     <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
 </div>
+<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
+    Enregistrez un emprunt contracté pour couvrir les charges d'exploitation.
+</div>
 <form method="POST" action="{{ route('parc.emprunts.store') }}">
     @csrf
     <div style="display:grid;gap:12px">
@@ -1487,24 +1490,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <div><label>Date emprunt <span class="req">*</span></label><input type="date" name="date_emprunt" value="{{ date('Y-m-d') }}" required></div>
         </div>
         <div><label>Prêteur <span class="req">*</span></label><input type="text" name="preteur" required maxlength="150" placeholder="Nom du prêteur"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label>Source</label>
-                <select name="source_type">
-                    <option value="autre">Autre</option>
-                    <option value="panne">Panne</option>
-                    <option value="penalite">Pénalité</option>
-                    <option value="maintenance">Maintenance</option>
-                </select>
-            </div>
-            <div><label>Véhicule</label>
-                <select name="vehicule_id">
-                    <option value="">— Aucun —</option>
-                    @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option> @endforeach
-                </select>
-            </div>
-        </div>
-        <div><label>Motif</label><textarea name="motif" rows="2" maxlength="500" placeholder="Raison de l'emprunt"></textarea></div>
-        <button type="submit" class="btn">Enregistrer</button>
+        <div><label>Motif <span class="req">*</span></label><textarea name="motif" rows="2" maxlength="500" required placeholder="Raison de l'emprunt"></textarea></div>
+        <button type="submit" class="btn" style="justify-content:center">Enregistrer</button>
     </div>
 </form>
 </dialog>

@@ -342,6 +342,7 @@ dialog textarea{resize:vertical}
 
 @push('scripts')
 <script>
+function escHtml(s){if(!s)return '';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 function filtrerObs(){
     const txt=document.getElementById('filtreObs').value.toLowerCase();
     document.querySelectorAll('#tableObs tbody tr').forEach(tr=>{
@@ -375,11 +376,11 @@ function ouvrirResolution(id){
     const o = obsData.find(x => x.id === id);
     if(!o) return;
     document.getElementById('res-code').textContent = o.code;
-    let resume = '<strong>'+o.description+'</strong><br>';
-    if(o.projet) resume += '<span style="color:var(--accent)">'+o.projet+'</span><br>';
-    resume += '<span>Type : '+o.type_difficulte+' · Priorité : '+o.priorite+' · Origine : '+o.origine+'</span><br>';
-    resume += '<span>Déclaré le '+o.date_reception+' par '+o.declarant+'</span>';
-    if(o.commentaires) resume += '<br><em>'+o.commentaires+'</em>';
+    let resume = '<strong>'+escHtml(o.description)+'</strong><br>';
+    if(o.projet) resume += '<span style="color:var(--accent)">'+escHtml(o.projet)+'</span><br>';
+    resume += '<span>Type : '+escHtml(o.type_difficulte)+' · Priorité : '+escHtml(o.priorite)+' · Origine : '+escHtml(o.origine)+'</span><br>';
+    resume += '<span>Déclaré le '+escHtml(o.date_reception)+' par '+escHtml(o.declarant)+'</span>';
+    if(o.commentaires) resume += '<br><em>'+escHtml(o.commentaires)+'</em>';
     document.getElementById('res-resume').innerHTML = resume;
     document.getElementById('form-resolution').action = '{{ url("observations") }}/'+o.id;
     document.getElementById('res-statut').value = o.statut;

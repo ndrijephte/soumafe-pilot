@@ -58,7 +58,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/saisie/absence', [SaisieController::class, 'declarerAbsence'])->name('saisie.absence');
     Route::delete('/saisie/absence/{absence}', [SaisieController::class, 'annulerAbsence'])->name('saisie.absence.annuler');
 
-    // US-21 : Notifications in-app (JSON)
+    // US-21 : Notifications in-app (JSON + page)
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/api/notifications', [NotificationController::class, 'nonLues'])->name('api.notifications');
     Route::patch('/api/notifications/{notification}/lire', [NotificationController::class, 'lire'])->name('api.notifications.lire');
     Route::post('/api/notifications/tout-lire', [NotificationController::class, 'toutLire'])->name('api.notifications.tout-lire');

@@ -129,6 +129,7 @@ class AlerteParcService
                     'user_id' => $user->id,
                     'type' => $type,
                     'contenu' => $contenu,
+                    'lien' => route('parc.index'),
                     'lu' => false,
                     'canal' => 'in_app',
                 ]);

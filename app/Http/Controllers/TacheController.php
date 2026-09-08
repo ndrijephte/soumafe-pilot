@@ -161,8 +161,9 @@ class TacheController extends Controller
 
             // Notifier le collaborateur
             \App\Models\NotificationApp::create([
-                'user_id' => $tache->user_id, 'type' => 'validation',
+                'user_id' => $tache->user_id, 'type' => 'tache',
                 'contenu' => 'Votre tâche « ' . \Illuminate\Support\Str::limit($tache->intitule, 40) . ' » a été validée.',
+                'lien' => route('taches.show', $tache),
                 'lu' => false,
             ]);
             // E-mail
@@ -193,8 +194,9 @@ class TacheController extends Controller
         ]);
 
         \App\Models\NotificationApp::create([
-            'user_id' => $tache->user_id, 'type' => 'validation',
+            'user_id' => $tache->user_id, 'type' => 'tache',
             'contenu' => 'Votre tâche « ' . \Illuminate\Support\Str::limit($tache->intitule, 40) . ' » a été rejetée : ' . $motif,
+            'lien' => route('taches.show', $tache),
             'lu' => false,
         ]);
         // E-mail

@@ -1291,11 +1291,9 @@ class ParcController extends Controller
             'montant'      => 'required|integer|min:1',
             'date_emprunt' => 'required|date',
             'preteur'      => 'required|string|max:150',
-            'motif'        => 'nullable|string|max:500',
-            'source_type'  => 'nullable|in:panne,penalite,maintenance,autre',
-            'vehicule_id'  => 'nullable|exists:vehicules,id',
+            'motif'        => 'required|string|max:500',
         ]);
-        $data['source_type'] = $data['source_type'] ?? 'autre';
+        $data['source_type'] = 'autre';
         $data['cree_par'] = auth()->user()->name;
 
         $emp = Emprunt::create($data);

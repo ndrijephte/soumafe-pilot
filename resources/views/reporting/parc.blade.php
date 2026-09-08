@@ -529,12 +529,12 @@
     <h3>{!! $ico('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>') !!} Performance OKR — {{ \Carbon\Carbon::parse($periodeOkr.'-01')->translatedFormat('F Y') }}</h3>
 
     @if($okrGestionnaire)
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px">
-        <div class="rp-kpi"><div class="rp-kpi-val" style="color:{{ $okrGestionnaire['score']>=80?'var(--ok)':($okrGestionnaire['score']>=50?'var(--warn)':'var(--ko)') }}">{{ $okrGestionnaire['score'] }}%</div><div class="rp-kpi-lab">Mon score OKR</div></div>
-        <div class="rp-kpi"><div class="rp-kpi-val">{{ $okrGestionnaire['total'] }}</div><div class="rp-kpi-lab">Objectifs</div></div>
-        <div class="rp-kpi"><div class="rp-kpi-val" style="color:var(--ok)">{{ $okrGestionnaire['atteints'] }}</div><div class="rp-kpi-lab">Atteints</div></div>
-        <div class="rp-kpi"><div class="rp-kpi-val" style="color:var(--warn)">{{ $okrGestionnaire['partiels'] }}</div><div class="rp-kpi-lab">Partiels</div></div>
-        <div class="rp-kpi"><div class="rp-kpi-val" style="color:var(--gris)">{{ $okrGestionnaire['en_cours'] }}</div><div class="rp-kpi-lab">En cours</div></div>
+    <div class="rp-kpi" style="margin-bottom:14px">
+        <div class="kpi-c"><div class="kpi-v" style="color:{{ $okrGestionnaire['score']>=80?'var(--ok)':($okrGestionnaire['score']>=50?'var(--warn)':'var(--ko)') }}">{{ $okrGestionnaire['score'] }}%</div><div class="kpi-l">Mon score OKR</div></div>
+        <div class="kpi-c"><div class="kpi-v">{{ $okrGestionnaire['total'] }}</div><div class="kpi-l">Objectifs</div></div>
+        <div class="kpi-c"><div class="kpi-v" style="color:var(--ok)">{{ $okrGestionnaire['atteints'] }}</div><div class="kpi-l">Atteints</div></div>
+        <div class="kpi-c"><div class="kpi-v" style="color:var(--warn)">{{ $okrGestionnaire['partiels'] }}</div><div class="kpi-l">Partiels</div></div>
+        <div class="kpi-c"><div class="kpi-v" style="color:var(--gris)">{{ $okrGestionnaire['en_cours'] }}</div><div class="kpi-l">En cours</div></div>
     </div>
     @endif
 
@@ -674,6 +674,124 @@
     </div>
     </div>
 </div>
+
+{{-- ═══ FONDS PROPRES vs EMPRUNTS ═══ --}}
+@if(($empruntsData['total_emprunte'] ?? 0) > 0 || ($totalFP ?? 0) > 0 || ($totalEmp ?? 0) > 0)
+<div class="rp-section">
+    <h3>{!! $ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Fonds propres vs Emprunts</h3>
+
+    <div class="rp-kpi" style="margin-bottom:18px">
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:var(--ok)">{{ number_format($totalFP ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Fonds propres</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:var(--ko)">{{ number_format($totalEmp ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Financ&eacute; par emprunt</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v">{{ number_format($empruntsData['total_emprunte'] ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Total emprunt&eacute;</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:{{ ($empruntsData['solde_du'] ?? 0) > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ number_format($empruntsData['solde_du'] ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Solde d&ucirc;</div>
+        </div>
+    </div>
+
+    @php
+        $totalDepFP = ($totalFP ?? 0) + ($totalEmp ?? 0);
+        $pctFP = $totalDepFP > 0 ? round(($totalFP / $totalDepFP) * 100) : 0;
+        $pctEmp = 100 - $pctFP;
+    @endphp
+
+    <div class="rp-grid2">
+        {{-- Donut --}}
+        <div>
+            <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">R&eacute;partition du financement</h4>
+            @if($totalDepFP > 0)
+            <div class="donut-wrap">
+                <div class="donut" style="background:conic-gradient(var(--ok) 0deg {{ $pctFP * 3.6 }}deg, var(--ko) {{ $pctFP * 3.6 }}deg 360deg)">
+                    <div class="donut-center">{{ $pctFP }}%</div>
+                </div>
+                <div class="donut-legend">
+                    <div><span style="background:var(--ok)"></span>Fonds propres : {{ number_format($totalFP,0,',',' ') }} F ({{ $pctFP }}%)</div>
+                    <div><span style="background:var(--ko)"></span>Emprunt : {{ number_format($totalEmp,0,',',' ') }} F ({{ $pctEmp }}%)</div>
+                </div>
+            </div>
+            @if($pctEmp > 50)
+            <div style="padding:8px 12px;background:#fef3c7;border-radius:8px;font-size:12px;color:#92400e;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:6px">
+                {!! $ico('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>') !!}
+                L'entreprise finance plus de la moiti&eacute; de ses charges par emprunt
+            </div>
+            @endif
+            @else
+            <p style="font-size:12px;color:var(--gris)">Aucune charge sur la p&eacute;riode</p>
+            @endif
+        </div>
+
+        {{-- D&eacute;tail par cat&eacute;gorie --}}
+        <div>
+            <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">D&eacute;tail par cat&eacute;gorie</h4>
+            <table class="rp-tbl">
+                <thead><tr><th>Cat&eacute;gorie</th><th class="num">Fonds propres</th><th class="num">Emprunt</th><th class="num">Total</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:600">Pannes</td>
+                        <td class="num pos">{{ number_format($fondsData['pannes_fp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num neg">{{ number_format($fondsData['pannes_emp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num" style="font-weight:700">{{ number_format(($fondsData['pannes_fp'] ?? 0)+($fondsData['pannes_emp'] ?? 0),0,',',' ') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600">P&eacute;nalit&eacute;s</td>
+                        <td class="num pos">{{ number_format($fondsData['penalites_fp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num neg">{{ number_format($fondsData['penalites_emp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num" style="font-weight:700">{{ number_format(($fondsData['penalites_fp'] ?? 0)+($fondsData['penalites_emp'] ?? 0),0,',',' ') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600">Maintenance</td>
+                        <td class="num pos">{{ number_format($fondsData['maint_fp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num neg">{{ number_format($fondsData['maint_emp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num" style="font-weight:700">{{ number_format(($fondsData['maint_fp'] ?? 0)+($fondsData['maint_emp'] ?? 0),0,',',' ') }}</td>
+                    </tr>
+                    <tr style="background:#f8fafc;font-weight:700;border-top:2px solid var(--bord)">
+                        <td>TOTAL</td>
+                        <td class="num pos">{{ number_format($totalFP,0,',',' ') }}</td>
+                        <td class="num neg">{{ number_format($totalEmp,0,',',' ') }}</td>
+                        <td class="num" style="color:var(--bleu)">{{ number_format($totalDepFP,0,',',' ') }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            @if(($empruntsData['nb_emprunts'] ?? 0) > 0)
+            <div style="margin-top:12px;padding:10px 14px;background:#f8fafc;border-radius:8px;font-size:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span>Emprunts sur la p&eacute;riode</span><span style="font-weight:700">{{ $empruntsData['nb_emprunts'] }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span>Encore en cours</span><span style="font-weight:700;color:var(--warn)">{{ $empruntsData['nb_en_cours'] }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                    <span>Rembours&eacute;</span><span style="font-weight:700;color:var(--ok)">{{ number_format($empruntsData['total_rembourse'],0,',',' ') }} F</span>
+                </div>
+            </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- Jauge autonomie financière --}}
+    <div style="margin-top:16px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px">
+            <span>Autonomie financi&egrave;re</span>
+            <span style="color:{{ $pctFP >= 70 ? 'var(--ok)' : ($pctFP >= 50 ? 'var(--warn)' : 'var(--ko)') }}">{{ $pctFP }}%</span>
+        </div>
+        <div class="gauge">
+            <div class="gauge-fill" style="width:{{ $pctFP }}%;background:{{ $pctFP >= 70 ? 'var(--ok)' : ($pctFP >= 50 ? 'var(--warn)' : 'var(--ko)') }}"></div>
+            <div class="gauge-txt">{{ $pctFP >= 70 ? 'Bonne autonomie' : ($pctFP >= 50 ? 'Autonomie moyenne' : 'Dépendance aux emprunts') }}</div>
+        </div>
+    </div>
+</div>
+@endif
 
 @endsection
 

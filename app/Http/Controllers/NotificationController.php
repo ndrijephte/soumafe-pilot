@@ -6,13 +6,24 @@ use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
+    /** Page complète : toutes les notifications. */
+    public function index(Request $r)
+    {
+        $filtre = $r->get('filtre', 'toutes');
+        $query = NotificationApp::where('user_id', $r->user()->id)->orderByDesc('created_at');
+        if ($filtre === 'non_lues') $query->where('lu', false);
+        if ($filtre === 'lues') $query->where('lu', true);
+        $notifications = $query->paginate(30)->appends(['filtre' => $filtre]);
+        return view('notifications.index', compact('notifications', 'filtre'));
+    }
+
     /** Notifications non lues (JSON pour la cloche). */
     public function nonLues(Request $r)
     {
         $notifs = NotificationApp::where('user_id', $r->user()->id)
             ->where('lu', false)
             ->orderByDesc('created_at')
-            ->limit(20)->get(['id', 'type', 'contenu', 'created_at']);
+            ->limit(20)->get(['id', 'type', 'contenu', 'lien', 'created_at']);
         return response()->json($notifs);
     }
 

@@ -177,6 +177,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <button class="tab-btn" onclick="changerOnglet('depenses')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/></svg>
         Dépenses <span class="pill p-cours">{{ ($depenses ?? collect())->count() }}</span></button>
+    <button class="tab-btn" onclick="changerOnglet('emprunts')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Emprunts @if(($emprunts ?? collect())->where('statut','en_cours')->count()>0)<span class="pill p-ko">{{ ($emprunts ?? collect())->where('statut','en_cours')->count() }}</span> @endif</button>
 </div>
 
 {{-- ==================== TAB VÉHICULES ==================== --}}
@@ -243,7 +246,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td style="max-width:200px">{{ Str::limit($p->description, 60) }}</td>
         <td><span class="urgence-{{ $p->urgence }}">{{ ucfirst($p->urgence) }}</span></td>
         <td><span class="pill {{ $p->statut === 'cloturee' ? 'p-ok' : ($p->statut === 'declaree' ? 'p-ko' : 'p-cours') }}">{{ $p->statutLabel() }}</span></td>
-        <td>{{ $p->cout_reel ? number_format($p->cout_reel, 0, ',', ' ') : '—' }}</td>
+        <td>{{ $p->cout_reel ? number_format($p->cout_reel, 0, ',', ' ') : '—' }} @if($p->emprunt_id) <span class="pill p-ko" style="font-size:9px">Emprunt</span> @endif</td>
         <td>{{ $p->delai_resolution !== null ? $p->delai_resolution.'j' : '—' }}</td>
         <td>
             <div class="act-row">
@@ -637,11 +640,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>
             <div class="act-row">
                 @if($pen->statut !== 'payee' && !$estDG)
-                <button class="act-btn" title="Enregistrer un paiement" onclick="ouvrirPaiementPenal({{ $pen->id }}, '{{ addslashes($pen->chauffeur ?? $pen->vehicule->immatriculation) }}', {{ $soldePen }})" style="color:var(--ok)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg>
-                </button>
+                <button class="act-btn" title="Enregistrer un paiement" onclick="ouvrirPaiementPenal({{ $pen->id }}, '{{ addslashes($pen->chauffeur ?? $pen->vehicule?->immatriculation ?? '-') }}', {{ $soldePen }})" style="color:var(--ok)">{!! $ic('<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>',14) !!}</button>
                 @endif
-                @if($pen->description)
+                @if($pen->description || $pen->observations)
                 <button class="act-btn info" title="Détails" onclick="toggleDetail('penal-{{ $pen->id }}')">{!! $icEye !!}</button>
                 @endif
                 <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $pen->vehicule_id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
@@ -668,10 +669,11 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </td></tr>
     @endif
-    @if($pen->description)
-    <tr class="detail-row" id="penal-{{ $pen->id }}" style="display:none">
-        <td colspan="11"><div class="detail-content"><strong>Description :</strong> {{ $pen->description }}</div></td>
-    </tr>
+    @if($pen->description || $pen->observations)
+    <tr class="detail-row" id="penal-{{ $pen->id }}" style="display:none"><td colspan="11"><div class="detail-content">
+        @if($pen->description)<strong>Description :</strong> {{ $pen->description }}<br> @endif
+        @if($pen->observations)<strong>Observations :</strong> {{ $pen->observations }} @endif
+    </div></td></tr>
     @endif
     @empty
     <tr><td colspan="11" class="empty-msg">Aucune pénalité enregistrée.</td></tr>
@@ -825,42 +827,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </form>
     </dialog>
 
-    {{-- Dialog paiement pénalité --}}
-    <dialog id="dlg-paie-penal" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <h3 id="dlg-pp-titre" style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Paiement pénalité</h3>
-            <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
-        </div>
-        <form method="POST" id="form-paie-penal">
-            @csrf
-            <div style="display:grid;gap:12px">
-                <div>
-                    <label>Montant (F)</label>
-                    <input type="number" name="montant" id="pp-montant" required min="1" placeholder="Montant du paiement">
-                    <div id="pp-solde-info" style="font-size:11px;color:var(--gris);margin-top:2px"></div>
-                </div>
-                <div>
-                    <label>Date paiement</label>
-                    <input type="date" name="date_paiement" id="pp-date" value="{{ date('Y-m-d') }}" required>
-                </div>
-                <div>
-                    <label>Mode de paiement</label>
-                    <select name="mode_paiement">
-                        <option value="">—</option>
-                        <option value="especes">Espèces</option>
-                        <option value="mobile_money">Mobile Money</option>
-                        <option value="cheque">Chèque</option>
-                        <option value="virement">Virement</option>
-                        <option value="autre">Autre</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Observations</label>
-                    <textarea name="observations" rows="2" placeholder="Notes..."></textarea>
-                </div>
-                <button type="submit" class="btn">Enregistrer le paiement</button>
-            </div>
-        </form>
     </dialog>
 </div>
 
@@ -927,6 +893,55 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 {{-- ==================== DIALOGS ==================== --}}
+
+{{-- Dialog paiement pénalité --}}
+<dialog id="dlg-paie-penal" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h3 id="dlg-pp-titre" style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Paiement pénalité</h3>
+        <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+    </div>
+    <form method="POST" id="form-paie-penal">
+        @csrf
+        <div style="display:grid;gap:12px">
+            <div>
+                <label>Montant (F)</label>
+                <input type="number" name="montant" id="pp-montant" required min="1" placeholder="Montant du paiement">
+                <div id="pp-solde-info" style="font-size:11px;color:var(--gris);margin-top:2px"></div>
+            </div>
+            <div>
+                <label>Date paiement</label>
+                <input type="date" name="date_paiement" id="pp-date" value="{{ date('Y-m-d') }}" required>
+            </div>
+            <div>
+                <label>Mode de paiement</label>
+                <select name="mode_paiement">
+                    <option value="">—</option>
+                    <option value="especes">Espèces</option>
+                    <option value="mobile_money">Mobile Money</option>
+                    <option value="cheque">Chèque</option>
+                    <option value="virement">Virement</option>
+                    <option value="autre">Autre</option>
+                </select>
+            </div>
+            <div>
+                <label>Financement</label>
+                <select name="source_financement" onchange="toggleEmpruntFields(this)">
+                    <option value="entreprise">Fonds propres</option>
+                    <option value="emprunt">Emprunt</option>
+                </select>
+            </div>
+            <div class="emprunt-fields" style="display:none">
+                <label>Prêteur</label>
+                <input type="text" name="preteur" maxlength="150" placeholder="Nom du prêteur">
+            </div>
+            <div>
+                <label>Observations</label>
+                <textarea name="observations" rows="2" placeholder="Notes..."></textarea>
+            </div>
+            <button type="submit" class="btn">Enregistrer le paiement</button>
+        </div>
+    </form>
+</dialog>
 
 {{-- Dialog Véhicule --}}
 <dialog id="dlg-vehicule">
@@ -1031,6 +1046,15 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div><label>Début intervention</label><input type="date" name="date_debut_intervention" id="s-ddi"></div>
         <div><label>Date clôture</label><input type="date" name="date_cloture" id="s-dcl"></div>
     </div>
+    <div class="form-row">
+        <div><label>Financement</label>
+            <select name="source_financement" onchange="toggleEmpruntFields(this)">
+                <option value="entreprise">Fonds propres</option>
+                <option value="emprunt">Emprunt</option>
+            </select>
+        </div>
+        <div class="emprunt-fields" style="display:none"><label>Prêteur</label><input type="text" name="preteur" maxlength="150" placeholder="Nom du prêteur"></div>
+    </div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Enregistrer</button>
@@ -1132,6 +1156,15 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div><label>Prestataire</label><input type="text" name="prestataire" id="rm-prest" maxlength="150" placeholder="Nom du prestataire"></div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="rm-obs" rows="2" placeholder="Détails de l'intervention"></textarea></div>
+    <div class="form-row">
+        <div><label>Financement</label>
+            <select name="source_financement" onchange="toggleEmpruntFields(this)">
+                <option value="entreprise">Fonds propres</option>
+                <option value="emprunt">Emprunt</option>
+            </select>
+        </div>
+        <div class="emprunt-fields" style="display:none"><label>Prêteur</label><input type="text" name="preteur" maxlength="150" placeholder="Nom du prêteur"></div>
+    </div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Valider la réalisation</button>
@@ -1146,7 +1179,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @csrf <div id="penal-method"></div>
     <input type="hidden" name="statut" id="pe-statut" value="non_payee">
     <input type="hidden" name="date_paiement" id="pe-dpay" value="">
-    <input type="hidden" name="observations" id="pe-obs" value="">
     <div class="form-row3">
         <div><label>Véhicule <span class="req">*</span></label>
             <select name="vehicule_id" id="pe-vehic" required onchange="majChauffeurs(this.value,'pe-chauff')">
@@ -1175,6 +1207,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div><label>Montant (FCFA) <span class="req">*</span></label><input type="number" name="montant" id="pe-mont" min="0" required></div>
     </div>
     <div><label>Description</label><textarea name="description" id="pe-desc" rows="2" placeholder="Décrivez l'infraction"></textarea></div>
+    <div><label>Observations</label><textarea name="observations" id="pe-obs" rows="2" placeholder="Observations complémentaires"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Déclarer</button>
@@ -1356,6 +1389,156 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </table>
 </div>
 </div>
+
+{{-- ==================== TAB EMPRUNTS ==================== --}}
+<div class="tab-panel" id="tab-emprunts">
+<div class="panel-head">
+    <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Emprunts <span class="pill p-cours">{{ ($emprunts ?? collect())->count() }}</span></h3>
+    @if(!$estDG)
+    <button class="btn sm" onclick="document.getElementById('dlg-emprunt').showModal()">{!! $icPlus !!} Emprunt</button>
+    @endif
+</div>
+
+@php
+    $empruntsEnCours = ($emprunts ?? collect())->where('statut', 'en_cours');
+    $totalEmprunts = $empruntsEnCours->sum('montant');
+    $totalRembourse = $empruntsEnCours->sum('montant_rembourse');
+    $soldeTotal = $totalEmprunts - $totalRembourse;
+@endphp
+
+<div style="display:flex;gap:20px;margin-bottom:12px;font-size:13px;flex-wrap:wrap">
+    <span>Total emprunté : <strong style="color:var(--ko)">{{ number_format($totalEmprunts, 0, ',', ' ') }} F</strong></span>
+    <span>Remboursé : <strong style="color:var(--ok)">{{ number_format($totalRembourse, 0, ',', ' ') }} F</strong></span>
+    <span>Solde dû : <strong style="color:{{ $soldeTotal > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($soldeTotal, 0, ',', ' ') }} F</strong></span>
+</div>
+
+<div class="panneau" style="overflow-x:auto">
+<table class="tableau" style="width:100%">
+<thead><tr>
+    <th style="width:90px">Date</th>
+    <th>Prêteur</th>
+    <th>Source</th>
+    <th>Véhicule</th>
+    <th style="text-align:right;width:100px">Montant</th>
+    <th style="text-align:right;width:100px">Remboursé</th>
+    <th style="text-align:right;width:100px">Solde</th>
+    <th>Statut</th>
+    @if(!$estDG)<th style="width:130px">Actions</th> @endif
+</tr></thead>
+<tbody>
+@forelse($emprunts ?? [] as $emp)
+@php $soldeEmp = $emp->soldeRestant(); @endphp
+<tr>
+    <td>{{ $emp->date_emprunt->format('d/m/Y') }}</td>
+    <td style="font-weight:600">{{ $emp->preteur }}</td>
+    <td><span class="pill p-cours" style="font-size:11px">{{ $emp->sourceLabel() }}</span></td>
+    <td style="font-size:12px">{{ $emp->vehicule?->immatriculation ?? '—' }}</td>
+    <td style="text-align:right;font-weight:600;color:var(--ko)">{{ number_format($emp->montant, 0, ',', ' ') }} F</td>
+    <td style="text-align:right;color:var(--ok)">{{ number_format($emp->montant_rembourse, 0, ',', ' ') }} F</td>
+    <td style="text-align:right;font-weight:700;color:{{ $soldeEmp > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($soldeEmp, 0, ',', ' ') }} F</td>
+    <td><span class="pill {{ $emp->statut === 'rembourse' ? 'p-ok' : 'p-ko' }}">{{ $emp->statutLabel() }}</span></td>
+    @if(!$estDG)
+    <td>
+        <div class="act-row">
+            @if($emp->statut !== 'rembourse')
+            <button class="act-btn" title="Rembourser" onclick="ouvrirRemboursement({{ $emp->id }}, '{{ addslashes($emp->preteur) }}', {{ $soldeEmp }})" style="color:var(--ok)">{!! $ic('<path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>',14) !!}</button>
+            @endif
+            @if($emp->motif)
+            <button class="act-btn info" title="Détails" onclick="toggleDetail('emp-{{ $emp->id }}')">{!! $icEye !!}</button>
+            @endif
+            @if(auth()->user()->estAdmin())
+            <form method="POST" action="{{ route('parc.emprunts.destroy', $emp) }}" onsubmit="return demanderMotifSuppression(this,'cet emprunt')" style="display:inline">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="act-btn del" title="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></form>
+            @endif
+        </div>
+    </td>
+    @endif
+</tr>
+@if($emp->motif)
+<tr class="detail-row" id="emp-{{ $emp->id }}" style="display:none"><td colspan="{{ $estDG ? 8 : 9 }}"><div class="detail-content"><strong>Motif :</strong> {{ $emp->motif }}
+@if($emp->remboursements->count() > 0)
+<div style="margin-top:8px"><strong>Historique remboursements :</strong>
+<table style="width:100%;font-size:12px;margin-top:4px"><thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th>Observations</th></tr></thead><tbody>
+@foreach($emp->remboursements->sortByDesc('date_remboursement') as $rb)
+<tr><td>{{ $rb->date_remboursement->format('d/m/Y') }}</td><td style="font-weight:600;color:var(--ok)">{{ number_format($rb->montant, 0, ',', ' ') }} F</td><td>{{ ucfirst(str_replace('_', ' ', $rb->mode_paiement ?? '—')) }}</td><td style="color:var(--gris)">{{ $rb->observations ?? '—' }}</td></tr>
+@endforeach
+</tbody></table></div>
+@endif
+</div></td></tr>
+@endif
+@empty
+<tr><td colspan="{{ $estDG ? 8 : 9 }}" style="text-align:center;color:var(--gris);padding:20px">Aucun emprunt enregistré</td></tr>
+@endforelse
+</tbody>
+</table>
+</div>
+</div>
+
+{{-- Dialog Emprunt --}}
+<dialog id="dlg-emprunt" style="width:90vw;max-width:480px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Nouvel emprunt</h3>
+    <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+</div>
+<form method="POST" action="{{ route('parc.emprunts.store') }}">
+    @csrf
+    <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" min="1" required placeholder="0"></div>
+            <div><label>Date emprunt <span class="req">*</span></label><input type="date" name="date_emprunt" value="{{ date('Y-m-d') }}" required></div>
+        </div>
+        <div><label>Prêteur <span class="req">*</span></label><input type="text" name="preteur" required maxlength="150" placeholder="Nom du prêteur"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Source</label>
+                <select name="source_type">
+                    <option value="autre">Autre</option>
+                    <option value="panne">Panne</option>
+                    <option value="penalite">Pénalité</option>
+                    <option value="maintenance">Maintenance</option>
+                </select>
+            </div>
+            <div><label>Véhicule</label>
+                <select name="vehicule_id">
+                    <option value="">— Aucun —</option>
+                    @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option> @endforeach
+                </select>
+            </div>
+        </div>
+        <div><label>Motif</label><textarea name="motif" rows="2" maxlength="500" placeholder="Raison de l'emprunt"></textarea></div>
+        <button type="submit" class="btn">Enregistrer</button>
+    </div>
+</form>
+</dialog>
+
+{{-- Dialog Remboursement emprunt --}}
+<dialog id="dlg-remb-emprunt" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 id="dlg-re-titre" style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Remboursement</h3>
+    <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+</div>
+<form method="POST" id="form-remb-emprunt">
+    @csrf
+    <div style="display:grid;gap:12px">
+        <div>
+            <label>Montant (F) <span class="req">*</span></label>
+            <input type="number" name="montant" id="re-montant" required min="1" placeholder="Montant du remboursement">
+            <div id="re-solde-info" style="font-size:11px;color:var(--gris);margin-top:2px"></div>
+        </div>
+        <div><label>Date remboursement <span class="req">*</span></label><input type="date" name="date_remboursement" id="re-date" value="{{ date('Y-m-d') }}" required></div>
+        <div><label>Mode de paiement</label>
+            <select name="mode_paiement">
+                <option value="">—</option>
+                <option value="especes">Espèces</option>
+                <option value="mobile_money">Mobile Money</option>
+                <option value="cheque">Chèque</option>
+                <option value="virement">Virement</option>
+                <option value="autre">Autre</option>
+            </select>
+        </div>
+        <div><label>Observations</label><textarea name="observations" rows="2" placeholder="Notes..."></textarea></div>
+        <button type="submit" class="btn">Enregistrer le remboursement</button>
+    </div>
+</form>
+</dialog>
 
 {{-- Dialog Dépense --}}
 <dialog id="dlg-depense">
@@ -1743,6 +1926,21 @@ function ouvrirPaiementPenal(penId, chauffeur, solde){
     document.getElementById('pp-solde-info').textContent='Solde restant : '+solde.toLocaleString('fr-FR')+' F';
     document.getElementById('pp-date').value=new Date().toISOString().slice(0,10);
     document.getElementById('dlg-paie-penal').showModal();
+}
+
+function ouvrirRemboursement(empId, preteur, solde){
+    document.getElementById('dlg-re-titre').textContent='Remboursement — '+preteur;
+    document.getElementById('form-remb-emprunt').action='{{ url("parc/emprunts") }}/'+empId+'/remboursement';
+    document.getElementById('re-montant').max=solde;
+    document.getElementById('re-montant').value='';
+    document.getElementById('re-solde-info').textContent='Solde restant : '+solde.toLocaleString('fr-FR')+' F';
+    document.getElementById('re-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('dlg-remb-emprunt').showModal();
+}
+
+function toggleEmpruntFields(selectEl){
+    var wrap=selectEl.closest('form').querySelector('.emprunt-fields');
+    if(wrap) wrap.style.display=selectEl.value==='emprunt'?'block':'none';
 }
 
 function ouvrirVersement(recId, chauffeur, solde){

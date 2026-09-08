@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, Depense, JourFerie, MaintenancePreventive, Panne, PaiementPenalite, ParametreParc, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, Chauffeur, Depense, Emprunt, JourFerie, MaintenancePreventive, Panne, PaiementPenalite, ParametreParc, Penalite, Recouvrement, RecetteVehicule, RemboursementEmprunt, TypeParc, User, Vehicule, VersementRecouvrement};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -35,7 +35,7 @@ class ParcController extends Controller
         $collaborateurs = User::where('actif', true)->orderBy('name')->get();
 
         // Toutes les données chargées (sections empilées)
-        $pannes = Panne::with('vehicule')->orderByDesc('date_declaration')->get();
+        $pannes = Panne::with(['vehicule', 'emprunt'])->orderByDesc('date_declaration')->get();
         $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->limit(200)->get();
         $maintenances = MaintenancePreventive::with('vehicule')->orderBy('prochaine_echeance')->get();
         $penalites = Penalite::with(['vehicule', 'paiements'])->orderByDesc('date_infraction')->get();
@@ -63,11 +63,16 @@ class ParcController extends Controller
             : collect();
         $typesDepense = TypeParc::depenses();
 
+        // --- Emprunts ---
+        $emprunts = Schema::hasTable('emprunts')
+            ? Emprunt::with(['vehicule', 'remboursements'])->orderByDesc('date_emprunt')->get()
+            : collect();
+
         return view('parc.index', compact(
             'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes',
             'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
-            'depenses', 'typesDepense'
+            'depenses', 'typesDepense', 'emprunts'
         ));
     }
 
@@ -346,6 +351,22 @@ class ParcController extends Controller
         }
 
         $p = Panne::create($data);
+
+        // Emprunt si source_financement = emprunt et cout_reel > 0
+        if ($r->source_financement === 'emprunt' && !empty($data['cout_reel']) && $data['cout_reel'] > 0) {
+            $emp = Emprunt::create([
+                'montant' => $data['cout_reel'],
+                'date_emprunt' => $data['date_cloture'] ?? now()->toDateString(),
+                'preteur' => $r->preteur ?? 'Non précisé',
+                'motif' => 'Réparation panne — ' . ($p->vehicule?->immatriculation ?? ''),
+                'source_type' => 'panne',
+                'source_id' => $p->id,
+                'vehicule_id' => $data['vehicule_id'],
+                'cree_par' => auth()->user()->name,
+            ]);
+            $p->update(['emprunt_id' => $emp->id]);
+        }
+
         AuditLog::log('creation', 'panne', $p->vehicule?->immatriculation);
         return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne enregistrée.');
     }
@@ -371,6 +392,22 @@ class ParcController extends Controller
         }
 
         $panne->update($data);
+
+        // Gérer emprunt sur modification
+        if ($r->source_financement === 'emprunt' && !empty($data['cout_reel']) && $data['cout_reel'] > 0 && !$panne->emprunt_id) {
+            $emp = Emprunt::create([
+                'montant' => $data['cout_reel'],
+                'date_emprunt' => $data['date_cloture'] ?? now()->toDateString(),
+                'preteur' => $r->preteur ?? 'Non précisé',
+                'motif' => 'Réparation panne — ' . ($panne->vehicule?->immatriculation ?? ''),
+                'source_type' => 'panne',
+                'source_id' => $panne->id,
+                'vehicule_id' => $data['vehicule_id'],
+                'cree_par' => auth()->user()->name,
+            ]);
+            $panne->update(['emprunt_id' => $emp->id]);
+        }
+
         AuditLog::log('modification', 'panne', $panne->vehicule?->immatriculation);
         return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne mise à jour.');
     }
@@ -729,14 +766,31 @@ class ParcController extends Controller
 
         // Créer la dépense liée au véhicule
         if ($r->cout > 0) {
-            $dep = Depense::create([
+            $depData = [
                 'date_depense'  => $r->date_realisation,
                 'type_depense'  => 'maintenance',
                 'vehicule_id'   => $maintenance->vehicule_id,
                 'montant'       => $r->cout,
                 'commentaire'   => 'Maintenance ' . $maintenance->typeLabel() . ' — ' . ($maintenance->vehicule->immatriculation ?? ''),
                 'cree_par'      => auth()->user()->name,
-            ]);
+            ];
+
+            // Emprunt si source_financement = emprunt
+            if ($r->source_financement === 'emprunt') {
+                $emp = Emprunt::create([
+                    'montant' => $r->cout,
+                    'date_emprunt' => $r->date_realisation,
+                    'preteur' => $r->preteur ?? 'Non précisé',
+                    'motif' => 'Maintenance ' . $maintenance->typeLabel() . ' — ' . ($maintenance->vehicule->immatriculation ?? ''),
+                    'source_type' => 'maintenance',
+                    'source_id' => $maintenance->id,
+                    'vehicule_id' => $maintenance->vehicule_id,
+                    'cree_par' => auth()->user()->name,
+                ]);
+                $depData['emprunt_id'] = $emp->id;
+            }
+
+            $dep = Depense::create($depData);
             $maintenance->depense_id = $dep->id;
         }
 
@@ -857,14 +911,31 @@ class ParcController extends Controller
             'observations' => 'nullable|string|max:500',
         ]);
 
-        PaiementPenalite::create([
+        $ppData = [
             'penalite_id' => $penalite->id,
             'montant' => $r->montant,
             'date_paiement' => $r->date_paiement,
             'mode_paiement' => $r->mode_paiement,
             'recu_par' => auth()->user()->name,
             'observations' => $r->observations,
-        ]);
+        ];
+
+        // Emprunt si source_financement = emprunt
+        if ($r->source_financement === 'emprunt') {
+            $emp = Emprunt::create([
+                'montant' => $r->montant,
+                'date_emprunt' => $r->date_paiement,
+                'preteur' => $r->preteur ?? 'Non précisé',
+                'motif' => 'Paiement pénalité — ' . ($penalite->chauffeur ?? $penalite->vehicule?->immatriculation ?? ''),
+                'source_type' => 'penalite',
+                'source_id' => $penalite->id,
+                'vehicule_id' => $penalite->vehicule_id,
+                'cree_par' => auth()->user()->name,
+            ]);
+            $ppData['emprunt_id'] = $emp->id;
+        }
+
+        PaiementPenalite::create($ppData);
 
         $penalite->recalculerPaiement();
 
@@ -1208,5 +1279,61 @@ class ParcController extends Controller
         AuditLog::log('suppression', 'depense', "Dépense #{$depense->id}", "Type: {$depense->type_depense}, Montant: {$depense->montant} F, Motif: " . $r->motif_suppression);
         $depense->delete();
         return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense supprimée.');
+    }
+
+    /* ═══════════════════════════ EMPRUNTS ═══════════════════════════ */
+
+    public function storeEmprunt(Request $r)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403, 'La direction ne peut pas saisir d\'emprunts.');
+        $data = $r->validate([
+            'montant'      => 'required|integer|min:1',
+            'date_emprunt' => 'required|date',
+            'preteur'      => 'required|string|max:150',
+            'motif'        => 'nullable|string|max:500',
+            'source_type'  => 'nullable|in:panne,penalite,maintenance,autre',
+            'vehicule_id'  => 'nullable|exists:vehicules,id',
+        ]);
+        $data['source_type'] = $data['source_type'] ?? 'autre';
+        $data['cree_par'] = auth()->user()->name;
+
+        $emp = Emprunt::create($data);
+        AuditLog::log('creation', 'emprunt', "Emprunt #{$emp->id}", "Montant: {$emp->montant} F, Prêteur: {$emp->preteur}");
+        return redirect()->route('parc.index', ['tab' => 'emprunts'])->with('succes', 'Emprunt enregistré.');
+    }
+
+    public function storeRemboursement(Request $r, Emprunt $emprunt)
+    {
+        $this->autoriser($r);
+        $r->validate([
+            'montant'             => 'required|integer|min:1|max:' . $emprunt->soldeRestant(),
+            'date_remboursement'  => 'required|date',
+            'mode_paiement'       => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'observations'        => 'nullable|string|max:500',
+        ]);
+
+        RemboursementEmprunt::create([
+            'emprunt_id'         => $emprunt->id,
+            'montant'            => $r->montant,
+            'date_remboursement' => $r->date_remboursement,
+            'mode_paiement'      => $r->mode_paiement,
+            'observations'       => $r->observations,
+            'cree_par'           => auth()->user()->name,
+        ]);
+
+        $emprunt->recalculerRemboursement();
+        AuditLog::log('creation', 'remboursement_emprunt', "Emprunt #{$emprunt->id}", "Versement: {$r->montant} F, Solde: {$emprunt->soldeRestant()} F");
+        return redirect()->route('parc.index', ['tab' => 'emprunts'])->with('succes', 'Remboursement enregistré. Solde : ' . number_format($emprunt->soldeRestant(), 0, ',', ' ') . ' F');
+    }
+
+    public function destroyEmprunt(Request $r, Emprunt $emprunt)
+    {
+        $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'emprunt', "Emprunt #{$emprunt->id}", "Prêteur: {$emprunt->preteur}, Montant: {$emprunt->montant} F, Motif: " . $r->motif_suppression);
+        $emprunt->delete();
+        return redirect()->route('parc.index', ['tab' => 'emprunts'])->with('succes', 'Emprunt supprimé.');
     }
 }

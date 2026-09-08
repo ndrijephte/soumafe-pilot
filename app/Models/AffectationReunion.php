@@ -8,7 +8,7 @@ class AffectationReunion extends Model
 {
     protected $table = 'affectations_reunion';
 
-    protected $fillable = ['type_reunion_id', 'role_reunion_id', 'user_id', 'date_reunion', 'statut', 'remplacant_id'];
+    protected $fillable = ['type_reunion_id', 'role_reunion_id', 'user_id', 'date_reunion', 'statut', 'remplacant_id', 'projet_id'];
 
     protected $casts = ['date_reunion' => 'date'];
 
@@ -16,6 +16,7 @@ class AffectationReunion extends Model
     public function role(): BelongsTo { return $this->belongsTo(RoleReunion::class, 'role_reunion_id'); }
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
     public function remplacant(): BelongsTo { return $this->belongsTo(User::class, 'remplacant_id'); }
+    public function projet(): BelongsTo { return $this->belongsTo(Projet::class); }
 
     public function statutLabel(): string
     {

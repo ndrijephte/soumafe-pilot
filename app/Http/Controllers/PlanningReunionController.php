@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AffectationReunion, AuditLog, NotificationApp, ParticipantReunion, RoleReunion, TypeReunion, User};
+use App\Models\{AffectationReunion, AuditLog, NotificationApp, ParticipantReunion, Projet, RoleReunion, TypeReunion, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
 
@@ -27,7 +27,7 @@ class PlanningReunionController extends Controller
         }
 
         $affectations = $type
-            ? AffectationReunion::with(['user', 'role', 'remplacant'])
+            ? AffectationReunion::with(['user', 'role', 'remplacant', 'projet'])
                 ->where('type_reunion_id', $type->id)
                 ->whereBetween('date_reunion', [$debut, $fin])
                 ->get()
@@ -70,9 +70,11 @@ class PlanningReunionController extends Controller
 
         $instances = $instances ?? null;
 
+        $projets = Projet::whereNull('deleted_at')->orderBy('libelle')->get();
+
         return view('planning.index', compact(
             'types', 'type', 'jours', 'affectations', 'participants',
-            'collaborateurs', 'semaine', 'debut', 'fin', 'estPilote', 'estGestionnaire', 'estPonctuel', 'instances'
+            'collaborateurs', 'semaine', 'debut', 'fin', 'estPilote', 'estGestionnaire', 'estPonctuel', 'instances', 'projets'
         ));
     }
 
@@ -87,6 +89,7 @@ class PlanningReunionController extends Controller
             'affectations' => 'nullable|array',
             'affectations.*' => 'nullable|exists:users,id',
             'heure' => 'nullable|date_format:H:i',
+            'projet_id' => 'nullable|exists:projets,id',
         ]);
 
         $type = TypeReunion::with('roles')->findOrFail($r->type_reunion_id);
@@ -129,6 +132,7 @@ class PlanningReunionController extends Controller
         if ($ponctuel) {
             // Réunion ponctuelle : affectation manuelle ou rotation par défaut
             $manualAff = $r->input('affectations', []);
+            $projetId = $r->projet_id ?: null;
             foreach ($roles as $rIdx => $role) {
                 $userId = !empty($manualAff[$role->id]) ? (int)$manualAff[$role->id] : $userIds[$rIdx % $nbUsers];
                 AffectationReunion::create([
@@ -137,6 +141,7 @@ class PlanningReunionController extends Controller
                     'user_id' => $userId,
                     'date_reunion' => $debut->format('Y-m-d'),
                     'statut' => 'prevu',
+                    'projet_id' => $projetId,
                 ]);
             }
             $jourIdx = 1;
@@ -179,8 +184,9 @@ class PlanningReunionController extends Controller
             ]);
         }
 
+        $projetNom = ($ponctuel && $r->projet_id) ? Projet::find($r->projet_id)?->libelle : null;
         $auditDetail = $ponctuel
-            ? "Ponctuel: {$debut->format('d/m/Y')}, {$nbUsers} participants"
+            ? "Ponctuel: {$debut->format('d/m/Y')}, {$nbUsers} participants" . ($projetNom ? ", Projet: {$projetNom}" : '')
             : "Période: {$debut->format('d/m/Y')} - {$fin->format('d/m/Y')}, {$nbUsers} participants";
         AuditLog::log('creation', 'planning', $type->libelle, $auditDetail);
         return redirect()->route('planning.index', ['type' => $type->id, 'semaine' => $debut->format('Y-m-d')])

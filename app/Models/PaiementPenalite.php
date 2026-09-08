@@ -10,10 +10,11 @@ class PaiementPenalite extends Model
 
     protected $fillable = [
         'penalite_id', 'montant', 'date_paiement', 'mode_paiement',
-        'recu_par', 'observations',
+        'recu_par', 'observations', 'emprunt_id',
     ];
 
     protected $casts = ['date_paiement' => 'date'];
 
     public function penalite(): BelongsTo { return $this->belongsTo(Penalite::class); }
+    public function emprunt(): BelongsTo { return $this->belongsTo(Emprunt::class); }
 }

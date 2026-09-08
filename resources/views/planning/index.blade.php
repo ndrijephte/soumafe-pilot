@@ -223,6 +223,9 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                 @if($dateInstances->count() > 1)
                 <span style="font-size:11px;font-weight:600;background:rgba(46,116,181,.1);color:var(--accent);padding:2px 8px;border-radius:6px">Réunion {{ $instIdx + 1 }}</span>
                 @endif
+                @if($instance->first()?->projet)
+                <span style="font-size:11px;font-weight:600;background:rgba(34,139,34,.1);color:#228b22;padding:2px 8px;border-radius:6px">{!! $ic('<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>',11) !!} {{ $instance->first()->projet->libelle }}</span>
+                @endif
                 @if($estGestionnaire)
                 <div class="inst-actions">
                     <button class="btn-act" title="Supprimer cette réunion"
@@ -432,6 +435,13 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                 </div>
             </div>
             <input type="hidden" name="date_fin" id="ponctuelFin" value="{{ now()->format('Y-m-d') }}">
+            <label>Projet concerné</label>
+            <select name="projet_id" style="margin-bottom:6px">
+                <option value="">— Aucun projet —</option>
+                @foreach($projets as $pr)
+                <option value="{{ $pr->id }}">{{ $pr->code }} — {{ $pr->libelle }}</option>
+                @endforeach
+            </select>
             @if($participants->isEmpty())
             <p style="font-size:11px;color:var(--ko);background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;margin:10px 0">
                 Ajoutez au moins un participant.

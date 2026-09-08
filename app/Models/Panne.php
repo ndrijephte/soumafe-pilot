@@ -9,7 +9,7 @@ class Panne extends Model
     protected $fillable = [
         'vehicule_id', 'date_declaration', 'description', 'urgence',
         'diagnostic', 'decision', 'date_debut_intervention', 'date_cloture',
-        'delai_resolution', 'cout_reel', 'statut',
+        'delai_resolution', 'cout_reel', 'statut', 'emprunt_id',
     ];
 
     protected $casts = [
@@ -19,6 +19,7 @@ class Panne extends Model
     ];
 
     public function vehicule(): BelongsTo { return $this->belongsTo(Vehicule::class); }
+    public function emprunt(): BelongsTo { return $this->belongsTo(Emprunt::class); }
 
     public function statutLabel(): string
     {

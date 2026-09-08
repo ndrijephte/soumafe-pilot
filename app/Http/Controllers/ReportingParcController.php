@@ -326,20 +326,31 @@ class ReportingParcController extends Controller
         $depensesTotal = 0;
         $depensesJour = collect();
         $depensesType = collect();
+        $coutMaintenance = 0;
+        $maintJ = collect();
         if (Schema::hasTable('depenses')) {
-            $depsQuery = Depense::whereBetween('date_depense', [$debut, $fin]);
+            // Autres dépenses (hors maintenance = dépense véhicule)
+            $depsQuery = Depense::whereBetween('date_depense', [$debut, $fin])
+                ->where('type_depense', '!=', 'maintenance');
             $depensesTotal = (clone $depsQuery)->sum('montant');
-            // Par jour (pour courbe)
+            // Par jour (pour courbe bureau)
             $depensesJour = (clone $depsQuery)->selectRaw('date_depense as date, SUM(montant) as total')
                 ->groupBy('date_depense')->orderBy('date_depense')->get()
                 ->mapWithKeys(fn($d) => [$d->date => $d->total]);
-            // Par type
+            // Par type (hors maintenance)
             $depensesType = (clone $depsQuery)->selectRaw('type_depense, SUM(montant) as total')
                 ->groupBy('type_depense')->orderByDesc('total')->get();
+            // Maintenance = dépense véhicule
+            $maintQuery = Depense::whereBetween('date_depense', [$debut, $fin])
+                ->where('type_depense', 'maintenance');
+            $coutMaintenance = $maintQuery->sum('montant');
+            $maintJ = (clone $maintQuery)->selectRaw('date_depense as date, SUM(montant) as total')
+                ->groupBy('date_depense')->orderBy('date_depense')->get()
+                ->mapWithKeys(fn($d) => [$d->date => (int) $d->total]);
         }
         $typesDepenseLabels = TypeParc::depenses()->pluck('libelle', 'code')->toArray();
 
-        // Coûts véhicules par jour (pannes + pénalités)
+        // Coûts véhicules par jour (pannes + pénalités + maintenance)
         $depVehJour = collect();
         $pannesJ = Panne::whereIn('vehicule_id', $vehiculeIds)
             ->whereBetween('date_declaration', [$debut, $fin])
@@ -354,11 +365,11 @@ class ReportingParcController extends Controller
                 ->groupBy(DB::raw('DATE(date_infraction)'))->get()
                 ->mapWithKeys(fn($d) => [$d->date => (int) $d->total]);
         }
-        $allVehDates = $pannesJ->keys()->merge($penalJ->keys())->unique();
-        $depVehJour = $allVehDates->mapWithKeys(fn($d) => [$d => ($pannesJ[$d] ?? 0) + ($penalJ[$d] ?? 0)]);
+        $allVehDates = $pannesJ->keys()->merge($penalJ->keys())->merge($maintJ->keys())->unique();
+        $depVehJour = $allVehDates->mapWithKeys(fn($d) => [$d => ($pannesJ[$d] ?? 0) + ($penalJ[$d] ?? 0) + ($maintJ[$d] ?? 0)]);
 
-        // Rentabilité = Recettes - Dépenses - Pénalités - Coût pannes
-        $rentabilite = $recetteTotal - $depensesTotal - $montantPenalites - $coutPannes;
+        // Rentabilité = Recettes - Dépenses bureau - Pénalités - Coût pannes - Maintenance
+        $rentabilite = $recetteTotal - $depensesTotal - $montantPenalites - $coutPannes - $coutMaintenance;
 
         return view('reporting.parc', compact(
             'periode', 'debut', 'fin', 'categorie',

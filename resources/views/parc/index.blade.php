@@ -55,6 +55,11 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .filtre-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
 .filtre-bar select,.filtre-bar input[type="month"],.filtre-bar input[type="text"]{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 .urgence-faible{color:#475569}.urgence-moyenne{color:var(--warn)}.urgence-haute{color:#ea580c;font-weight:700}.urgence-critique{color:var(--ko);font-weight:700}
+.detail-row td{padding:0!important;border-bottom:1px solid #f1f5f9}
+.detail-content{background:#f8fafc;padding:8px 16px;font-size:12px;color:#334155;line-height:1.6;border-left:3px solid var(--accent)}
+.detail-content strong{color:var(--bleu);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+.act-btn.info{color:var(--accent)}
+.act-btn.info:hover{background:rgba(46,116,181,.08)}
 .act-row{display:flex;gap:4px;align-items:center}
 .act-btn{background:none;border:none;cursor:pointer;padding:3px;border-radius:4px;color:var(--gris)}
 .act-btn:hover{background:#f1f5f9;color:var(--bleu)}
@@ -196,7 +201,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill {{ $v->statut === 'en_service' ? 'p-ok' : ($v->statut === 'immobilise' ? 'p-warn' : 'p-ko') }}">{{ $v->statutLabel() }}</span></td>
         <td>
             <div class="act-row">
-                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $v->id }})" style="color:var(--accent)">{!! $icEye !!}</button>
+                @if($v->observations)
+                <button class="act-btn info" title="Détails" onclick="toggleDetail('veh-{{ $v->id }}')">{!! $icEye !!}</button>
+                @endif
+                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $v->id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
                 <button class="act-btn" title="Modifier" onclick="editVehicule({{ $v->id }})">{!! $icEdit !!}</button>
                 @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.vehicules.destroy', $v) }}" onsubmit="return demanderMotifSuppression(this,'ce véhicule')">@csrf @method('DELETE')
@@ -207,6 +215,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
+    @if($v->observations)
+    <tr class="detail-row" id="veh-{{ $v->id }}" style="display:none"><td colspan="8"><div class="detail-content"><strong>Observations :</strong> {{ $v->observations }}</div></td></tr>
+    @endif
     @empty
     <tr><td colspan="8" class="empty-msg">Aucun véhicule enregistré.</td></tr>
     @endforelse
@@ -236,7 +247,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>{{ $p->delai_resolution !== null ? $p->delai_resolution.'j' : '—' }}</td>
         <td>
             <div class="act-row">
-                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $p->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
+                @if($p->description || $p->diagnostic || $p->decision)
+                <button class="act-btn info" title="Détails" onclick="toggleDetail('panne-{{ $p->id }}')">{!! $icEye !!}</button>
+                @endif
+                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $p->vehicule_id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
                 @if($p->statut !== 'cloturee')
                 <button class="act-btn" title="Statuer" onclick="statuerPanne({{ $p->id }})" style="color:var(--accent)">{!! $icWrench !!}</button>
                 @endif
@@ -250,6 +264,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
+    @if($p->description || $p->diagnostic || $p->decision)
+    <tr class="detail-row" id="panne-{{ $p->id }}" style="display:none"><td colspan="8"><div class="detail-content">
+        @if($p->description)<strong>Description :</strong> {{ $p->description }}<br>@endif
+        @if($p->diagnostic)<strong>Diagnostic :</strong> {{ $p->diagnostic }}<br>@endif
+        @if($p->decision)<strong>Décision :</strong> {{ $p->decision }}@endif
+    </div></td></tr>
+    @endif
     @empty
     <tr><td colspan="8" class="empty-msg">Aucune panne enregistrée.</td></tr>
     @endforelse
@@ -558,8 +579,11 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td style="max-width:150px">{{ Str::limit($m->observations, 40) }}</td>
         <td>
             <div class="act-row">
+                @if($m->observations || $m->prestataire)
+                <button class="act-btn info" title="Détails" onclick="toggleDetail('maint-{{ $m->id }}')">{!! $icEye !!}</button>
+                @endif
                 @if(!$estReal && !$estDG)
-                <button class="act-btn" title="Réaliser" onclick="realiserMaint({{ $m->id }})" style="color:var(--ok)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></button>
+                <button class="act-btn" title="Réaliser" onclick="realiserMaint({{ $m->id }})" style="color:var(--ok)">{!! $icWrench !!}</button>
                 @endif
                 @if(!$estDG)
                 <button class="act-btn" title="Modifier" onclick="editMaint({{ $m->id }})">{!! $icEdit !!}</button>
@@ -573,6 +597,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
+    @if($m->observations || $m->prestataire)
+    <tr class="detail-row" id="maint-{{ $m->id }}" style="display:none"><td colspan="9"><div class="detail-content">
+        @if($m->observations)<strong>Observations :</strong> {{ $m->observations }}<br>@endif
+        @if($m->prestataire)<strong>Prestataire :</strong> {{ $m->prestataire }}<br>@endif
+        @if($m->cout)<strong>Coût :</strong> {{ number_format($m->cout, 0, ',', ' ') }} F@endif
+    </div></td></tr>
+    @endif
     @empty
     <tr><td colspan="9" class="empty-msg">Aucune échéance enregistrée.</td></tr>
     @endforelse
@@ -610,7 +641,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg>
                 </button>
                 @endif
-                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $pen->vehicule_id }})" style="color:var(--accent)">{!! $icEye !!}</button>
+                @if($pen->description)
+                <button class="act-btn info" title="Détails" onclick="toggleDetail('penal-{{ $pen->id }}')">{!! $icEye !!}</button>
+                @endif
+                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $pen->vehicule_id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
                 @if(!$estDG)
                 <button class="act-btn" title="Modifier" onclick="editPenal({{ $pen->id }})">{!! $icEdit !!}</button>
                 @if(auth()->user()->estAdmin())
@@ -633,6 +667,11 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             @endforeach
         </div>
     </td></tr>
+    @endif
+    @if($pen->description)
+    <tr class="detail-row" id="penal-{{ $pen->id }}" style="display:none">
+        <td colspan="11"><div class="detail-content"><strong>Description :</strong> {{ $pen->description }}</div></td>
+    </tr>
     @endif
     @empty
     <tr><td colspan="11" class="empty-msg">Aucune pénalité enregistrée.</td></tr>
@@ -861,7 +900,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill {{ $ch->statut === 'actif' ? 'p-ok' : 'p-gris' }}">{{ ucfirst($ch->statut) }}</span></td>
         <td>
             <div class="act-row">
-                <button class="act-btn" title="Résumé" onclick="ficheChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icEye !!}</button>
+                @if($ch->observations)
+                <button class="act-btn info" title="Détails" onclick="toggleDetail('ch-{{ $ch->id }}')">{!! $icEye !!}</button>
+                @endif
+                <button class="act-btn" title="Résumé" onclick="ficheChauffeur({{ $ch->id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
                 <button class="act-btn" title="Affecter" onclick="affecterChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icCar !!}</button>
                 <button class="act-btn" title="Modifier" onclick="editChauffeur({{ $ch->id }})">{!! $icEdit !!}</button>
                 @if(auth()->user()->estAdmin())
@@ -873,6 +915,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
+    @if($ch->observations)
+    <tr class="detail-row" id="ch-{{ $ch->id }}" style="display:none"><td colspan="7"><div class="detail-content"><strong>Observations :</strong> {{ $ch->observations }}</div></td></tr>
+    @endif
     @empty
     <tr><td colspan="7" class="empty-msg">Aucun chauffeur enregistré.</td></tr>
     @endforelse
@@ -1083,7 +1128,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="dlg-section">Réalisation</div>
     <div class="form-row3">
         <div><label>Date réalisation <span class="req">*</span></label><input type="date" name="date_realisation" id="rm-date" value="{{ date('Y-m-d') }}" required></div>
-        <div><label>Coût (F) <span class="req">*</span></label><input type="number" name="cout" id="rm-cout" min="0" required placeholder="0"></div>
+        <div><label>Coût (F) <span class="req">*</span></label><input type="number" name="cout" id="rm-cout" min="1" required placeholder="Montant obligatoire"></div>
         <div><label>Prestataire</label><input type="text" name="prestataire" id="rm-prest" maxlength="150" placeholder="Nom du prestataire"></div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="rm-obs" rows="2" placeholder="Détails de l'intervention"></textarea></div>
@@ -1290,6 +1335,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @if(!auth()->user()->aRole('direction'))
     <td>
         <div class="act-row">
+            @if($dep->commentaire)
+            <button class="act-btn info" title="Détails" onclick="toggleDetail('dep-{{ $dep->id }}')">{!! $icEye !!}</button>
+            @endif
             <button class="act-btn" title="Modifier" onclick="editerDepense({{ $dep->id }})">{!! $icEdit !!}</button>
             @if(auth()->user()->estAdmin())
             <form method="POST" action="{{ route('parc.depenses.destroy', $dep) }}" onsubmit="return demanderMotifSuppression(this,'cette dépense')" style="display:inline">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="act-btn del" title="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></form>
@@ -1298,6 +1346,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </td>
     @endif
 </tr>
+@if($dep->commentaire)
+<tr class="detail-row" id="dep-{{ $dep->id }}" style="display:none"><td colspan="{{ auth()->user()->aRole('direction') ? 6 : 7 }}"><div class="detail-content"><strong>Commentaire :</strong> {{ $dep->commentaire }}</div></td></tr>
+@endif
 @empty
 <tr><td colspan="{{ auth()->user()->aRole('direction') ? 6 : 7 }}" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
 @endforelse
@@ -1528,6 +1579,8 @@ var penalData = @json($_peData);
 var chauffeurData = @json($_chData);
 var depensesData = @json($_depData);
 var vLabels = @json($_vLabels);
+
+function toggleDetail(id){var r=document.getElementById(id);if(r)r.style.display=r.style.display==='none'?'':'none';}
 
 function editVehicule(id){
     var d=vehiculesData[id]; if(!d)return;

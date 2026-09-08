@@ -57,9 +57,9 @@ class ParcController extends Controller
             ? Recouvrement::with(['vehicule', 'versements'])->orderByDesc('date_recette')->get()
             : collect();
 
-        // --- Dépenses ---
+        // --- Dépenses (hors maintenance = dépense véhicule, pas "autre dépense") ---
         $depenses = Schema::hasTable('depenses')
-            ? Depense::with('vehicule')->orderByDesc('date_depense')->get()
+            ? Depense::with('vehicule')->where('type_depense', '!=', 'maintenance')->orderByDesc('date_depense')->get()
             : collect();
         $typesDepense = TypeParc::depenses();
 
@@ -715,7 +715,7 @@ class ParcController extends Controller
         $this->autoriser($r);
         $r->validate([
             'date_realisation' => 'required|date',
-            'cout'             => 'required|integer|min:0',
+            'cout'             => 'required|integer|min:1',
             'prestataire'      => 'nullable|string|max:150',
             'observations'     => 'nullable|string|max:500',
         ]);

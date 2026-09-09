@@ -7,8 +7,8 @@
 .cr-edit h2{font-size:1.3rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:6px}
 .cr-edit .sub{font-size:.85rem;color:#64748b;margin-bottom:20px}
 /* Sections pliables */
-.section{background:#fff;border-radius:12px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
-.section-head{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;cursor:pointer;user-select:none;border-bottom:2px solid #DDEAF5;transition:background .15s}
+.section{background:#fff;border-radius:12px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.section-head{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;cursor:pointer;user-select:none;border-bottom:2px solid #DDEAF5;transition:background .15s;border-radius:12px 12px 0 0}
 .section-head:hover{background:#FAFCFF}
 .section-head h3{font-size:1rem;font-weight:700;color:var(--bleu,#1F4E79);margin:0}
 .section-head .sect-status{display:flex;align-items:center;gap:8px}
@@ -201,41 +201,6 @@
                     </div>
                 </div>
             </div>
-
-            {{-- Diligences --}}
-            @if(!empty($donnees['diligences']))
-            <div class="section" data-sect="diligences">
-                <div class="section-head" onclick="toggleSection(this)">
-                    <h3>Diligences par projet</h3>
-                    <div class="sect-status">
-                        <button type="button" class="btn-validate" onclick="event.stopPropagation();validerSection(this)">&#10003; Valider</button>
-                        <span class="sect-toggle">&#9660;</span>
-                    </div>
-                </div>
-                <div class="section-body">
-                @foreach($donnees['diligences'] ?? [] as $j => $dil)
-                <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;margin-bottom:10px">
-                    <div style="font-weight:600;color:#1e3a5f;margin-bottom:6px">{{ $dil['projet'] }} <span style="font-weight:400;color:#64748b;font-size:.82rem">({{ $dil['responsable'] }})</span></div>
-                    <input type="hidden" name="donnees[diligences][{{ $j }}][projet]" value="{{ $dil['projet'] }}">
-                    <input type="hidden" name="donnees[diligences][{{ $j }}][responsable]" value="{{ $dil['responsable'] }}">
-                    <input type="hidden" name="donnees[diligences][{{ $j }}][taches_terminees]" value="{{ $dil['taches_terminees'] }}">
-                    <input type="hidden" name="donnees[diligences][{{ $j }}][taches_bloquees]" value="{{ $dil['taches_bloquees'] }}">
-                    <div style="font-size:.82rem;color:#64748b;margin-bottom:6px">Terminées : <strong>{{ $dil['taches_terminees'] }}</strong> — Blocages : <strong>{{ $dil['taches_bloquees'] }}</strong></div>
-                    <div class="fg" style="margin-bottom:0"><label>Observations</label>
-                        <div class="rich-toolbar" data-target="dil-{{ $j }}">
-                            <button type="button" onclick="execRich('bold',this)" title="Gras"><b>G</b></button>
-                            <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
-                            <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
-                            <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
-                        </div>
-                        <div class="rich-editor" contenteditable="true" id="dil-{{ $j }}" data-name="donnees[diligences][{{ $j }}][observations]">{!! $dil['observations'] ?? '' !!}</div>
-                        <input type="hidden" name="donnees[diligences][{{ $j }}][observations]" id="dil-{{ $j }}-hidden">
-                    </div>
-                </div>
-                @endforeach
-                </div>
-            </div>
-            @endif
 
             {{-- 3. DÉCISIONS --}}
             <div class="section" data-sect="decisions">

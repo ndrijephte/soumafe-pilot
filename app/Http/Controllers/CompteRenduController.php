@@ -148,13 +148,6 @@ class CompteRenduController extends Controller
             }
             unset($odj);
         }
-        if (!empty($donnees['diligences'])) {
-            foreach ($donnees['diligences'] as &$dil) {
-                if (isset($dil['observations'])) $dil['observations'] = $this->sanitizeHtml($dil['observations']);
-            }
-            unset($dil);
-        }
-
         $cr->setDonnees($donnees);
         $cr->titre = $r->input('titre', $cr->titre);
         $cr->lieu = $r->input('lieu', $cr->lieu);
@@ -279,19 +272,6 @@ class CompteRenduController extends Controller
         $semaine = Carbon::now()->subWeek();
         $projets = Projet::where('statut', 'actif')->with('responsable')->orderBy('libelle')->get();
 
-        $diligences = [];
-        foreach ($projets as $p) {
-            $tachesTerminees = Tache::where('projet_id', $p->id)->where('statut', 'termine')->where('updated_at', '>=', $semaine)->count();
-            $tachesBloquees = Schema::hasTable('blocages') ? Blocage::whereHas('tache', fn($q) => $q->where('projet_id', $p->id))->whereNull('date_levee')->count() : 0;
-            $evenements = (Schema::hasTable('evenements') && Schema::hasColumn('evenements', 'projet_id')) ? Evenement::where('projet_id', $p->id)->where('created_at', '>=', $semaine)->pluck('description')->toArray() : [];
-
-            $diligences[] = [
-                'projet' => $p->libelle, 'responsable' => $p->responsable?->nomComplet() ?? '—',
-                'taches_terminees' => $tachesTerminees, 'taches_bloquees' => $tachesBloquees,
-                'evenements' => $evenements, 'observations' => '',
-            ];
-        }
-
         $presences = User::where('actif', true)->orderBy('name')->get()
             ->map(fn($u) => ['nom' => $u->nomComplet(), 'present' => true])->toArray();
 
@@ -299,7 +279,6 @@ class CompteRenduController extends Controller
             'presences'     => $presences,
             'contexte'      => '',
             'ordre_du_jour' => [['point' => '', 'contenu' => '']],
-            'diligences'    => $diligences,
             'decisions'     => [],
             'conclusion'    => '',
         ];
@@ -441,18 +420,6 @@ class CompteRenduController extends Controller
                     $sub++;
                 }
             }
-        }
-
-        // Diligences par projet (si données pré-remplies)
-        if (!empty($d['diligences'])) {
-            $xml .= $this->p("Diligences par projet :", true, 12);
-            foreach ($d['diligences'] as $dil) {
-                $xml .= $this->p("• {$dil['projet']} (resp. : {$dil['responsable']})", true, 12);
-                $xml .= $this->p("   Tâches terminées : {$dil['taches_terminees']} — Blocages actifs : {$dil['taches_bloquees']}");
-                if (!empty($dil['evenements'])) $xml .= $this->p("   Événements : " . implode(', ', (array)$dil['evenements']));
-                if (!empty($dil['observations'])) { $xml .= $this->p("   Observations :", true, 12); $xml .= $this->htmlToOoxml($dil['observations']); }
-            }
-            $xml .= $this->p('');
         }
 
         // 3. Décisions

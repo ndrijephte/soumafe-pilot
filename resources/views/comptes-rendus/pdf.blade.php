@@ -144,22 +144,6 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
         </div>
         @endif
 
-        {{-- DILIGENCES --}}
-        @if(!empty($d['diligences']))
-        <div class="section">
-            <h2>Diligences par projet</h2>
-            @foreach($d['diligences'] as $dil)
-            <div style="background:#f8fafc;border-radius:6px;padding:8px 12px;margin-bottom:8px;border-left:3px solid #2E74B5">
-                <strong style="color:#1F4E79">{{ $dil['projet'] }}</strong> <span style="color:#64748b;font-size:9.5pt">({{ $dil['responsable'] }})</span><br>
-                <span style="font-size:9.5pt">Terminées : <strong>{{ $dil['taches_terminees'] }}</strong> — Blocages : <strong>{{ $dil['taches_bloquees'] }}</strong></span>
-                @if(!empty($dil['observations']))
-                <div style="font-size:10pt;margin-top:4px">{!! $dil['observations'] !!}</div>
-                @endif
-            </div>
-            @endforeach
-        </div>
-        @endif
-
         {{-- DECISIONS --}}
         @if(!empty($d['decisions']))
         <div class="section">

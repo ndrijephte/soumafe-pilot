@@ -121,22 +121,6 @@
         </div>
         @endif
 
-        {{-- Diligences --}}
-        @if(!empty($d['diligences']))
-        <div class="section">
-            <h3>Diligences par projet</h3>
-            @foreach($d['diligences'] as $dil)
-            <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;margin-bottom:10px">
-                <div style="font-weight:600;color:var(--bleu,#1F4E79)">{{ $dil['projet'] }} <span style="font-weight:400;color:#64748b;font-size:.82rem">({{ $dil['responsable'] }})</span></div>
-                <div style="font-size:.82rem;color:#64748b;margin-top:4px">Terminées : <strong>{{ $dil['taches_terminees'] }}</strong> — Blocages : <strong>{{ $dil['taches_bloquees'] }}</strong></div>
-                @if(!empty($dil['observations']))
-                <div class="cr-contenu" style="margin-top:6px">{!! $dil['observations'] !!}</div>
-                @endif
-            </div>
-            @endforeach
-        </div>
-        @endif
-
         {{-- 3. DECISIONS --}}
         @if(!empty($d['decisions']))
         <div class="section">

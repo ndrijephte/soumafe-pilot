@@ -35,6 +35,7 @@ class ArbitrageController extends Controller
     {
         abort_unless($r->user()->estPilote(), 403);
         $arbitrages = ArbitrageT3::with(['tache.user', 'demandeur'])
+            ->whereHas('tache')
             ->orderByRaw("FIELD(decision,'en_attente','accorde','refuse')")
             ->orderByDesc('created_at')->get();
 
@@ -44,10 +45,11 @@ class ArbitrageController extends Controller
             ->orderByDesc('date')->orderByDesc('created_at')
             ->limit(30)->get();
 
-        // Blocages actifs nécessitant une action pilote
+        // Blocages actifs nécessitant une action pilote (exclut tâches supprimées)
         $blocages = collect();
         if (Schema::hasTable('blocages')) {
             $blocages = Blocage::with(['tache.user', 'tache.projet', 'intervenant'])
+                ->whereHas('tache')
                 ->whereNull('date_levee')
                 ->orderByDesc('date_blocage')
                 ->get();
@@ -73,7 +75,7 @@ class ArbitrageController extends Controller
         NotificationApp::create([
             'user_id' => $arbitrage->demandeur_id,
             'type' => 'arbitrage_t3_decision',
-            'contenu' => "Votre demande d'arbitrage T3 « {$arbitrage->tache->intitule} » a été " . ($r->decision === 'accorde' ? 'accordée' : 'refusée') . '.',
+            'contenu' => "Votre demande d'arbitrage T3 « " . ($arbitrage->tache?->intitule ?? 'Tâche supprimée') . " » a été " . ($r->decision === 'accorde' ? 'accordée' : 'refusée') . '.',
         ]);
 
         return back()->with('succes', $msg);

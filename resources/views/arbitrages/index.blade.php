@@ -78,6 +78,7 @@ dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-
 <div id="tab-bloc">
 @if(isset($blocages) && $blocages->count() > 0)
     @foreach($blocages as $b)
+    @if($b->tache)
     @php
         $heures = round($b->date_blocage->diffInHours(now()), 1);
         $dureeClass = $heures > 24 ? 'duree-long' : 'duree-court';
@@ -95,7 +96,7 @@ dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-
                 <div style="font-size:12px;color:var(--gris);margin-bottom:2px"><strong>Recommandation :</strong> {{ $b->recommandation }}</div>
                 @endif
                 <div style="font-size:12px;color:var(--gris)">
-                    Assign&eacute; &agrave; <strong>{{ $b->tache->user->nomComplet() }}</strong>
+                    Assign&eacute; &agrave; <strong>{{ $b->tache->user?->nomComplet() ?? '—' }}</strong>
                     @if($b->tache->projet) &middot; {{ $b->tache->projet->libelle }} @endif
                     @if($b->intervenant) &middot; Intervenant : {{ $b->intervenant->nomComplet() }} @endif
                     &middot; {{ $b->date_blocage->format('d/m/Y H:i') }}
@@ -110,6 +111,7 @@ dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-
             </div>
         </div>
     </div>
+    @endif
     @endforeach
 @else
     <div class="carte vide">Aucun blocage actif.</div>
@@ -165,12 +167,12 @@ dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-
     <div class="arb-info">
         <div class="arb-titre">
             <span class="typ t3">T3</span>
-            {{ $a->tache->intitule ?? '—' }}
+            {{ $a->tache?->intitule ?? '—' }}
         </div>
         <div class="arb-meta">
-            Demandeur : <strong>{{ $a->demandeur->nomComplet() }}</strong>
+            Demandeur : <strong>{{ $a->demandeur?->nomComplet() ?? '—' }}</strong>
             &middot; {{ $a->created_at->format('d/m/Y H:i') }}
-            @if($a->tache)
+            @if($a->tache?->projet)
             &middot; Projet : {{ $a->tache->projet->libelle ?? '—' }}
             @endif
         </div>

@@ -78,6 +78,7 @@ class BlocageController extends Controller
     public function lever(Request $r, Blocage $blocage)
     {
         $tache = $blocage->tache;
+        abort_if(!$tache, 404, 'La tâche associée a été supprimée.');
         abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
         $blocage->update(['date_levee' => now()]);
         // Repasser en cours si plus aucun blocage actif

@@ -65,7 +65,7 @@
 .ms-wrap{position:relative}
 .ms-btn{width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem;background:#fff;cursor:pointer;text-align:left;min-height:30px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .ms-btn:hover{border-color:var(--bleu,#1F4E79)}
-.ms-drop{display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1px solid #d1d5db;border-radius:6px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.ms-drop{display:none;position:fixed;background:#fff;border:1px solid #d1d5db;border-radius:6px;max-height:200px;overflow-y:auto;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.12)}
 .ms-drop.open{display:block}
 .ms-drop label{display:flex;align-items:center;gap:6px;padding:5px 10px;font-size:.82rem;cursor:pointer;white-space:nowrap}
 .ms-drop label:hover{background:#f1f5f9}
@@ -448,6 +448,12 @@ function msCheckboxes(namePrefix){
 function toggleMS(btn){
     const drop = btn.nextElementSibling;
     document.querySelectorAll('.ms-drop.open').forEach(d => { if(d !== drop) d.classList.remove('open'); });
+    if(!drop.classList.contains('open')){
+        const r = btn.getBoundingClientRect();
+        drop.style.top = (r.bottom + 2) + 'px';
+        drop.style.left = r.left + 'px';
+        drop.style.width = r.width + 'px';
+    }
     drop.classList.toggle('open');
 }
 function updateMSDisplay(chk){

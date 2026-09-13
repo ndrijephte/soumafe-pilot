@@ -43,6 +43,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/sprints/{sprint}', [SprintController::class, 'destroy'])->name('sprints.destroy');
     Route::post('/sprints/importer', [SprintController::class, 'importerTaches'])->name('sprints.importer');
     Route::post('/sprints/{sprint}/toggle-visibilite', [SprintController::class, 'toggleVisibilite'])->name('sprints.toggle-visibilite');
+    Route::post('/sprints/{sprint}/update-exclusions', [SprintController::class, 'updateExclusions'])->name('sprints.update-exclusions');
 
     // US-12 : Arbitrages T3
     Route::post('/taches/{tache}/arbitrage', [ArbitrageController::class, 'demander'])->name('arbitrages.demander');

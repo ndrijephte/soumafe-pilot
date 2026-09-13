@@ -46,6 +46,17 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 .filtre-bar input,.filtre-bar select{padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 .filtre-bar input{min-width:180px}
 @media(max-width:900px){.sprint-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}.filtre-bar{flex-direction:column}.projet-header{flex-wrap:wrap}}
+.btn-visibilite{background:none;border:none;padding:2px 4px;cursor:pointer;color:var(--gris);border-radius:4px;transition:color .2s}
+.btn-visibilite:hover{color:var(--accent)}
+.sprint-card.masque{opacity:.55;border-style:dashed;border-color:#94a3b8}
+.panneau-excl{position:absolute;top:36px;right:0;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:10px 12px;z-index:50;min-width:220px;max-height:260px;overflow-y:auto;display:none}
+.panneau-excl.visible{display:block}
+.panneau-excl h4{font-size:12px;color:var(--bleu);margin:0 0 8px;font-weight:700}
+.panneau-excl label{display:flex;align-items:center;gap:6px;font-size:12px;color:#1e293b;padding:4px 0;cursor:pointer;margin:0}
+.panneau-excl label:hover{color:var(--accent)}
+.panneau-excl input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px}
+.panneau-excl .btn-excl-ok{display:block;width:100%;margin-top:8px;padding:5px 0;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:11.5px;cursor:pointer;font-weight:600}
+.badge-excl{background:#fef2f2;color:var(--ko);font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;margin-left:2px}
 @media(max-width:600px){dialog{padding:16px}.sprint-card{padding:12px}.sprint-num{font-size:16px}.btn{padding:6px 12px;font-size:12px}}
 </style>
 @endpush
@@ -106,11 +117,36 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             $totalTaches = $s->taches->count();
             $terminees = $s->taches->where('statut', 'termine')->count();
             $pct = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
+            $nbExcl = count($s->exclus);
         @endphp
-        <a href="{{ route('sprints.show', $s) }}" class="sprint-card" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block">
+        <a href="{{ route('sprints.show', $s) }}" class="sprint-card{{ !$s->visible_collaborateurs ? ' masque' : '' }}" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block;position:relative">
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <span class="sprint-num">Sprint {{ $s->numero }}</span>
-                <span class="pill s-{{ $s->statut }}">{{ ucfirst(str_replace('_',' ',$s->statut)) }}</span>
+                <span style="display:flex;align-items:center;gap:6px">
+                    @if (auth()->user()->estAdmin())
+                    <button onclick="toggleVisibilite('{{ route('sprints.toggle-visibilite', $s) }}', event)" class="btn-visibilite" title="{{ $s->visible_collaborateurs ? 'Masquer pour tous' : 'Rendre visible' }}">
+                        @if ($s->visible_collaborateurs)
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        @else
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--ko)" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        @endif
+                    </button>
+                    <button onclick="ouvrirExclusions({{ $s->id }}, event)" class="btn-visibilite" title="G&eacute;rer visibilit&eacute; par collaborateur">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        @if ($nbExcl > 0) <span class="badge-excl">{{ $nbExcl }}</span> @endif
+                    </button>
+                    <div class="panneau-excl" id="panneau-excl-{{ $s->id }}">
+                        <h4>Masquer pour :</h4>
+                        <form method="POST" action="{{ route('sprints.update-exclusions', $s) }}">@csrf
+                            @foreach ($collaborateurs as $c)
+                            <label><input type="checkbox" name="exclus[]" value="{{ $c->id }}" {{ in_array($c->id, $s->exclus) ? 'checked' : '' }}> {{ $c->nomComplet() }}</label>
+                            @endforeach
+                            <button type="submit" class="btn-excl-ok" onclick="event.stopPropagation()">Valider</button>
+                        </form>
+                    </div>
+                    @endif
+                    <span class="pill s-{{ $s->statut }}">{{ ucfirst(str_replace('_',' ',$s->statut)) }}</span>
+                </span>
             </div>
             <div class="sprint-obj">{{ $s->objectif }}</div>
             <div class="sprint-dates">
@@ -121,7 +157,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div class="sprint-stats">
                 <div>T&acirc;ches : <strong>{{ $totalTaches }}</strong></div>
                 <div>Termin&eacute;es : <strong>{{ $terminees }}</strong></div>
-                <div>Points : <strong>{{ $s->pointsLivres() }}</strong>@if($s->engagement_points) / {{ $s->engagement_points }}@endif</div>
+                <div>Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->engagement_points) / {{ $s->engagement_points }} @endif</div>
             </div>
             <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:600">Voir le d&eacute;tail &rarr;</div>
         </a>
@@ -138,11 +174,36 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             $totalTaches = $s->taches->count();
             $terminees = $s->taches->where('statut', 'termine')->count();
             $pct = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
+            $nbExcl = count($s->exclus);
         @endphp
-        <a href="{{ route('sprints.show', $s) }}" class="sprint-card" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block">
+        <a href="{{ route('sprints.show', $s) }}" class="sprint-card{{ !$s->visible_collaborateurs ? ' masque' : '' }}" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block;position:relative">
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <span class="sprint-num">Sprint {{ $s->numero }}</span>
-                <span class="pill s-{{ $s->statut }}">{{ ucfirst(str_replace('_',' ',$s->statut)) }}</span>
+                <span style="display:flex;align-items:center;gap:6px">
+                    @if (auth()->user()->estAdmin())
+                    <button onclick="toggleVisibilite('{{ route('sprints.toggle-visibilite', $s) }}', event)" class="btn-visibilite" title="{{ $s->visible_collaborateurs ? 'Masquer pour tous' : 'Rendre visible' }}">
+                        @if ($s->visible_collaborateurs)
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        @else
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--ko)" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        @endif
+                    </button>
+                    <button onclick="ouvrirExclusions({{ $s->id }}, event)" class="btn-visibilite" title="G&eacute;rer visibilit&eacute; par collaborateur">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        @if ($nbExcl > 0) <span class="badge-excl">{{ $nbExcl }}</span> @endif
+                    </button>
+                    <div class="panneau-excl" id="panneau-excl-{{ $s->id }}">
+                        <h4>Masquer pour :</h4>
+                        <form method="POST" action="{{ route('sprints.update-exclusions', $s) }}">@csrf
+                            @foreach ($collaborateurs as $c)
+                            <label><input type="checkbox" name="exclus[]" value="{{ $c->id }}" {{ in_array($c->id, $s->exclus) ? 'checked' : '' }}> {{ $c->nomComplet() }}</label>
+                            @endforeach
+                            <button type="submit" class="btn-excl-ok" onclick="event.stopPropagation()">Valider</button>
+                        </form>
+                    </div>
+                    @endif
+                    <span class="pill s-{{ $s->statut }}">{{ ucfirst(str_replace('_',' ',$s->statut)) }}</span>
+                </span>
             </div>
             <div class="sprint-obj">{{ $s->objectif }}</div>
             <div class="sprint-dates">
@@ -153,7 +214,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div class="sprint-stats">
                 <div>T&acirc;ches : <strong>{{ $totalTaches }}</strong></div>
                 <div>Termin&eacute;es : <strong>{{ $terminees }}</strong></div>
-                <div>Points : <strong>{{ $s->pointsLivres() }}</strong>@if($s->engagement_points) / {{ $s->engagement_points }}@endif</div>
+                <div>Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->engagement_points) / {{ $s->engagement_points }} @endif</div>
             </div>
             <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:600">Voir le d&eacute;tail &rarr;</div>
         </a>
@@ -232,9 +293,14 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 @endif
 @endsection
 
+<form id="form-toggle-visibilite" method="POST" style="display:none">@csrf</form>
+
 @push('scripts')
 <script>
 @if($errors->any())document.addEventListener('DOMContentLoaded',function(){var d=document.getElementById('dlg-sprint');if(d)d.showModal();});@endif
+function toggleVisibilite(url,e){e.preventDefault();e.stopPropagation();var f=document.getElementById('form-toggle-visibilite');f.action=url;f.submit();}
+function ouvrirExclusions(id,e){e.preventDefault();e.stopPropagation();document.querySelectorAll('.panneau-excl.visible').forEach(function(p){if(p.id!=='panneau-excl-'+id)p.classList.remove('visible');});document.getElementById('panneau-excl-'+id).classList.toggle('visible');}
+document.addEventListener('click',function(e){if(!e.target.closest('.panneau-excl')&&!e.target.closest('.btn-visibilite')){document.querySelectorAll('.panneau-excl.visible').forEach(function(p){p.classList.remove('visible');});}});
 function toggleTermines(btn){
     const section=btn.closest('.projet-section');
     const grid=section.querySelector('.sprints-termines');

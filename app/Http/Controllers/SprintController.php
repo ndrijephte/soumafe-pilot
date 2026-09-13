@@ -17,16 +17,25 @@ class SprintController extends Controller
             }
         }, 'sprints.taches', 'responsable'])
             ->orderBy('libelle')->get();
-        return view('sprints.index', compact('projets'));
+
+        // Filtrage per-collaborateur (exclusions individuelles)
+        if ($user->aRole('collaborateur')) {
+            foreach ($projets as $p) {
+                $p->setRelation('sprints', $p->sprints->filter(fn($s) => $s->visiblePour($user->id))->values());
+            }
+        }
+
+        $collaborateurs = $user->estAdmin() ? User::where('actif', true)->where('role', 'collaborateur')->orderBy('name')->get() : collect();
+        return view('sprints.index', compact('projets', 'collaborateurs'));
     }
 
     /** Page détail d'un sprint : tâches, import, ajout. */
     public function show(Request $r, Sprint $sprint)
     {
         $user = $r->user();
-        // Collaborateur ne peut pas voir un sprint masqué
-        if ($user->aRole('collaborateur') && !$sprint->visible_collaborateurs) {
-            abort(403, 'Ce sprint n\'est pas visible pour les collaborateurs.');
+        // Collaborateur ne peut pas voir un sprint masqué ou dont il est exclu
+        if ($user->aRole('collaborateur') && !$sprint->visiblePour($user->id)) {
+            abort(403, 'Ce sprint n\'est pas visible pour vous.');
         }
         $sprint->load(['projet.responsable', 'taches.user']);
         $users = User::where('actif', true)->orderBy('name')->get();
@@ -187,7 +196,7 @@ class SprintController extends Controller
         return back()->with('succes', "Sprint arrêté. Motif enregistré.");
     }
 
-    /** Basculer la visibilité d'un sprint pour les collaborateurs. */
+    /** Basculer la visibilité globale d'un sprint pour les collaborateurs. */
     public function toggleVisibilite(Request $r, Sprint $sprint)
     {
         abort_unless($r->user()->estAdmin(), 403);
@@ -195,6 +204,19 @@ class SprintController extends Controller
         $etat = $sprint->visible_collaborateurs ? 'visible' : 'masqué';
         \App\Models\AuditLog::log('visibilite_sprint', 'sprints', "Sprint #{$sprint->numero}", "Sprint {$etat} pour les collaborateurs");
         return back()->with('succes', "Sprint n°{$sprint->numero} désormais {$etat} pour les collaborateurs.");
+    }
+
+    /** Mettre à jour la liste d'exclusions par collaborateur pour un sprint. */
+    public function updateExclusions(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $exclus = $r->input('exclus', []);
+        $exclus = array_map('intval', array_filter($exclus));
+        $sprint->update(['collaborateurs_exclus' => json_encode(array_values($exclus))]);
+        $nb = count($exclus);
+        $label = $nb > 0 ? "{$nb} collaborateur(s) exclu(s)" : 'Aucune exclusion';
+        \App\Models\AuditLog::log('exclusion_sprint', 'sprints', "Sprint #{$sprint->numero}", $label);
+        return back()->with('succes', "Sprint n°{$sprint->numero} : {$label}.");
     }
 
     /** API JSON : sprints d'un projet (pour le select dynamique T1). */

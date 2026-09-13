@@ -42,6 +42,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/sprints/{sprint}/taches/{tache}', [SprintController::class, 'supprimerTache'])->name('sprints.supprimer-tache');
     Route::delete('/sprints/{sprint}', [SprintController::class, 'destroy'])->name('sprints.destroy');
     Route::post('/sprints/importer', [SprintController::class, 'importerTaches'])->name('sprints.importer');
+    Route::post('/sprints/{sprint}/toggle-visibilite', [SprintController::class, 'toggleVisibilite'])->name('sprints.toggle-visibilite');
 
     // US-12 : Arbitrages T3
     Route::post('/taches/{tache}/arbitrage', [ArbitrageController::class, 'demander'])->name('arbitrages.demander');
@@ -63,6 +64,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/notifications', [NotificationController::class, 'nonLues'])->name('api.notifications');
     Route::patch('/api/notifications/{notification}/lire', [NotificationController::class, 'lire'])->name('api.notifications.lire');
     Route::post('/api/notifications/tout-lire', [NotificationController::class, 'toutLire'])->name('api.notifications.tout-lire');
+    Route::post('/notifications/envoyer', [NotificationController::class, 'envoyer'])->name('notifications.envoyer');
 
     // Recherche globale
     Route::get('/api/recherche', [DashboardController::class, 'recherche'])->name('api.recherche');

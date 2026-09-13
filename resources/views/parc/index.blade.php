@@ -959,8 +959,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </div>
     <div class="form-row">
-        <div><label>Marque</label><input name="marque" id="v-marque" list="dl-marques" autocomplete="off"></div>
-        <div><label>Modèle</label><input name="modele" id="v-modele"></div>
+        <div><label>Marque <span class="req">*</span></label><input name="marque" id="v-marque" list="dl-marques" autocomplete="off" required></div>
+        <div><label>Modèle <span class="req">*</span></label><input name="modele" id="v-modele" required></div>
     </div>
     <div class="dlg-section">Chauffeurs affectés</div>
     <input type="hidden" name="chauffeur_affecte" id="v-chauff" value="">
@@ -969,8 +969,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
     <div class="dlg-section">Exploitation</div>
     <div class="form-row3">
-        <div><label>Kilométrage</label><input type="number" name="kilometrage" id="v-km" min="0"></div>
-        <div><label>Mise en service</label><input type="date" name="date_mise_en_service" id="v-dms"></div>
+        <div><label>Kilométrage <span class="req">*</span></label><input type="number" name="kilometrage" id="v-km" min="0" required></div>
+        <div><label>Mise en service <span class="req">*</span></label><input type="date" name="date_mise_en_service" id="v-dms" required></div>
         <div><label>Objectif recette (FCFA)</label><input type="number" name="objectif_recette" id="v-obj" min="0" placeholder="Vide = paramètre global"></div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="v-obs" rows="2"></textarea></div>
@@ -998,7 +998,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
             </select>
         </div>
-        <div><label>Date déclaration</label><input type="date" name="date_declaration" id="p-date" value="{{ date('Y-m-d') }}"></div>
+        <div><label>Date déclaration <span class="req">*</span></label><input type="date" name="date_declaration" id="p-date" value="{{ date('Y-m-d') }}" required></div>
         <div><label>Urgence <span class="req">*</span></label>
             <select name="urgence" id="p-urg" required>
                 <option value="faible">Faible</option><option value="moyenne" selected>Moyenne</option><option value="haute">Haute</option><option value="critique">Critique</option>
@@ -1075,21 +1075,21 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
             </select>
         </div>
-        <div><label>Chauffeur</label>
-            <select name="chauffeur" id="r-chauff">
+        <div><label>Chauffeur <span class="req">*</span></label>
+            <select name="chauffeur" id="r-chauff" required>
                 <option value="">— Chauffeur —</option>
             </select>
         </div>
     </div>
     <div class="form-row3">
         <div><label>Recette (FCFA) <span class="req">*</span></label><input type="number" name="recette" id="r-montant" min="0" required></div>
-        <div><label>Mode de remise</label>
-            <select name="mode_remise" id="r-mode">
+        <div><label>Mode de remise <span class="req">*</span></label>
+            <select name="mode_remise" id="r-mode" required>
                 <option value="">—</option><option value="especes">Espèces</option><option value="mobile_money">Mobile Money</option><option value="cheque">Chèque</option><option value="virement">Virement</option><option value="autre">Autre</option>
             </select>
         </div>
-        <div><label>Contrôlé par</label>
-            <select name="controle_par" id="r-ctrl">
+        <div><label>Contrôlé par <span class="req">*</span></label>
+            <select name="controle_par" id="r-ctrl" required>
                 <option value="">— Choisir —</option>
                 @foreach($collaborateurs as $u)<option value="{{ $u->name }}">{{ $u->name }}</option>@endforeach
             </select>
@@ -1128,8 +1128,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </div>
     <div class="form-row">
-        <div><label>Dernière réalisation</label><input type="date" name="derniere_realisation" id="m-dr"></div>
-        <div><label>Prochaine échéance</label><input type="date" name="prochaine_echeance" id="m-pe"></div>
+        <div><label>Dernière réalisation <span class="req">*</span></label><input type="date" name="derniere_realisation" id="m-dr" required></div>
+        <div><label>Prochaine échéance <span class="req">*</span></label><input type="date" name="prochaine_echeance" id="m-pe" required></div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="m-obs" rows="2"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
@@ -1153,9 +1153,14 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="form-row3">
         <div><label>Date réalisation <span class="req">*</span></label><input type="date" name="date_realisation" id="rm-date" value="{{ date('Y-m-d') }}" required></div>
         <div><label>Coût (F) <span class="req">*</span></label><input type="number" name="cout" id="rm-cout" min="1" required placeholder="Montant obligatoire"></div>
-        <div><label>Prestataire</label><input type="text" name="prestataire" id="rm-prest" maxlength="150" placeholder="Nom du prestataire"></div>
+        <div><label>Prestataire <span class="req">*</span></label><input type="text" name="prestataire" id="rm-prest" maxlength="150" placeholder="Nom du prestataire" required></div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="rm-obs" rows="2" placeholder="Détails de l'intervention"></textarea></div>
+    <div class="dlg-section">Prochaine échéance</div>
+    <div class="form-row">
+        <div><label>Prochaine échéance</label><input type="date" name="prochaine_echeance_suivante" id="rm-pe-suivante"><small style="color:var(--gris);font-size:11px">Laisser vide si pas de renouvellement</small></div>
+    </div>
+    <div class="dlg-section">Financement</div>
     <div class="form-row">
         <div><label>Financement</label>
             <select name="source_financement" onchange="toggleEmpruntFields(this)">
@@ -1193,20 +1198,20 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </div>
     <div class="form-row3">
-        <div><label>Chauffeur</label>
-            <select name="chauffeur" id="pe-chauff">
+        <div><label>Chauffeur <span class="req">*</span></label>
+            <select name="chauffeur" id="pe-chauff" required>
                 <option value="">— Chauffeur —</option>
             </select>
         </div>
-        <div><label>Lieu</label>
-            <select name="lieu" id="pe-lieu">
+        <div><label>Lieu <span class="req">*</span></label>
+            <select name="lieu" id="pe-lieu" required>
                 <option value="">— Lieu —</option>
                 @foreach($lieuxSugg as $l)<option value="{{ $l }}">{{ $l }}</option>@endforeach
             </select>
         </div>
         <div><label>Montant (FCFA) <span class="req">*</span></label><input type="number" name="montant" id="pe-mont" min="0" required></div>
     </div>
-    <div><label>Description</label><textarea name="description" id="pe-desc" rows="2" placeholder="Décrivez l'infraction"></textarea></div>
+    <div><label>Description <span class="req">*</span></label><textarea name="description" id="pe-desc" rows="2" placeholder="Décrivez l'infraction" required></textarea></div>
     <div><label>Observations</label><textarea name="observations" id="pe-obs" rows="2" placeholder="Observations complémentaires"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
@@ -1260,8 +1265,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div><label>Nom <span class="req">*</span></label><input name="nom" id="ch-nom" required></div>
     </div>
     <div class="form-row">
-        <div><label>N° Permis</label><input name="numero_permis" id="ch-permis"></div>
-        <div><label>Téléphone</label><input name="telephone" id="ch-tel"></div>
+        <div><label>N° Permis <span class="req">*</span></label><input name="numero_permis" id="ch-permis" required></div>
+        <div><label>Téléphone <span class="req">*</span></label><input name="telephone" id="ch-tel" required></div>
     </div>
     <div class="form-row">
         <div><label>Statut</label>
@@ -1675,7 +1680,7 @@ function changerOnglet(nom){
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('actif')});
     document.getElementById('tab-'+nom).classList.add('actif');
     var btns=document.querySelectorAll('.tab-btn');
-    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses'];
+    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses','emprunts'];
     var idx=noms.indexOf(nom);
     if(idx>=0 && btns[idx]) btns[idx].classList.add('actif');
 }
@@ -1980,6 +1985,11 @@ function realiserMaint(id){
     document.getElementById('rm-cout').value='';
     document.getElementById('rm-prest').value='';
     document.getElementById('rm-obs').value='';
+    // Auto-suggérer prochaine échéance selon le type
+    var intervals={vidange:90,assurance:365,visite_technique:365,patente:365,carte_stationnement:365};
+    var jours=intervals[d.type_echeance]||180;
+    var next=new Date(); next.setDate(next.getDate()+jours);
+    document.getElementById('rm-pe-suivante').value=next.toISOString().slice(0,10);
     document.getElementById('dlg-realiser-maint').showModal();
 }
 

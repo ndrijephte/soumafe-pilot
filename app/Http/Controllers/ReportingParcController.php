@@ -406,6 +406,36 @@ class ReportingParcController extends Controller
         $totalFP = $fondsData['pannes_fp'] + $fondsData['penalites_fp'] + $fondsData['maint_fp'];
         $totalEmp = $fondsData['pannes_emp'] + $fondsData['penalites_emp'] + $fondsData['maint_emp'];
 
+        // ═══════ RENTABILITÉ DYNAMIQUE PAR VÉHICULE ═══════
+        $rentaVehicules = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
+            $rec = (int) RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->sum('recette');
+            $obj = (int) RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->sum('objectif');
+            $nbJ = RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->count();
+            $pan = (int) Panne::where('vehicule_id', $v->id)->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
+            $pen = Schema::hasTable('penalites') ? (int) Penalite::where('vehicule_id', $v->id)->whereBetween('date_infraction', [$debut, $fin])->sum('montant') : 0;
+            $mai = (int) Depense::where('type_depense', 'maintenance')->where('vehicule_id', $v->id)->whereBetween('date_depense', [$debut, $fin])->sum('montant');
+            $dep = (int) Depense::where('type_depense', '!=', 'maintenance')->where('vehicule_id', $v->id)->whereBetween('date_depense', [$debut, $fin])->sum('montant');
+            $emp = Schema::hasTable('emprunts') ? (int) Emprunt::where('vehicule_id', $v->id)->whereBetween('date_emprunt', [$debut, $fin])->sum('montant') : 0;
+            $empR = Schema::hasTable('emprunts') ? (int) Emprunt::where('vehicule_id', $v->id)->whereBetween('date_emprunt', [$debut, $fin])->sum('montant_rembourse') : 0;
+            $totalDep = $pan + $pen + $mai + $dep;
+            $profit = $rec - $totalDep;
+            $roi = $totalDep > 0 ? round(($rec / $totalDep) * 100) : ($rec > 0 ? 999 : 0);
+            return [
+                'id' => $v->id, 'immat' => $v->immatriculation, 'categorie' => $v->categorieLabel(),
+                'recette' => $rec, 'objectif' => $obj, 'nb_jours' => $nbJ,
+                'pannes' => $pan, 'penalites' => $pen, 'maintenance' => $mai, 'depenses' => $dep,
+                'total_depenses' => $totalDep, 'profit' => $profit, 'roi' => $roi,
+                'emprunt' => $emp, 'emprunt_rembourse' => $empR, 'dette_nette' => $emp - $empR,
+                'verdict' => $profit > 0 ? 'rentable' : ($profit == 0 ? 'equilibre' : 'deficit'),
+            ];
+        })->sortByDesc('profit')->values();
+        // KPIs décisionnels
+        $nbRentables = $rentaVehicules->where('verdict', 'rentable')->count();
+        $nbDeficit = $rentaVehicules->where('verdict', 'deficit')->count();
+        $profitTotal = $rentaVehicules->sum('profit');
+        $depTotalVeh = $rentaVehicules->sum('total_depenses');
+        $detteNetteTotale = $rentaVehicules->sum('dette_nette');
+
         return view('reporting.parc', compact(
             'periode', 'debut', 'fin', 'categorie',
             'recetteTotal', 'objectifTotal', 'tauxRecette',
@@ -422,7 +452,8 @@ class ReportingParcController extends Controller
             'detailJour', 'filtreNom',
             'depensesTotal', 'depensesJour', 'depVehJour', 'depensesType', 'typesDepenseLabels', 'rentabilite',
             'okrGestionnaire', 'okrChauffeurs', 'periodeOkr',
-            'empruntsData', 'fondsData', 'totalFP', 'totalEmp'
+            'empruntsData', 'fondsData', 'totalFP', 'totalEmp',
+            'rentaVehicules', 'nbRentables', 'nbDeficit', 'profitTotal', 'depTotalVeh', 'detteNetteTotale'
         ));
     }
 

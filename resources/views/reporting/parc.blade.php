@@ -675,6 +675,101 @@
     </div>
 </div>
 
+{{-- ═══ RENTABILITÉ DYNAMIQUE PAR VÉHICULE ═══ --}}
+@if(($rentaVehicules ?? collect())->isNotEmpty())
+<div class="rp-section">
+    <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Rentabilit&eacute; dynamique par v&eacute;hicule</h3>
+
+    <div class="rp-kpi" style="margin-bottom:18px">
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:var(--ok)">{{ $nbRentables ?? 0 }}</div>
+            <div class="kpi-l">V&eacute;hicules rentables</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:var(--ko)">{{ $nbDeficit ?? 0 }}</div>
+            <div class="kpi-l">V&eacute;hicules en d&eacute;ficit</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:{{ ($profitTotal ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ ($profitTotal ?? 0) >= 0 ? '+' : '' }}{{ number_format($profitTotal ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Profit net global</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:{{ ($detteNetteTotale ?? 0) > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ number_format($detteNetteTotale ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Dette nette emprunts</div>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto">
+    <table class="rp-tbl">
+        <thead><tr>
+            <th>V&eacute;hicule</th><th>Cat.</th>
+            <th class="num">Recettes</th><th class="num">Pannes</th><th class="num">P&eacute;nal.</th>
+            <th class="num">Maint.</th><th class="num">Autres d&eacute;p.</th><th class="num">Total d&eacute;p.</th>
+            <th class="num">Profit</th><th class="num">ROI</th>
+            <th class="num">Emprunt</th><th>Verdict</th>
+        </tr></thead>
+        <tbody>
+        @foreach($rentaVehicules as $rv)
+        <tr>
+            <td style="font-weight:600">{{ $rv['immat'] }}</td>
+            <td style="font-size:11px">{{ $rv['categorie'] }}</td>
+            <td class="num" style="color:var(--ok);font-weight:600">{{ number_format($rv['recette'],0,',',' ') }}</td>
+            <td class="num neg">{{ $rv['pannes'] > 0 ? number_format($rv['pannes'],0,',',' ') : '—' }}</td>
+            <td class="num neg">{{ $rv['penalites'] > 0 ? number_format($rv['penalites'],0,',',' ') : '—' }}</td>
+            <td class="num neg">{{ $rv['maintenance'] > 0 ? number_format($rv['maintenance'],0,',',' ') : '—' }}</td>
+            <td class="num neg">{{ $rv['depenses'] > 0 ? number_format($rv['depenses'],0,',',' ') : '—' }}</td>
+            <td class="num" style="font-weight:700;color:var(--ko)">{{ number_format($rv['total_depenses'],0,',',' ') }}</td>
+            <td class="num" style="font-weight:700;color:{{ $rv['profit'] >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rv['profit'] >= 0 ? '+' : '' }}{{ number_format($rv['profit'],0,',',' ') }}</td>
+            <td class="num" style="font-weight:600;color:{{ $rv['roi'] >= 100 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rv['roi'] }}%</td>
+            <td class="num" style="color:var(--warn)">{{ $rv['dette_nette'] > 0 ? number_format($rv['dette_nette'],0,',',' ') : '—' }}</td>
+            <td><span class="pill {{ $rv['verdict'] === 'rentable' ? 'p-ok' : ($rv['verdict'] === 'equilibre' ? 'p-warn' : 'p-ko') }}">{{ $rv['verdict'] === 'rentable' ? 'Rentable' : ($rv['verdict'] === 'equilibre' ? 'Equilibre' : 'Deficit') }}</span></td>
+        </tr>
+        @endforeach
+        @if($rentaVehicules->count() > 1)
+        <tr style="background:#f0f4f8;font-weight:700;border-top:2px solid var(--bord)">
+            <td colspan="2">TOTAL</td>
+            <td class="num" style="color:var(--ok)">{{ number_format($rentaVehicules->sum('recette'),0,',',' ') }}</td>
+            <td class="num neg">{{ number_format($rentaVehicules->sum('pannes'),0,',',' ') }}</td>
+            <td class="num neg">{{ number_format($rentaVehicules->sum('penalites'),0,',',' ') }}</td>
+            <td class="num neg">{{ number_format($rentaVehicules->sum('maintenance'),0,',',' ') }}</td>
+            <td class="num neg">{{ number_format($rentaVehicules->sum('depenses'),0,',',' ') }}</td>
+            <td class="num" style="color:var(--ko)">{{ number_format($depTotalVeh,0,',',' ') }}</td>
+            <td class="num" style="color:{{ $profitTotal >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $profitTotal >= 0 ? '+' : '' }}{{ number_format($profitTotal,0,',',' ') }}</td>
+            <td class="num">{{ $depTotalVeh > 0 ? round(($rentaVehicules->sum('recette') / $depTotalVeh) * 100) : 0 }}%</td>
+            <td class="num" style="color:var(--warn)">{{ $detteNetteTotale > 0 ? number_format($detteNetteTotale,0,',',' ') : '—' }}</td>
+            <td></td>
+        </tr>
+        @endif
+        </tbody>
+    </table>
+    </div>
+
+    {{-- Aide à la décision --}}
+    @php
+        $pire = $rentaVehicules->where('verdict', 'deficit')->sortBy('profit')->first();
+        $meilleur = $rentaVehicules->where('verdict', 'rentable')->sortByDesc('profit')->first();
+    @endphp
+    @if($pire || $meilleur)
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:14px">
+        @if($meilleur)
+        <div style="padding:12px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px">
+            <div style="font-size:12px;font-weight:700;color:var(--ok);margin-bottom:4px">{!! $ico('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>') !!} Meilleur v&eacute;hicule</div>
+            <div style="font-weight:700;font-size:15px">{{ $meilleur['immat'] }}</div>
+            <div style="font-size:12px;color:var(--gris)">Profit : +{{ number_format($meilleur['profit'],0,',',' ') }} F &mdash; ROI {{ $meilleur['roi'] }}%</div>
+        </div>
+        @endif
+        @if($pire)
+        <div style="padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px">
+            <div style="font-size:12px;font-weight:700;color:var(--ko);margin-bottom:4px">{!! $ico('<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>') !!} V&eacute;hicule le plus co&ucirc;teux</div>
+            <div style="font-weight:700;font-size:15px">{{ $pire['immat'] }}</div>
+            <div style="font-size:12px;color:var(--gris)">D&eacute;ficit : {{ number_format($pire['profit'],0,',',' ') }} F &mdash; D&eacute;penses : {{ number_format($pire['total_depenses'],0,',',' ') }} F</div>
+        </div>
+        @endif
+    </div>
+    @endif
+</div>
+@endif
+
 {{-- ═══ FONDS PROPRES vs EMPRUNTS ═══ --}}
 @if(($empruntsData['total_emprunte'] ?? 0) > 0 || ($totalFP ?? 0) > 0 || ($totalEmp ?? 0) > 0)
 <div class="rp-section">

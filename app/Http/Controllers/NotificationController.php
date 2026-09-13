@@ -1,7 +1,8 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\NotificationApp;
+use App\Models\{AuditLog, NotificationApp, User};
+use App\Services\MailService;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
@@ -40,5 +41,50 @@ class NotificationController extends Controller
     {
         NotificationApp::where('user_id', $r->user()->id)->where('lu', false)->update(['lu' => true]);
         return response()->json(['ok' => true]);
+    }
+
+    /** Envoyer une notification depuis la fiche collaborateur (pilote uniquement). */
+    public function envoyer(Request $r)
+    {
+        abort_unless($r->user()->estPilote(), 403, 'Réservé aux pilotes.');
+        $r->validate([
+            'user_id' => 'required|exists:users,id',
+            'sujet'   => 'required|string|max:200',
+            'contenu' => 'required|string|max:5000',
+            'canal'   => 'required|in:in_app,email,les_deux',
+        ]);
+
+        $dest = User::findOrFail($r->user_id);
+        $contenuTexte = strip_tags($r->contenu);
+        $envoyeApp = false;
+        $envoyeEmail = false;
+
+        // Notification in-app
+        if (in_array($r->canal, ['in_app', 'les_deux'])) {
+            NotificationApp::create([
+                'user_id' => $dest->id,
+                'type'    => 'message',
+                'contenu' => $r->sujet . ' — ' . $contenuTexte,
+                'lien'    => null,
+                'lu'      => false,
+                'canal'   => 'in_app',
+            ]);
+            $envoyeApp = true;
+        }
+
+        // Notification email
+        if (in_array($r->canal, ['email', 'les_deux'])) {
+            $envoyeEmail = MailService::notifier($dest, $r->sujet, $r->contenu);
+        }
+
+        AuditLog::log('notification', 'collaborateur', $dest->nomComplet(), "Sujet: {$r->sujet}, Canal: {$r->canal}");
+
+        $msg = 'Notification envoyée';
+        if ($envoyeApp && $envoyeEmail) $msg .= ' (in-app + email).';
+        elseif ($envoyeApp) $msg .= ' (in-app).';
+        elseif ($envoyeEmail) $msg .= ' (email).';
+        else $msg = 'Echec de l\'envoi.';
+
+        return back()->with('succes', $msg);
     }
 }

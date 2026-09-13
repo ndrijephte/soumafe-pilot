@@ -88,10 +88,13 @@
 {{-- Profil --}}
 <div class="profil-card">
     <div class="avatar">{{ strtoupper(substr($collab->prenom ?? $collab->name, 0, 1)) }}{{ strtoupper(substr($collab->name, 0, 1)) }}</div>
-    <div class="info">
+    <div class="info" style="flex:1">
         <h3>{{ $collab->nomComplet() }}</h3>
         <p>{{ $collab->roleLibelle() }} · {{ $collab->email }}</p>
     </div>
+    @if(auth()->user()->estPilote())
+    <button class="btn sm" onclick="document.getElementById('dlg-notif').showModal()" style="display:flex;align-items:center;gap:5px">{!! $ic('<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>') !!} Notifier</button>
+    @endif
 </div>
 
 {{-- KPIs résumé --}}
@@ -234,5 +237,58 @@
     @endif
 </div>
 </div>
+@endif
+
+{{-- Dialog Notification collaborateur --}}
+@if(auth()->user()->estPilote() && isset($collab) && $collab)
+<dialog id="dlg-notif" style="width:95%;max-width:560px;border:none;border-radius:14px;padding:0;box-shadow:0 12px 40px rgba(0,0,0,.2)">
+<div style="padding:20px 24px">
+    <h3 style="margin:0 0 14px;display:flex;align-items:center;gap:6px;font-size:15px;color:var(--bleu)">{!! $ic('<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>') !!} Notifier {{ $collab->prenom ?? $collab->name }}</h3>
+    <form method="POST" action="{{ route('notifications.envoyer') }}" id="form-notif" onsubmit="return prepNotif()">
+        @csrf
+        <input type="hidden" name="user_id" value="{{ $collab->id }}">
+        <input type="hidden" name="contenu" id="notif-contenu-hidden">
+        <div style="margin-bottom:10px">
+            <label style="font-size:12px;font-weight:600;color:var(--gris);display:block;margin-bottom:3px">Sujet <span style="color:var(--ko)">*</span></label>
+            <input type="text" name="sujet" required maxlength="200" placeholder="Objet du message" style="width:100%;padding:8px 12px;border:1px solid var(--bord);border-radius:8px;font-size:13px;box-sizing:border-box">
+        </div>
+        <div style="margin-bottom:10px">
+            <label style="font-size:12px;font-weight:600;color:var(--gris);display:block;margin-bottom:3px">Canal</label>
+            <select name="canal" style="padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
+                <option value="in_app">In-app uniquement</option>
+                <option value="email">Email uniquement</option>
+                <option value="les_deux" selected>In-app + Email</option>
+            </select>
+        </div>
+        <div style="margin-bottom:10px">
+            <label style="font-size:12px;font-weight:600;color:var(--gris);display:block;margin-bottom:3px">Message <span style="color:var(--ko)">*</span></label>
+            <div class="rte-toolbar">
+                <button type="button" onclick="rteCmd('bold')" title="Gras"><strong>G</strong></button>
+                <button type="button" onclick="rteCmd('underline')" title="Souligne"><u>S</u></button>
+                <button type="button" onclick="rteCmd('italic')" title="Italique"><em>I</em></button>
+                <span style="width:1px;background:var(--bord);margin:2px 4px"></span>
+                <button type="button" onclick="rteCmd('insertUnorderedList')" title="Liste a puces">{!! $ic('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>', 14) !!}</button>
+                <button type="button" onclick="rteCmd('insertOrderedList')" title="Liste numerotee">{!! $ic('<line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',14) !!}</button>
+            </div>
+            <div contenteditable="true" id="notif-contenu" style="min-height:120px;max-height:250px;overflow-y:auto;padding:10px 12px;border:1px solid var(--bord);border-top:none;border-radius:0 0 8px 8px;font-size:13px;line-height:1.6;outline:none" placeholder="Votre message..."></div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Envoyer</button>
+        </div>
+    </form>
+</div>
+</dialog>
+<style>
+.rte-toolbar{display:flex;gap:2px;padding:4px 6px;background:#f8fafc;border:1px solid var(--bord);border-bottom:none;border-radius:8px 8px 0 0}
+.rte-toolbar button{background:none;border:1px solid transparent;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:13px;color:var(--bleu)}
+.rte-toolbar button:hover{background:#e2e8f0;border-color:var(--bord)}
+#notif-contenu:empty:before{content:attr(placeholder);color:#94a3b8;pointer-events:none}
+#notif-contenu ul,#notif-contenu ol{margin:4px 0;padding-left:20px}
+</style>
+<script>
+function rteCmd(c){document.execCommand(c,false,null);document.getElementById('notif-contenu').focus()}
+function prepNotif(){var c=document.getElementById('notif-contenu').innerHTML.trim();if(!c||c==='<br>'){alert('Veuillez saisir un message.');return false}document.getElementById('notif-contenu-hidden').value=c;return true}
+</script>
 @endif
 @endsection

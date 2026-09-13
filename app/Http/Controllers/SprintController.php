@@ -9,7 +9,13 @@ class SprintController extends Controller
 {
     public function index(Request $r)
     {
-        $projets = Projet::with(['sprints' => fn ($q) => $q->orderByDesc('numero'), 'sprints.taches', 'responsable'])
+        $user = $r->user();
+        $projets = Projet::with(['sprints' => function ($q) use ($user) {
+            $q->orderByDesc('numero');
+            if ($user->aRole('collaborateur')) {
+                $q->where('visible_collaborateurs', true);
+            }
+        }, 'sprints.taches', 'responsable'])
             ->orderBy('libelle')->get();
         return view('sprints.index', compact('projets'));
     }
@@ -17,10 +23,15 @@ class SprintController extends Controller
     /** Page détail d'un sprint : tâches, import, ajout. */
     public function show(Request $r, Sprint $sprint)
     {
+        $user = $r->user();
+        // Collaborateur ne peut pas voir un sprint masqué
+        if ($user->aRole('collaborateur') && !$sprint->visible_collaborateurs) {
+            abort(403, 'Ce sprint n\'est pas visible pour les collaborateurs.');
+        }
         $sprint->load(['projet.responsable', 'taches.user']);
         $users = User::where('actif', true)->orderBy('name')->get();
-        $canEdit = $r->user()->peutGererProjet($sprint->projet_id);
-        $canEditSprint = $r->user()->estPilote(); // seuls admin, charge_ops et direction modifient sprint/tâches
+        $canEdit = $user->peutGererProjet($sprint->projet_id);
+        $canEditSprint = $user->estPilote(); // seuls admin, charge_ops et direction modifient sprint/tâches
         return view('sprints.show', compact('sprint', 'users', 'canEdit', 'canEditSprint'));
     }
 
@@ -174,6 +185,16 @@ class SprintController extends Controller
         }
 
         return back()->with('succes', "Sprint arrêté. Motif enregistré.");
+    }
+
+    /** Basculer la visibilité d'un sprint pour les collaborateurs. */
+    public function toggleVisibilite(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $sprint->update(['visible_collaborateurs' => !$sprint->visible_collaborateurs]);
+        $etat = $sprint->visible_collaborateurs ? 'visible' : 'masqué';
+        \App\Models\AuditLog::log('visibilite_sprint', 'sprints', "Sprint #{$sprint->numero}", "Sprint {$etat} pour les collaborateurs");
+        return back()->with('succes', "Sprint n°{$sprint->numero} désormais {$etat} pour les collaborateurs.");
     }
 
     /** API JSON : sprints d'un projet (pour le select dynamique T1). */

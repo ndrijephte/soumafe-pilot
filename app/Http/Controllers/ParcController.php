@@ -46,7 +46,7 @@ class ParcController extends Controller
         $motifsAbsence = TypeParc::motifsAbsence();
 
         // --- Grille journalière recettes ---
-        $dateJour = $r->get('date_recette', date('Y-m-d', strtotime('-1 day')));
+        $dateJour = $r->get('date_recette', date('Y-m-d'));
         $grilleJour = $this->construireGrilleJour($vehicules, $dateJour, $collaborateurs);
 
         // --- Alertes jours manquants (7 derniers jours) ---
@@ -251,11 +251,11 @@ class ParcController extends Controller
         $r->validate([
             'immatriculation' => 'required|string|max:20|unique:vehicules,immatriculation',
             'categorie' => 'required|in:taxi,vtc',
-            'marque' => 'required|string|max:50',
-            'modele' => 'required|string|max:50',
-            'date_mise_en_service' => 'required|date',
+            'marque' => 'nullable|string|max:50',
+            'modele' => 'nullable|string|max:50',
+            'date_mise_en_service' => 'nullable|date',
             'chauffeur_affecte' => 'nullable|string|max:100',
-            'kilometrage' => 'required|integer|min:0',
+            'kilometrage' => 'nullable|integer|min:0',
             'statut' => 'required|in:en_service,immobilise,reforme',
             'objectif_recette' => 'nullable|integer|min:0',
             'observations' => 'nullable|string|max:500',
@@ -279,11 +279,11 @@ class ParcController extends Controller
         $r->validate([
             'immatriculation' => 'required|string|max:20|unique:vehicules,immatriculation,' . $vehicule->id,
             'categorie' => 'required|in:taxi,vtc',
-            'marque' => 'required|string|max:50',
-            'modele' => 'required|string|max:50',
-            'date_mise_en_service' => 'required|date',
+            'marque' => 'nullable|string|max:50',
+            'modele' => 'nullable|string|max:50',
+            'date_mise_en_service' => 'nullable|date',
             'chauffeur_affecte' => 'nullable|string|max:100',
-            'kilometrage' => 'required|integer|min:0',
+            'kilometrage' => 'nullable|integer|min:0',
             'statut' => 'required|in:en_service,immobilise,reforme',
             'objectif_recette' => 'nullable|integer|min:0',
             'observations' => 'nullable|string|max:500',
@@ -335,7 +335,7 @@ class ParcController extends Controller
         $this->autoriser($r);
         $data = $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
-            'date_declaration' => 'required|date',
+            'date_declaration' => 'nullable|date',
             'description' => 'required|string|max:500',
             'urgence' => 'required|in:faible,moyenne,haute,critique',
             'diagnostic' => 'nullable|string|max:500',
@@ -429,10 +429,10 @@ class ParcController extends Controller
         $data = $r->validate([
             'date' => 'required|date',
             'vehicule_id' => 'required|exists:vehicules,id',
-            'chauffeur' => 'required|string|max:100',
+            'chauffeur' => 'nullable|string|max:100',
             'recette' => 'required|integer|min:0',
-            'mode_remise' => 'required|in:especes,mobile_money,cheque,virement,autre',
-            'controle_par' => 'required|string|max:100',
+            'mode_remise' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'controle_par' => 'nullable|string|max:100',
             'observations' => 'nullable|string|max:500',
             'motif_absence' => 'nullable|string|max:80',
         ]);
@@ -478,10 +478,10 @@ class ParcController extends Controller
         $data = $r->validate([
             'date' => 'required|date',
             'vehicule_id' => 'required|exists:vehicules,id',
-            'chauffeur' => 'required|string|max:100',
+            'chauffeur' => 'nullable|string|max:100',
             'recette' => 'required|integer|min:0',
-            'mode_remise' => 'required|in:especes,mobile_money,cheque,virement,autre',
-            'controle_par' => 'required|string|max:100',
+            'mode_remise' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'controle_par' => 'nullable|string|max:100',
             'observations' => 'nullable|string|max:500',
             'motif_absence' => 'nullable|string|max:80',
         ]);
@@ -715,8 +715,8 @@ class ParcController extends Controller
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'type_echeance' => 'required|string|max:50',
-            'derniere_realisation' => 'required|date',
-            'prochaine_echeance' => 'required|date',
+            'derniere_realisation' => 'nullable|date',
+            'prochaine_echeance' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
         ]);
 
@@ -734,8 +734,8 @@ class ParcController extends Controller
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'type_echeance' => 'required|string|max:50',
-            'derniere_realisation' => 'required|date',
-            'prochaine_echeance' => 'required|date',
+            'derniere_realisation' => 'nullable|date',
+            'prochaine_echeance' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
         ]);
 
@@ -833,9 +833,9 @@ class ParcController extends Controller
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
             'type' => 'required|string|max:50',
-            'chauffeur' => 'required|string|max:100',
-            'lieu' => 'required|string|max:120',
-            'description' => 'required|string|max:500',
+            'chauffeur' => 'nullable|string|max:100',
+            'lieu' => 'nullable|string|max:120',
+            'description' => 'nullable|string|max:500',
             'montant' => 'required|integer|min:0',
             'statut' => 'required|in:non_payee,payee,en_cours,contestee',
             'date_paiement' => 'nullable|date',
@@ -887,9 +887,9 @@ class ParcController extends Controller
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
             'type' => 'required|string|max:50',
-            'chauffeur' => 'required|string|max:100',
-            'lieu' => 'required|string|max:120',
-            'description' => 'required|string|max:500',
+            'chauffeur' => 'nullable|string|max:100',
+            'lieu' => 'nullable|string|max:120',
+            'description' => 'nullable|string|max:500',
             'montant' => 'required|integer|min:0',
             'statut' => 'required|in:non_payee,payee,en_cours,contestee',
             'date_paiement' => 'nullable|date',
@@ -978,8 +978,8 @@ class ParcController extends Controller
         $data = $r->validate([
             'nom' => 'required|string|max:60',
             'prenom' => 'required|string|max:60',
-            'numero_permis' => 'required|string|max:30|unique:chauffeurs,numero_permis',
-            'telephone' => 'required|string|max:20',
+            'numero_permis' => 'nullable|string|max:30|unique:chauffeurs,numero_permis',
+            'telephone' => 'nullable|string|max:20',
             'statut' => 'required|in:actif,inactif',
             'observations' => 'nullable|string',
         ]);
@@ -994,8 +994,8 @@ class ParcController extends Controller
         $data = $r->validate([
             'nom' => 'required|string|max:60',
             'prenom' => 'required|string|max:60',
-            'numero_permis' => 'required|string|max:30|unique:chauffeurs,numero_permis,' . $chauffeur->id,
-            'telephone' => 'required|string|max:20',
+            'numero_permis' => 'nullable|string|max:30|unique:chauffeurs,numero_permis,' . $chauffeur->id,
+            'telephone' => 'nullable|string|max:20',
             'statut' => 'required|in:actif,inactif',
             'observations' => 'nullable|string',
         ]);
@@ -1306,9 +1306,11 @@ class ParcController extends Controller
             'montant'      => 'required|integer|min:1',
             'date_emprunt' => 'required|date',
             'preteur'      => 'required|string|max:150',
-            'motif'        => 'required|string|max:500',
+            'motif'        => 'nullable|string|max:500',
+            'source_type'  => 'nullable|in:panne,penalite,maintenance,autre',
+            'vehicule_id'  => 'nullable|exists:vehicules,id',
         ]);
-        $data['source_type'] = 'autre';
+        $data['source_type'] = $data['source_type'] ?? 'autre';
         $data['cree_par'] = auth()->user()->name;
 
         $emp = Emprunt::create($data);

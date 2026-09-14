@@ -381,14 +381,13 @@ class SprintController extends Controller
                     if (empty($intitule)) { $ignores++; continue; }
 
                     $projetStr = trim($this->chercher($row, ['projet']) ?? '');
-                    $assigneStr = trim($this->chercher($row, ['assigné', 'assigne', 'assigné_à', 'assigne_a', 'collaborateur', 'responsable']) ?? '');
-                    $dateDebutStr = trim($this->chercher($row, ['date_début', 'date_debut', 'début', 'debut', 'date']) ?? '');
-                    $echeanceStr = trim($this->chercher($row, ['échéance', 'echeance', 'date_fin', 'fin']) ?? '');
+                    $assigneStr = trim($this->chercher($row, ['assigné', 'assigne', 'assigné_à', 'assigne_a', 'assigné à', 'collaborateur', 'responsable']) ?? '');
+                    $dateDebutStr = trim($this->chercher($row, ['date_début', 'date_debut', 'date début', 'début', 'debut', 'date', 'début_prévu', 'debut_prevu']) ?? '');
+                    $echeanceStr = trim($this->chercher($row, ['échéance', 'echeance', 'date_fin', 'date fin', 'fin', 'deadline', 'date_échéance', 'date_echeance']) ?? '');
 
-                    // Champs obligatoires : assigné, date début, échéance
+                    // Champs obligatoires : assigné et échéance (date début optionnelle, défaut = aujourd'hui)
                     $manquants = [];
                     if (empty($assigneStr)) $manquants[] = 'Assigné à';
-                    if (empty($dateDebutStr)) $manquants[] = 'Date début';
                     if (empty($echeanceStr)) $manquants[] = 'Échéance';
                     if (!empty($manquants)) {
                         $erreurs[] = "Ligne {$numLigne} : champ(s) obligatoire(s) manquant(s) — " . implode(', ', $manquants);

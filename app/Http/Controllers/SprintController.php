@@ -10,18 +10,32 @@ class SprintController extends Controller
     public function index(Request $r)
     {
         $user = $r->user();
-        $projets = Projet::with(['sprints' => function ($q) use ($user) {
+        // IDs des projets dont ce collaborateur est responsable (délégation sprint)
+        $projetsGeres = $user->aRole('collaborateur')
+            ? Projet::where('responsable_projet_id', $user->id)->pluck('id')->all()
+            : [];
+
+        $projets = Projet::with(['sprints' => function ($q) use ($user, $projetsGeres) {
             $q->orderByDesc('numero');
             if ($user->aRole('collaborateur')) {
-                $q->where('visible_collaborateurs', true);
+                // Le responsable projet voit tous les sprints de ses projets, les autres seulement les visibles
+                $q->where(function ($sub) use ($projetsGeres) {
+                    $sub->where('visible_collaborateurs', true);
+                    if (!empty($projetsGeres)) {
+                        $sub->orWhereIn('projet_id', $projetsGeres);
+                    }
+                });
             }
         }, 'sprints.taches', 'responsable'])
             ->orderBy('libelle')->get();
 
-        // Filtrage per-collaborateur (exclusions individuelles)
+        // Filtrage per-collaborateur (exclusions individuelles) — sauf responsable projet
         if ($user->aRole('collaborateur')) {
             foreach ($projets as $p) {
-                $p->setRelation('sprints', $p->sprints->filter(fn($s) => $s->visiblePour($user->id))->values());
+                $estResponsable = $p->responsable_projet_id === $user->id;
+                if (!$estResponsable) {
+                    $p->setRelation('sprints', $p->sprints->filter(fn($s) => $s->visiblePour($user->id))->values());
+                }
             }
         }
 
@@ -34,7 +48,9 @@ class SprintController extends Controller
     {
         $user = $r->user();
         // Collaborateur ne peut pas voir un sprint masqué ou dont il est exclu
-        if ($user->aRole('collaborateur') && !$sprint->visiblePour($user->id)) {
+        // Sauf s'il est responsable du projet (délégation)
+        $estResponsable = $sprint->projet && $sprint->projet->responsable_projet_id === $user->id;
+        if ($user->aRole('collaborateur') && !$estResponsable && !$sprint->visiblePour($user->id)) {
             abort(403, 'Ce sprint n\'est pas visible pour vous.');
         }
         $sprint->load(['projet.responsable', 'taches.user']);

@@ -28,6 +28,11 @@ class TacheController extends Controller
             ->get()
             ->groupBy('statut');
 
+        // Tâches terminées : tri par date de fin décroissante (récente → ancienne)
+        if (isset($taches['termine'])) {
+            $taches['termine'] = $taches['termine']->sortByDesc(fn ($t) => $t->date_fin_reelle ?? $t->updated_at)->values();
+        }
+
         return view('taches.index', [
             'taches'  => $taches,
             'vue'     => $r->get('vue', 'kanban'),

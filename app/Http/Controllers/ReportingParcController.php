@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, Depense, Emprunt, MaintenancePreventive, Objectif, Panne, Penalite, RecetteVehicule, TypeParc, User, Vehicule};
+use App\Models\{AuditLog, Chauffeur, Depense, Emprunt, MaintenancePreventive, Objectif, Panne, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -43,6 +43,17 @@ class ReportingParcController extends Controller
         $tauxRecette = $objectifTotal > 0 ? round(($recetteTotal / $objectifTotal) * 100) : 0;
         $pointageTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
             ->whereBetween('date', [$debut, $fin])->sum('pointage');
+
+        // Recouvrements perçus (versements chauffeur = argent réellement encaissé)
+        $recouvrementPercu = 0;
+        if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
+            $recouvrementPercu = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+                ->whereIn('recouvrements.vehicule_id', $vehiculeIds)
+                ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+                ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
+                ->sum('versements_recouvrement.montant');
+        }
+        $recetteTotalAvecRecouv = $recetteTotal + $recouvrementPercu;
 
         $coutPannes = (int) Panne::whereIn('vehicule_id', $vehiculeIds)
             ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
@@ -380,8 +391,8 @@ class ReportingParcController extends Controller
         $allVehDates = $pannesJ->keys()->merge($penalJ->keys())->merge($maintJ->keys())->unique();
         $depVehJour = $allVehDates->mapWithKeys(fn($d) => [$d => ($pannesJ[$d] ?? 0) + ($penalJ[$d] ?? 0) + ($maintJ[$d] ?? 0)]);
 
-        // Rentabilité = Recettes - Dépenses bureau - Pénalités - Coût pannes - Maintenance
-        $rentabilite = $recetteTotal - $depensesTotal - $montantPenalites - $coutPannes - $coutMaintenance;
+        // Rentabilité = Recettes (+ recouvrements chauffeur) - Dépenses bureau - Pénalités - Coût pannes - Maintenance
+        $rentabilite = $recetteTotalAvecRecouv - $depensesTotal - $montantPenalites - $coutPannes - $coutMaintenance;
 
         // ═══════ EMPRUNTS vs FONDS PROPRES ═══════
         $empruntsData = ['total_emprunte' => 0, 'total_rembourse' => 0, 'solde_du' => 0, 'nb_emprunts' => 0, 'nb_en_cours' => 0];
@@ -430,6 +441,16 @@ class ReportingParcController extends Controller
             $rec = (int) RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->sum('recette');
             $obj = (int) RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->sum('objectif');
             $nbJ = RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->count();
+            // Recouvrements perçus (versements chauffeur) pour ce véhicule
+            $recouv = 0;
+            if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
+                $recouv = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+                    ->where('recouvrements.vehicule_id', $v->id)
+                    ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+                    ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
+                    ->sum('versements_recouvrement.montant');
+            }
+            $recTotal = $rec + $recouv;
             $pan = (int) Panne::where('vehicule_id', $v->id)->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
             $pen = Schema::hasTable('penalites') ? (int) Penalite::where('vehicule_id', $v->id)->whereBetween('date_infraction', [$debut, $fin])->sum('montant') : 0;
             $mai = (int) Depense::where('type_depense', 'maintenance')->where('vehicule_id', $v->id)->whereBetween('date_depense', [$debut, $fin])->sum('montant');
@@ -437,11 +458,11 @@ class ReportingParcController extends Controller
             $emp = Schema::hasTable('emprunts') ? (int) Emprunt::where('vehicule_id', $v->id)->whereBetween('date_emprunt', [$debut, $fin])->sum('montant') : 0;
             $empR = Schema::hasTable('emprunts') ? (int) Emprunt::where('vehicule_id', $v->id)->whereBetween('date_emprunt', [$debut, $fin])->sum('montant_rembourse') : 0;
             $totalDep = $pan + $pen + $mai + $dep;
-            $profit = $rec - $totalDep;
-            $roi = $totalDep > 0 ? round(($rec / $totalDep) * 100) : ($rec > 0 ? 999 : 0);
+            $profit = $recTotal - $totalDep;
+            $roi = $totalDep > 0 ? round(($recTotal / $totalDep) * 100) : ($recTotal > 0 ? 999 : 0);
             return [
                 'id' => $v->id, 'immat' => $v->immatriculation, 'categorie' => $v->categorieLabel(),
-                'recette' => $rec, 'objectif' => $obj, 'nb_jours' => $nbJ,
+                'recette' => $rec, 'recouvrement' => $recouv, 'recette_totale' => $recTotal, 'objectif' => $obj, 'nb_jours' => $nbJ,
                 'pannes' => $pan, 'penalites' => $pen, 'maintenance' => $mai, 'depenses' => $dep,
                 'total_depenses' => $totalDep, 'profit' => $profit, 'roi' => $roi,
                 'emprunt' => $emp, 'emprunt_rembourse' => $empR, 'dette_nette' => $emp - $empR,
@@ -457,7 +478,7 @@ class ReportingParcController extends Controller
 
         return view('reporting.parc', compact(
             'periode', 'debut', 'fin', 'categorie',
-            'recetteTotal', 'objectifTotal', 'tauxRecette', 'pointageTotal',
+            'recetteTotal', 'recouvrementPercu', 'recetteTotalAvecRecouv', 'objectifTotal', 'tauxRecette', 'pointageTotal',
             'coutPannes', 'nbPannes', 'delaiMoyen',
             'montantPenalites', 'nbPenalites',
             'maintenancesRetard', 'maintenancesProches',

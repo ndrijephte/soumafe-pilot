@@ -117,14 +117,15 @@
 {{-- ═══ KPI ═══ --}}
 <div class="rp-kpi">
     <div class="kpi-c">
-        <div class="kpi-v">{{ number_format($recetteTotal, 0, ',', ' ') }}</div>
+        <div class="kpi-v">{{ number_format($recetteTotalAvecRecouv, 0, ',', ' ') }}</div>
         <div class="kpi-l">Recettes (FCFA)</div>
         <div class="kpi-sub {{ $tauxRecette >= 100 ? 'kpi-ok' : ($tauxRecette >= 80 ? 'kpi-warn' : 'kpi-ko') }}">{{ $tauxRecette }}% de l'objectif</div>
+        @if($recouvrementPercu > 0)<div class="kpi-sub kpi-ok" style="font-size:.7rem">dont {{ number_format($recouvrementPercu, 0, ',', ' ') }} F recouvrements</div> @endif
     </div>
     <div class="kpi-c">
         <div class="kpi-v">{{ number_format($objectifTotal, 0, ',', ' ') }}</div>
         <div class="kpi-l">Objectif (FCFA)</div>
-        @php $ecartG = $recetteTotal - $objectifTotal; @endphp
+        @php $ecartG = $recetteTotalAvecRecouv - $objectifTotal; @endphp
         <div class="kpi-sub {{ $ecartG >= 0 ? 'kpi-ok' : 'kpi-ko' }}">{{ $ecartG >= 0 ? '+' : '' }}{{ number_format($ecartG, 0, ',', ' ') }}</div>
     </div>
     <div class="kpi-c">
@@ -731,7 +732,7 @@
     <table class="rp-tbl">
         <thead><tr>
             <th>V&eacute;hicule</th><th>Cat.</th>
-            <th class="num">Recettes</th><th class="num">Pannes</th><th class="num">P&eacute;nal.</th>
+            <th class="num">Recettes</th><th class="num">Recouv.</th><th class="num">Pannes</th><th class="num">P&eacute;nal.</th>
             <th class="num">Maint.</th><th class="num">Autres d&eacute;p.</th><th class="num">Total d&eacute;p.</th>
             <th class="num">Profit</th><th class="num">ROI</th>
             <th class="num">Emprunt</th><th>Verdict</th>
@@ -742,6 +743,7 @@
             <td style="font-weight:600">{{ $rv['immat'] }}</td>
             <td style="font-size:11px">{{ $rv['categorie'] }}</td>
             <td class="num" style="color:var(--ok);font-weight:600">{{ number_format($rv['recette'],0,',',' ') }}</td>
+            <td class="num" style="color:var(--ok)">{{ ($rv['recouvrement'] ?? 0) > 0 ? number_format($rv['recouvrement'],0,',',' ') : '—' }}</td>
             <td class="num neg">{{ $rv['pannes'] > 0 ? number_format($rv['pannes'],0,',',' ') : '—' }}</td>
             <td class="num neg">{{ $rv['penalites'] > 0 ? number_format($rv['penalites'],0,',',' ') : '—' }}</td>
             <td class="num neg">{{ $rv['maintenance'] > 0 ? number_format($rv['maintenance'],0,',',' ') : '—' }}</td>
@@ -757,13 +759,14 @@
         <tr style="background:#f0f4f8;font-weight:700;border-top:2px solid var(--bord)">
             <td colspan="2">TOTAL</td>
             <td class="num" style="color:var(--ok)">{{ number_format($rentaVehicules->sum('recette'),0,',',' ') }}</td>
+            <td class="num" style="color:var(--ok)">{{ $rentaVehicules->sum('recouvrement') > 0 ? number_format($rentaVehicules->sum('recouvrement'),0,',',' ') : '—' }}</td>
             <td class="num neg">{{ number_format($rentaVehicules->sum('pannes'),0,',',' ') }}</td>
             <td class="num neg">{{ number_format($rentaVehicules->sum('penalites'),0,',',' ') }}</td>
             <td class="num neg">{{ number_format($rentaVehicules->sum('maintenance'),0,',',' ') }}</td>
             <td class="num neg">{{ number_format($rentaVehicules->sum('depenses'),0,',',' ') }}</td>
             <td class="num" style="color:var(--ko)">{{ number_format($depTotalVeh,0,',',' ') }}</td>
             <td class="num" style="color:{{ $profitTotal >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $profitTotal >= 0 ? '+' : '' }}{{ number_format($profitTotal,0,',',' ') }}</td>
-            <td class="num">{{ $depTotalVeh > 0 ? round(($rentaVehicules->sum('recette') / $depTotalVeh) * 100) : 0 }}%</td>
+            <td class="num">{{ $depTotalVeh > 0 ? round(($rentaVehicules->sum('recette_totale') / $depTotalVeh) * 100) : 0 }}%</td>
             <td class="num" style="color:var(--warn)">{{ $detteNetteTotale > 0 ? number_format($detteNetteTotale,0,',',' ') : '—' }}</td>
             <td></td>
         </tr>

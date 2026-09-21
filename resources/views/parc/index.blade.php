@@ -329,11 +329,11 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             @endif
         </form>
         <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
-            <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-histo-recettes').showModal()">
+            <button type="button" class="btn sm sec" onclick="ouvrirHistoRecettes()">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Historique
             </button>
-            @if(!$estDG)<button type="button" class="btn sm sec" onclick="resetRecetteForm();document.getElementById('dlg-recette').showModal()">{!! $icPlus !!} Saisie individuelle</button> @endif
+            @if(!$estDG)<button type="button" class="btn sm sec" onclick="ouvrirSaisieIndiv()">{!! $icPlus !!} Saisie individuelle</button> @endif
         </div>
     </div>
 
@@ -544,45 +544,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         @endif
     </div>
 
-    {{-- ===== DIALOG HISTORIQUE ===== --}}
-    <dialog id="dlg-histo-recettes" style="width:95vw;max-width:1000px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Historique des recettes</h3>
-            <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
-        </div>
-        <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
-        <table>
-        <thead><tr><th>Date</th><th>Chauffeur</th><th>Véhicule</th><th>Recette</th><th>Objectif</th><th>Écart</th><th>Mode</th><th>Motif</th><th></th></tr></thead>
-        <tbody>
-        @forelse($recettes as $rec)
-        <tr>
-            <td>{{ $rec->date->format('d/m/Y') }}</td>
-            <td><strong>{{ $rec->chauffeur ?? '—' }}</strong></td>
-            <td>{{ $rec->vehicule->immatriculation ?? '?' }}</td>
-            <td style="font-weight:600">{{ number_format($rec->recette, 0, ',', ' ') }}</td>
-            <td>{{ number_format($rec->objectif, 0, ',', ' ') }}</td>
-            <td style="color:{{ $rec->ecart >= 0 ? 'var(--ok)' : 'var(--ko)' }};font-weight:600">{{ ($rec->ecart >= 0 ? '+' : '') . number_format($rec->ecart, 0, ',', ' ') }}</td>
-            <td>{{ $rec->mode_remise ? ucfirst(str_replace('_', ' ', $rec->mode_remise)) : '—' }}</td>
-            <td>@if($rec->motif_absence)<span class="pill p-warn">{{ $rec->motif_absence }}</span>@else — @endif</td>
-            <td>
-                <div class="act-row">
-                    <button type="button" class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
-                    @if(auth()->user()->estAdmin())
-                    <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return demanderMotifSuppression(this,'cette recette')">@csrf @method('DELETE')
-                        <input type="hidden" name="motif_suppression" class="motif-suppr-input">
-                        <button class="act-btn del">{!! $icDel !!}</button>
-                    </form>
-                    @endif
-                </div>
-            </td>
-        </tr>
-        @empty
-        <tr><td colspan="9" class="empty-msg">Aucune recette enregistrée.</td></tr>
-        @endforelse
-        </tbody>
-        </table>
-        </div>
-    </dialog>
 </div>
 
 {{-- ==================== TAB MAINTENANCE ==================== --}}
@@ -919,6 +880,46 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 {{-- ==================== DIALOGS ==================== --}}
+
+{{-- Dialog Historique recettes --}}
+<dialog id="dlg-histo-recettes" style="width:95vw;max-width:1000px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Historique des recettes</h3>
+        <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+    </div>
+    <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
+    <table>
+    <thead><tr><th>Date</th><th>Chauffeur</th><th>Véhicule</th><th>Recette</th><th>Objectif</th><th>Écart</th><th>Mode</th><th>Motif</th><th></th></tr></thead>
+    <tbody>
+    @forelse($recettes as $rec)
+    <tr>
+        <td>{{ $rec->date->format('d/m/Y') }}</td>
+        <td><strong>{{ $rec->chauffeur ?? '—' }}</strong></td>
+        <td>{{ $rec->vehicule->immatriculation ?? '?' }}</td>
+        <td style="font-weight:600">{{ number_format($rec->recette, 0, ',', ' ') }}</td>
+        <td>{{ number_format($rec->objectif, 0, ',', ' ') }}</td>
+        <td style="color:{{ $rec->ecart >= 0 ? 'var(--ok)' : 'var(--ko)' }};font-weight:600">{{ ($rec->ecart >= 0 ? '+' : '') . number_format($rec->ecart, 0, ',', ' ') }}</td>
+        <td>{{ $rec->mode_remise ? ucfirst(str_replace('_', ' ', $rec->mode_remise)) : '—' }}</td>
+        <td>@if($rec->motif_absence)<span class="pill p-warn">{{ $rec->motif_absence }}</span>@else — @endif</td>
+        <td>
+            <div class="act-row">
+                <button type="button" class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
+                @if(auth()->user()->estAdmin())
+                <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return demanderMotifSuppression(this,'cette recette')">@csrf @method('DELETE')
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
+                    <button class="act-btn del">{!! $icDel !!}</button>
+                </form>
+                @endif
+            </div>
+        </td>
+    </tr>
+    @empty
+    <tr><td colspan="9" class="empty-msg">Aucune recette enregistrée.</td></tr>
+    @endforelse
+    </tbody>
+    </table>
+    </div>
+</dialog>
 
 {{-- Dialog paiement pénalité --}}
 <dialog id="dlg-paie-penal" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
@@ -1360,8 +1361,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </dialog>
 
 {{-- Dialog Fiche véhicule --}}
-<dialog id="dlg-fiche" style="width:620px;max-width:95vw">
-<h3>{!! $icEye !!} Fiche véhicule</h3>
+<dialog id="dlg-fiche" style="width:820px;max-width:96vw;max-height:90vh;overflow-y:auto">
+<h3>{!! $icCar !!} Fiche véhicule</h3>
 <div id="fiche-contenu" style="font-size:13px;line-height:1.7">
     <p style="text-align:center;color:var(--gris)">Chargement...</p>
 </div>
@@ -2141,6 +2142,21 @@ function editRecette(id){
     if(btnSubmit) btnSubmit.style.display=verrouille?'none':'';
     document.getElementById('dlg-recette').showModal();
 }
+function ouvrirHistoRecettes(){
+    try{
+        var dlg=document.getElementById('dlg-histo-recettes');
+        if(!dlg){console.error('Dialog dlg-histo-recettes introuvable');return;}
+        dlg.showModal();
+    }catch(e){console.error('Erreur ouverture historique recettes:',e);}
+}
+function ouvrirSaisieIndiv(){
+    try{
+        resetRecetteForm();
+        var dlg=document.getElementById('dlg-recette');
+        if(!dlg){console.error('Dialog dlg-recette introuvable');return;}
+        dlg.showModal();
+    }catch(e){console.error('Erreur ouverture saisie individuelle:',e);}
+}
 function resetRecetteForm(){
     document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} Nouvelle recette';
     document.getElementById('form-recette').action='{{ route("parc.recettes.store") }}';
@@ -2267,25 +2283,136 @@ function ficheVehicule(vehiculeId){
     var contenu=document.getElementById('fiche-contenu');
     contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
     dlg.showModal();
+    var fmt=function(n){return new Intl.NumberFormat('fr-FR').format(n||0)};
     fetch('{{ url("parc/vehicules") }}/'+vehiculeId+'/fiche')
         .then(function(r){return r.json()})
         .then(function(d){
-            var html='<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:14px;margin-bottom:12px">';
+            var html='';
+            /* ── En-tête identité ── */
+            html+='<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:14px;margin-bottom:12px">';
             html+='<div style="font-size:18px;font-weight:700;color:var(--bleu)">'+d.immatriculation+'</div>';
-            html+='<div style="font-size:12px;color:var(--gris);margin-top:4px">'+d.marque+' '+d.modele+' · <span class="cat-pill cat-'+d.categorie+'">'+d.categorie_label+'</span> · <span class="pill '+(d.statut==='en_service'?'p-ok':(d.statut==='immobilise'?'p-warn':'p-ko'))+'">'+d.statut_label+'</span></div>';
-            if(d.kilometrage) html+='<div style="margin-top:6px;font-size:12px">Kilométrage : <strong>'+new Intl.NumberFormat('fr-FR').format(d.kilometrage)+' km</strong></div>';
+            html+='<div style="font-size:12px;color:var(--gris);margin-top:4px">'+d.marque+' '+d.modele+' &middot; <span class="cat-pill cat-'+d.categorie+'">'+d.categorie_label+'</span> &middot; <span class="pill '+(d.statut==='en_service'?'p-ok':(d.statut==='immobilise'?'p-warn':'p-ko'))+'">'+d.statut_label+'</span></div>';
+            if(d.kilometrage) html+='<div style="margin-top:6px;font-size:12px">Kilométrage : <strong>'+fmt(d.kilometrage)+' km</strong></div>';
+            if(d.date_mise_en_service) html+='<div style="font-size:11.5px;color:var(--gris);margin-top:2px">En service depuis : '+d.date_mise_en_service+'</div>';
+            if(d.observations) html+='<div style="font-size:11.5px;color:var(--gris);margin-top:4px;font-style:italic">'+d.observations+'</div>';
             html+='</div>';
-            if(d.chauffeurs && d.chauffeurs.length>0){
-                html+='<div class="dlg-section" style="margin-top:8px">Chauffeurs affectés</div><ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
-                d.chauffeurs.forEach(function(c){html+='<li>'+c.nom+' <span style="color:var(--gris)">('+c.role+')</span></li>'});
+
+            /* ── KPIs grille ── */
+            var tauxCol=d.taux_recette>=100?'var(--ok)':(d.taux_recette>=80?'#b45309':'var(--ko)');
+            html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
+            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recettes mois ('+d.nb_jours+' j.)</div></div>';
+            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:10.5px;color:var(--gris)">Taux objectif</div></div>';
+            html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage mois</div></div>';
+            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ok)">'+d.pannes_total+'</div><div style="font-size:10.5px;color:var(--gris)">Pannes ('+d.pannes_ouvertes+' ouv.)</div></div>';
+            html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:10.5px;color:var(--gris)">Pénalités ('+fmt(d.penalites_montant)+' F)</div></div>';
+            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#b45309">'+d.echeances_retard+'</div><div style="font-size:10.5px;color:var(--gris)">Maint. en retard</div></div>';
+            html+='</div>';
+
+            /* ── Onglets internes ── */
+            var tabs=['recettes','chauffeurs','pannes','penalites','maintenance','depenses','recouvrements'];
+            var labels=['Recettes','Chauffeurs','Pannes','Pénalités','Maintenance','Dépenses','Recouvrements'];
+            html+='<div style="display:flex;gap:2px;border-bottom:2px solid var(--bord);margin-bottom:10px;flex-wrap:wrap">';
+            tabs.forEach(function(t,i){
+                html+='<button type="button" onclick="fvTab(\''+t+'\')" id="fv-btn-'+t+'" style="padding:5px 10px;font-size:11.5px;border:none;cursor:pointer;border-radius:6px 6px 0 0;background:'+(i===0?'var(--accent)':'#e5e7eb')+';color:'+(i===0?'#fff':'var(--gris)')+';font-weight:'+(i===0?'600':'400')+'">'+labels[i]+'</button>';
+            });
+            html+='</div>';
+
+            /* ── Panel Recettes ── */
+            html+='<div id="fv-pan-recettes" class="fv-panel">';
+            if(d.recettes_historique && d.recettes_historique.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Chauffeur</th><th style="text-align:right">Recette</th><th style="text-align:right">Objectif</th><th style="text-align:right">Ecart</th><th style="text-align:right">Pointage</th><th>Motif</th></tr></thead><tbody>';
+                d.recettes_historique.forEach(function(r){
+                    var ec=r.ecart<0?'color:var(--ko)':'color:var(--ok)';
+                    html+='<tr><td>'+r.date+'</td><td>'+r.chauffeur+'</td><td style="text-align:right">'+fmt(r.recette)+'</td><td style="text-align:right">'+fmt(r.objectif)+'</td><td style="text-align:right;'+ec+'">'+fmt(r.ecart)+'</td><td style="text-align:right">'+fmt(r.pointage)+'</td><td style="font-size:11px">'+(r.motif||'')+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucune recette enregistrée</p>'; }
+            html+='</div>';
+
+            /* ── Panel Chauffeurs ── */
+            html+='<div id="fv-pan-chauffeurs" class="fv-panel" style="display:none">';
+            html+='<div class="dlg-section">Chauffeurs actuels</div>';
+            if(d.chauffeurs_actifs && d.chauffeurs_actifs.length>0){
+                html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
+                d.chauffeurs_actifs.forEach(function(c){
+                    html+='<li>'+c.nom+' <span style="color:var(--gris)">('+c.role+(c.telephone?' — '+c.telephone:'')+')</span></li>';
+                });
+                html+='</ul>';
+            } else { html+='<p style="color:var(--gris);font-size:12px">Aucun chauffeur affecté</p>'; }
+            if(d.chauffeurs_passes && d.chauffeurs_passes.length>0){
+                html+='<div class="dlg-section" style="margin-top:10px">Chauffeurs passés</div>';
+                html+='<ul style="margin:0;padding-left:18px;font-size:12.5px">';
+                d.chauffeurs_passes.forEach(function(c){html+='<li style="color:var(--gris)">'+c.nom+' ('+c.role+')</li>'});
                 html+='</ul>';
             }
-            html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">';
-            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--ok)">'+d.pannes_total+'</div><div style="font-size:11px;color:var(--gris)">Pannes ('+d.pannes_ouvertes+' ouvertes)</div></div>';
-            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent)">'+new Intl.NumberFormat('fr-FR').format(d.recette_mois)+' F</div><div style="font-size:11px;color:var(--gris)">Recettes ce mois</div></div>';
-            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:#b45309">'+d.echeances_retard+'</div><div style="font-size:11px;color:var(--gris)">Échéances en retard</div></div>';
-            html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:11px;color:var(--gris)">Pénalités impayées</div></div>';
             html+='</div>';
+
+            /* ── Panel Pannes ── */
+            html+='<div id="fv-pan-pannes" class="fv-panel" style="display:none">';
+            if(d.pannes && d.pannes.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Description</th><th>Urgence</th><th style="text-align:right">Coût</th><th>Statut</th></tr></thead><tbody>';
+                d.pannes.forEach(function(pa){
+                    html+='<tr><td>'+pa.date+'</td><td>'+pa.description+'</td><td>'+pa.urgence+'</td><td style="text-align:right">'+fmt(pa.cout)+'</td><td>'+pa.statut+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucune panne</p>'; }
+            html+='</div>';
+
+            /* ── Panel Pénalités ── */
+            html+='<div id="fv-pan-penalites" class="fv-panel" style="display:none">';
+            if(d.penalites && d.penalites.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Type</th><th>Chauffeur</th><th style="text-align:right">Montant</th><th>Statut</th></tr></thead><tbody>';
+                d.penalites.forEach(function(p){
+                    var sc=p.statut==='non_payee'?'color:var(--ko)':'color:var(--ok)';
+                    html+='<tr><td>'+p.date+'</td><td>'+p.type+'</td><td>'+p.chauffeur+'</td><td style="text-align:right">'+fmt(p.montant)+'</td><td style="'+sc+'">'+p.statut.replace('_',' ')+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucune pénalité</p>'; }
+            html+='</div>';
+
+            /* ── Panel Maintenance ── */
+            html+='<div id="fv-pan-maintenance" class="fv-panel" style="display:none">';
+            if(d.maintenances && d.maintenances.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Type</th><th>Prochaine échéance</th><th>Statut</th></tr></thead><tbody>';
+                d.maintenances.forEach(function(m){
+                    var st=m.retard?'<span style="color:var(--ko);font-weight:600">En retard</span>':'<span style="color:var(--ok)">A jour</span>';
+                    html+='<tr><td>'+m.type+'</td><td>'+m.echeance+'</td><td>'+st+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucune maintenance planifiée</p>'; }
+            html+='</div>';
+
+            /* ── Panel Dépenses ── */
+            html+='<div id="fv-pan-depenses" class="fv-panel" style="display:none">';
+            if(d.depenses && d.depenses.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Type</th><th style="text-align:right">Montant</th><th>Commentaire</th></tr></thead><tbody>';
+                d.depenses.forEach(function(dp){
+                    html+='<tr><td>'+dp.date+'</td><td>'+dp.type+'</td><td style="text-align:right">'+fmt(dp.montant)+'</td><td style="font-size:11px">'+dp.commentaire+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucune dépense</p>'; }
+            if(d.emprunts && d.emprunts.length>0){
+                html+='<div class="dlg-section" style="margin-top:12px">Emprunts liés</div>';
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Prêteur</th><th style="text-align:right">Montant</th><th style="text-align:right">Remboursé</th><th style="text-align:right">Solde</th><th>Statut</th></tr></thead><tbody>';
+                d.emprunts.forEach(function(e){
+                    html+='<tr><td>'+e.date+'</td><td>'+e.preteur+'</td><td style="text-align:right">'+fmt(e.montant)+'</td><td style="text-align:right">'+fmt(e.rembourse)+'</td><td style="text-align:right">'+fmt(e.solde)+'</td><td>'+e.statut+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            }
+            html+='</div>';
+
+            /* ── Panel Recouvrements ── */
+            html+='<div id="fv-pan-recouvrements" class="fv-panel" style="display:none">';
+            if(d.recouvrements && d.recouvrements.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Chauffeur</th><th style="text-align:right">Déficit</th><th style="text-align:right">Recouvré</th><th style="text-align:right">Solde</th><th>Statut</th></tr></thead><tbody>';
+                d.recouvrements.forEach(function(rc){
+                    var sc2=rc.statut==='actif'?'color:var(--ko)':'color:var(--ok)';
+                    html+='<tr><td>'+rc.date+'</td><td>'+rc.chauffeur+'</td><td style="text-align:right">'+fmt(rc.deficit)+'</td><td style="text-align:right">'+fmt(rc.recouvre)+'</td><td style="text-align:right">'+fmt(rc.solde)+'</td><td style="'+sc2+'">'+rc.statut+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucun recouvrement</p>'; }
+            html+='</div>';
+
             contenu.innerHTML=html;
         })
         .catch(function(){contenu.innerHTML='<p style="color:var(--ko)">Erreur de chargement.</p>'});
@@ -2405,6 +2532,15 @@ function fcTab(nom){
     tabs.forEach(function(t){
         var pan=document.getElementById('fc-pan-'+t);
         var btn=document.getElementById('fc-btn-'+t);
+        if(pan) pan.style.display=(t===nom?'':'none');
+        if(btn){btn.style.background=(t===nom?'var(--accent)':'#e5e7eb');btn.style.color=(t===nom?'#fff':'var(--gris)');btn.style.fontWeight=(t===nom?'600':'400')}
+    });
+}
+function fvTab(nom){
+    var tabs=['recettes','chauffeurs','pannes','penalites','maintenance','depenses','recouvrements'];
+    tabs.forEach(function(t){
+        var pan=document.getElementById('fv-pan-'+t);
+        var btn=document.getElementById('fv-btn-'+t);
         if(pan) pan.style.display=(t===nom?'':'none');
         if(btn){btn.style.background=(t===nom?'var(--accent)':'#e5e7eb');btn.style.color=(t===nom?'#fff':'var(--gris)');btn.style.fontWeight=(t===nom?'600':'400')}
     });

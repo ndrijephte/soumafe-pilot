@@ -1181,34 +1181,142 @@ class ParcController extends Controller
 
         $moisDebut = today()->startOfMonth();
         $moisFin = today()->endOfMonth();
-        $recetteMois = $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
+
+        // KPIs mois en cours
+        $recetteMois = (int) $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
+        $objectifMois = (int) $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->sum('objectif');
+        $pointageMois = (int) $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->sum('pointage');
+        $nbJoursSaisis = $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->count();
         $pannesOuvertes = $vehicule->pannes->whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count();
         $echeancesRetard = $vehicule->maintenances->filter(fn($m) => $m->prochaine_echeance && $m->prochaine_echeance < today())->count();
         $penalitesImpayees = $vehicule->penalites->where('statut', 'non_payee')->count();
+        $penalitesMontant = (int) $vehicule->penalites->where('statut', 'non_payee')->sum('montant');
+
+        // Dépenses mois (hors maintenance)
+        $depensesMois = Schema::hasTable('depenses')
+            ? (int) Depense::where('vehicule_id', $vehicule->id)->where('type_depense', '!=', 'maintenance')
+                ->whereBetween('date_depense', [$moisDebut, $moisFin])->sum('montant')
+            : 0;
+        // Maintenance mois
+        $maintenanceMois = Schema::hasTable('depenses')
+            ? (int) Depense::where('vehicule_id', $vehicule->id)->where('type_depense', 'maintenance')
+                ->whereBetween('date_depense', [$moisDebut, $moisFin])->sum('montant')
+            : 0;
+
+        // Chauffeurs actuels
+        $chauffeursActifs = $vehicule->chauffeurs->where('pivot.actif', true)->map(fn($c) => [
+            'nom' => $c->nomComplet(), 'role' => $c->pivot->role === 'principal' ? 'Principal' : 'Alternant',
+            'telephone' => $c->telephone, 'permis' => $c->numero_permis,
+        ])->values();
+        // Chauffeurs passés
+        $chauffeursPasses = $vehicule->chauffeurs->where('pivot.actif', false)->map(fn($c) => [
+            'nom' => $c->nomComplet(), 'role' => $c->pivot->role === 'principal' ? 'Principal' : 'Alternant',
+        ])->values();
+
+        // Historique recettes (30 dernières)
+        $recettesHistorique = RecetteVehicule::where('vehicule_id', $vehicule->id)
+            ->orderByDesc('date')->limit(30)->get()
+            ->map(fn($rv) => [
+                'date' => $rv->date->format('d/m/Y'),
+                'chauffeur' => $rv->chauffeur ?? '—',
+                'recette' => (int) $rv->recette, 'objectif' => (int) $rv->objectif,
+                'ecart' => (int) $rv->ecart, 'pointage' => (int) ($rv->pointage ?? 0),
+                'motif' => $rv->motif_absence,
+            ]);
+
+        // Pannes (20 dernières)
+        $pannes = $vehicule->pannes->sortByDesc('date_declaration')->take(20)->map(fn($pa) => [
+            'date' => $pa->date_declaration->format('d/m/Y'),
+            'description' => mb_substr($pa->description ?? '', 0, 80),
+            'cout' => (int) ($pa->cout_reel ?? 0),
+            'urgence' => $pa->urgence,
+            'statut' => $pa->statut,
+        ])->values();
+
+        // Pénalités (20 dernières)
+        $penalites = collect();
+        if (Schema::hasTable('penalites')) {
+            $penalites = Penalite::where('vehicule_id', $vehicule->id)
+                ->orderByDesc('date_infraction')->limit(20)->get()
+                ->map(fn($p) => [
+                    'date' => $p->date_infraction->format('d/m/Y'),
+                    'type' => $p->type_penalite,
+                    'chauffeur' => $p->chauffeur ?? '—',
+                    'montant' => (int) $p->montant, 'statut' => $p->statut,
+                ]);
+        }
+
+        // Maintenance préventive
+        $maintenances = $vehicule->maintenances->sortByDesc('prochaine_echeance')->map(fn($m) => [
+            'type' => $m->type_echeance,
+            'echeance' => $m->prochaine_echeance?->format('d/m/Y') ?? '—',
+            'retard' => $m->prochaine_echeance && $m->prochaine_echeance < today(),
+        ])->values();
+
+        // Dépenses véhicule (20 dernières)
+        $depenses = collect();
+        if (Schema::hasTable('depenses')) {
+            $depenses = Depense::where('vehicule_id', $vehicule->id)
+                ->orderByDesc('date_depense')->limit(20)->get()
+                ->map(fn($d) => [
+                    'date' => $d->date_depense->format('d/m/Y'),
+                    'type' => $d->typeLibelle(),
+                    'montant' => (int) $d->montant,
+                    'commentaire' => mb_substr($d->commentaire ?? '', 0, 60),
+                ]);
+        }
+
+        // Recouvrements liés au véhicule
+        $recouvrements = Recouvrement::where('vehicule_id', $vehicule->id)
+            ->orderByDesc('date_recette')->limit(20)->get()
+            ->map(fn($rc) => [
+                'date' => $rc->date_recette->format('d/m/Y'),
+                'chauffeur' => $rc->chauffeur_nom ?? '—',
+                'deficit' => (int) $rc->deficit,
+                'recouvre' => (int) $rc->montant_recouvre,
+                'solde' => (int) $rc->solde, 'statut' => $rc->statut,
+            ]);
+        $soldeRecouvr = (int) Recouvrement::where('vehicule_id', $vehicule->id)->where('statut', 'actif')->sum('solde');
+
+        // Emprunts liés
+        $emprunts = collect();
+        if (Schema::hasTable('emprunts')) {
+            $emprunts = Emprunt::where('vehicule_id', $vehicule->id)
+                ->orderByDesc('date_emprunt')->limit(10)->get()
+                ->map(fn($e) => [
+                    'date' => $e->date_emprunt->format('d/m/Y'),
+                    'preteur' => $e->preteur, 'montant' => (int) $e->montant,
+                    'rembourse' => (int) $e->montant_rembourse,
+                    'solde' => $e->soldeRestant(), 'statut' => $e->statutLabel(),
+                ]);
+        }
 
         return response()->json([
             'id' => $vehicule->id,
             'immatriculation' => $vehicule->immatriculation,
             'categorie' => $vehicule->categorie,
             'categorie_label' => $vehicule->categorieLabel(),
-            'marque' => $vehicule->marque,
-            'modele' => $vehicule->modele,
-            'statut' => $vehicule->statut,
-            'statut_label' => $vehicule->statutLabel(),
+            'marque' => $vehicule->marque, 'modele' => $vehicule->modele,
+            'statut' => $vehicule->statut, 'statut_label' => $vehicule->statutLabel(),
             'kilometrage' => $vehicule->kilometrage,
             'date_mise_en_service' => $vehicule->date_mise_en_service?->format('d/m/Y'),
-            'chauffeurs' => $vehicule->chauffeurs->map(fn($c) => [
-                'nom' => $c->nomComplet(),
-                'role' => $c->pivot->role === 'principal' ? 'Principal' : 'Alternant',
-                'permis' => $c->numero_permis,
-                'telephone' => $c->telephone,
-            ]),
-            'pannes_ouvertes' => $pannesOuvertes,
-            'pannes_total' => $vehicule->pannes->count(),
-            'recette_mois' => $recetteMois,
-            'echeances_retard' => $echeancesRetard,
-            'penalites_impayees' => $penalitesImpayees,
             'observations' => $vehicule->observations,
+            'objectif_recette' => $vehicule->objectif_recette,
+            // KPIs
+            'recette_mois' => $recetteMois, 'objectif_mois' => $objectifMois,
+            'taux_recette' => $objectifMois > 0 ? round(($recetteMois / $objectifMois) * 100) : 0,
+            'nb_jours' => $nbJoursSaisis, 'pointage_mois' => $pointageMois,
+            'pannes_ouvertes' => $pannesOuvertes, 'pannes_total' => $vehicule->pannes->count(),
+            'echeances_retard' => $echeancesRetard,
+            'penalites_impayees' => $penalitesImpayees, 'penalites_montant' => $penalitesMontant,
+            'depenses_mois' => $depensesMois, 'maintenance_mois' => $maintenanceMois,
+            'solde_recouvrement' => $soldeRecouvr,
+            // Historiques
+            'chauffeurs_actifs' => $chauffeursActifs, 'chauffeurs_passes' => $chauffeursPasses,
+            'recettes_historique' => $recettesHistorique,
+            'pannes' => $pannes, 'penalites' => $penalites,
+            'maintenances' => $maintenances, 'depenses' => $depenses,
+            'recouvrements' => $recouvrements, 'emprunts' => $emprunts,
         ]);
     }
 
@@ -1414,6 +1522,7 @@ class ParcController extends Controller
                 $dep = Depense::create([
                     'date_depense' => $data['date_versement'],
                     'type_depense' => 'recouvrement',
+                    'vehicule_id' => $recouvrement->vehicule_id,
                     'montant' => $data['montant'],
                     'commentaire' => "Recouvrement #{$recouvrement->id} — {$typeRecouvr} — {$recouvrement->chauffeur_nom}",
                     'cree_par' => $r->user()->name,

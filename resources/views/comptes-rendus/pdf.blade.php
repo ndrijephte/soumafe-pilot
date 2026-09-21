@@ -27,7 +27,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
 .section{margin-bottom:16px;overflow:hidden}
 .section h2{font-size:12pt;color:#1F4E79;font-weight:700;margin-bottom:8px;padding:6px 10px;background:linear-gradient(90deg,#EFF4FB,transparent);border-left:3px solid #2E74B5}
 .section h3{font-size:11pt;color:#2E74B5;font-weight:600;margin:10px 0 6px}
-.section .contenu{font-size:10.5pt;line-height:1.6;padding:0 10px;overflow-wrap:break-word;word-break:break-word;max-width:100%}
+.section .contenu{font-size:10.5pt;line-height:1.6;padding:0 10px;overflow-wrap:break-word;word-break:break-word;max-width:100%;text-align:justify}
 
 /* Tableaux */
 .tbl{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:10pt}

@@ -112,7 +112,11 @@ class CompteRenduController extends Controller
     public function edit(Request $r, CompteRendu $cr)
     {
         $user = $r->user();
-        abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
+        if ($cr->estConfirme()) {
+            abort_unless($user->estAdmin(), 403);
+        } else {
+            abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
+        }
 
         $collaborateurs = User::where('actif', true)->orderBy('name')->get();
         $projets = Projet::where('statut', 'actif')->orderBy('libelle')->get();
@@ -134,7 +138,12 @@ class CompteRenduController extends Controller
     public function update(Request $r, CompteRendu $cr)
     {
         $user = $r->user();
-        abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
+        // Brouillon : pilote ou rédacteur. Confirmé : admin uniquement.
+        if ($cr->estConfirme()) {
+            abort_unless($user->estAdmin(), 403);
+        } else {
+            abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
+        }
 
         $donnees = $r->input('donnees', []);
         // Sanitiser les champs HTML rich-text
@@ -154,6 +163,12 @@ class CompteRenduController extends Controller
         $cr->heure_debut = $r->input('heure_debut', $cr->heure_debut);
         $cr->heure_fin = $r->input('heure_fin', $cr->heure_fin);
         $cr->save();
+
+        // Régénérer le DOCX si le CR est déjà confirmé
+        if ($cr->estConfirme()) {
+            $this->genererDocx($cr);
+            return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu modifié et DOCX régénéré.');
+        }
 
         return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Brouillon enregistré.');
     }

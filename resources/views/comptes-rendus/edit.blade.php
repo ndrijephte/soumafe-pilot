@@ -35,7 +35,7 @@
 .rich-toolbar button{background:none;border:1px solid transparent;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.8rem;color:#475569;font-weight:600;transition:all .1s}
 .rich-toolbar button:hover{background:#e2e8f0;border-color:#d1d5db}
 .rich-toolbar button.active{background:var(--bleu,#1F4E79);color:#fff}
-.rich-editor{border:1px solid #d1d5db;border-radius:0 0 8px 8px;padding:10px 14px;min-height:80px;font-size:.9rem;color:var(--bleu,#1F4E79);line-height:1.6;outline:none}
+.rich-editor{border:1px solid #d1d5db;border-radius:0 0 8px 8px;padding:10px 14px;min-height:80px;font-size:.9rem;color:var(--bleu,#1F4E79);line-height:1.6;outline:none;text-align:justify}
 .rich-editor:focus{border-color:var(--bleu,#1F4E79);box-shadow:0 0 0 3px rgba(31,78,121,.1)}
 .rich-editor ul,.rich-editor ol{margin:4px 0 4px 20px}
 /* Buttons */
@@ -369,7 +369,7 @@
 
         <div class="cr-bottom">
             <a href="{{ route('comptes-rendus.index') }}" class="btn-retour">&larr; Retour</a>
-            <button type="submit" class="btn-save">Enregistrer brouillon</button>
+            <button type="submit" class="btn-save">{{ $cr->estConfirme() ? 'Enregistrer les modifications' : 'Enregistrer brouillon' }}</button>
             @if($cr->estBrouillon())
             <button type="button" class="btn-confirm" onclick="confirmerCR()">Confirmer le compte rendu</button>
             @endif

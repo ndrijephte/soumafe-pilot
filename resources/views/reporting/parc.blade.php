@@ -156,23 +156,30 @@
         <div class="kpi-l">Rentabilit&eacute; nette (FCFA)</div>
         <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - D&eacute;penses - P&eacute;nalit&eacute;s - Pannes</div>
     </div>
-    @if(($detteGlobale ?? 0) > 0)
+    @if(($totalEmp ?? 0) > 0 || ($remboursementsPeriode ?? 0) > 0)
     <div class="kpi-c" style="background:{{ $soldeCaisse >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ $soldeCaisse >= 0 ? '#86efac' : '#fca5a5' }}">
         <div class="kpi-v" style="color:{{ $soldeCaisse >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $soldeCaisse >= 0 ? '+' : '' }}{{ number_format($soldeCaisse, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Solde en caisse r&eacute;el (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Rentabilit&eacute; - dette emprunts ({{ number_format($detteGlobale, 0, ',', ' ') }} F)</div>
+        <div class="kpi-l">Solde en caisse (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - charges fonds propres - remboursements ({{ number_format($remboursementsPeriode ?? 0, 0, ',', ' ') }} F)</div>
     </div>
     @endif
     @if(($empruntsData['nb_emprunts'] ?? 0) > 0)
     <div class="kpi-c" style="background:#eff6ff;border-color:#bfdbfe">
         <div class="kpi-v" style="color:#1e40af">{{ number_format($empruntsData['total_emprunte'], 0, ',', ' ') }}</div>
-        <div class="kpi-l">Emprunts (FCFA)</div>
+        <div class="kpi-l">Ressources emprunt&eacute;es (FCFA)</div>
         <div class="kpi-sub" style="font-size:10px;color:var(--gris)">{{ $empruntsData['nb_emprunts'] }} emprunt{{ $empruntsData['nb_emprunts'] > 1 ? 's' : '' }} &mdash; {{ $empruntsData['nb_en_cours'] }} en cours</div>
         @if($empruntsData['solde_du'] > 0)
         <div class="kpi-sub kpi-ko" style="margin-top:2px">Reste d&ucirc; : {{ number_format($empruntsData['solde_du'], 0, ',', ' ') }} F</div>
         @else
         <div class="kpi-sub kpi-ok" style="margin-top:2px">Enti&egrave;rement rembours&eacute;</div>
         @endif
+    </div>
+    @endif
+    @if(($remboursementsPeriode ?? 0) > 0)
+    <div class="kpi-c">
+        <div class="kpi-v" style="color:#b45309">{{ number_format($remboursementsPeriode, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Remboursements (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Sommes rembours&eacute;es sur la p&eacute;riode</div>
     </div>
     @endif
     @if(($pointageTotal ?? 0) > 0)
@@ -804,24 +811,25 @@
 {{-- ═══ FONDS PROPRES vs EMPRUNTS ═══ --}}
 @if(($empruntsData['total_emprunte'] ?? 0) > 0 || ($totalFP ?? 0) > 0 || ($totalEmp ?? 0) > 0)
 <div class="rp-section">
-    <h3>{!! $ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Fonds propres vs Emprunts</h3>
+    <h3>{!! $ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Fonds propres vs Ressources emprunt&eacute;es</h3>
+    <p style="font-size:12px;color:var(--gris);margin:-6px 0 14px">Emprunt = ressource d'urgence remboursable. Ce n'est pas une d&eacute;pense.</p>
 
     <div class="rp-kpi" style="margin-bottom:18px">
         <div class="kpi-c">
             <div class="kpi-v" style="color:var(--ok)">{{ number_format($totalFP ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Fonds propres</div>
+            <div class="kpi-l">Charges fonds propres</div>
         </div>
         <div class="kpi-c">
-            <div class="kpi-v" style="color:var(--ko)">{{ number_format($totalEmp ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Financ&eacute; par emprunt</div>
+            <div class="kpi-v" style="color:#6366f1">{{ number_format($totalEmp ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Charges couvertes par emprunt</div>
         </div>
         <div class="kpi-c">
-            <div class="kpi-v">{{ number_format($empruntsData['total_emprunte'] ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Total emprunt&eacute;</div>
+            <div class="kpi-v" style="color:#b45309">{{ number_format($remboursementsPeriode ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Rembours&eacute; (sorti de caisse)</div>
         </div>
         <div class="kpi-c">
-            <div class="kpi-v" style="color:{{ ($empruntsData['solde_du'] ?? 0) > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ number_format($empruntsData['solde_du'] ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Solde d&ucirc;</div>
+            <div class="kpi-v" style="color:{{ ($detteGlobale ?? 0) > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ number_format($detteGlobale ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Dette restante (tous emprunts)</div>
         </div>
     </div>
 
@@ -842,7 +850,7 @@
                 </div>
                 <div class="donut-legend">
                     <div><span style="background:var(--ok)"></span>Fonds propres : {{ number_format($totalFP,0,',',' ') }} F ({{ $pctFP }}%)</div>
-                    <div><span style="background:var(--ko)"></span>Emprunt : {{ number_format($totalEmp,0,',',' ') }} F ({{ $pctEmp }}%)</div>
+                    <div><span style="background:var(--ko)"></span>Couvert par emprunt : {{ number_format($totalEmp,0,',',' ') }} F ({{ $pctEmp }}%)</div>
                 </div>
             </div>
             @if($pctEmp > 50)
@@ -860,45 +868,56 @@
         <div>
             <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">D&eacute;tail par cat&eacute;gorie</h4>
             <table class="rp-tbl">
-                <thead><tr><th>Cat&eacute;gorie</th><th class="num">Fonds propres</th><th class="num">Emprunt</th><th class="num">Total</th></tr></thead>
+                <thead><tr><th>Cat&eacute;gorie</th><th class="num">Fonds propres</th><th class="num">Couvert par emprunt</th><th class="num">Total</th></tr></thead>
                 <tbody>
                     <tr>
                         <td style="font-weight:600">Pannes</td>
                         <td class="num pos">{{ number_format($fondsData['pannes_fp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num neg">{{ number_format($fondsData['pannes_emp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num" style="color:#6366f1">{{ number_format($fondsData['pannes_emp'] ?? 0,0,',',' ') }}</td>
                         <td class="num" style="font-weight:700">{{ number_format(($fondsData['pannes_fp'] ?? 0)+($fondsData['pannes_emp'] ?? 0),0,',',' ') }}</td>
                     </tr>
                     <tr>
                         <td style="font-weight:600">P&eacute;nalit&eacute;s</td>
                         <td class="num pos">{{ number_format($fondsData['penalites_fp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num neg">{{ number_format($fondsData['penalites_emp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num" style="color:#6366f1">{{ number_format($fondsData['penalites_emp'] ?? 0,0,',',' ') }}</td>
                         <td class="num" style="font-weight:700">{{ number_format(($fondsData['penalites_fp'] ?? 0)+($fondsData['penalites_emp'] ?? 0),0,',',' ') }}</td>
                     </tr>
                     <tr>
                         <td style="font-weight:600">Maintenance</td>
                         <td class="num pos">{{ number_format($fondsData['maint_fp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num neg">{{ number_format($fondsData['maint_emp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num" style="color:#6366f1">{{ number_format($fondsData['maint_emp'] ?? 0,0,',',' ') }}</td>
                         <td class="num" style="font-weight:700">{{ number_format(($fondsData['maint_fp'] ?? 0)+($fondsData['maint_emp'] ?? 0),0,',',' ') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600">D&eacute;penses bureau</td>
+                        <td class="num pos">{{ number_format($fondsData['depenses_fp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num" style="color:#6366f1">{{ number_format($fondsData['depenses_emp'] ?? 0,0,',',' ') }}</td>
+                        <td class="num" style="font-weight:700">{{ number_format(($fondsData['depenses_fp'] ?? 0)+($fondsData['depenses_emp'] ?? 0),0,',',' ') }}</td>
                     </tr>
                     <tr style="background:#f8fafc;font-weight:700;border-top:2px solid var(--bord)">
                         <td>TOTAL</td>
                         <td class="num pos">{{ number_format($totalFP,0,',',' ') }}</td>
-                        <td class="num neg">{{ number_format($totalEmp,0,',',' ') }}</td>
+                        <td class="num" style="color:#6366f1">{{ number_format($totalEmp,0,',',' ') }}</td>
                         <td class="num" style="color:var(--bleu)">{{ number_format($totalDepFP,0,',',' ') }}</td>
                     </tr>
                 </tbody>
             </table>
 
-            @if(($empruntsData['nb_emprunts'] ?? 0) > 0)
+            @if(($empruntsData['nb_emprunts'] ?? 0) > 0 || ($remboursementsPeriode ?? 0) > 0)
             <div style="margin-top:12px;padding:10px 14px;background:#f8fafc;border-radius:8px;font-size:12px">
+                @if(($empruntsData['nb_emprunts'] ?? 0) > 0)
                 <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                    <span>Emprunts sur la p&eacute;riode</span><span style="font-weight:700">{{ $empruntsData['nb_emprunts'] }}</span>
+                    <span>Emprunts contract&eacute;s (p&eacute;riode)</span><span style="font-weight:700">{{ $empruntsData['nb_emprunts'] }}</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:4px">
                     <span>Encore en cours</span><span style="font-weight:700;color:var(--warn)">{{ $empruntsData['nb_en_cours'] }}</span>
                 </div>
+                @endif
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span>Remboursements pay&eacute;s (p&eacute;riode)</span><span style="font-weight:700;color:#b45309">{{ number_format($remboursementsPeriode ?? 0,0,',',' ') }} F</span>
+                </div>
                 <div style="display:flex;justify-content:space-between">
-                    <span>Rembours&eacute;</span><span style="font-weight:700;color:var(--ok)">{{ number_format($empruntsData['total_rembourse'],0,',',' ') }} F</span>
+                    <span>Dette totale restante</span><span style="font-weight:700;color:{{ ($detteGlobale ?? 0) > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($detteGlobale ?? 0,0,',',' ') }} F</span>
                 </div>
             </div>
             @endif

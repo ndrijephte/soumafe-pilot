@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, Depense, Emprunt, MaintenancePreventive, Objectif, Panne, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, Chauffeur, Depense, Emprunt, MaintenancePreventive, Objectif, Panne, Penalite, Recouvrement, RecetteVehicule, RemboursementEmprunt, TypeParc, User, Vehicule, VersementRecouvrement};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -396,7 +396,8 @@ class ReportingParcController extends Controller
 
         // ═══════ EMPRUNTS vs FONDS PROPRES ═══════
         $empruntsData = ['total_emprunte' => 0, 'total_rembourse' => 0, 'solde_du' => 0, 'nb_emprunts' => 0, 'nb_en_cours' => 0];
-        $fondsData = ['pannes_fp' => 0, 'pannes_emp' => 0, 'penalites_fp' => 0, 'penalites_emp' => 0, 'maint_fp' => 0, 'maint_emp' => 0];
+        $fondsData = ['pannes_fp' => 0, 'pannes_emp' => 0, 'penalites_fp' => 0, 'penalites_emp' => 0, 'maint_fp' => 0, 'maint_emp' => 0, 'depenses_fp' => 0, 'depenses_emp' => 0];
+        $remboursementsPeriode = 0;
         if (Schema::hasTable('emprunts')) {
             $empPeriode = Emprunt::whereBetween('date_emprunt', [$debut, $fin]);
             $empruntsData['total_emprunte'] = (int) (clone $empPeriode)->sum('montant');
@@ -404,6 +405,11 @@ class ReportingParcController extends Controller
             $empruntsData['solde_du'] = $empruntsData['total_emprunte'] - $empruntsData['total_rembourse'];
             $empruntsData['nb_emprunts'] = (clone $empPeriode)->count();
             $empruntsData['nb_en_cours'] = (clone $empPeriode)->where('statut', 'en_cours')->count();
+
+            // Remboursements réellement payés sur la période (cash sorti)
+            if (Schema::hasTable('remboursements_emprunt')) {
+                $remboursementsPeriode = (int) RemboursementEmprunt::whereBetween('date_remboursement', [$debut, $fin])->sum('montant');
+            }
 
             // Pannes : fonds propres vs emprunt
             $pannesPeriode = Panne::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_declaration', [$debut, $fin]);
@@ -425,16 +431,24 @@ class ReportingParcController extends Controller
             $maintPeriode = Depense::where('type_depense', 'maintenance')->whereBetween('date_depense', [$debut, $fin]);
             $fondsData['maint_emp'] = (int) (clone $maintPeriode)->whereNotNull('emprunt_id')->sum('montant');
             $fondsData['maint_fp'] = $coutMaintenance - $fondsData['maint_emp'];
-        }
-        $totalFP = $fondsData['pannes_fp'] + $fondsData['penalites_fp'] + $fondsData['maint_fp'];
-        $totalEmp = $fondsData['pannes_emp'] + $fondsData['penalites_emp'] + $fondsData['maint_emp'];
 
-        // Solde en caisse réel = rentabilité - dette non remboursée (emprunts en cours)
-        // Les emprunts non remboursés sont une dette, pas un gain
+            // Dépenses (hors maintenance) : fonds propres vs emprunt
+            $depPeriode = Depense::where('type_depense', '!=', 'maintenance')->whereBetween('date_depense', [$debut, $fin]);
+            $fondsData['depenses_emp'] = (int) (clone $depPeriode)->whereNotNull('emprunt_id')->sum('montant');
+            $fondsData['depenses_fp'] = $depensesTotal - $fondsData['depenses_emp'];
+        }
+        $totalFP = $fondsData['pannes_fp'] + $fondsData['penalites_fp'] + $fondsData['maint_fp'] + $fondsData['depenses_fp'];
+        $totalEmp = $fondsData['pannes_emp'] + $fondsData['penalites_emp'] + $fondsData['maint_emp'] + $fondsData['depenses_emp'];
+
+        // Solde en caisse = ce qui reste en trésorerie propre
+        // Formule : Recettes - Charges fonds propres - Remboursements emprunts payés
+        // = Rentabilité + Charges financées par emprunt - Remboursements payés
+        // Les charges emprunt n'ont pas touché la caisse (payées par l'emprunt)
+        // Les remboursements ONT touché la caisse (argent propre sorti)
         $detteGlobale = Schema::hasTable('emprunts')
             ? (int) Emprunt::where('statut', 'en_cours')->sum(\DB::raw('montant - montant_rembourse'))
             : 0;
-        $soldeCaisse = $rentabilite - $detteGlobale;
+        $soldeCaisse = $rentabilite + $totalEmp - $remboursementsPeriode;
 
         // ═══════ RENTABILITÉ DYNAMIQUE PAR VÉHICULE ═══════
         $rentaVehicules = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
@@ -492,7 +506,7 @@ class ReportingParcController extends Controller
             'detailJour', 'filtreNom',
             'depensesTotal', 'depensesJour', 'depVehJour', 'depensesType', 'typesDepenseLabels', 'rentabilite',
             'okrGestionnaire', 'okrChauffeurs', 'periodeOkr',
-            'empruntsData', 'fondsData', 'totalFP', 'totalEmp', 'soldeCaisse', 'detteGlobale',
+            'empruntsData', 'fondsData', 'totalFP', 'totalEmp', 'soldeCaisse', 'detteGlobale', 'remboursementsPeriode',
             'rentaVehicules', 'nbRentables', 'nbDeficit', 'profitTotal', 'depTotalVeh', 'detteNetteTotale'
         ));
     }

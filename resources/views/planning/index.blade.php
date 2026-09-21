@@ -240,7 +240,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                     <tr>
                         <th style="text-align:left">Rôle</th>
                         <th>Acteur</th>
-                        @if($estGestionnaire)<th style="width:40px"></th>@endif
+                        <th style="width:40px"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -256,22 +256,24 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                             <span style="font-size:10px;color:var(--gris);font-style:italic"> par {{ $aff->remplacant->nomComplet() }}</span>
                         @endif
                     </td>
-                    @if($estGestionnaire)
                     <td>
                         @if($aff->statut === 'prevu')
                         <div class="row-acts">
+                            @if($estGestionnaire)
                             <button class="btn-act" title="Modifier"
                                 onclick="ouvrirModifAff({{ $aff->id }}, '{{ addslashes($aff->role->libelle) }}', {{ $aff->user_id }})">
                                 {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',12) !!}
                             </button>
-                            <button class="btn-act" title="Substituer"
+                            @endif
+                            @if($estGestionnaire || $aff->user_id === auth()->id())
+                            <button class="btn-act" title="Se faire remplacer"
                                 onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
                                 {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',12) !!}
                             </button>
+                            @endif
                         </div>
                         @endif
                     </td>
-                    @endif
                 </tr>
                 @endforeach
                 </tbody>
@@ -307,13 +309,15 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                             @if($aff->statut === 'remplace' && $aff->remplacant)
                                 <span class="remplac">par {{ $aff->remplacant->nomComplet() }}</span>
                             @endif
-                            @if($estGestionnaire && $aff->statut === 'prevu')
+                            @if(($estGestionnaire || $aff->user_id === auth()->id()) && $aff->statut === 'prevu')
                             <div class="cell-actions">
+                                @if($estGestionnaire)
                                 <button class="btn-act" title="Modifier"
                                     onclick="ouvrirModifAff({{ $aff->id }}, '{{ addslashes($aff->role->libelle) }}', {{ $aff->user_id }})">
                                     {!! $ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',12) !!}
                                 </button>
-                                <button class="btn-act" title="Substituer"
+                                @endif
+                                <button class="btn-act" title="Se faire remplacer"
                                     onclick="ouvrirAbsence({{ $aff->id }}, '{{ addslashes($aff->user?->nomComplet()) }}', '{{ addslashes($aff->role->libelle) }}', '{{ $j->format('d/m/Y') }}')">
                                     {!! $ic('<path d="M16 3h5v5"/><path d="M21 3l-7 7"/><path d="M8 21H3v-5"/><path d="M3 21l7-7"/>',12) !!}
                                 </button>

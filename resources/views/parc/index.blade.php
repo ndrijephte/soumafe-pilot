@@ -323,12 +323,32 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <a href="{{ route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJourCarbon->copy()->subDay()->format('Y-m-d')]) }}" class="btn sm sec" style="padding:4px 10px">&larr;</a>
             <input type="date" name="date_recette" value="{{ $dateJour }}" onchange="this.form.submit()" style="padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
             <a href="{{ route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJourCarbon->copy()->addDay()->format('Y-m-d')]) }}" class="btn sm sec" style="padding:4px 10px">&rarr;</a>
-            @if(!$estAujourdhui)
-            <a href="{{ route('parc.index', ['tab' => 'recettes']) }}" class="btn sm sec" style="padding:4px 10px;font-size:11px">Aujourd'hui</a>
+            @php $hierDate = \Carbon\Carbon::yesterday(); @endphp
+            @if(!$dateJourCarbon->isSameDay($hierDate))
+            <a href="{{ route('parc.index', ['tab' => 'recettes']) }}" class="btn sm sec" style="padding:4px 10px;font-size:11px">Hier</a>
             @endif
         </form>
+        <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+            <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-histo-recettes').showModal()">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Historique
+            </button>
+            @if(!$estDG)<button type="button" class="btn sm sec" onclick="resetRecetteForm();document.getElementById('dlg-recette').showModal()">{!! $icPlus !!} Saisie individuelle</button> @endif
+        </div>
     </div>
 
+    @php
+        $hier = \Carbon\Carbon::yesterday();
+        $estHier = $dateJourCarbon->isSameDay($hier);
+    @endphp
+    <div style="margin-bottom:10px;padding:8px 14px;background:{{ $estHier ? '#eff6ff' : '#fef3c7' }};border:1px solid {{ $estHier ? '#bfdbfe' : '#fcd34d' }};border-radius:8px;font-size:12.5px;color:{{ $estHier ? '#1e40af' : '#92400e' }}">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="{{ $estHier ? '#2563eb' : '#d97706' }}" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Recettes du <strong>{{ $dateJourCarbon->translatedFormat('l d F Y') }}</strong>
+        @if($estHier) (veille — par défaut) @endif
+        @if(!$estHier)
+        — <a href="{{ route('parc.index', ['tab' => 'recettes']) }}" style="color:#1e40af;text-decoration:underline;margin-left:4px">Revenir à hier</a>
+        @endif
+    </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
         <span style="font-size:14px;font-weight:700;color:var(--bleu);text-transform:capitalize">{{ $jourLabel }}</span>
         @if($typeJourGrille === 'dimanche')
@@ -353,6 +373,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <input type="hidden" name="lignes[0][vehicule_id]" id="gi-vehicule">
         <input type="hidden" name="lignes[0][chauffeur]" id="gi-chauffeur">
         <input type="hidden" name="lignes[0][recette]" id="gi-recette">
+        <input type="hidden" name="lignes[0][pointage]" id="gi-pointage">
         <input type="hidden" name="lignes[0][mode_remise]" id="gi-mode">
         <input type="hidden" name="lignes[0][motif_absence]" id="gi-motif">
         <input type="hidden" name="lignes[0][perspective]" id="gi-perspective">
@@ -396,7 +417,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                     <span>Obj. {{ number_format($g['objectif'], 0, ',', ' ') }} F</span>
                 </div>
             </div>
-            @if($repos)
+            @if($repos && ($g['repos_alternance'] ?? false))
+            <span class="pill p-ok" style="font-size:11px">Repos (alternance)</span>
+            @elseif($repos)
             <span class="pill p-ok" style="font-size:11px">Repos</span>
             @elseif($deja && $rec->recette == 0)
             <span class="pill p-ko" style="font-size:11px">Pas en service</span>
@@ -423,13 +446,17 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 $penaCh = $chNom !== '' ? $penalites->where('chauffeur', $chNom)->where('statut', '!=', 'payee') : collect();
                 $recouvCh = $chId ? ($recouvrements ?? collect())->where('chauffeur_id', $chId)->where('statut', 'actif') : collect();
             @endphp
+            @php $totalPtgMois = $recsCh->sum('pointage'); @endphp
             <div style="padding:4px 16px 8px;display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:#6b7280;border-bottom:1px solid var(--bord)">
                 <span><strong style="color:var(--bleu)">{{ number_format($totalMois, 0, ',', ' ') }} F</strong> ce mois</span>
                 <span>{{ $nbJours }} jour(s) saisi(s)</span>
-                @if($penaCh->count())<span style="color:var(--ko)">{{ $penaCh->count() }} pénalité(s)</span>@endif
-                @if($recouvCh->count())<span style="color:var(--ko)">{{ $recouvCh->count() }} recouvrement(s) : {{ number_format($recouvCh->sum('solde'), 0, ',', ' ') }} F</span>@endif
+                @if($totalPtgMois > 0)<span>Pointage : <strong style="color:var(--accent)">{{ number_format($totalPtgMois, 0, ',', ' ') }} F</strong></span> @endif
+                @if($penaCh->count())<span style="color:var(--ko)">{{ $penaCh->count() }} pénalité(s)</span> @endif
+                @if($recouvCh->count())<span style="color:var(--ko)">{{ $recouvCh->count() }} recouvrement(s) : {{ number_format($recouvCh->sum('solde'), 0, ',', ' ') }} F</span> @endif
             </div>
-            @if($repos)
+            @if($repos && ($g['repos_alternance'] ?? false))
+            <div style="padding:4px 16px 12px;font-size:12px;color:var(--ok);font-weight:600">Repos alternance — a travaillé la veille</div>
+            @elseif($repos)
             <div style="padding:4px 16px 12px;font-size:12px;color:var(--ok);font-weight:600">Repos automatique — recette enregistrée à 0 F</div>
             @elseif($vehiculePrisPar && !$deja)
             <div style="padding:8px 16px 12px;font-size:12px;color:#b91c1c;background:#fef2f2;border-radius:6px;margin:4px 16px 8px">
@@ -437,10 +464,14 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 Ce véhicule est déjà conduit par <strong>{{ $vehiculePrisPar }}</strong> aujourd'hui. Un seul chauffeur par véhicule par jour.
             </div>
             @else
-            <div class="gc-form" style="grid-template-columns:1fr 1fr 1fr auto">
+            <div class="gc-form" style="grid-template-columns:1fr 1fr 1fr 1fr auto">
                 <div>
                     <label>Recette (F)</label>
                     <input type="number" id="gr-rec-{{ $i }}" value="{{ $deja ? $rec->recette : '' }}" min="0" placeholder="Montant" oninput="recetteChange({{ $i }})">
+                </div>
+                <div>
+                    <label>Pointage (F)</label>
+                    <input type="number" id="gr-ptg-{{ $i }}" value="{{ $deja ? ($rec->pointage ?? 0) : 0 }}" min="0" placeholder="0">
                 </div>
                 <div id="gc-mode-wrap-{{ $i }}" style="{{ ($deja && $rec->recette == 0) ? 'display:none' : '' }}">
                     <label>Mode remise</label>
@@ -511,11 +542,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         @else
         <span style="font-size:12px;color:var(--ko)">{{ $nbTotal - $nbSaisis }} chauffeur(s) en attente</span>
         @endif
-        <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-histo-recettes').showModal()" style="margin-left:auto">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Historique
-        </button>
-        @if(!$estDG)<button type="button" class="btn sm sec" onclick="document.getElementById('dlg-recette').showModal()">{!! $icPlus !!} Saisie individuelle</button>@endif
     </div>
 
     {{-- ===== DIALOG HISTORIQUE ===== --}}
@@ -1065,47 +1091,72 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- Dialog Recette --}}
 <dialog id="dlg-recette">
 <h3 id="dlg-recette-titre">{!! $icWallet !!} Nouvelle recette</h3>
-<form id="form-recette" method="POST" action="{{ route('parc.recettes.store') }}">
+<form id="form-recette" method="POST" action="{{ route('parc.recettes.store') }}" onsubmit="return validerFormRecette()">
     @csrf <div id="recette-method"></div>
     <div class="dlg-section">Versement</div>
     <div class="form-row3">
-        <div><label>Date <span class="req">*</span></label><input type="date" name="date" id="r-date" value="{{ date('Y-m-d') }}" required></div>
+        <div><label>Date <span class="req">*</span></label><input type="date" name="date" id="r-date" value="{{ $dateJour }}" required></div>
         <div><label>Véhicule <span class="req">*</span></label>
-            <select name="vehicule_id" id="r-vehic" required onchange="majChauffeurs(this.value,'r-chauff')">
-                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option>@endforeach
+            <select name="vehicule_id" id="r-vehic" required onchange="onVehiculeChange()">
+                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option> @endforeach
             </select>
         </div>
         <div><label>Chauffeur</label>
             <select name="chauffeur" id="r-chauff">
-                <option value="">— Chauffeur —</option>
+                <option value="">-- Chauffeur --</option>
             </select>
         </div>
     </div>
+    {{-- Indicateur dynamique objectif --}}
+    <div id="r-objectif-info" style="display:none;margin:6px 0 10px;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af">
+        <span id="r-obj-label"></span>
+    </div>
     <div class="form-row3">
-        <div><label>Recette (FCFA) <span class="req">*</span></label><input type="number" name="recette" id="r-montant" min="0" required></div>
-        <div><label>Mode de remise</label>
+        <div><label>Recette (FCFA) <span class="req">*</span></label><input type="number" name="recette" id="r-montant" min="0" required placeholder="Montant versé"></div>
+        <div><label>Pointage (FCFA) <span class="req">*</span></label><input type="number" name="pointage" id="r-pointage" min="0" value="0" required></div>
+        <div id="r-mode-wrap"><label>Mode de remise <span class="req">*</span></label>
             <select name="mode_remise" id="r-mode">
-                <option value="">—</option><option value="especes">Espèces</option><option value="mobile_money">Mobile Money</option><option value="cheque">Chèque</option><option value="virement">Virement</option><option value="autre">Autre</option>
+                <option value="">--</option><option value="especes">Especes</option><option value="mobile_money">Mobile Money</option><option value="cheque">Cheque</option><option value="virement">Virement</option><option value="autre">Autre</option>
             </select>
         </div>
-        <div><label>Contrôlé par</label>
+    </div>
+    {{-- Indicateur écart temps réel --}}
+    <div id="r-ecart-info" style="display:none;margin:4px 0 8px;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600"></div>
+    <div class="form-row">
+        <div><label>Controle par</label>
             <select name="controle_par" id="r-ctrl">
-                <option value="">— Choisir —</option>
-                @foreach($collaborateurs as $u)<option value="{{ $u->name }}">{{ $u->name }}</option>@endforeach
+                <option value="">-- Choisir --</option>
+                @foreach($collaborateurs as $u)<option value="{{ $u->name }}">{{ $u->name }}</option> @endforeach
             </select>
         </div>
     </div>
     <div id="motif-zone" style="display:none;margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px">
-        <label style="color:#92400e;font-weight:700;font-size:11px">JUSTIFICATION OBLIGATOIRE (recette = 0)</label>
+        <label id="motif-label" style="color:#92400e;font-weight:700;font-size:11px">JUSTIFICATION OBLIGATOIRE</label>
         <select name="motif_absence" id="r-motif" style="margin-top:4px">
-            <option value="">— Choisir un motif —</option>
-            @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}">{{ $ma->libelle }}</option>@endforeach
+            <option value="">-- Choisir un motif --</option>
+            @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}">{{ $ma->libelle }}</option> @endforeach
         </select>
+        <div id="perspective-zone" style="margin-top:6px;display:none">
+            <label style="color:#92400e;font-weight:700;font-size:11px">Perspective / Strategie</label>
+            <textarea name="perspective" id="r-perspective" rows="2" style="margin-top:4px"></textarea>
+        </div>
+    </div>
+    <div id="validation-zone" style="display:none;margin-top:10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px">
+        <label style="color:#991b1b;font-weight:700;font-size:11px">VALIDATION DU GESTIONNAIRE</label>
+        <div style="font-size:11.5px;color:#92400e;margin:4px 0 8px">Deficit detecte -- la justification du chauffeur est-elle valable ?</div>
+        <div style="display:flex;gap:16px;align-items:center">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+                <input type="radio" name="justification_valable" value="0" checked> Non valable (recouvrement)
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+                <input type="radio" name="justification_valable" value="1"> Valable (pas de recouvrement)
+            </label>
+        </div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="r-obs" rows="2"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
-        <button class="btn">Enregistrer</button>
+        <button class="btn" id="r-btn-submit">Enregistrer</button>
     </div>
 </form>
 </dialog>
@@ -1320,7 +1371,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </dialog>
 
 {{-- Dialog Fiche chauffeur --}}
-<dialog id="dlg-fiche-ch" style="width:620px;max-width:95vw">
+<dialog id="dlg-fiche-ch" style="width:780px;max-width:96vw;max-height:90vh;overflow-y:auto">
 <h3>{!! $icUser !!} Fiche chauffeur</h3>
 <div id="fiche-ch-contenu" style="font-size:13px;line-height:1.7">
     <p style="text-align:center;color:var(--gris)">Chargement...</p>
@@ -1609,10 +1660,14 @@ foreach($recettes as $_r) {
         'vehicule_id' => $_r->vehicule_id,
         'chauffeur' => $_r->chauffeur,
         'recette' => $_r->recette,
+        'pointage' => $_r->pointage ?? 0,
         'mode_remise' => $_r->mode_remise,
         'controle_par' => $_r->controle_par,
         'observations' => $_r->observations,
         'motif_absence' => $_r->motif_absence,
+        'perspective' => $_r->perspective ?? '',
+        'valide_par' => $_r->valide_par,
+        'justification_valable' => $_r->justification_valable ?? null,
     ];
 }
 $_mData = [];
@@ -1680,7 +1735,7 @@ function changerOnglet(nom){
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('actif')});
     document.getElementById('tab-'+nom).classList.add('actif');
     var btns=document.querySelectorAll('.tab-btn');
-    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses'];
+    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses','emprunts'];
     var idx=noms.indexOf(nom);
     if(idx>=0 && btns[idx]) btns[idx].classList.add('actif');
 }
@@ -1818,12 +1873,121 @@ function statuerPanne(id){
     document.getElementById('dlg-statuer').showModal();
 }
 
+/* ── Objectifs par véhicule pour saisie individuelle ── */
+var vehObjectifs={!! json_encode($vehicules->mapWithKeys(function($v) {
+    $cats = ['ouvrable','samedi','dimanche'];
+    $objs = [];
+    foreach($cats as $c){ $o = \App\Models\ParametreParc::objectifRecette($v->categorie ?? 'taxi', $c); $objs[$c] = $o > 0 ? $o : ($v->objectif_recette ?? 0); }
+    return [$v->id => $objs];
+})) !!};
+
+function getTypeJour(dateStr){
+    var d=new Date(dateStr+'T12:00:00');
+    var day=d.getDay();
+    if(day===0) return 'dimanche';
+    return 'ouvrable'; // samedi = ouvrable
+}
+
+/* ── Saisie individuelle : dynamisme complet ── */
+function getRecetteObjectif(){
+    var vid=document.getElementById('r-vehic').value;
+    var dateVal=document.getElementById('r-date').value||'{{ $dateJour }}';
+    var typeJ=getTypeJour(dateVal);
+    return (vehObjectifs[vid]&&vehObjectifs[vid][typeJ])||0;
+}
+
+function onVehiculeChange(){
+    var vid=document.getElementById('r-vehic').value;
+    majChauffeurs(vid,'r-chauff');
+    // Auto-sélection si un seul chauffeur
+    var sel=document.getElementById('r-chauff');
+    if(sel && sel.options.length===2) sel.selectedIndex=1;
+    majObjectifInfo();
+    toggleMotif();
+}
+
+function majObjectifInfo(){
+    var obj=getRecetteObjectif();
+    var info=document.getElementById('r-objectif-info');
+    var lbl=document.getElementById('r-obj-label');
+    if(obj>0){
+        lbl.textContent='Objectif attendu : '+obj.toLocaleString('fr-FR')+' F';
+        info.style.display='block';
+    } else {
+        info.style.display='none';
+    }
+}
+
 function toggleMotif(){
     var m=document.getElementById('r-montant');
     var z=document.getElementById('motif-zone');
-    z.style.display=(parseInt(m.value||1)===0)?'block':'none';
+    var pz=document.getElementById('perspective-zone');
+    var vz=document.getElementById('validation-zone');
+    var lbl=document.getElementById('motif-label');
+    var modeWrap=document.getElementById('r-mode-wrap');
+    var ecartInfo=document.getElementById('r-ecart-info');
+    var montant=parseInt(m.value||'')||0;
+    var objectif=getRecetteObjectif();
+
+    // Mode remise : masquer si recette=0
+    if(m.value!=='' && montant===0){
+        modeWrap.style.display='none';
+        document.getElementById('r-mode').value='';
+    } else {
+        modeWrap.style.display='';
+    }
+
+    // Indicateur écart temps réel
+    if(m.value!=='' && objectif>0){
+        var ecart=montant-objectif;
+        if(ecart>=0){
+            ecartInfo.style.display='block';
+            ecartInfo.style.background='#f0fdf4';ecartInfo.style.border='1px solid #86efac';ecartInfo.style.color='#166534';
+            ecartInfo.textContent='Objectif atteint'+(ecart>0?' (+'+ecart.toLocaleString('fr-FR')+' F)':'');
+        } else {
+            ecartInfo.style.display='block';
+            ecartInfo.style.background='#fef2f2';ecartInfo.style.border='1px solid #fca5a5';ecartInfo.style.color='#991b1b';
+            ecartInfo.textContent='Deficit : '+Math.abs(ecart).toLocaleString('fr-FR')+' F sous l\'objectif';
+        }
+    } else {
+        ecartInfo.style.display='none';
+    }
+
+    // Zone motif + validation
+    if(montant===0 && m.value!==''){
+        z.style.display='block';
+        lbl.textContent='JUSTIFICATION OBLIGATOIRE -- recette nulle';
+        if(pz) pz.style.display='none';
+        if(vz) vz.style.display='none';
+    } else if(montant>0 && objectif>0 && montant<objectif){
+        z.style.display='block';
+        lbl.textContent='MOTIF OBLIGATOIRE -- objectif non atteint ('+objectif.toLocaleString('fr-FR')+' F)';
+        if(pz) pz.style.display='block';
+        if(vz) vz.style.display='block';
+    } else {
+        z.style.display='none';
+        if(vz) vz.style.display='none';
+    }
+
+    majObjectifInfo();
 }
 document.getElementById('r-montant').addEventListener('input',toggleMotif);
+document.getElementById('r-date').addEventListener('change',function(){ majObjectifInfo(); toggleMotif(); });
+
+function validerFormRecette(){
+    var montant=parseInt(document.getElementById('r-montant').value||'')||0;
+    var mode=document.getElementById('r-mode').value;
+    var motif=document.getElementById('r-motif').value;
+    var ptgEl=document.getElementById('r-pointage');
+    var ptg=ptgEl?ptgEl.value:'';
+    var objectif=getRecetteObjectif();
+
+    if(ptg===''){alert('Le pointage (FCFA) est obligatoire.');return false;}
+    if(montant>0 && !mode){alert('Mode de remise obligatoire.');return false;}
+    if(montant===0 && !motif){alert('Motif obligatoire lorsque la recette est nulle.');return false;}
+    if(montant>0 && objectif>0 && montant<objectif && !motif){alert('Motif obligatoire : objectif non atteint ('+objectif.toLocaleString('fr-FR')+' F).');return false;}
+    return true;
+}
 
 // Grille chauffeurs : toggle expand
 function toggleRecette(idx){
@@ -1891,12 +2055,14 @@ function validerLigne(idx){
 
     var montant=parseFloat(rec?rec.value:0)||0;
     if(!repos && rec && rec.value===''){alert('Saisissez le montant de la recette.');return;}
+    var ptg=document.getElementById('gr-ptg-'+idx);
+    if(!repos && ptg && ptg.value===''){alert('Le pointage (FCFA) est obligatoire.');return;}
     if(!repos && montant>0 && mode && !mode.value){alert('Mode de remise obligatoire.');return;}
     if(!repos && montant<objectif && motif && !motif.value){alert('Recette inférieure à l\'objectif : motif obligatoire.');return;}
-
     document.getElementById('gi-vehicule').value=vid;
     document.getElementById('gi-chauffeur').value=chauffeur;
     document.getElementById('gi-recette').value=repos?0:montant;
+    document.getElementById('gi-pointage').value=ptg?ptg.value||0:0;
     document.getElementById('gi-mode').value=mode?mode.value:'';
     document.getElementById('gi-motif').value=motif?motif.value:'';
     document.getElementById('gi-perspective').value=persp?persp.value:'';
@@ -1947,20 +2113,60 @@ function ouvrirVersement(recId, chauffeur, solde){
 
 function editRecette(id){
     var d=recettesData[id]; if(!d)return;
-    document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} Modifier la recette';
+    var verrouille=!!d.valide_par;
+    document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} '+(verrouille?'Consulter la recette':'Modifier la recette');
     document.getElementById('form-recette').action='{{ url("parc/recettes") }}/'+id;
     document.getElementById('recette-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
     document.getElementById('r-date').value=d.date;
     document.getElementById('r-vehic').value=d.vehicule_id;
     majChauffeurs(d.vehicule_id,'r-chauff',d.chauffeur||'');
     document.getElementById('r-montant').value=d.recette;
+    document.getElementById('r-pointage').value=d.pointage||0;
     document.getElementById('r-mode').value=d.mode_remise||'';
+    document.getElementById('r-mode-wrap').style.display=(d.recette>0)?'':'none';
     document.getElementById('r-ctrl').value=d.controle_par||'';
     document.getElementById('r-obs').value=d.observations||'';
     document.getElementById('r-motif').value=d.motif_absence||'';
+    if(document.getElementById('r-perspective'))document.getElementById('r-perspective').value=d.perspective||'';
+    // Validation gestionnaire
+    if(d.justification_valable!==null && d.justification_valable!==undefined){
+        var radios=document.querySelectorAll('input[name="justification_valable"]');
+        radios.forEach(function(r){r.checked=(r.value===String(d.justification_valable?1:0))});
+    }
     toggleMotif();
+    // Verrouiller si deja valide
+    var champs=document.querySelectorAll('#form-recette input:not([type="hidden"]),#form-recette select,#form-recette textarea');
+    champs.forEach(function(el){el.disabled=verrouille});
+    var btnSubmit=document.getElementById('r-btn-submit');
+    if(btnSubmit) btnSubmit.style.display=verrouille?'none':'';
     document.getElementById('dlg-recette').showModal();
 }
+function resetRecetteForm(){
+    document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} Nouvelle recette';
+    document.getElementById('form-recette').action='{{ route("parc.recettes.store") }}';
+    document.getElementById('recette-method').innerHTML='';
+    document.getElementById('form-recette').reset();
+    document.getElementById('r-date').value='{{ $dateJour }}';
+    var champs=document.querySelectorAll('#form-recette input:not([type="hidden"]),#form-recette select,#form-recette textarea');
+    champs.forEach(function(el){el.disabled=false});
+    var btnSubmit=document.getElementById('r-btn-submit');
+    if(btnSubmit) btnSubmit.style.display='';
+    document.getElementById('motif-zone').style.display='none';
+    var vz=document.getElementById('validation-zone');
+    if(vz) vz.style.display='none';
+    document.getElementById('r-objectif-info').style.display='none';
+    document.getElementById('r-ecart-info').style.display='none';
+    document.getElementById('r-mode-wrap').style.display='';
+    // Init vehicule -> chauffeur + objectif
+    onVehiculeChange();
+}
+// Réouvrir le dialog automatiquement après erreur serveur
+@if(request()->get('open_dlg')==='recette' && $errors->any())
+document.addEventListener('DOMContentLoaded',function(){
+    resetRecetteForm();
+    document.getElementById('dlg-recette').showModal();
+});
+@endif
 
 function editMaint(id){
     var d=maintData[id]; if(!d)return;
@@ -2090,35 +2296,118 @@ function ficheChauffeur(chauffeurId){
     var contenu=document.getElementById('fiche-ch-contenu');
     contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
     dlg.showModal();
+    var fmt=function(n){return new Intl.NumberFormat('fr-FR').format(n||0)};
     fetch('{{ url("parc/chauffeurs") }}/'+chauffeurId+'/fiche')
         .then(function(r){return r.json()})
         .then(function(d){
-            var html='<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:14px;margin-bottom:12px">';
+            var html='';
+            /* ── En-tête identité ── */
+            html+='<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:14px;margin-bottom:12px">';
             html+='<div style="font-size:18px;font-weight:700;color:var(--bleu)">'+d.nom+'</div>';
             html+='<div style="font-size:12px;color:var(--gris);margin-top:4px">';
             html+='<span class="pill '+(d.statut==='actif'?'p-ok':'p-gris')+'">'+d.statut.charAt(0).toUpperCase()+d.statut.slice(1)+'</span>';
             if(d.telephone) html+=' &middot; '+d.telephone;
             if(d.permis) html+=' &middot; Permis: '+d.permis;
-            html+='</div></div>';
-            // Véhicules
-            if(d.vehicules && d.vehicules.length>0){
-                html+='<div class="dlg-section" style="margin-top:8px">Véhicules affectés</div><ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
-                d.vehicules.forEach(function(v){html+='<li>'+v.immatriculation+' <span style="color:var(--gris)">('+v.categorie+' — '+v.role+')</span></li>'});
-                html+='</ul>';
-            } else {
-                html+='<div style="font-size:12px;color:var(--gris);margin-bottom:10px">Aucun véhicule affecté</div>';
-            }
-            // KPIs
-            html+='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px">';
-            var tauxCol=d.taux_recette>=100?'var(--ok)':(d.taux_recette>=80?'#b45309':'var(--ko)');
-            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent)">'+new Intl.NumberFormat('fr-FR').format(d.recette_mois)+' F</div><div style="font-size:11px;color:var(--gris)">Recettes ce mois ('+d.jours_saisis+' j.)</div></div>';
-            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:11px;color:var(--gris)">Taux obj. ('+new Intl.NumberFormat('fr-FR').format(d.objectif_mois)+' F)</div></div>';
-            html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:11px;color:var(--gris)">Pénalités impayées ('+new Intl.NumberFormat('fr-FR').format(d.penalites_montant)+' F)</div></div>';
-            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:#b45309">'+d.recouvrements_actifs+'</div><div style="font-size:11px;color:var(--gris)">Recouvrements ('+new Intl.NumberFormat('fr-FR').format(d.solde_recouvrement)+' F)</div></div>';
+            if(d.date_embauche) html+=' &middot; Depuis: '+d.date_embauche;
             html+='</div>';
+            if(d.observations) html+='<div style="font-size:11.5px;color:var(--gris);margin-top:4px;font-style:italic">'+d.observations+'</div>';
+            html+='</div>';
+
+            /* ── KPIs grille ── */
+            html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
+            var tauxCol=d.taux_recette>=100?'var(--ok)':(d.taux_recette>=80?'#b45309':'var(--ko)');
+            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recettes mois ('+d.jours_saisis+' j.)</div></div>';
+            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:10.5px;color:var(--gris)">Taux objectif</div></div>';
+            html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+d.jours_atteints+'/'+d.jours_saisis+'</div><div style="font-size:10.5px;color:var(--gris)">Jours atteints</div></div>';
+            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#b45309">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage mois</div></div>';
+            html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:10.5px;color:var(--gris)">Pénalités impayées ('+fmt(d.penalites_montant)+' F)</div></div>';
+            html+='<div style="background:#fef9c3;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#92400e">'+d.recouvrements_actifs+'</div><div style="font-size:10.5px;color:var(--gris)">Recouvrements ('+fmt(d.solde_recouvrement)+' F)</div></div>';
+            html+='</div>';
+
+            /* ── Onglets internes ── */
+            var tabs=['recettes','vehicules','penalites','recouvrements','pannes'];
+            var labels=['Recettes','Véhicules','Pénalités','Recouvrements','Pannes'];
+            html+='<div style="display:flex;gap:2px;border-bottom:2px solid var(--bord);margin-bottom:10px">';
+            tabs.forEach(function(t,i){
+                html+='<button type="button" onclick="fcTab(\''+t+'\')" id="fc-btn-'+t+'" style="padding:6px 12px;font-size:12px;border:none;cursor:pointer;border-radius:6px 6px 0 0;background:'+(i===0?'var(--accent)':'#e5e7eb')+';color:'+(i===0?'#fff':'var(--gris)')+';font-weight:'+(i===0?'600':'400')+'">'+labels[i]+'</button>';
+            });
+            html+='</div>';
+
+            /* ── Panel Recettes ── */
+            html+='<div id="fc-pan-recettes" class="fc-panel">';
+            if(d.recettes_historique && d.recettes_historique.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Véhicule</th><th style="text-align:right">Recette</th><th style="text-align:right">Objectif</th><th style="text-align:right">Ecart</th><th style="text-align:right">Pointage</th><th>Motif</th></tr></thead><tbody>';
+                d.recettes_historique.forEach(function(r){
+                    var ec=r.ecart<0?'color:var(--ko)':'color:var(--ok)';
+                    html+='<tr><td>'+r.date+'</td><td>'+r.vehicule+'</td><td style="text-align:right">'+fmt(r.recette)+'</td><td style="text-align:right">'+fmt(r.objectif)+'</td><td style="text-align:right;'+ec+'">'+fmt(r.ecart)+'</td><td style="text-align:right">'+fmt(r.pointage)+'</td><td style="font-size:11px">'+( r.motif||'')+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucune recette enregistrée</p>'; }
+            html+='</div>';
+
+            /* ── Panel Véhicules ── */
+            html+='<div id="fc-pan-vehicules" class="fc-panel" style="display:none">';
+            html+='<div class="dlg-section">Véhicules actuels</div>';
+            if(d.vehicules_actifs && d.vehicules_actifs.length>0){
+                html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
+                d.vehicules_actifs.forEach(function(v){html+='<li>'+v.immatriculation+' <span style="color:var(--gris)">('+v.categorie+' — '+v.role+')</span></li>'});
+                html+='</ul>';
+            } else { html+='<p style="color:var(--gris);font-size:12px">Aucun véhicule affecté actuellement</p>'; }
+            if(d.vehicules_passes && d.vehicules_passes.length>0){
+                html+='<div class="dlg-section" style="margin-top:10px">Véhicules passés</div>';
+                html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
+                d.vehicules_passes.forEach(function(v){html+='<li style="color:var(--gris)">'+v.immatriculation+' ('+v.categorie+' — '+v.role+')</li>'});
+                html+='</ul>';
+            }
+            html+='</div>';
+
+            /* ── Panel Pénalités ── */
+            html+='<div id="fc-pan-penalites" class="fc-panel" style="display:none">';
+            if(d.penalites && d.penalites.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Type</th><th>Véhicule</th><th style="text-align:right">Montant</th><th>Statut</th></tr></thead><tbody>';
+                d.penalites.forEach(function(p){
+                    var sc=p.statut==='non_payee'?'color:var(--ko)':'color:var(--ok)';
+                    html+='<tr><td>'+p.date+'</td><td>'+p.type+'</td><td>'+p.vehicule+'</td><td style="text-align:right">'+fmt(p.montant)+'</td><td style="'+sc+'">'+p.statut.replace('_',' ')+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucune pénalité</p>'; }
+            html+='</div>';
+
+            /* ── Panel Recouvrements ── */
+            html+='<div id="fc-pan-recouvrements" class="fc-panel" style="display:none">';
+            if(d.recouvrements && d.recouvrements.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th style="text-align:right">Déficit</th><th style="text-align:right">Recouvré</th><th style="text-align:right">Solde</th><th>Statut</th></tr></thead><tbody>';
+                d.recouvrements.forEach(function(rc){
+                    var sc2=rc.statut==='actif'?'color:var(--ko)':'color:var(--ok)';
+                    html+='<tr><td>'+rc.date+'</td><td style="text-align:right">'+fmt(rc.deficit)+'</td><td style="text-align:right">'+fmt(rc.recouvre)+'</td><td style="text-align:right">'+fmt(rc.solde)+'</td><td style="'+sc2+'">'+rc.statut+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucun recouvrement</p>'; }
+            html+='</div>';
+
+            /* ── Panel Pannes ── */
+            html+='<div id="fc-pan-pannes" class="fc-panel" style="display:none">';
+            if(d.pannes && d.pannes.length>0){
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Véhicule</th><th>Description</th><th style="text-align:right">Coût</th><th>Statut</th></tr></thead><tbody>';
+                d.pannes.forEach(function(pa){
+                    html+='<tr><td>'+pa.date+'</td><td>'+pa.vehicule+'</td><td>'+pa.description+'</td><td style="text-align:right">'+fmt(pa.cout)+'</td><td>'+pa.statut+'</td></tr>';
+                });
+                html+='</tbody></table></div>';
+            } else { html+='<p style="color:var(--gris)">Aucune panne liée</p>'; }
+            html+='</div>';
+
             contenu.innerHTML=html;
         })
         .catch(function(){contenu.innerHTML='<p style="color:var(--ko)">Erreur de chargement.</p>'});
+}
+function fcTab(nom){
+    var tabs=['recettes','vehicules','penalites','recouvrements','pannes'];
+    tabs.forEach(function(t){
+        var pan=document.getElementById('fc-pan-'+t);
+        var btn=document.getElementById('fc-btn-'+t);
+        if(pan) pan.style.display=(t===nom?'':'none');
+        if(btn){btn.style.background=(t===nom?'var(--accent)':'#e5e7eb');btn.style.color=(t===nom?'#fff':'var(--gris)');btn.style.fontWeight=(t===nom?'600':'400')}
+    });
 }
 
 function filtrerChauffeurs(){
@@ -2144,7 +2433,7 @@ document.querySelectorAll('dialog').forEach(function(dlg){
         var t=titles[dlg.id];if(t){var h=dlg.querySelector('h3[id]');if(h)h.innerHTML=t;}
         if(dlg.id==='dlg-vehicule'){if(form)form.action='{{ route("parc.vehicules.store") }}';document.getElementById('v-chauffeurs-list').innerHTML='';chauffRowIdx=0;}
         if(dlg.id==='dlg-panne'&&form)form.action='{{ route("parc.pannes.store") }}';
-        if(dlg.id==='dlg-recette'&&form){form.action='{{ route("parc.recettes.store") }}';var rv=document.getElementById('r-vehic');if(rv&&rv.value)majChauffeurs(rv.value,'r-chauff');}
+        if(dlg.id==='dlg-recette'&&form){form.action='{{ route("parc.recettes.store") }}';onVehiculeChange();}
         if(dlg.id==='dlg-maint'&&form)form.action='{{ route("parc.maintenances.store") }}';
         if(dlg.id==='dlg-penal'&&form){form.action='{{ route("parc.penalites.store") }}';var pv=document.getElementById('pe-vehic');if(pv&&pv.value)majChauffeurs(pv.value,'pe-chauff');}
         if(dlg.id==='dlg-chauffeur'&&form)form.action='{{ route("parc.chauffeurs.store") }}';

@@ -41,6 +41,8 @@ class ReportingParcController extends Controller
         $objectifTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
             ->whereBetween('date', [$debut, $fin])->sum('objectif');
         $tauxRecette = $objectifTotal > 0 ? round(($recetteTotal / $objectifTotal) * 100) : 0;
+        $pointageTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
+            ->whereBetween('date', [$debut, $fin])->sum('pointage');
 
         $coutPannes = (int) Panne::whereIn('vehicule_id', $vehiculeIds)
             ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
@@ -169,40 +171,49 @@ class ReportingParcController extends Controller
                     $nomComplet = $c->nomComplet();
                     $cvIds = $c->vehicules->pluck('id')->intersect($vehiculeIds);
 
-                    // Recettes individuelles : filtrées par nom du chauffeur
+                    // Recettes individuelles : filtrées par nom du chauffeur + même scope véhicules que les KPIs globaux
                     $recQ = RecetteVehicule::where('chauffeur', $nomComplet)
+                        ->whereIn('vehicule_id', $vehiculeIds)
                         ->whereBetween('date', [$debut, $fin]);
-                    if ($cvIds->isNotEmpty()) {
-                        $recQ->whereIn('vehicule_id', $cvIds);
-                    }
                     $recTotal = (int) (clone $recQ)->sum('recette');
                     $objTotal = (int) (clone $recQ)->sum('objectif');
                     $nbJours = (clone $recQ)->count();
+                    $totalPointage = (int) (clone $recQ)->sum('pointage');
 
                     if ($nbJours === 0) return null;
 
-                    // Pannes et pénalités restent liées aux véhicules affectés
-                    $coutP = 0; $nbP = 0; $montPen = 0; $nbPen = 0;
-                    if ($cvIds->isNotEmpty()) {
-                        $coutP = (int) Panne::whereIn('vehicule_id', $cvIds)
-                            ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
-                        $nbP = Panne::whereIn('vehicule_id', $cvIds)
-                            ->whereBetween('date_declaration', [$debut, $fin])->count();
-                        if (Schema::hasTable('penalites')) {
-                            $montPen = (int) Penalite::whereIn('vehicule_id', $cvIds)
-                                ->where('chauffeur', $nomComplet)
-                                ->whereBetween('date_infraction', [$debut, $fin])->sum('montant');
-                            $nbPen = Penalite::whereIn('vehicule_id', $cvIds)
-                                ->where('chauffeur', $nomComplet)
-                                ->whereBetween('date_infraction', [$debut, $fin])->count();
-                        }
+                    // Pannes et pénalités sur les véhicules de la catégorie filtrée
+                    $coutP = (int) Panne::whereIn('vehicule_id', $vehiculeIds)
+                        ->whereBetween('date_declaration', [$debut, $fin])
+                        ->where(function($q) use ($nomComplet, $cvIds) {
+                            if ($cvIds->isNotEmpty()) $q->whereIn('vehicule_id', $cvIds);
+                        })->sum('cout_reel');
+                    $nbP = Panne::whereIn('vehicule_id', $vehiculeIds)
+                        ->whereBetween('date_declaration', [$debut, $fin])
+                        ->where(function($q) use ($cvIds) {
+                            if ($cvIds->isNotEmpty()) $q->whereIn('vehicule_id', $cvIds);
+                        })->count();
+                    $montPen = 0; $nbPen = 0;
+                    if (Schema::hasTable('penalites')) {
+                        $montPen = (int) Penalite::whereIn('vehicule_id', $vehiculeIds)
+                            ->where('chauffeur', $nomComplet)
+                            ->whereBetween('date_infraction', [$debut, $fin])->sum('montant');
+                        $nbPen = Penalite::whereIn('vehicule_id', $vehiculeIds)
+                            ->where('chauffeur', $nomComplet)
+                            ->whereBetween('date_infraction', [$debut, $fin])->count();
                     }
                     $resultat = $recTotal - $coutP - $montPen;
+                    // Tous véhicules utilisés dans la période (pas seulement assignés)
+                    $vehUtilises = RecetteVehicule::where('chauffeur', $nomComplet)
+                        ->whereIn('vehicule_id', $vehiculeIds)
+                        ->whereBetween('date', [$debut, $fin])
+                        ->distinct()->pluck('vehicule_id');
+                    $vehiculesLabels = Vehicule::whereIn('id', $vehUtilises)->pluck('immatriculation')->join(', ');
                     return [
                         'nom' => $nomComplet,
                         'statut' => $c->statut,
-                        'nb_vehicules' => $cvIds->count(),
-                        'vehicules' => $c->vehicules->whereIn('id', $cvIds)->pluck('immatriculation')->join(', '),
+                        'nb_vehicules' => $vehUtilises->count(),
+                        'vehicules' => $vehiculesLabels,
                         'recette' => $recTotal,
                         'objectif' => $objTotal,
                         'nb_jours' => $nbJours,
@@ -212,6 +223,7 @@ class ReportingParcController extends Controller
                         'montant_penalites' => $montPen,
                         'nb_penalites' => $nbPen,
                         'resultat' => $resultat,
+                        'pointage' => $totalPointage,
                     ];
                 })->filter()->sortByDesc('resultat')->values();
         }
@@ -406,6 +418,13 @@ class ReportingParcController extends Controller
         $totalFP = $fondsData['pannes_fp'] + $fondsData['penalites_fp'] + $fondsData['maint_fp'];
         $totalEmp = $fondsData['pannes_emp'] + $fondsData['penalites_emp'] + $fondsData['maint_emp'];
 
+        // Solde en caisse réel = rentabilité - dette non remboursée (emprunts en cours)
+        // Les emprunts non remboursés sont une dette, pas un gain
+        $detteGlobale = Schema::hasTable('emprunts')
+            ? (int) Emprunt::where('statut', 'en_cours')->sum(\DB::raw('montant - montant_rembourse'))
+            : 0;
+        $soldeCaisse = $rentabilite - $detteGlobale;
+
         // ═══════ RENTABILITÉ DYNAMIQUE PAR VÉHICULE ═══════
         $rentaVehicules = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
             $rec = (int) RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->sum('recette');
@@ -438,7 +457,7 @@ class ReportingParcController extends Controller
 
         return view('reporting.parc', compact(
             'periode', 'debut', 'fin', 'categorie',
-            'recetteTotal', 'objectifTotal', 'tauxRecette',
+            'recetteTotal', 'objectifTotal', 'tauxRecette', 'pointageTotal',
             'coutPannes', 'nbPannes', 'delaiMoyen',
             'montantPenalites', 'nbPenalites',
             'maintenancesRetard', 'maintenancesProches',
@@ -452,7 +471,7 @@ class ReportingParcController extends Controller
             'detailJour', 'filtreNom',
             'depensesTotal', 'depensesJour', 'depVehJour', 'depensesType', 'typesDepenseLabels', 'rentabilite',
             'okrGestionnaire', 'okrChauffeurs', 'periodeOkr',
-            'empruntsData', 'fondsData', 'totalFP', 'totalEmp',
+            'empruntsData', 'fondsData', 'totalFP', 'totalEmp', 'soldeCaisse', 'detteGlobale',
             'rentaVehicules', 'nbRentables', 'nbDeficit', 'profitTotal', 'depTotalVeh', 'detteNetteTotale'
         ));
     }

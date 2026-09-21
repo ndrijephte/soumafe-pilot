@@ -11,8 +11,10 @@
     .col:hover{background:#e8edf4}
     .col h4{font-size:11px;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
     .col h4 span{background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
-    .tache{background:#fff;border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;cursor:grab;transition:box-shadow .15s,transform .1s}
+    .tache{background:#fff;border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;cursor:grab;transition:box-shadow .15s,transform .1s;-webkit-user-select:none;user-select:none}
     .tache:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-1px)}
+    .tache-ghost{position:fixed;pointer-events:none;z-index:999;opacity:.85;box-shadow:0 8px 24px rgba(0,0,0,.18);border-radius:8px;transform:rotate(2deg)}
+    .col.drop-target{background:#dbeafe !important;border:2px dashed var(--accent)}
     .tache.retard{border-left:3px solid var(--ko)}
     .tache .meta{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--gris)}
     .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer}
@@ -169,7 +171,9 @@ function toast(msg, type){
 async function deposer(ev, statut){
     const id = ev.dataTransfer.getData('id');
     if (!id) return;
-
+    await deplacerTache(id, statut);
+}
+async function deplacerTache(id, statut){
     try {
         const rep = await fetch(`/taches/${id}/statut`, {
             method: 'PATCH',
@@ -193,5 +197,99 @@ async function deposer(ev, statut){
         toast('Erreur réseau — réessayez.', 'ko');
     }
 }
+
+/* ── Touch drag-and-drop mobile ── */
+(function(){
+    var dragId=null, ghost=null, srcCol=null, startX=0, startY=0, dragging=false;
+    var THRESHOLD=10; // px avant d'activer le drag
+
+    document.querySelectorAll('.tache[draggable="true"]').forEach(function(el){
+        el.addEventListener('touchstart', onTouchStart, {passive:false});
+    });
+
+    function onTouchStart(e){
+        var t=e.touches[0];
+        startX=t.clientX; startY=t.clientY; dragging=false;
+        var card=e.currentTarget;
+        // chercher l'id dans ondragstart
+        var ds=card.getAttribute('ondragstart');
+        if(!ds) return;
+        var m=ds.match(/setData\('id',(\d+)\)/);
+        if(!m) return;
+        dragId=m[1];
+        srcCol=card.closest('.col');
+
+        document.addEventListener('touchmove', onTouchMove, {passive:false});
+        document.addEventListener('touchend', onTouchEnd, {passive:false});
+
+        // garder ref pour cleanup
+        card._touchCard=true;
+    }
+
+    function onTouchMove(e){
+        var t=e.touches[0];
+        var dx=t.clientX-startX, dy=t.clientY-startY;
+
+        if(!dragging){
+            if(Math.abs(dx)+Math.abs(dy)<THRESHOLD) return;
+            dragging=true;
+            // créer ghost
+            var src=document.querySelector('.tache[draggable="true"][ondragstart*="'+dragId+'"]');
+            if(!src) return;
+            ghost=src.cloneNode(true);
+            ghost.className='tache tache-ghost';
+            ghost.style.width=src.offsetWidth+'px';
+            document.body.appendChild(ghost);
+            src.style.opacity='.3';
+        }
+
+        e.preventDefault(); // empêcher scroll pendant drag
+
+        if(ghost){
+            ghost.style.left=(t.clientX-40)+'px';
+            ghost.style.top=(t.clientY-20)+'px';
+        }
+
+        // highlight colonne cible
+        document.querySelectorAll('.col').forEach(function(c){ c.classList.remove('drop-target'); });
+        var target=getColUnder(t.clientX, t.clientY);
+        if(target && target!==srcCol) target.classList.add('drop-target');
+    }
+
+    function onTouchEnd(e){
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+
+        if(!dragging){ dragId=null; return; }
+
+        // restaurer opacité source
+        var src=document.querySelector('.tache[style*="opacity"]');
+        if(src) src.style.opacity='';
+
+        // retirer ghost
+        if(ghost){ ghost.remove(); ghost=null; }
+
+        // retirer highlights
+        document.querySelectorAll('.col').forEach(function(c){ c.classList.remove('drop-target'); });
+
+        // trouver colonne cible
+        var ct=e.changedTouches[0];
+        var target=getColUnder(ct.clientX, ct.clientY);
+        if(target && target!==srcCol && dragId){
+            var statut=target.getAttribute('data-statut');
+            deplacerTache(dragId, statut);
+        }
+        dragId=null; dragging=false;
+    }
+
+    function getColUnder(x, y){
+        var cols=document.querySelectorAll('.col');
+        for(var i=0;i<cols.length;i++){
+            var r=cols[i].getBoundingClientRect();
+            if(x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return cols[i];
+        }
+        return null;
+    }
+})();
 </script>
 @endpush

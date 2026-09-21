@@ -152,9 +152,35 @@
     </div>
     <div class="kpi-c">
         <div class="kpi-v" style="color:{{ $rentabilite >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rentabilite >= 0 ? '+' : '' }}{{ number_format($rentabilite, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Rentabilité nette (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - Dépenses - Pénalités - Pannes</div>
+        <div class="kpi-l">Rentabilit&eacute; nette (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - D&eacute;penses - P&eacute;nalit&eacute;s - Pannes</div>
     </div>
+    @if(($detteGlobale ?? 0) > 0)
+    <div class="kpi-c" style="background:{{ $soldeCaisse >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ $soldeCaisse >= 0 ? '#86efac' : '#fca5a5' }}">
+        <div class="kpi-v" style="color:{{ $soldeCaisse >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $soldeCaisse >= 0 ? '+' : '' }}{{ number_format($soldeCaisse, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Solde en caisse r&eacute;el (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Rentabilit&eacute; - dette emprunts ({{ number_format($detteGlobale, 0, ',', ' ') }} F)</div>
+    </div>
+    @endif
+    @if(($empruntsData['nb_emprunts'] ?? 0) > 0)
+    <div class="kpi-c" style="background:#eff6ff;border-color:#bfdbfe">
+        <div class="kpi-v" style="color:#1e40af">{{ number_format($empruntsData['total_emprunte'], 0, ',', ' ') }}</div>
+        <div class="kpi-l">Emprunts (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">{{ $empruntsData['nb_emprunts'] }} emprunt{{ $empruntsData['nb_emprunts'] > 1 ? 's' : '' }} &mdash; {{ $empruntsData['nb_en_cours'] }} en cours</div>
+        @if($empruntsData['solde_du'] > 0)
+        <div class="kpi-sub kpi-ko" style="margin-top:2px">Reste d&ucirc; : {{ number_format($empruntsData['solde_du'], 0, ',', ' ') }} F</div>
+        @else
+        <div class="kpi-sub kpi-ok" style="margin-top:2px">Enti&egrave;rement rembours&eacute;</div>
+        @endif
+    </div>
+    @endif
+    @if(($pointageTotal ?? 0) > 0)
+    <div class="kpi-c">
+        <div class="kpi-v" style="color:var(--accent)">{{ number_format($pointageTotal, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Pointage cumul&eacute; (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Contribution infractions / radars</div>
+    </div>
+    @endif
 </div>
 
 {{-- ═══ DÉTAIL JOUR PAR JOUR (si filtre actif) ═══ --}}
@@ -172,7 +198,7 @@
         <span>Recettes : <strong>{{ number_format($dtRec, 0, ',', ' ') }}</strong> FCFA</span>
         <span>Objectif : <strong>{{ number_format($dtObj, 0, ',', ' ') }}</strong> FCFA</span>
         <span>Taux : <strong style="color:{{ $dtTaux >= 100 ? 'var(--ok)' : ($dtTaux >= 80 ? '#b45309' : 'var(--ko)') }}">{{ $dtTaux }}%</strong></span>
-        @if($dtAbsences > 0)<span style="color:var(--ko)">{{ $dtAbsences }} absence{{ $dtAbsences > 1 ? 's' : '' }} justifiée{{ $dtAbsences > 1 ? 's' : '' }}</span>@endif
+        @if($dtAbsences > 0)<span style="color:var(--ko)">{{ $dtAbsences }} absence{{ $dtAbsences > 1 ? 's' : '' }} justifiée{{ $dtAbsences > 1 ? 's' : '' }}</span> @endif
     </div>
     <div style="overflow-x:auto">
     <table class="rp-tbl">
@@ -590,6 +616,7 @@
                     <th class="num">Recettes</th>
                     <th class="num">Objectif</th>
                     <th style="min-width:90px">Taux</th>
+                    <th class="num">Pointage</th>
                     <th class="num">P&eacute;nalit&eacute;s</th>
                     <th class="num">Pannes</th>
                     <th class="num">R&eacute;sultat net</th>
@@ -605,6 +632,7 @@
                     <td class="num">{{ number_format($ch['recette'],0,',',' ') }}</td>
                     <td class="num">{{ number_format($ch['objectif'],0,',',' ') }}</td>
                     <td class="num"><span style="font-weight:700;color:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $ch['taux'] }}%</span></td>
+                    <td class="num" style="color:var(--accent)">{{ number_format($ch['pointage'] ?? 0, 0, ',', ' ') }}</td>
                     <td class="num" style="color:var(--warn)">{{ $ch['nb_penalites'] }} <span style="font-size:10px">({{ number_format($ch['montant_penalites'],0,',',' ') }})</span></td>
                     <td class="num">{{ $ch['nb_pannes'] }} <span style="font-size:10px;color:var(--ko)">({{ number_format($ch['cout_pannes'],0,',',' ') }})</span></td>
                     <td class="num {{ $resCl }}"><strong>{{ $ch['resultat']>=0?'+':'' }}{{ number_format($ch['resultat'],0,',',' ') }}</strong></td>

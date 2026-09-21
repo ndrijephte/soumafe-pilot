@@ -10,11 +10,12 @@ class RecetteVehicule extends Model
 
     protected $fillable = [
         'date', 'type_jour', 'vehicule_id', 'chauffeur', 'recette', 'objectif',
-        'ecart', 'mode_remise', 'controle_par', 'observations', 'motif_absence', 'perspective',
+        'ecart', 'pointage', 'mode_remise', 'controle_par', 'observations', 'motif_absence', 'perspective',
+        'justification_valable',
         'valide_par', 'valide_le', 'motif_modification', 'modifie_par', 'modifie_le',
     ];
 
-    protected $casts = ['date' => 'date'];
+    protected $casts = ['date' => 'date', 'justification_valable' => 'boolean'];
 
     public function vehicule(): BelongsTo { return $this->belongsTo(Vehicule::class); }
 }

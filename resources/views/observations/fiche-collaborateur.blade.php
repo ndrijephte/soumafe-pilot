@@ -290,5 +290,5 @@
 function rteCmd(c){document.execCommand(c,false,null);document.getElementById('notif-contenu').focus()}
 function prepNotif(){var c=document.getElementById('notif-contenu').innerHTML.trim();if(!c||c==='<br>'){alert('Veuillez saisir un message.');return false}document.getElementById('notif-contenu-hidden').value=c;return true}
 </script>
-@endif
+ @endif
 @endsection

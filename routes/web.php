@@ -148,6 +148,7 @@ Route::middleware(['auth'])->group(function () {
     // Recouvrements
     Route::post('/parc/recouvrements/{recouvrement}/versement', [ParcController::class, 'storeVersement'])->name('parc.recouvrements.versement');
     Route::patch('/parc/recouvrements/{recouvrement}/annuler', [ParcController::class, 'annulerRecouvrement'])->name('parc.recouvrements.annuler');
+    Route::delete('/parc/recouvrements/{recouvrement}', [ParcController::class, 'destroyRecouvrement'])->name('parc.recouvrements.destroy');
     Route::post('/parc/chauffeurs', [ParcController::class, 'storeChauffeur'])->name('parc.chauffeurs.store');
     Route::put('/parc/chauffeurs/{chauffeur}', [ParcController::class, 'updateChauffeur'])->name('parc.chauffeurs.update');
     Route::delete('/parc/chauffeurs/{chauffeur}', [ParcController::class, 'destroyChauffeur'])->name('parc.chauffeurs.destroy');

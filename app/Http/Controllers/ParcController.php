@@ -1055,6 +1055,7 @@ class ParcController extends Controller
             'montant' => 'required|integer|min:1|max:' . $penalite->soldeRestant(),
             'date_paiement' => 'required|date',
             'mode_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'source_paiement' => 'nullable|in:pointage,chauffeur,entreprise',
             'observations' => 'nullable|string|max:500',
         ]);
 
@@ -1063,6 +1064,7 @@ class ParcController extends Controller
             'montant' => $r->montant,
             'date_paiement' => $r->date_paiement,
             'mode_paiement' => $r->mode_paiement,
+            'source_paiement' => $r->source_paiement ?? 'chauffeur',
             'recu_par' => auth()->user()->name,
             'observations' => $r->observations,
         ];
@@ -1559,6 +1561,22 @@ class ParcController extends Controller
         ]);
         AuditLog::log('annulation', 'recouvrement', "Recouvrement #{$recouvrement->id}", "Chauffeur: {$recouvrement->chauffeur}, Montant: {$recouvrement->montant_initial} F, Motif: {$r->motif_annulation}");
         return redirect()->route('parc.index', ['tab' => 'recouv'])->with('succes', 'Recouvrement annulé.');
+    }
+
+    public function destroyRecouvrement(Request $r, Recouvrement $recouvrement)
+    {
+        $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
+        $r->validate(['motif_suppression' => 'required|string|min:5|max:500']);
+
+        $info = "Chauffeur: {$recouvrement->chauffeur_nom}, Déficit: {$recouvrement->deficit} F, Statut: {$recouvrement->statut}";
+        AuditLog::log('suppression', 'recouvrement', "Recouvrement #{$recouvrement->id}", "{$info}, Motif: {$r->motif_suppression}");
+
+        // Supprimer les versements liés
+        $recouvrement->versements()->delete();
+        $recouvrement->delete();
+
+        return redirect()->route('parc.index', ['tab' => 'recouv'])->with('succes', 'Recouvrement supprimé.');
     }
 
     /* ═══════════════════════════ DÉPENSES ═══════════════════════════ */

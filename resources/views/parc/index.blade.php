@@ -651,7 +651,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div style="background:#f0fdf4;padding:6px 16px;font-size:11.5px">
             <strong style="color:var(--ok)">Paiements :</strong>
             @foreach($pen->paiements as $pp)
-            <span style="margin-left:8px">{{ $pp->date_paiement->format('d/m') }} — {{ number_format($pp->montant, 0, ',', ' ') }} F ({{ $pp->mode_paiement ? ucfirst(str_replace('_',' ',$pp->mode_paiement)) : '—' }}){{ $pp->recu_par ? ' par '.$pp->recu_par : '' }}</span>{{ !$loop->last ? ' |' : '' }}
+            <span style="margin-left:8px">{{ $pp->date_paiement->format('d/m') }} — {{ number_format($pp->montant, 0, ',', ' ') }} F ({{ $pp->mode_paiement ? ucfirst(str_replace('_',' ',$pp->mode_paiement)) : '—' }})@if($pp->source_paiement && $pp->source_paiement !== 'chauffeur') <span class="pill {{ $pp->source_paiement === 'pointage' ? 'p-cours' : 'p-gris' }}" style="font-size:9px">{{ ucfirst($pp->source_paiement) }}</span> @endif{{ $pp->recu_par ? ' par '.$pp->recu_par : '' }}</span>{{ !$loop->last ? ' |' : '' }}
             @endforeach
         </div>
     </td></tr>
@@ -745,7 +745,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--bleu);padding:6px 0">Historique soldés / annulés ({{ $recSoldes->count() }})</summary>
         <div style="overflow-x:auto;margin-top:8px">
         <table>
-        <thead><tr><th>Date</th><th>Chauffeur</th><th>Déficit</th><th>Recouvré</th><th>Statut</th></tr></thead>
+        <thead><tr><th>Date</th><th>Chauffeur</th><th>Déficit</th><th>Recouvré</th><th>Statut</th>@if(auth()->user()->estAdmin())<th></th> @endif</tr></thead>
         <tbody>
         @foreach($recSoldes as $rs)
         <tr style="opacity:.7">
@@ -754,6 +754,16 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <td>{{ number_format($rs->deficit, 0, ',', ' ') }}</td>
             <td>{{ number_format($rs->montant_recouvre, 0, ',', ' ') }}</td>
             <td><span class="pill {{ $rs->statut === 'solde' ? 'p-ok' : 'p-gris' }}">{{ $rs->statut === 'solde' ? 'Soldé' : 'Annulé' }}</span></td>
+            @if(auth()->user()->estAdmin())
+            <td>
+                <form method="POST" action="{{ route('parc.recouvrements.destroy', $rs) }}" onsubmit="return demanderMotifSuppression(this)">@csrf @method('DELETE')
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
+                    <button class="act-btn del" title="Supprimer">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                </form>
+            </td>
+            @endif
         </tr>
         @endforeach
         </tbody>
@@ -939,16 +949,26 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <label>Date paiement</label>
                 <input type="date" name="date_paiement" id="pp-date" value="{{ date('Y-m-d') }}" required>
             </div>
-            <div>
-                <label>Mode de paiement</label>
-                <select name="mode_paiement">
-                    <option value="">—</option>
-                    <option value="especes">Espèces</option>
-                    <option value="mobile_money">Mobile Money</option>
-                    <option value="cheque">Chèque</option>
-                    <option value="virement">Virement</option>
-                    <option value="autre">Autre</option>
-                </select>
+            <div class="form-row" style="grid-template-columns:1fr 1fr">
+                <div>
+                    <label>Source du paiement</label>
+                    <select name="source_paiement">
+                        <option value="pointage">Pointage</option>
+                        <option value="chauffeur">Chauffeur</option>
+                        <option value="entreprise">Entreprise</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Mode de paiement</label>
+                    <select name="mode_paiement">
+                        <option value="">—</option>
+                        <option value="especes">Espèces</option>
+                        <option value="mobile_money">Mobile Money</option>
+                        <option value="cheque">Chèque</option>
+                        <option value="virement">Virement</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
             </div>
             <div>
                 <label>Financement</label>

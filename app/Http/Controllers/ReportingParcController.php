@@ -40,7 +40,6 @@ class ReportingParcController extends Controller
             ->whereBetween('date', [$debut, $fin])->sum('recette');
         $objectifTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
             ->whereBetween('date', [$debut, $fin])->sum('objectif');
-        $tauxRecette = $objectifTotal > 0 ? round(($recetteTotal / $objectifTotal) * 100) : 0;
         $pointageTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
             ->whereBetween('date', [$debut, $fin])->sum('pointage');
 
@@ -54,6 +53,7 @@ class ReportingParcController extends Controller
                 ->sum('versements_recouvrement.montant');
         }
         $recetteTotalAvecRecouv = $recetteTotal + $recouvrementPercu;
+        $tauxRecette = $objectifTotal > 0 ? round(($recetteTotalAvecRecouv / $objectifTotal) * 100) : 0;
 
         $coutPannes = (int) Panne::whereIn('vehicule_id', $vehiculeIds)
             ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
@@ -93,19 +93,30 @@ class ReportingParcController extends Controller
             ->whereBetween('date', [$debut, $fin])
             ->select('vehicule_id', DB::raw("SUM(recette) as total"), DB::raw("SUM(objectif) as obj"), DB::raw("COUNT(*) as nb_jours"))
             ->groupBy('vehicule_id')->get()
-            ->map(function ($r) use ($vehicules) {
+            ->map(function ($r) use ($vehicules, $debut, $fin) {
                 $v = $vehicules->firstWhere('id', $r->vehicule_id);
+                $recouv = 0;
+                if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
+                    $recouv = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+                        ->where('recouvrements.vehicule_id', $r->vehicule_id)
+                        ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+                        ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
+                        ->sum('versements_recouvrement.montant');
+                }
+                $recTotal = (int) $r->total + $recouv;
                 return [
                     'immat' => $v ? $v->immatriculation : '?',
                     'categorie' => $v ? $v->categorieLabel() : '?',
                     'recette' => (int) $r->total,
+                    'recouvrement' => $recouv,
+                    'recette_totale' => $recTotal,
                     'objectif' => (int) $r->obj,
-                    'ecart' => (int) $r->total - (int) $r->obj,
-                    'taux' => $r->obj > 0 ? round(($r->total / $r->obj) * 100) : 0,
+                    'ecart' => $recTotal - (int) $r->obj,
+                    'taux' => $r->obj > 0 ? round(($recTotal / $r->obj) * 100) : 0,
                     'nb_jours' => (int) $r->nb_jours,
-                    'moyenne' => $r->nb_jours > 0 ? round($r->total / $r->nb_jours) : 0,
+                    'moyenne' => $r->nb_jours > 0 ? round($recTotal / $r->nb_jours) : 0,
                 ];
-            })->sortByDesc('recette')->values();
+            })->sortByDesc('recette_totale')->values();
 
         // ═══════ PANNES PAR VÉHICULE ═══════
         $pannesVehicule = Panne::whereIn('vehicule_id', $vehiculeIds)
@@ -213,7 +224,18 @@ class ReportingParcController extends Controller
                             ->where('chauffeur', $nomComplet)
                             ->whereBetween('date_infraction', [$debut, $fin])->count();
                     }
-                    $resultat = $recTotal - $coutP - $montPen;
+                    // Recouvrements payés par le chauffeur (versements source=chauffeur)
+                    $recouvChauffeur = 0;
+                    if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
+                        $recouvChauffeur = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+                            ->where('recouvrements.chauffeur_nom', $nomComplet)
+                            ->whereIn('recouvrements.vehicule_id', $vehiculeIds)
+                            ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+                            ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
+                            ->sum('versements_recouvrement.montant');
+                    }
+                    $recTotalAvecRecouv = $recTotal + $recouvChauffeur;
+                    $resultat = $recTotalAvecRecouv - $coutP - $montPen;
                     // Tous véhicules utilisés dans la période (pas seulement assignés)
                     $vehUtilises = RecetteVehicule::where('chauffeur', $nomComplet)
                         ->whereIn('vehicule_id', $vehiculeIds)
@@ -226,9 +248,11 @@ class ReportingParcController extends Controller
                         'nb_vehicules' => $vehUtilises->count(),
                         'vehicules' => $vehiculesLabels,
                         'recette' => $recTotal,
+                        'recouvrement' => $recouvChauffeur,
+                        'recette_totale' => $recTotalAvecRecouv,
                         'objectif' => $objTotal,
                         'nb_jours' => $nbJours,
-                        'taux' => $objTotal > 0 ? round(($recTotal / $objTotal) * 100) : 0,
+                        'taux' => $objTotal > 0 ? round(($recTotalAvecRecouv / $objTotal) * 100) : 0,
                         'cout_pannes' => $coutP,
                         'nb_pannes' => $nbP,
                         'montant_penalites' => $montPen,
@@ -297,6 +321,16 @@ class ReportingParcController extends Controller
                 ->whereBetween('date', [$debut, $fin]);
             $recTotal = (int) (clone $rec)->sum('recette');
             $objTotal = (int) (clone $rec)->sum('objectif');
+            // Recouvrements payés par le chauffeur pour ce véhicule
+            $recouv = 0;
+            if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
+                $recouv = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+                    ->where('recouvrements.vehicule_id', $v->id)
+                    ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+                    ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
+                    ->sum('versements_recouvrement.montant');
+            }
+            $recTotalAvecRecouv = $recTotal + $recouv;
             $coutP = (int) Panne::where('vehicule_id', $v->id)
                 ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
             $montPen = 0;
@@ -310,14 +344,16 @@ class ReportingParcController extends Controller
                 ->whereNotNull('prochaine_echeance')
                 ->whereDate('prochaine_echeance', '<', today())->count();
 
-            $resultat = $recTotal - $coutP - $montPen;
+            $resultat = $recTotalAvecRecouv - $coutP - $montPen;
 
             return [
                 'immat' => $v->immatriculation,
                 'categorie' => $v->categorieLabel(),
                 'recette' => $recTotal,
+                'recouvrement' => $recouv,
+                'recette_totale' => $recTotalAvecRecouv,
                 'objectif' => $objTotal,
-                'taux' => $objTotal > 0 ? round(($recTotal / $objTotal) * 100) : 0,
+                'taux' => $objTotal > 0 ? round(($recTotalAvecRecouv / $objTotal) * 100) : 0,
                 'cout_pannes' => $coutP,
                 'penalites' => $montPen,
                 'nb_pannes' => $nbPannes,

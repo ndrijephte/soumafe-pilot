@@ -10,7 +10,7 @@ class PaiementPenalite extends Model
 
     protected $fillable = [
         'penalite_id', 'montant', 'date_paiement', 'mode_paiement',
-        'recu_par', 'observations', 'emprunt_id',
+        'source_paiement', 'recu_par', 'observations', 'emprunt_id',
     ];
 
     protected $casts = ['date_paiement' => 'date'];

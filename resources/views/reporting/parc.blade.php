@@ -457,7 +457,7 @@
         <table class="rp-tbl" data-collapse-table="8">
             <thead><tr>
                 <th>Véhicule</th><th>Cat.</th><th class="num">Jours</th>
-                <th class="num">Recette</th><th class="num">Objectif</th>
+                <th class="num">Recette</th><th class="num">Recouv.</th><th class="num">Objectif</th>
                 <th class="num">Écart</th><th class="num">Taux</th><th class="num">Moy/jour</th>
             </tr></thead>
             <tbody>
@@ -466,7 +466,8 @@
                     <td><strong>{{ $rv['immat'] }}</strong></td>
                     <td>{{ $rv['categorie'] }}</td>
                     <td class="num">{{ $rv['nb_jours'] }}</td>
-                    <td class="num">{{ number_format($rv['recette'],0,',',' ') }}</td>
+                    <td class="num">{{ number_format($rv['recette_totale'] ?? $rv['recette'],0,',',' ') }}</td>
+                    <td class="num" style="color:#059669">{{ ($rv['recouvrement'] ?? 0) > 0 ? '+'.number_format($rv['recouvrement'],0,',',' ') : '—' }}</td>
                     <td class="num">{{ number_format($rv['objectif'],0,',',' ') }}</td>
                     <td class="num {{ $rv['ecart'] >= 0 ? 'pos' : 'neg' }}">{{ $rv['ecart'] >= 0 ? '+' : '' }}{{ number_format($rv['ecart'],0,',',' ') }}</td>
                     <td class="num"><span style="font-weight:700;color:{{ $rv['taux']>=100?'var(--ok)':($rv['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $rv['taux'] }}%</span></td>
@@ -502,11 +503,11 @@
     @if($classement->isEmpty())
         <p style="color:var(--gris);font-size:13px">Aucun véhicule en service.</p>
     @else
-        <p style="font-size:12px;color:var(--gris);margin-bottom:10px">Résultat = Recettes − Coût pannes − Pénalités</p>
+        <p style="font-size:12px;color:var(--gris);margin-bottom:10px">Résultat = Recettes (+ recouvrements) − Coût pannes − Pénalités</p>
         <table class="rp-tbl" data-collapse-table="10">
             <thead><tr>
                 <th>#</th><th>Véhicule</th><th>Cat.</th>
-                <th class="num">Recette</th><th class="num">Taux obj.</th>
+                <th class="num">Recette</th><th class="num">Recouv.</th><th class="num">Taux obj.</th>
                 <th class="num">Pannes</th><th class="num">Coût pannes</th>
                 <th class="num">Pénalités</th><th class="num">Maint. retard</th>
                 <th class="num">Résultat</th>
@@ -517,7 +518,8 @@
                     <td><strong>{{ $i + 1 }}</strong></td>
                     <td><strong>{{ $cl['immat'] }}</strong></td>
                     <td>{{ $cl['categorie'] }}</td>
-                    <td class="num">{{ number_format($cl['recette'],0,',',' ') }}</td>
+                    <td class="num">{{ number_format($cl['recette_totale'] ?? $cl['recette'],0,',',' ') }}</td>
+                    <td class="num" style="color:#059669">{{ ($cl['recouvrement'] ?? 0) > 0 ? '+'.number_format($cl['recouvrement'],0,',',' ') : '—' }}</td>
                     <td class="num"><span style="font-weight:700;color:{{ $cl['taux']>=100?'var(--ok)':($cl['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $cl['taux'] }}%</span></td>
                     <td class="num">{{ $cl['nb_pannes'] }}</td>
                     <td class="num neg">{{ number_format($cl['cout_pannes'],0,',',' ') }}</td>
@@ -600,13 +602,13 @@
         <p style="color:var(--gris);font-size:13px">Aucun chauffeur actif avec v&eacute;hicule affect&eacute;.</p>
     @else
         {{-- Graphique comparaison recettes --}}
-        @php $maxChR = max($performanceChauffeurs->max('recette'), 1); @endphp
+        @php $maxChR = max($performanceChauffeurs->max('recette_totale'), 1); @endphp
         <div style="margin-bottom:16px">
             @foreach($performanceChauffeurs as $ch)
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
                     <div style="width:90px;font-size:11.5px;font-weight:600;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none" title="{{ $ch['nom'] }}">{{ $ch['nom'] }}</div>
                     <div style="flex:1;display:flex;align-items:center;gap:6px">
-                        <div style="height:16px;width:{{ round(($ch['recette']/$maxChR)*100) }}%;background:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};border-radius:4px;min-width:2px"></div>
+                        <div style="height:16px;width:{{ round(($ch['recette_totale']/$maxChR)*100) }}%;background:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};border-radius:4px;min-width:2px"></div>
                         <span style="font-size:10.5px;font-weight:700;color:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};white-space:nowrap">{{ $ch['taux'] }}%</span>
                     </div>
                     <div style="width:80px;font-size:12px;font-weight:700;text-align:right;flex:none;color:{{ $ch['resultat']>=0?'var(--ok)':'var(--ko)' }}">{{ $ch['resultat']>=0?'+':'' }}{{ number_format($ch['resultat'],0,',',' ') }}</div>
@@ -622,6 +624,7 @@
                     <th>Chauffeur</th>
                     <th>V&eacute;hicule(s)</th>
                     <th class="num">Recettes</th>
+                    <th class="num">Recouv.</th>
                     <th class="num">Objectif</th>
                     <th style="min-width:90px">Taux</th>
                     <th class="num">Pointage</th>
@@ -638,6 +641,7 @@
                     <td style="font-weight:600">{{ $ch['nom'] }}</td>
                     <td style="font-size:11px;color:var(--gris)">{{ $ch['vehicules'] }}</td>
                     <td class="num">{{ number_format($ch['recette'],0,',',' ') }}</td>
+                    <td class="num" style="color:#059669">{{ ($ch['recouvrement'] ?? 0) > 0 ? '+'.number_format($ch['recouvrement'],0,',',' ') : '—' }}</td>
                     <td class="num">{{ number_format($ch['objectif'],0,',',' ') }}</td>
                     <td class="num"><span style="font-weight:700;color:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $ch['taux'] }}%</span></td>
                     <td class="num" style="color:var(--accent)">{{ number_format($ch['pointage'] ?? 0, 0, ',', ' ') }}</td>

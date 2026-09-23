@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 class Emprunt extends Model
 {
     protected $fillable = [
-        'montant', 'date_emprunt', 'preteur', 'motif',
+        'reference', 'montant', 'date_emprunt', 'date_echeance', 'preteur', 'motif', 'modalites',
         'source_type', 'source_id', 'vehicule_id',
         'montant_rembourse', 'statut', 'cree_par',
     ];
 
-    protected $casts = ['date_emprunt' => 'date', 'montant' => 'integer', 'montant_rembourse' => 'integer'];
+    protected $casts = ['date_emprunt' => 'date', 'date_echeance' => 'date', 'montant' => 'integer', 'montant_rembourse' => 'integer'];
 
     public function vehicule(): BelongsTo { return $this->belongsTo(Vehicule::class); }
 

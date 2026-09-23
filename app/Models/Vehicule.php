@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Relations\{BelongsToMany, HasMany};
 class Vehicule extends Model
 {
     protected $fillable = [
-        'immatriculation', 'categorie', 'marque', 'modele', 'date_mise_en_service',
+        'immatriculation', 'categorie', 'marque', 'modele', 'numero_chassis',
+        'nombre_places', 'proprietaire', 'photo', 'date_mise_en_service',
         'chauffeur_affecte', 'kilometrage', 'statut', 'observations', 'objectif_recette',
     ];
 
@@ -17,6 +18,7 @@ class Vehicule extends Model
     public function recettes(): HasMany { return $this->hasMany(RecetteVehicule::class); }
     public function maintenances(): HasMany { return $this->hasMany(MaintenancePreventive::class); }
     public function penalites(): HasMany { return $this->hasMany(Penalite::class); }
+    public function planning(): HasMany { return $this->hasMany(PlanningJournalier::class); }
     public function chauffeurs(): BelongsToMany
     {
         return $this->belongsToMany(Chauffeur::class, 'chauffeur_vehicule')

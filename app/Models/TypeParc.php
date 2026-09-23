@@ -33,4 +33,16 @@ class TypeParc extends Model
         if (!Schema::hasTable('types_parc')) return collect();
         return static::where('categorie', 'depense')->where('actif', true)->orderBy('ordre')->get();
     }
+
+    public static function actionsPlanning()
+    {
+        if (!Schema::hasTable('types_parc')) return collect();
+        return static::where('categorie', 'action_planning')->where('actif', true)->orderBy('ordre')->get();
+    }
+
+    public static function autresRessources()
+    {
+        if (!Schema::hasTable('types_parc')) return collect();
+        return static::where('categorie', 'autre_ressource')->where('actif', true)->orderBy('ordre')->get();
+    }
 }

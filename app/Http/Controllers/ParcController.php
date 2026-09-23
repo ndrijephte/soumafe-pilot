@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, Depense, Emprunt, JourFerie, MaintenancePreventive, Panne, PaiementPenalite, ParametreParc, Penalite, Recouvrement, RecetteVehicule, RemboursementEmprunt, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, AutreRessource, Caisse, Chauffeur, Depense, Emprunt, JourFerie, MaintenancePreventive, MouvementCaisse, Panne, PaiementPenalite, ParametreParc, Penalite, PlanningJournalier, PretAccorde, Recouvrement, RecetteVehicule, RemboursementEmprunt, RemboursementPret, TypeParc, User, Vehicule, VersementRecouvrement};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -68,11 +68,35 @@ class ParcController extends Controller
             ? Emprunt::with(['vehicule', 'remboursements'])->orderByDesc('date_emprunt')->get()
             : collect();
 
+        // --- Planning journalier ---
+        $datePlanning = $r->get('date_planning', today()->format('Y-m-d'));
+        $planningJour = Schema::hasTable('planning_journalier')
+            ? PlanningJournalier::with(['vehicule', 'chauffeur', 'remplacant'])
+                ->whereDate('date_jour', $datePlanning)->get()
+            : collect();
+        $actionsPlanning = TypeParc::actionsPlanning();
+
+        // --- Prêts accordés ---
+        $pretsAccordes = Schema::hasTable('prets_accordes')
+            ? PretAccorde::with(['chauffeur', 'remboursements'])->orderByDesc('date_pret')->get()
+            : collect();
+
+        // --- Autres ressources ---
+        $autresRessources = Schema::hasTable('autres_ressources')
+            ? AutreRessource::with('vehicule')->orderByDesc('date_ressource')->get()
+            : collect();
+        $typesRessource = TypeParc::autresRessources();
+
+        // --- Caisses ---
+        $caisses = Schema::hasTable('caisses') ? Caisse::where('actif', true)->get() : collect();
+
         return view('parc.index', compact(
             'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes',
             'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
-            'depenses', 'typesDepense', 'emprunts'
+            'depenses', 'typesDepense', 'emprunts',
+            'datePlanning', 'planningJour', 'actionsPlanning',
+            'pretsAccordes', 'autresRessources', 'typesRessource', 'caisses'
         ));
     }
 
@@ -281,6 +305,9 @@ class ParcController extends Controller
             'categorie' => 'required|in:taxi,vtc',
             'marque' => 'nullable|string|max:50',
             'modele' => 'nullable|string|max:50',
+            'numero_chassis' => 'nullable|string|max:30',
+            'nombre_places' => 'nullable|integer|min:1|max:50',
+            'proprietaire' => 'nullable|string|max:100',
             'date_mise_en_service' => 'nullable|date',
             'chauffeur_affecte' => 'nullable|string|max:100',
             'kilometrage' => 'nullable|integer|min:0',
@@ -290,7 +317,8 @@ class ParcController extends Controller
         ]);
 
         $vehicule = Vehicule::create(array_merge(
-            $r->only(['immatriculation', 'categorie', 'marque', 'modele', 'date_mise_en_service',
+            $r->only(['immatriculation', 'categorie', 'marque', 'modele', 'numero_chassis',
+                'nombre_places', 'proprietaire', 'date_mise_en_service',
                 'chauffeur_affecte', 'kilometrage', 'statut', 'observations']),
             ['objectif_recette' => $r->objectif_recette ?? 0]
         ));
@@ -309,6 +337,9 @@ class ParcController extends Controller
             'categorie' => 'required|in:taxi,vtc',
             'marque' => 'nullable|string|max:50',
             'modele' => 'nullable|string|max:50',
+            'numero_chassis' => 'nullable|string|max:30',
+            'nombre_places' => 'nullable|integer|min:1|max:50',
+            'proprietaire' => 'nullable|string|max:100',
             'date_mise_en_service' => 'nullable|date',
             'chauffeur_affecte' => 'nullable|string|max:100',
             'kilometrage' => 'nullable|integer|min:0',
@@ -318,7 +349,8 @@ class ParcController extends Controller
         ]);
 
         $vehicule->update(array_merge(
-            $r->only(['immatriculation', 'categorie', 'marque', 'modele', 'date_mise_en_service',
+            $r->only(['immatriculation', 'categorie', 'marque', 'modele', 'numero_chassis',
+                'nombre_places', 'proprietaire', 'date_mise_en_service',
                 'chauffeur_affecte', 'kilometrage', 'statut', 'observations']),
             ['objectif_recette' => $r->objectif_recette ?? 0]
         ));
@@ -521,6 +553,25 @@ class ParcController extends Controller
             $data['valide_le'] = now();
 
             $rec = RecetteVehicule::create($data);
+
+            // Mouvement caisse pour recette
+            if ($montant > 0 && Schema::hasTable('mouvements_caisse')) {
+                MouvementCaisse::create([
+                    'caisse_code' => 'generale', 'sens' => 'entree', 'montant' => $montant,
+                    'date_mouvement' => $data['date'], 'source_type' => 'recette', 'source_id' => $rec->id,
+                    'libelle' => "Recette — " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
+                    'cree_par' => auth()->user()->name,
+                ]);
+            }
+            // Mouvement caisse pour pointage
+            if (($data['pointage'] ?? 0) > 0 && Schema::hasTable('mouvements_caisse')) {
+                MouvementCaisse::create([
+                    'caisse_code' => 'pointage', 'sens' => 'entree', 'montant' => $data['pointage'],
+                    'date_mouvement' => $data['date'], 'source_type' => 'pointage', 'source_id' => $rec->id,
+                    'libelle' => "Pointage — " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
+                    'cree_par' => auth()->user()->name,
+                ]);
+            }
 
             // Création recouvrement si déficit ET justification non valable
             if ($deficit > 0 && !$justifValable && Schema::hasTable('recouvrements') && !empty($data['chauffeur'])) {
@@ -770,6 +821,26 @@ class ParcController extends Controller
                     }
                     $recetteObj = RecetteVehicule::create($donnees);
                     $nbCrees++;
+
+                    // Mouvement caisse pour recette
+                    if ($montant > 0 && Schema::hasTable('mouvements_caisse')) {
+                        MouvementCaisse::create([
+                            'caisse_code' => 'generale', 'sens' => 'entree', 'montant' => $montant,
+                            'date_mouvement' => $dateJour, 'source_type' => 'recette', 'source_id' => $recetteObj->id,
+                            'libelle' => "Recette — " . ($v->immatriculation ?? '') . " / " . ($chauffeurNomLigne ?? ''),
+                            'cree_par' => auth()->user()->name,
+                        ]);
+                    }
+                    // Mouvement caisse pour pointage
+                    $ptg = (int) ($ligne['pointage'] ?? 0);
+                    if ($ptg > 0 && Schema::hasTable('mouvements_caisse')) {
+                        MouvementCaisse::create([
+                            'caisse_code' => 'pointage', 'sens' => 'entree', 'montant' => $ptg,
+                            'date_mouvement' => $dateJour, 'source_type' => 'pointage', 'source_id' => $recetteObj->id,
+                            'libelle' => "Pointage — " . ($v->immatriculation ?? '') . " / " . ($chauffeurNomLigne ?? ''),
+                            'cree_par' => auth()->user()->name,
+                        ]);
+                    }
                 }
 
                 // ─── Gestion recouvrement si déficit ───
@@ -1112,6 +1183,11 @@ class ParcController extends Controller
         $data = $r->validate([
             'nom' => 'required|string|max:60',
             'prenom' => 'required|string|max:60',
+            'date_naissance' => 'nullable|date',
+            'adresse' => 'nullable|string|max:200',
+            'numero_cni' => 'nullable|string|max:30',
+            'date_embauche' => 'nullable|date',
+            'personne_contact' => 'nullable|string|max:150',
             'numero_permis' => 'nullable|string|max:30|unique:chauffeurs,numero_permis',
             'telephone' => 'nullable|string|max:20',
             'statut' => 'required|in:actif,inactif',
@@ -1128,6 +1204,11 @@ class ParcController extends Controller
         $data = $r->validate([
             'nom' => 'required|string|max:60',
             'prenom' => 'required|string|max:60',
+            'date_naissance' => 'nullable|date',
+            'adresse' => 'nullable|string|max:200',
+            'numero_cni' => 'nullable|string|max:30',
+            'date_embauche' => 'nullable|date',
+            'personne_contact' => 'nullable|string|max:150',
             'numero_permis' => 'nullable|string|max:30|unique:chauffeurs,numero_permis,' . $chauffeur->id,
             'telephone' => 'nullable|string|max:20',
             'statut' => 'required|in:actif,inactif',
@@ -1586,14 +1667,31 @@ class ParcController extends Controller
         $this->autoriser($r);
         abort_if($r->user()->aRole('direction'), 403, 'La direction ne peut pas saisir de dépenses.');
         $v = $r->validate([
-            'date_depense' => 'required|date',
-            'type_depense' => 'required|string|max:100',
-            'vehicule_id'  => 'nullable|exists:vehicules,id',
-            'montant'      => 'required|integer|min:1',
-            'commentaire'  => 'nullable|string|max:500',
+            'date_depense'   => 'required|date',
+            'type_depense'   => 'required|string|max:100',
+            'fournisseur'    => 'nullable|string|max:150',
+            'vehicule_id'    => 'nullable|exists:vehicules,id',
+            'montant'        => 'required|integer|min:1',
+            'moyen_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'caisse_source'  => 'nullable|string|max:30',
+            'commentaire'    => 'nullable|string|max:500',
         ]);
         $v['cree_par'] = auth()->user()->name;
+        $v['caisse_source'] = $v['caisse_source'] ?? 'generale';
         $dep = Depense::create($v);
+
+        // Mouvement caisse sortie
+        if (Schema::hasTable('mouvements_caisse')) {
+            MouvementCaisse::create([
+                'caisse_code' => $dep->caisse_source ?? 'generale',
+                'sens' => 'sortie', 'montant' => $dep->montant,
+                'date_mouvement' => $dep->date_depense,
+                'source_type' => 'depense', 'source_id' => $dep->id,
+                'libelle' => 'Dépense — ' . $dep->typeLibelle(),
+                'cree_par' => auth()->user()->name,
+            ]);
+        }
+
         AuditLog::log('creation', 'depense', "Dépense #{$dep->id}", "Type: {$dep->type_depense}, Montant: {$dep->montant} F");
         return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense enregistrée.');
     }
@@ -1603,11 +1701,14 @@ class ParcController extends Controller
         $this->autoriser($r);
         abort_if($r->user()->aRole('direction'), 403);
         $v = $r->validate([
-            'date_depense' => 'required|date',
-            'type_depense' => 'required|string|max:100',
-            'vehicule_id'  => 'nullable|exists:vehicules,id',
-            'montant'      => 'required|integer|min:1',
-            'commentaire'  => 'nullable|string|max:500',
+            'date_depense'   => 'required|date',
+            'type_depense'   => 'required|string|max:100',
+            'fournisseur'    => 'nullable|string|max:150',
+            'vehicule_id'    => 'nullable|exists:vehicules,id',
+            'montant'        => 'required|integer|min:1',
+            'moyen_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'caisse_source'  => 'nullable|string|max:30',
+            'commentaire'    => 'nullable|string|max:500',
         ]);
         if (!$r->filled('vehicule_id')) $v['vehicule_id'] = null;
         $depense->update($v);
@@ -1679,5 +1780,301 @@ class ParcController extends Controller
         AuditLog::log('suppression', 'emprunt', "Emprunt #{$emprunt->id}", "Prêteur: {$emprunt->preteur}, Montant: {$emprunt->montant} F, Motif: " . $r->motif_suppression);
         $emprunt->delete();
         return redirect()->route('parc.index', ['tab' => 'emprunts'])->with('succes', 'Emprunt supprimé.');
+    }
+
+    /* ═══════════════════════════════════════════════════════
+     *  PLANNING JOURNALIER
+     * ═══════════════════════════════════════════════════════ */
+
+    public function storePlanning(Request $r)
+    {
+        $this->autoriser($r);
+        $data = $r->validate([
+            'date_jour'               => 'required|date',
+            'vehicule_id'             => 'required|exists:vehicules,id',
+            'chauffeur_id'            => 'nullable|exists:chauffeurs,id',
+            'action'                  => 'required|string|max:30',
+            'motif'                   => 'nullable|string|max:200',
+            'chauffeur_remplacant_id' => 'nullable|exists:chauffeurs,id',
+            'observations'            => 'nullable|string|max:500',
+        ]);
+
+        // Remplir noms pour historique
+        if (!empty($data['chauffeur_id'])) {
+            $ch = Chauffeur::find($data['chauffeur_id']);
+            $data['chauffeur_nom'] = $ch?->nomComplet();
+        }
+        if (!empty($data['chauffeur_remplacant_id'])) {
+            $rem = Chauffeur::find($data['chauffeur_remplacant_id']);
+            $data['chauffeur_remplacant_nom'] = $rem?->nomComplet();
+        }
+        $data['cree_par'] = auth()->user()->name;
+
+        $planning = PlanningJournalier::create($data);
+        AuditLog::log('creation', 'planning', "Planning #{$planning->id}", "Action: {$data['action']}, Véhicule ID: {$data['vehicule_id']}");
+        return redirect()->route('parc.index', ['tab' => 'planning', 'date_planning' => $data['date_jour']])->with('succes', 'Planning enregistré.');
+    }
+
+    public function updatePlanning(Request $r, PlanningJournalier $planning)
+    {
+        $this->autoriser($r);
+        $data = $r->validate([
+            'action'                  => 'required|string|max:30',
+            'motif'                   => 'nullable|string|max:200',
+            'chauffeur_remplacant_id' => 'nullable|exists:chauffeurs,id',
+            'observations'            => 'nullable|string|max:500',
+        ]);
+
+        if (!empty($data['chauffeur_remplacant_id'])) {
+            $rem = Chauffeur::find($data['chauffeur_remplacant_id']);
+            $data['chauffeur_remplacant_nom'] = $rem?->nomComplet();
+        } else {
+            $data['chauffeur_remplacant_id'] = null;
+            $data['chauffeur_remplacant_nom'] = null;
+        }
+        $data['modifie_par'] = auth()->user()->name;
+        $data['modifie_le'] = now();
+
+        $planning->update($data);
+        AuditLog::log('modification', 'planning', "Planning #{$planning->id}", "Action: {$data['action']}");
+        return redirect()->route('parc.index', ['tab' => 'planning', 'date_planning' => $planning->date_jour->format('Y-m-d')])->with('succes', 'Planning mis à jour.');
+    }
+
+    public function destroyPlanning(Request $r, PlanningJournalier $planning)
+    {
+        $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'planning', "Planning #{$planning->id}", "Motif: " . $r->motif_suppression);
+        $planning->delete();
+        return redirect()->route('parc.index', ['tab' => 'planning'])->with('succes', 'Planning supprimé.');
+    }
+
+    /* ═══════════════════════════════════════════════════════
+     *  PRÊTS ACCORDÉS
+     * ═══════════════════════════════════════════════════════ */
+
+    public function storePret(Request $r)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403);
+        $data = $r->validate([
+            'montant'        => 'required|integer|min:1',
+            'date_pret'      => 'required|date',
+            'beneficiaire'   => 'required|string|max:150',
+            'chauffeur_id'   => 'nullable|exists:chauffeurs,id',
+            'motif'          => 'nullable|string|max:500',
+            'caisse_source'  => 'nullable|string|max:30',
+            'date_echeance'  => 'nullable|date',
+            'modalites'      => 'nullable|string|max:500',
+        ]);
+        $data['caisse_source'] = $data['caisse_source'] ?? 'generale';
+        $data['cree_par'] = auth()->user()->name;
+        $data['reference'] = 'PRT-' . date('Ymd') . '-' . str_pad(PretAccorde::whereDate('date_pret', today())->count() + 1, 3, '0', STR_PAD_LEFT);
+
+        $pret = PretAccorde::create($data);
+
+        // Mouvement caisse sortie
+        if (Schema::hasTable('mouvements_caisse')) {
+            MouvementCaisse::create([
+                'caisse_code' => $pret->caisse_source,
+                'sens' => 'sortie', 'montant' => $pret->montant,
+                'date_mouvement' => $pret->date_pret,
+                'source_type' => 'pret_accorde', 'source_id' => $pret->id,
+                'libelle' => "Prêt accordé — {$pret->beneficiaire}",
+                'reference' => $pret->reference,
+                'cree_par' => auth()->user()->name,
+            ]);
+        }
+
+        AuditLog::log('creation', 'pret_accorde', "Prêt #{$pret->id}", "Montant: {$pret->montant} F, Bénéficiaire: {$pret->beneficiaire}");
+        return redirect()->route('parc.index', ['tab' => 'prets'])->with('succes', 'Prêt accordé enregistré.');
+    }
+
+    public function storeRemboursementPret(Request $r, PretAccorde $pret)
+    {
+        $this->autoriser($r);
+        $r->validate([
+            'montant'            => 'required|integer|min:1|max:' . $pret->soldeRestant(),
+            'date_remboursement' => 'required|date',
+            'mode_paiement'      => 'nullable|in:especes,mobile_money,cheque,virement,autre',
+            'caisse_destination' => 'nullable|string|max:30',
+            'observations'       => 'nullable|string|max:500',
+        ]);
+
+        $rb = RemboursementPret::create([
+            'pret_accorde_id'    => $pret->id,
+            'montant'            => $r->montant,
+            'date_remboursement' => $r->date_remboursement,
+            'mode_paiement'      => $r->mode_paiement,
+            'caisse_destination' => $r->caisse_destination ?? 'generale',
+            'observations'       => $r->observations,
+            'cree_par'           => auth()->user()->name,
+        ]);
+
+        $pret->recalculerRemboursement();
+
+        // Mouvement caisse entrée
+        if (Schema::hasTable('mouvements_caisse')) {
+            MouvementCaisse::create([
+                'caisse_code' => $rb->caisse_destination,
+                'sens' => 'entree', 'montant' => $rb->montant,
+                'date_mouvement' => $rb->date_remboursement,
+                'source_type' => 'remboursement_pret', 'source_id' => $rb->id,
+                'libelle' => "Remboursement prêt — {$pret->beneficiaire}",
+                'reference' => $pret->reference,
+                'cree_par' => auth()->user()->name,
+            ]);
+        }
+
+        AuditLog::log('creation', 'remboursement_pret', "Prêt #{$pret->id}", "Versement: {$r->montant} F, Solde: {$pret->soldeRestant()} F");
+        return redirect()->route('parc.index', ['tab' => 'prets'])->with('succes', 'Remboursement enregistré. Solde : ' . number_format($pret->soldeRestant(), 0, ',', ' ') . ' F');
+    }
+
+    public function destroyPret(Request $r, PretAccorde $pret)
+    {
+        $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'pret_accorde', "Prêt #{$pret->id}", "Bénéficiaire: {$pret->beneficiaire}, Montant: {$pret->montant} F, Motif: " . $r->motif_suppression);
+        $pret->delete();
+        return redirect()->route('parc.index', ['tab' => 'prets'])->with('succes', 'Prêt supprimé.');
+    }
+
+    /* ═══════════════════════════════════════════════════════
+     *  AUTRES RESSOURCES
+     * ═══════════════════════════════════════════════════════ */
+
+    public function storeAutreRessource(Request $r)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403);
+        $data = $r->validate([
+            'date_ressource'     => 'required|date',
+            'type_ressource'     => 'required|string|max:40',
+            'montant'            => 'required|integer|min:1',
+            'source'             => 'nullable|string|max:150',
+            'description'        => 'nullable|string|max:500',
+            'caisse_destination' => 'nullable|string|max:30',
+            'vehicule_id'        => 'nullable|exists:vehicules,id',
+        ]);
+        $data['caisse_destination'] = $data['caisse_destination'] ?? 'generale';
+        $data['cree_par'] = auth()->user()->name;
+
+        $res = AutreRessource::create($data);
+
+        // Mouvement caisse entrée
+        if (Schema::hasTable('mouvements_caisse')) {
+            MouvementCaisse::create([
+                'caisse_code' => $res->caisse_destination,
+                'sens' => 'entree', 'montant' => $res->montant,
+                'date_mouvement' => $res->date_ressource,
+                'source_type' => 'autre_ressource', 'source_id' => $res->id,
+                'libelle' => 'Autre ressource — ' . $res->typeLibelle(),
+                'cree_par' => auth()->user()->name,
+            ]);
+        }
+
+        AuditLog::log('creation', 'autre_ressource', "Ressource #{$res->id}", "Type: {$res->type_ressource}, Montant: {$res->montant} F");
+        return redirect()->route('parc.index', ['tab' => 'ressources'])->with('succes', 'Ressource enregistrée.');
+    }
+
+    public function updateAutreRessource(Request $r, AutreRessource $ressource)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403);
+        $data = $r->validate([
+            'date_ressource'     => 'required|date',
+            'type_ressource'     => 'required|string|max:40',
+            'montant'            => 'required|integer|min:1',
+            'source'             => 'nullable|string|max:150',
+            'description'        => 'nullable|string|max:500',
+            'caisse_destination' => 'nullable|string|max:30',
+            'vehicule_id'        => 'nullable|exists:vehicules,id',
+        ]);
+        if (!$r->filled('vehicule_id')) $data['vehicule_id'] = null;
+        $ressource->update($data);
+        AuditLog::log('modification', 'autre_ressource', "Ressource #{$ressource->id}", "Type: {$ressource->type_ressource}, Montant: {$ressource->montant} F");
+        return redirect()->route('parc.index', ['tab' => 'ressources'])->with('succes', 'Ressource modifiée.');
+    }
+
+    public function destroyAutreRessource(Request $r, AutreRessource $ressource)
+    {
+        $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403);
+        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        AuditLog::log('suppression', 'autre_ressource', "Ressource #{$ressource->id}", "Montant: {$ressource->montant} F, Motif: " . $r->motif_suppression);
+        $ressource->delete();
+        return redirect()->route('parc.index', ['tab' => 'ressources'])->with('succes', 'Ressource supprimée.');
+    }
+
+    /* ═══════════════════════════════════════════════════════
+     *  WORKFLOW VALIDATION MOTIF (statut_motif)
+     * ═══════════════════════════════════════════════════════ */
+
+    public function validerMotif(Request $r, RecetteVehicule $recette)
+    {
+        $this->autoriser($r);
+        $recette->update([
+            'statut_motif' => 'valide',
+            'justification_valable' => true,
+        ]);
+
+        // Si un recouvrement actif existe pour cette recette et aucun versement, le supprimer
+        if (Schema::hasTable('recouvrements')) {
+            $rec = Recouvrement::where('recette_vehicule_id', $recette->id)->where('statut', 'actif')->first();
+            if ($rec && $rec->montant_recouvre == 0) {
+                $rec->delete();
+                AuditLog::log('suppression', 'recouvrement', "Recouvrement #{$rec->id}", "Supprimé suite à validation du motif");
+            }
+        }
+
+        AuditLog::log('validation', 'motif_recette', "Recette #{$recette->id}", "Motif validé par " . auth()->user()->name);
+        return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $recette->date->format('Y-m-d')])->with('succes', 'Motif validé.');
+    }
+
+    public function invaliderMotif(Request $r, RecetteVehicule $recette)
+    {
+        $this->autoriser($r);
+        $recette->update([
+            'statut_motif' => 'invalide',
+            'justification_valable' => false,
+        ]);
+
+        // Créer le recouvrement si pas déjà existant
+        if (Schema::hasTable('recouvrements') && $recette->chauffeur) {
+            $deficit = max(0, ($recette->objectif ?? 0) - ($recette->recette ?? 0));
+            if ($deficit > 0) {
+                $existe = Recouvrement::where('recette_vehicule_id', $recette->id)->where('statut', 'actif')->exists();
+                if (!$existe) {
+                    $chauffeurId = null;
+                    if (Schema::hasTable('chauffeurs')) {
+                        $ch = Chauffeur::whereRaw("CONCAT(prenom,' ',nom) = ?", [$recette->chauffeur])
+                            ->orWhereRaw("CONCAT(nom,' ',prenom) = ?", [$recette->chauffeur])->first();
+                        $chauffeurId = $ch?->id;
+                    }
+                    Recouvrement::create([
+                        'recette_vehicule_id' => $recette->id,
+                        'chauffeur_id' => $chauffeurId,
+                        'chauffeur_nom' => $recette->chauffeur,
+                        'vehicule_id' => $recette->vehicule_id,
+                        'date_recette' => $recette->date,
+                        'montant_verse' => $recette->recette ?? 0,
+                        'objectif' => $recette->objectif ?? 0,
+                        'deficit' => $deficit,
+                        'montant_recouvre' => 0,
+                        'solde' => $deficit,
+                        'statut' => 'actif',
+                        'justification_valable' => false,
+                        'motif' => $recette->motif_absence,
+                        'cree_par' => auth()->user()->name,
+                    ]);
+                    AuditLog::log('creation', 'recouvrement', $recette->chauffeur, "Déficit {$deficit} F — motif invalidé");
+                }
+            }
+        }
+
+        AuditLog::log('invalidation', 'motif_recette', "Recette #{$recette->id}", "Motif invalidé par " . auth()->user()->name);
+        return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $recette->date->format('Y-m-d')])->with('succes', 'Motif invalidé — recouvrement créé.');
     }
 }

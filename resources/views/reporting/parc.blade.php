@@ -189,6 +189,20 @@
         <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Contribution infractions / radars</div>
     </div>
     @endif
+    @if(($pretsData['nb_prets'] ?? 0) > 0)
+    <div class="kpi-c" style="background:#fef3c7;border-color:#fde68a">
+        <div class="kpi-v" style="color:#92400e">{{ number_format($pretsData['total_prete'], 0, ',', ' ') }}</div>
+        <div class="kpi-l">Pr&ecirc;ts accord&eacute;s (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">{{ $pretsData['nb_prets'] }} pr&ecirc;t{{ $pretsData['nb_prets'] > 1 ? 's' : '' }} &mdash; Cr&eacute;ances : {{ number_format($pretsData['creances'], 0, ',', ' ') }} F</div>
+    </div>
+    @endif
+    @if(($autresRessourcesTotal ?? 0) > 0)
+    <div class="kpi-c" style="background:#ecfdf5;border-color:#a7f3d0">
+        <div class="kpi-v" style="color:#059669">{{ number_format($autresRessourcesTotal, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Autres ressources (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Dons, ventes, remboursements fournisseurs</div>
+    </div>
+    @endif
 </div>
 
 {{-- ═══ DÉTAIL JOUR PAR JOUR (si filtre actif) ═══ --}}
@@ -939,6 +953,121 @@
             <div class="gauge-txt">{{ $pctFP >= 70 ? 'Bonne autonomie' : ($pctFP >= 50 ? 'Autonomie moyenne' : 'Dépendance aux emprunts') }}</div>
         </div>
     </div>
+</div>
+@endif
+
+{{-- ═══ TRÉSORERIE FORMALISÉE ═══ --}}
+<div class="rp-section" style="border-left:4px solid var(--bleu)">
+    <h3>{!! $ico('<rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20"/><path d="M12 9v12"/>') !!} Tr&eacute;sorerie</h3>
+    <div class="rp-grid2" style="margin-bottom:16px">
+        <div>
+            <h4 style="font-size:13px;color:var(--ok);margin:0 0 10px">Entr&eacute;es</h4>
+            <table class="rp-tbl">
+                <tbody>
+                    <tr><td>Recettes</td><td class="num pos">{{ number_format($recetteTotal ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Pointages</td><td class="num pos">{{ number_format($pointageTotal ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Recouvrements per&ccedil;us</td><td class="num pos">{{ number_format($recouvrementPercu ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Autres ressources</td><td class="num pos">{{ number_format($autresRessourcesTotal ?? 0,0,',',' ') }}</td></tr>
+                    <tr style="font-weight:700;border-top:2px solid var(--bord)"><td>Total entr&eacute;es</td><td class="num pos">{{ number_format($tresoEntrees ?? 0,0,',',' ') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div>
+            <h4 style="font-size:13px;color:var(--ko);margin:0 0 10px">Sorties</h4>
+            <table class="rp-tbl">
+                <tbody>
+                    <tr><td>D&eacute;penses</td><td class="num neg">{{ number_format($depensesTotal ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Pannes</td><td class="num neg">{{ number_format($coutPannes ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>P&eacute;nalit&eacute;s pay&eacute;es</td><td class="num neg">{{ number_format($penalitesPayees ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Pr&ecirc;ts accord&eacute;s</td><td class="num neg">{{ number_format($pretsData['total_prete'] ?? 0,0,',',' ') }}</td></tr>
+                    <tr style="font-weight:700;border-top:2px solid var(--bord)"><td>Total sorties</td><td class="num neg">{{ number_format($tresoSorties ?? 0,0,',',' ') }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="rp-kpi">
+        <div class="kpi-c" style="background:{{ ($soldeBrut ?? 0) >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ ($soldeBrut ?? 0) >= 0 ? '#86efac' : '#fca5a5' }}">
+            <div class="kpi-v" style="color:{{ ($soldeBrut ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ ($soldeBrut ?? 0) >= 0 ? '+' : '' }}{{ number_format($soldeBrut ?? 0,0,',',' ') }}</div>
+            <div class="kpi-l">Solde brut (entr&eacute;es - sorties)</div>
+        </div>
+        <div class="kpi-c" style="background:{{ ($soldeApresEngagements ?? 0) >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ ($soldeApresEngagements ?? 0) >= 0 ? '#86efac' : '#fca5a5' }}">
+            <div class="kpi-v" style="color:{{ ($soldeApresEngagements ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ ($soldeApresEngagements ?? 0) >= 0 ? '+' : '' }}{{ number_format($soldeApresEngagements ?? 0,0,',',' ') }}</div>
+            <div class="kpi-l">Solde apr&egrave;s engagements</div>
+            <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Brut - dette emprunts ({{ number_format($detteGlobale ?? 0,0,',',' ') }} F) - cr&eacute;ances pr&ecirc;ts ({{ number_format($pretsData['creances'] ?? 0,0,',',' ') }} F)</div>
+        </div>
+    </div>
+</div>
+
+{{-- ═══ CAISSES MULTIPLES ═══ --}}
+@if(($soldesCaisses ?? collect())->isNotEmpty())
+<div class="rp-section">
+    <h3>{!! $ico('<path d="M21 4H3a2 2 0 00-2 2v12a2 2 0 002 2h18a2 2 0 002-2V6a2 2 0 00-2-2z"/><path d="M1 10h22"/>') !!} Solde par caisse</h3>
+    <div class="rp-kpi" style="margin-bottom:14px">
+        @foreach($soldesCaisses as $cs)
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:{{ $cs['solde'] >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ number_format($cs['solde'],0,',',' ') }}</div>
+            <div class="kpi-l">{{ $cs['libelle'] }}</div>
+            <div class="kpi-sub" style="font-size:10px;color:var(--gris)">+{{ number_format($cs['entrees'],0,',',' ') }} / -{{ number_format($cs['sorties'],0,',',' ') }}</div>
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
+{{-- ═══ PRÊTS ACCORDÉS ═══ --}}
+@if(($pretsData['nb_prets'] ?? 0) > 0 || ($pretsData['nb_en_cours'] ?? 0) > 0)
+<div class="rp-section">
+    <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Pr&ecirc;ts accord&eacute;s</h3>
+    <div class="rp-kpi" style="margin-bottom:14px">
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:#92400e">{{ number_format($pretsData['total_prete'],0,',',' ') }} F</div>
+            <div class="kpi-l">Total pr&ecirc;t&eacute;</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:var(--ok)">{{ number_format($pretsData['total_rembourse'],0,',',' ') }} F</div>
+            <div class="kpi-l">Rembours&eacute;</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:{{ $pretsData['creances'] > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($pretsData['creances'],0,',',' ') }} F</div>
+            <div class="kpi-l">Cr&eacute;ances restantes</div>
+        </div>
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:var(--warn)">{{ $pretsData['nb_en_cours'] }}</div>
+            <div class="kpi-l">Pr&ecirc;ts en cours</div>
+        </div>
+    </div>
+    @if($pretsData['total_prete'] > 0)
+    <div class="gauge" style="margin-top:8px">
+        @php $pctRembPret = $pretsData['total_prete'] > 0 ? round(($pretsData['total_rembourse'] / $pretsData['total_prete']) * 100) : 0; @endphp
+        <div class="gauge-fill" style="width:{{ $pctRembPret }}%;background:{{ $pctRembPret >= 80 ? 'var(--ok)' : ($pctRembPret >= 50 ? 'var(--warn)' : 'var(--ko)') }}"></div>
+        <div class="gauge-txt">Recouvrement pr&ecirc;ts : {{ $pctRembPret }}%</div>
+    </div>
+    @endif
+</div>
+@endif
+
+{{-- ═══ AUTRES RESSOURCES ═══ --}}
+@if(($autresRessourcesTotal ?? 0) > 0)
+<div class="rp-section">
+    <h3>{!! $ico('<path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/>') !!} Autres ressources</h3>
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+        <div style="font-size:22px;font-weight:700;color:var(--ok)">{{ number_format($autresRessourcesTotal,0,',',' ') }} F</div>
+        <div style="font-size:12px;color:var(--gris)">Total des ressources additionnelles sur la p&eacute;riode</div>
+    </div>
+    @if(($autresRessourcesType ?? collect())->isNotEmpty())
+    @php
+        $maxAR = $autresRessourcesType->max('total') ?: 1;
+        $arColors = ['don' => '#16a34a', 'vente' => '#2E74B5', 'remboursement_fournisseur' => '#f59e0b', 'subvention' => '#8b5cf6', 'autre' => '#64748b'];
+    @endphp
+    @foreach($autresRessourcesType as $ar)
+        @php $arType = $ar->type_ressource; @endphp
+        <div class="bar-wrap">
+            <div class="bar-label" title="{{ ucfirst(str_replace('_', ' ', $arType)) }}">{{ ucfirst(str_replace('_', ' ', $arType)) }}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:{{ round(($ar->total / $maxAR) * 100) }}%;background:{{ $arColors[$arType] ?? '#64748b' }}"></div></div>
+            <div class="bar-val">{{ number_format($ar->total,0,',',' ') }} F <span style="font-size:10px;color:var(--gris)">({{ $ar->nb }}x)</span></div>
+        </div>
+    @endforeach
+    @endif
 </div>
 @endif
 

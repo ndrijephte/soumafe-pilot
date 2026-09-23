@@ -180,6 +180,15 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <button class="tab-btn" onclick="changerOnglet('emprunts')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
         Emprunts @if(($emprunts ?? collect())->where('statut','en_cours')->count()>0)<span class="pill p-ko">{{ ($emprunts ?? collect())->where('statut','en_cours')->count() }}</span> @endif</button>
+    <button class="tab-btn" onclick="changerOnglet('planning')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Planning</button>
+    <button class="tab-btn" onclick="changerOnglet('prets')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Prêts @if(($pretsAccordes ?? collect())->where('statut','en_cours')->count()>0)<span class="pill p-ko">{{ ($pretsAccordes ?? collect())->where('statut','en_cours')->count() }}</span> @endif</button>
+    <button class="tab-btn" onclick="changerOnglet('ressources')">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Ressources <span class="pill p-cours">{{ ($autresRessources ?? collect())->count() }}</span></button>
 </div>
 
 {{-- ==================== TAB VÉHICULES ==================== --}}
@@ -1550,6 +1559,204 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 </div>
 
+{{-- ==================== TAB PLANNING JOURNALIER ==================== --}}
+<div class="tab-panel" id="tab-planning">
+<div class="panel-head">
+    <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Planning journalier</h3>
+    <div style="display:flex;align-items:center;gap:10px">
+        <form method="GET" action="{{ route('parc.index') }}" style="display:flex;gap:8px;align-items:center">
+            <input type="hidden" name="tab" value="planning">
+            <input type="date" name="date_planning" value="{{ $datePlanning ?? date('Y-m-d') }}" onchange="this.form.submit()" style="padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
+        </form>
+        @if(!$estDG)
+        <button class="btn sm" onclick="document.getElementById('dlg-planning').showModal()">{!! $icPlus !!} Affecter</button>
+        @endif
+    </div>
+</div>
+
+@php $planDate = $datePlanning ?? date('Y-m-d'); @endphp
+
+<div class="panneau" style="overflow-x:auto">
+@if(($planningJour ?? collect())->isEmpty())
+    <div style="text-align:center;color:var(--gris);padding:30px">Aucune affectation pour le {{ \Carbon\Carbon::parse($planDate)->format('d/m/Y') }}</div>
+@else
+<table class="tableau" style="width:100%">
+<thead><tr>
+    <th>Véhicule</th>
+    <th>Chauffeur</th>
+    <th>Action</th>
+    <th>Motif</th>
+    <th>Remplaçant</th>
+    <th>Observations</th>
+    @if(!$estDG)<th style="width:80px">Actions</th>@endif
+</tr></thead>
+<tbody>
+@foreach($planningJour ?? [] as $pl)
+<tr>
+    <td style="font-weight:600">{{ $pl->vehicule->immatriculation ?? '?' }}</td>
+    <td>{{ $pl->chauffeur_nom ?? '—' }}</td>
+    <td><span class="pill {{ $pl->estEnService() ? 'p-ok' : 'p-ko' }}">{{ $pl->actionLabel() }}</span></td>
+    <td style="font-size:12px;color:var(--gris)">{{ $pl->motif ?? '—' }}</td>
+    <td>{{ $pl->chauffeur_remplacant_nom ?? '—' }}</td>
+    <td style="font-size:12px">{{ $pl->observations ?? '—' }}</td>
+    @if(!$estDG)
+    <td>
+        <div style="display:flex;gap:4px">
+            <button class="btn sm sec" title="Modifier" onclick="ouvrirEditPlanning({{ $pl->id }})">{!! $icEdit !!}</button>
+            <form method="POST" action="{{ route('parc.planning.destroy', $pl) }}" onsubmit="return demanderMotifSuppression(this, 'cette affectation')">
+                @csrf @method('DELETE')
+                <button class="btn sm ko" title="Supprimer">{!! $icDel !!}</button>
+            </form>
+        </div>
+    </td>
+    @endif
+</tr>
+@endforeach
+</tbody>
+</table>
+@endif
+</div>
+</div>
+
+{{-- ==================== TAB PRÊTS ACCORDÉS ==================== --}}
+<div class="tab-panel" id="tab-prets">
+<div class="panel-head">
+    <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> Prêts accordés <span class="pill p-cours">{{ ($pretsAccordes ?? collect())->count() }}</span></h3>
+    @if(!$estDG)
+    <button class="btn sm" onclick="document.getElementById('dlg-pret').showModal()">{!! $icPlus !!} Prêt</button>
+    @endif
+</div>
+
+@php
+    $pretsEnCours = ($pretsAccordes ?? collect())->where('statut', 'en_cours');
+    $totalPrets = $pretsEnCours->sum('montant');
+    $totalRembPrets = $pretsEnCours->sum('montant_rembourse');
+    $soldePrets = $totalPrets - $totalRembPrets;
+@endphp
+
+<div style="display:flex;gap:20px;margin-bottom:12px;font-size:13px;flex-wrap:wrap">
+    <span>Total prêté : <strong style="color:var(--ko)">{{ number_format($totalPrets, 0, ',', ' ') }} F</strong></span>
+    <span>Remboursé : <strong style="color:var(--ok)">{{ number_format($totalRembPrets, 0, ',', ' ') }} F</strong></span>
+    <span>Créances : <strong style="color:{{ $soldePrets > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($soldePrets, 0, ',', ' ') }} F</strong></span>
+</div>
+
+<div class="panneau" style="overflow-x:auto">
+<table class="tableau" style="width:100%">
+<thead><tr>
+    <th style="width:90px">Date</th>
+    <th>Référence</th>
+    <th>Bénéficiaire</th>
+    <th style="text-align:right;width:100px">Montant</th>
+    <th style="text-align:right;width:100px">Remboursé</th>
+    <th style="text-align:right;width:100px">Solde</th>
+    <th style="width:90px">Statut</th>
+    @if(!$estDG)<th style="width:140px">Actions</th>@endif
+</tr></thead>
+<tbody>
+@forelse($pretsAccordes ?? [] as $prt)
+<tr onclick="var d=document.getElementById('prt-{{ $prt->id }}');d.style.display=d.style.display=='none'?'table-row':'none'" style="cursor:pointer">
+    <td>{{ $prt->date_pret->format('d/m/Y') }}</td>
+    <td style="font-weight:600;font-size:12px">{{ $prt->reference }}</td>
+    <td>{{ $prt->beneficiaire }}</td>
+    <td style="text-align:right;font-weight:600">{{ number_format($prt->montant, 0, ',', ' ') }} F</td>
+    <td style="text-align:right;color:var(--ok)">{{ number_format($prt->montant_rembourse ?? 0, 0, ',', ' ') }} F</td>
+    <td style="text-align:right;font-weight:700;color:{{ $prt->soldeRestant() > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($prt->soldeRestant(), 0, ',', ' ') }} F</td>
+    <td><span class="pill {{ $prt->statut == 'rembourse' ? 'p-ok' : 'p-ko' }}">{{ $prt->statutLabel() }}</span></td>
+    @if(!$estDG)
+    <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
+            @if($prt->soldeRestant() > 0)
+            <button class="btn sm" onclick="ouvrirRembPret({{ $prt->id }}, '{{ $prt->beneficiaire }}', {{ $prt->soldeRestant() }})">Rembourser</button>
+            @endif
+            @if($estChargeOps)
+            <form method="POST" action="{{ route('parc.prets.destroy', $prt) }}" onsubmit="return demanderMotifSuppression(this, 'ce prêt')">
+                @csrf @method('DELETE')
+                <button class="btn sm ko">{!! $icDel !!}</button>
+            </form>
+            @endif
+        </div>
+    </td>
+    @endif
+</tr>
+@if($prt->motif || $prt->remboursements->count() > 0)
+<tr class="detail-row" id="prt-{{ $prt->id }}" style="display:none"><td colspan="{{ $estDG ? 7 : 8 }}"><div class="detail-content">
+@if($prt->motif)<strong>Motif :</strong> {{ $prt->motif }}<br>@endif
+@if($prt->modalites)<strong>Modalités :</strong> {{ $prt->modalites }}<br>@endif
+@if($prt->date_echeance)<strong>Échéance :</strong> {{ $prt->date_echeance->format('d/m/Y') }}<br>@endif
+@if($prt->remboursements->count() > 0)
+<div style="margin-top:8px"><strong>Historique remboursements :</strong>
+<table style="width:100%;font-size:12px;margin-top:4px"><thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th>Observations</th></tr></thead><tbody>
+@foreach($prt->remboursements->sortByDesc('date_remboursement') as $rb)
+<tr><td>{{ $rb->date_remboursement->format('d/m/Y') }}</td><td style="font-weight:600;color:var(--ok)">{{ number_format($rb->montant, 0, ',', ' ') }} F</td><td>{{ ucfirst(str_replace('_', ' ', $rb->mode_paiement ?? '—')) }}</td><td style="color:var(--gris)">{{ $rb->observations ?? '—' }}</td></tr>
+@endforeach
+</tbody></table></div>
+@endif
+</div></td></tr>
+@endif
+@empty
+<tr><td colspan="{{ $estDG ? 7 : 8 }}" style="text-align:center;color:var(--gris);padding:20px">Aucun prêt accordé</td></tr>
+@endforelse
+</tbody>
+</table>
+</div>
+</div>
+
+{{-- ==================== TAB AUTRES RESSOURCES ==================== --}}
+<div class="tab-panel" id="tab-ressources">
+<div class="panel-head">
+    <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> Autres ressources <span class="pill p-cours">{{ ($autresRessources ?? collect())->count() }}</span></h3>
+    @if(!$estDG)
+    <button class="btn sm" onclick="document.getElementById('dlg-ressource').showModal()">{!! $icPlus !!} Ressource</button>
+    @endif
+</div>
+
+@php $totalRessources = ($autresRessources ?? collect())->sum('montant'); @endphp
+<div style="margin-bottom:12px;font-size:13px">
+    Total : <strong style="color:var(--ok)">{{ number_format($totalRessources, 0, ',', ' ') }} F</strong>
+</div>
+
+<div class="panneau" style="overflow-x:auto">
+<table class="tableau" style="width:100%">
+<thead><tr>
+    <th style="width:90px">Date</th>
+    <th>Type</th>
+    <th>Source</th>
+    <th>Véhicule</th>
+    <th style="text-align:right;width:100px">Montant</th>
+    <th>Description</th>
+    @if(!$estDG)<th style="width:80px">Actions</th>@endif
+</tr></thead>
+<tbody>
+@forelse($autresRessources ?? [] as $res)
+<tr>
+    <td>{{ $res->date_ressource->format('d/m/Y') }}</td>
+    <td><span class="pill p-cours">{{ $res->typeLibelle() }}</span></td>
+    <td>{{ $res->source ?? '—' }}</td>
+    <td>{{ $res->vehicule->immatriculation ?? '—' }}</td>
+    <td style="text-align:right;font-weight:600;color:var(--ok)">{{ number_format($res->montant, 0, ',', ' ') }} F</td>
+    <td style="font-size:12px;color:var(--gris)">{{ $res->description ?? '—' }}</td>
+    @if(!$estDG)
+    <td>
+        <div style="display:flex;gap:4px">
+            <button class="btn sm sec" title="Modifier" onclick="ouvrirEditRessource({{ $res->id }})">{!! $icEdit !!}</button>
+            @if($estChargeOps)
+            <form method="POST" action="{{ route('parc.ressources.destroy', $res) }}" onsubmit="return demanderMotifSuppression(this, 'cette ressource')">
+                @csrf @method('DELETE')
+                <button class="btn sm ko">{!! $icDel !!}</button>
+            </form>
+            @endif
+        </div>
+    </td>
+    @endif
+</tr>
+@empty
+<tr><td colspan="{{ $estDG ? 6 : 7 }}" style="text-align:center;color:var(--gris);padding:20px">Aucune ressource enregistrée</td></tr>
+@endforelse
+</tbody>
+</table>
+</div>
+</div>
+
 {{-- Dialog Emprunt --}}
 <dialog id="dlg-emprunt" style="width:90vw;max-width:480px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -1633,6 +1840,164 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Enregistrer</button>
+    </div>
+</form>
+</dialog>
+
+{{-- Dialog Planning --}}
+<dialog id="dlg-planning" style="width:90vw;max-width:520px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Affectation planning</h3>
+    <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+</div>
+<form method="POST" action="{{ route('parc.planning.store') }}" id="form-planning">
+    @csrf <div id="planning-method"></div>
+    <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Date <span class="req">*</span></label><input type="date" name="date_jour" id="pl-date" value="{{ $datePlanning ?? date('Y-m-d') }}" required></div>
+            <div><label>Véhicule <span class="req">*</span></label>
+                <select name="vehicule_id" id="pl-vehicule" required>
+                    <option value="">— Choisir —</option>
+                    @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option>@endforeach
+                </select>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Chauffeur</label>
+                <select name="chauffeur_id" id="pl-chauffeur">
+                    <option value="">— Aucun —</option>
+                    @foreach($chauffeurs->where('statut','actif') as $ch)<option value="{{ $ch->id }}">{{ $ch->nomComplet() }}</option>@endforeach
+                </select>
+            </div>
+            <div><label>Action <span class="req">*</span></label>
+                <select name="action" id="pl-action" required>
+                    <option value="">— Choisir —</option>
+                    @foreach($actionsPlanning ?? [] as $ap)<option value="{{ $ap->code }}">{{ $ap->libelle }}</option>@endforeach
+                </select>
+            </div>
+        </div>
+        <div><label>Chauffeur remplaçant</label>
+            <select name="chauffeur_remplacant_id" id="pl-remplacant">
+                <option value="">— Aucun —</option>
+                @foreach($chauffeurs->where('statut','actif') as $ch)<option value="{{ $ch->id }}">{{ $ch->nomComplet() }}</option>@endforeach
+            </select>
+        </div>
+        <div><label>Motif</label><input type="text" name="motif" id="pl-motif" maxlength="200" placeholder="Motif optionnel"></div>
+        <div><label>Observations</label><textarea name="observations" id="pl-obs" rows="2" maxlength="500"></textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Enregistrer</button>
+        </div>
+    </div>
+</form>
+</dialog>
+
+{{-- Dialog Prêt accordé --}}
+<dialog id="dlg-pret" style="width:90vw;max-width:480px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Nouveau prêt accordé</h3>
+    <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+</div>
+<form method="POST" action="{{ route('parc.prets.store') }}">
+    @csrf
+    <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" min="1" required placeholder="0"></div>
+            <div><label>Date <span class="req">*</span></label><input type="date" name="date_pret" value="{{ date('Y-m-d') }}" required></div>
+        </div>
+        <div><label>Bénéficiaire <span class="req">*</span></label><input type="text" name="beneficiaire" required maxlength="150" placeholder="Nom du bénéficiaire"></div>
+        <div><label>Chauffeur (si applicable)</label>
+            <select name="chauffeur_id">
+                <option value="">— Aucun —</option>
+                @foreach($chauffeurs as $ch)<option value="{{ $ch->id }}">{{ $ch->nomComplet() }}</option>@endforeach
+            </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Caisse source</label>
+                <select name="caisse_source">
+                    @foreach($caisses ?? [] as $ca)<option value="{{ $ca->code }}">{{ $ca->libelle }}</option>@endforeach
+                </select>
+            </div>
+            <div><label>Échéance</label><input type="date" name="date_echeance"></div>
+        </div>
+        <div><label>Motif</label><textarea name="motif" rows="2" maxlength="500" placeholder="Raison du prêt"></textarea></div>
+        <div><label>Modalités de remboursement</label><textarea name="modalites" rows="2" maxlength="500" placeholder="Retenues sur recettes, versements, etc."></textarea></div>
+        <button type="submit" class="btn" style="justify-content:center">Enregistrer</button>
+    </div>
+</form>
+</dialog>
+
+{{-- Dialog Remboursement prêt --}}
+<dialog id="dlg-remb-pret" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 id="dlg-rp-titre" style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Remboursement prêt</h3>
+    <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+</div>
+<form method="POST" id="form-remb-pret">
+    @csrf
+    <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" id="rp-montant" min="1" required></div>
+            <div><label>Date <span class="req">*</span></label><input type="date" name="date_remboursement" value="{{ date('Y-m-d') }}" required></div>
+        </div>
+        <div><label>Mode paiement</label>
+            <select name="mode_paiement">
+                <option value="especes">Espèces</option>
+                <option value="mobile_money">Mobile Money</option>
+                <option value="cheque">Chèque</option>
+                <option value="virement">Virement</option>
+                <option value="autre">Autre</option>
+            </select>
+        </div>
+        <div><label>Caisse destination</label>
+            <select name="caisse_destination">
+                @foreach($caisses ?? [] as $ca)<option value="{{ $ca->code }}">{{ $ca->libelle }}</option>@endforeach
+            </select>
+        </div>
+        <div><label>Observations</label><textarea name="observations" rows="2" maxlength="500"></textarea></div>
+        <button type="submit" class="btn" style="justify-content:center">Enregistrer</button>
+    </div>
+</form>
+</dialog>
+
+{{-- Dialog Autre ressource --}}
+<dialog id="dlg-ressource" style="width:90vw;max-width:480px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Nouvelle ressource</h3>
+    <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
+</div>
+<form method="POST" action="{{ route('parc.ressources.store') }}" id="form-ressource">
+    @csrf <div id="ressource-method"></div>
+    <div style="display:grid;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Date <span class="req">*</span></label><input type="date" name="date_ressource" id="rs-date" value="{{ date('Y-m-d') }}" required></div>
+            <div><label>Type <span class="req">*</span></label>
+                <select name="type_ressource" id="rs-type" required>
+                    <option value="">— Choisir —</option>
+                    @foreach($typesRessource ?? [] as $tr)<option value="{{ $tr->code }}">{{ $tr->libelle }}</option>@endforeach
+                </select>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" id="rs-montant" min="1" required placeholder="0"></div>
+            <div><label>Source</label><input type="text" name="source" id="rs-source" maxlength="150" placeholder="Origine"></div>
+        </div>
+        <div><label>Véhicule (optionnel)</label>
+            <select name="vehicule_id" id="rs-vehicule">
+                <option value="">— Aucun —</option>
+                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option>@endforeach
+            </select>
+        </div>
+        <div><label>Caisse destination</label>
+            <select name="caisse_destination" id="rs-caisse">
+                @foreach($caisses ?? [] as $ca)<option value="{{ $ca->code }}">{{ $ca->libelle }}</option>@endforeach
+            </select>
+        </div>
+        <div><label>Description</label><textarea name="description" id="rs-desc" rows="2" maxlength="500"></textarea></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Enregistrer</button>
+        </div>
     </div>
 </form>
 </dialog>
@@ -1756,7 +2121,7 @@ function changerOnglet(nom){
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('actif')});
     document.getElementById('tab-'+nom).classList.add('actif');
     var btns=document.querySelectorAll('.tab-btn');
-    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses','emprunts'];
+    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses','emprunts','planning','prets','ressources'];
     var idx=noms.indexOf(nom);
     if(idx>=0 && btns[idx]) btns[idx].classList.add('actif');
 }
@@ -2622,6 +2987,53 @@ function editerDepense(id){
     document.getElementById('de-montant').value=d.montant;
     document.getElementById('de-comment').value=d.commentaire||'';
     document.getElementById('dlg-depense').showModal();
+}
+
+// === Planning ===
+function ouvrirEditPlanning(id){
+    // Simplified — reload with edit parameter
+    // For full edit, you'd populate the form via JS data
+    alert('Fonctionnalité de modification en cours. Supprimez et recréez pour le moment.');
+}
+
+// === Prêts ===
+function ouvrirRembPret(pretId, beneficiaire, solde){
+    document.getElementById('dlg-rp-titre').textContent = 'Remboursement — ' + beneficiaire;
+    document.getElementById('form-remb-pret').action = '/parc/prets/' + pretId + '/remboursement';
+    document.getElementById('rp-montant').max = solde;
+    document.getElementById('rp-montant').placeholder = 'Max ' + solde.toLocaleString('fr-FR') + ' F';
+    document.getElementById('dlg-remb-pret').showModal();
+}
+
+// === Ressources ===
+@php
+$_resData = [];
+foreach($autresRessources ?? [] as $_res) {
+    $_resData[$_res->id] = [
+        'date_ressource' => $_res->date_ressource->format('Y-m-d'),
+        'type_ressource' => $_res->type_ressource,
+        'montant' => $_res->montant,
+        'source' => $_res->source,
+        'description' => $_res->description,
+        'vehicule_id' => $_res->vehicule_id,
+        'caisse_destination' => $_res->caisse_destination,
+    ];
+}
+@endphp
+var resData = @json($_resData);
+function ouvrirEditRessource(id){
+    var d = resData[id];
+    if(!d) return;
+    document.getElementById('form-ressource').action = '/parc/ressources/' + id;
+    document.getElementById('ressource-method').innerHTML = '<input type="hidden" name="_method" value="PUT">';
+    document.getElementById('rs-date').value = d.date_ressource;
+    document.getElementById('rs-type').value = d.type_ressource;
+    document.getElementById('rs-montant').value = d.montant;
+    document.getElementById('rs-source').value = d.source || '';
+    document.getElementById('rs-vehicule').value = d.vehicule_id || '';
+    document.getElementById('rs-caisse').value = d.caisse_destination || 'generale';
+    document.getElementById('rs-desc').value = d.description || '';
+    document.getElementById('dlg-ressource').showModal();
 }
 </script>
 @endpush

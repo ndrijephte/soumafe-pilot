@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, Chauffeur, Depense, Emprunt, MaintenancePreventive, Objectif, Panne, Penalite, Recouvrement, RecetteVehicule, RemboursementEmprunt, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, AutreRessource, Caisse, Chauffeur, Depense, Emprunt, MaintenancePreventive, MouvementCaisse, Objectif, Panne, Penalite, PretAccorde, Recouvrement, RecetteVehicule, RemboursementEmprunt, TypeParc, User, Vehicule, VersementRecouvrement};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -486,6 +486,65 @@ class ReportingParcController extends Controller
             : 0;
         $soldeCaisse = $rentabilite + $totalEmp - $remboursementsPeriode;
 
+        // ═══════ PRÊTS ACCORDÉS ═══════
+        $pretsData = ['total_prete' => 0, 'total_rembourse' => 0, 'creances' => 0, 'nb_prets' => 0, 'nb_en_cours' => 0];
+        if (Schema::hasTable('prets_accordes')) {
+            $pretsPeriode = PretAccorde::whereBetween('date_pret', [$debut, $fin]);
+            $pretsData['total_prete'] = (int) (clone $pretsPeriode)->sum('montant');
+            $pretsData['total_rembourse'] = (int) (clone $pretsPeriode)->sum('montant_rembourse');
+            $pretsData['creances'] = $pretsData['total_prete'] - $pretsData['total_rembourse'];
+            $pretsData['nb_prets'] = (clone $pretsPeriode)->count();
+            $pretsData['nb_en_cours'] = (int) PretAccorde::where('statut', 'en_cours')->count();
+        }
+
+        // ═══════ AUTRES RESSOURCES ═══════
+        $autresRessourcesTotal = 0;
+        $autresRessourcesType = collect();
+        if (Schema::hasTable('autres_ressources')) {
+            $autresRessourcesTotal = (int) AutreRessource::whereBetween('date_ressource', [$debut, $fin])->sum('montant');
+            $autresRessourcesType = AutreRessource::whereBetween('date_ressource', [$debut, $fin])
+                ->select('type_ressource', DB::raw('SUM(montant) as total'), DB::raw('COUNT(*) as nb'))
+                ->groupBy('type_ressource')
+                ->orderByDesc('total')
+                ->get();
+        }
+
+        // ═══════ TRÉSORERIE FORMALISÉE ═══════
+        // Entrées = recettes + pointages + autres ressources + recouvrements perçus
+        $tresoEntrees = $recetteTotal + $pointageTotal + $autresRessourcesTotal + $recouvrementPercu;
+        // Sorties = dépenses + pannes + pénalités payées + prêts accordés
+        $penalitesPayees = 0;
+        if (Schema::hasTable('paiements_penalites')) {
+            $penalitesPayees = (int) DB::table('paiements_penalites')->whereBetween('date_paiement', [$debut, $fin])->sum('montant');
+        }
+        $tresoSorties = $depensesTotal + $coutPannes + $penalitesPayees + $pretsData['total_prete'];
+        $soldeBrut = $tresoEntrees - $tresoSorties;
+        // Solde après engagements = solde brut - dette emprunts restante - créances prêts non remboursées
+        $soldeApresEngagements = $soldeBrut - ($detteGlobale ?? 0) - $pretsData['creances'];
+
+        // ═══════ CAISSES MULTIPLES ═══════
+        $soldesCaisses = collect();
+        if (Schema::hasTable('caisses') && Schema::hasTable('mouvements_caisse')) {
+            $soldesCaisses = Caisse::where('actif', true)->get()->map(function ($c) use ($debut, $fin) {
+                $entrees = (int) MouvementCaisse::where('caisse_code', $c->code)
+                    ->where('sens', 'entree')
+                    ->whereBetween('date_mouvement', [$debut, $fin])
+                    ->sum('montant');
+                $sorties = (int) MouvementCaisse::where('caisse_code', $c->code)
+                    ->where('sens', 'sortie')
+                    ->whereBetween('date_mouvement', [$debut, $fin])
+                    ->sum('montant');
+                return [
+                    'code' => $c->code,
+                    'libelle' => $c->libelle,
+                    'entrees' => $entrees,
+                    'sorties' => $sorties,
+                    'solde' => $c->solde_initial + $entrees - $sorties,
+                    'mouvement_net' => $entrees - $sorties,
+                ];
+            });
+        }
+
         // ═══════ RENTABILITÉ DYNAMIQUE PAR VÉHICULE ═══════
         $rentaVehicules = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
             $rec = (int) RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->sum('recette');
@@ -543,7 +602,10 @@ class ReportingParcController extends Controller
             'depensesTotal', 'depensesJour', 'depVehJour', 'depensesType', 'typesDepenseLabels', 'rentabilite',
             'okrGestionnaire', 'okrChauffeurs', 'periodeOkr',
             'empruntsData', 'fondsData', 'totalFP', 'totalEmp', 'soldeCaisse', 'detteGlobale', 'remboursementsPeriode',
-            'rentaVehicules', 'nbRentables', 'nbDeficit', 'profitTotal', 'depTotalVeh', 'detteNetteTotale'
+            'rentaVehicules', 'nbRentables', 'nbDeficit', 'profitTotal', 'depTotalVeh', 'detteNetteTotale',
+            'pretsData', 'autresRessourcesTotal', 'autresRessourcesType',
+            'tresoEntrees', 'tresoSorties', 'soldeBrut', 'soldeApresEngagements', 'penalitesPayees',
+            'soldesCaisses'
         ));
     }
 

@@ -163,6 +163,26 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/emprunts', [ParcController::class, 'storeEmprunt'])->name('parc.emprunts.store');
     Route::post('/parc/emprunts/{emprunt}/remboursement', [ParcController::class, 'storeRemboursement'])->name('parc.emprunts.remboursement');
     Route::delete('/parc/emprunts/{emprunt}', [ParcController::class, 'destroyEmprunt'])->name('parc.emprunts.destroy');
+
+    // Planning journalier
+    Route::post('/parc/planning', [ParcController::class, 'storePlanning'])->name('parc.planning.store');
+    Route::put('/parc/planning/{planning}', [ParcController::class, 'updatePlanning'])->name('parc.planning.update');
+    Route::delete('/parc/planning/{planning}', [ParcController::class, 'destroyPlanning'])->name('parc.planning.destroy');
+
+    // Prêts accordés
+    Route::post('/parc/prets', [ParcController::class, 'storePret'])->name('parc.prets.store');
+    Route::post('/parc/prets/{pret}/remboursement', [ParcController::class, 'storeRemboursementPret'])->name('parc.prets.remboursement');
+    Route::delete('/parc/prets/{pret}', [ParcController::class, 'destroyPret'])->name('parc.prets.destroy');
+
+    // Autres ressources
+    Route::post('/parc/ressources', [ParcController::class, 'storeAutreRessource'])->name('parc.ressources.store');
+    Route::put('/parc/ressources/{ressource}', [ParcController::class, 'updateAutreRessource'])->name('parc.ressources.update');
+    Route::delete('/parc/ressources/{ressource}', [ParcController::class, 'destroyAutreRessource'])->name('parc.ressources.destroy');
+
+    // Workflow motif recettes
+    Route::patch('/parc/recettes/{recette}/valider-motif', [ParcController::class, 'validerMotif'])->name('parc.recettes.validerMotif');
+    Route::patch('/parc/recettes/{recette}/invalider-motif', [ParcController::class, 'invaliderMotif'])->name('parc.recettes.invaliderMotif');
+
     Route::get('/parc/reporting', [ReportingParcController::class, 'index'])->name('reporting.parc');
 
     // Pointage & Présence

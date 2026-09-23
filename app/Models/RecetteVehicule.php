@@ -11,7 +11,7 @@ class RecetteVehicule extends Model
     protected $fillable = [
         'date', 'type_jour', 'vehicule_id', 'chauffeur', 'recette', 'objectif',
         'ecart', 'pointage', 'mode_remise', 'controle_par', 'observations', 'motif_absence', 'perspective',
-        'justification_valable',
+        'justification_valable', 'statut_motif',
         'valide_par', 'valide_le', 'motif_modification', 'modifie_par', 'modifie_le',
     ];
 

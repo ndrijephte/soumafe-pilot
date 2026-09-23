@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Depense extends Model
 {
     protected $fillable = [
-        'date_depense', 'type_depense', 'vehicule_id', 'montant', 'commentaire', 'cree_par', 'emprunt_id',
+        'date_depense', 'type_depense', 'fournisseur', 'vehicule_id', 'montant',
+        'moyen_paiement', 'justificatif', 'caisse_source',
+        'commentaire', 'cree_par', 'emprunt_id',
     ];
 
     protected $casts = ['date_depense' => 'date', 'montant' => 'integer'];

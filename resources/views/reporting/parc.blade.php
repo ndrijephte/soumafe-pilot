@@ -128,33 +128,37 @@
         @php $ecartG = $recetteTotalAvecRecouv - $objectifTotal; @endphp
         <div class="kpi-sub {{ $ecartG >= 0 ? 'kpi-ok' : 'kpi-ko' }}">{{ $ecartG >= 0 ? '+' : '' }}{{ number_format($ecartG, 0, ',', ' ') }}</div>
     </div>
-    <div class="kpi-c">
-        <div class="kpi-v">{{ number_format($coutPannes, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Coût pannes (FCFA)</div>
-        <div class="kpi-sub kpi-ko">{{ $nbPannes }} panne{{ $nbPannes > 1 ? 's' : '' }}</div>
+    <div class="kpi-c" style="background:#fef2f2;border-color:#fca5a5">
+        <div class="kpi-v" style="color:var(--ko)">{{ number_format($totalCharges ?? 0, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Total sorties (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Pannes {{ number_format($coutPannes,0,',',' ') }} + P&eacute;nal. {{ number_format($montantPenalites,0,',',' ') }} + Maint. {{ number_format($coutMaintenance ?? 0,0,',',' ') }} + D&eacute;p. {{ number_format($depensesTotal,0,',',' ') }}</div>
+    </div>
+    <div class="kpi-c" style="background:{{ $rentabilite >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ $rentabilite >= 0 ? '#86efac' : '#fca5a5' }}">
+        <div class="kpi-v" style="color:{{ $rentabilite >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rentabilite >= 0 ? '+' : '' }}{{ number_format($rentabilite, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Rentabilit&eacute; nette (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - Total sorties</div>
     </div>
     <div class="kpi-c">
-        <div class="kpi-v">{{ $delaiMoyen }} j</div>
-        <div class="kpi-l">Délai moyen résolution</div>
+        <div class="kpi-v">{{ number_format($coutPannes, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Co&ucirc;t pannes (FCFA)</div>
+        <div class="kpi-sub kpi-ko">{{ $nbPannes }} panne{{ $nbPannes > 1 ? 's' : '' }} &mdash; {{ $delaiMoyen }} j moy.</div>
     </div>
     <div class="kpi-c">
         <div class="kpi-v">{{ number_format($montantPenalites, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Pénalités (FCFA)</div>
+        <div class="kpi-l">P&eacute;nalit&eacute;s (FCFA)</div>
         <div class="kpi-sub kpi-ko">{{ $nbPenalites }} infraction{{ $nbPenalites > 1 ? 's' : '' }}</div>
     </div>
     <div class="kpi-c">
-        <div class="kpi-v">{{ $maintenancesRetard }}</div>
-        <div class="kpi-l">Maintenances en retard</div>
-        <div class="kpi-sub kpi-warn">{{ $maintenancesProches }} à venir (15j)</div>
+        <div class="kpi-v" style="color:var(--ko)">{{ number_format($coutMaintenance ?? 0, 0, ',', ' ') }}</div>
+        <div class="kpi-l">Maintenance (FCFA)</div>
+        <div class="kpi-sub" style="font-size:10px">
+            @if($maintenancesRetard > 0)<span class="kpi-ko">{{ $maintenancesRetard }} en retard</span> @endif
+            @if($maintenancesProches > 0)<span class="kpi-warn">{{ $maintenancesProches }} &agrave; venir</span> @endif
+        </div>
     </div>
     <div class="kpi-c">
         <div class="kpi-v" style="color:var(--ko)">{{ number_format($depensesTotal, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Autres dépenses (FCFA)</div>
-    </div>
-    <div class="kpi-c">
-        <div class="kpi-v" style="color:{{ $rentabilite >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rentabilite >= 0 ? '+' : '' }}{{ number_format($rentabilite, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Rentabilit&eacute; nette (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - D&eacute;penses - P&eacute;nalit&eacute;s - Pannes</div>
+        <div class="kpi-l">D&eacute;penses bureau (FCFA)</div>
     </div>
     @if(($totalEmp ?? 0) > 0 || ($remboursementsPeriode ?? 0) > 0)
     <div class="kpi-c" style="background:{{ $soldeCaisse >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ $soldeCaisse >= 0 ? '#86efac' : '#fca5a5' }}">
@@ -976,7 +980,8 @@
             <h4 style="font-size:13px;color:var(--ko);margin:0 0 10px">Sorties</h4>
             <table class="rp-tbl">
                 <tbody>
-                    <tr><td>D&eacute;penses</td><td class="num neg">{{ number_format($depensesTotal ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>D&eacute;penses bureau</td><td class="num neg">{{ number_format($depensesTotal ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Maintenance</td><td class="num neg">{{ number_format($coutMaintenance ?? 0,0,',',' ') }}</td></tr>
                     <tr><td>Pannes</td><td class="num neg">{{ number_format($coutPannes ?? 0,0,',',' ') }}</td></tr>
                     <tr><td>P&eacute;nalit&eacute;s pay&eacute;es</td><td class="num neg">{{ number_format($penalitesPayees ?? 0,0,',',' ') }}</td></tr>
                     <tr><td>Pr&ecirc;ts accord&eacute;s</td><td class="num neg">{{ number_format($pretsData['total_prete'] ?? 0,0,',',' ') }}</td></tr>

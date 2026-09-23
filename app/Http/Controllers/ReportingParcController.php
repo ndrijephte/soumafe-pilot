@@ -509,15 +509,18 @@ class ReportingParcController extends Controller
                 ->get();
         }
 
+        // ═══════ TOTAL CHARGES (toutes sorties confondues) ═══════
+        $totalCharges = $depensesTotal + $coutMaintenance + $coutPannes + $montantPenalites;
+
         // ═══════ TRÉSORERIE FORMALISÉE ═══════
         // Entrées = recettes + pointages + autres ressources + recouvrements perçus
         $tresoEntrees = $recetteTotal + $pointageTotal + $autresRessourcesTotal + $recouvrementPercu;
-        // Sorties = dépenses + pannes + pénalités payées + prêts accordés
+        // Sorties = dépenses bureau + maintenance + pannes + pénalités payées + prêts accordés
         $penalitesPayees = 0;
         if (Schema::hasTable('paiements_penalites')) {
             $penalitesPayees = (int) DB::table('paiements_penalites')->whereBetween('date_paiement', [$debut, $fin])->sum('montant');
         }
-        $tresoSorties = $depensesTotal + $coutPannes + $penalitesPayees + $pretsData['total_prete'];
+        $tresoSorties = $depensesTotal + $coutMaintenance + $coutPannes + $penalitesPayees + $pretsData['total_prete'];
         $soldeBrut = $tresoEntrees - $tresoSorties;
         // Solde après engagements = solde brut - dette emprunts restante - créances prêts non remboursées
         $soldeApresEngagements = $soldeBrut - ($detteGlobale ?? 0) - $pretsData['creances'];
@@ -603,6 +606,7 @@ class ReportingParcController extends Controller
             'okrGestionnaire', 'okrChauffeurs', 'periodeOkr',
             'empruntsData', 'fondsData', 'totalFP', 'totalEmp', 'soldeCaisse', 'detteGlobale', 'remboursementsPeriode',
             'rentaVehicules', 'nbRentables', 'nbDeficit', 'profitTotal', 'depTotalVeh', 'detteNetteTotale',
+            'totalCharges', 'coutMaintenance',
             'pretsData', 'autresRessourcesTotal', 'autresRessourcesType',
             'tresoEntrees', 'tresoSorties', 'soldeBrut', 'soldeApresEngagements', 'penalitesPayees',
             'soldesCaisses'

@@ -3,6 +3,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Panne extends Model
 {
@@ -20,6 +21,14 @@ class Panne extends Model
 
     public function vehicule(): BelongsTo { return $this->belongsTo(Vehicule::class); }
     public function emprunt(): BelongsTo { return $this->belongsTo(Emprunt::class); }
+    public function lignes(): HasMany { return $this->hasMany(LigneInterventionPanne::class); }
+
+    /** Recalculer le coût réel depuis les lignes d'intervention */
+    public function recalculerCout(): void
+    {
+        $this->cout_reel = $this->lignes()->sum('montant');
+        $this->save();
+    }
 
     public function statutLabel(): string
     {

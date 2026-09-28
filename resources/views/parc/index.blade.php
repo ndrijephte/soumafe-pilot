@@ -54,6 +54,10 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .req{color:var(--ko)}
 .filtre-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
 .filtre-bar select,.filtre-bar input[type="month"],.filtre-bar input[type="text"]{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
+#form-saisie-recette select,#form-saisie-recette input[type="number"],#form-saisie-recette input[type="date"],#form-saisie-recette textarea{width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:#fff;color:#1e293b;transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none}
+#form-saisie-recette select{background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231F4E79' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;padding-right:30px}
+#form-saisie-recette select:focus,#form-saisie-recette input[type="number"]:focus,#form-saisie-recette textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
+#form-saisie-recette select:hover,#form-saisie-recette input[type="number"]:hover{border-color:var(--accent)}
 .urgence-faible{color:#475569}.urgence-moyenne{color:var(--warn)}.urgence-haute{color:#ea580c;font-weight:700}.urgence-critique{color:var(--ko);font-weight:700}
 .detail-row td{padding:0!important;border-bottom:1px solid #f1f5f9}
 .detail-content{background:#f8fafc;padding:8px 16px;font-size:12px;color:#334155;line-height:1.6;border-left:3px solid var(--accent)}
@@ -71,6 +75,12 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.form-row,.form-row3{grid-template-columns:1fr}table{display:block;overflow-x:auto}thead{display:table-header-group}tbody{display:table-row-group}.panel-head{flex-wrap:wrap;gap:8px}.header-actions{flex-wrap:wrap}.filtre-bar{flex-direction:column;align-items:stretch}}
 @media(max-width:600px){.kpis{grid-template-columns:1fr}.kpi .val{font-size:22px}.tab-btn{padding:8px 12px;font-size:12px}.tab-btn svg{width:14px;height:14px}.panneau{padding:10px 8px}.panel-head h3{font-size:13px}.btn.sm{padding:4px 8px;font-size:10.5px}dialog{padding:16px;width:95vw}.act-row{gap:2px}.type-item{flex-wrap:wrap;gap:6px}.type-item .code{display:none}}
 @media(max-width:400px){.tab-btn span.pill{display:none}.tab-btn{padding:6px 8px;gap:4px}.kpi{padding:10px}.gc-row{padding:10px 12px;gap:8px}.gc-montant{font-size:13px;min-width:60px}}
+.scroll-wrap{position:relative}
+.scroll-wrap .scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:2;box-shadow:0 2px 6px rgba(0,0,0,.15);opacity:.85;transition:opacity .15s}
+.scroll-wrap .scroll-arrow:hover{opacity:1}
+.scroll-wrap .scroll-arrow.left{left:2px}
+.scroll-wrap .scroll-arrow.right{right:2px}
+.scroll-wrap .scroll-arrow svg{width:14px;height:14px}
 /* Grille chauffeurs recettes */
 .gc-list{display:flex;flex-direction:column;gap:6px}
 .gc-item{background:var(--carte);border:1px solid var(--bord);border-radius:10px;overflow:hidden;transition:box-shadow .15s}
@@ -164,6 +174,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 {{-- Onglets --}}
+<div class="scroll-wrap tab-scroll-wrap">
+<button type="button" class="scroll-arrow left" id="tab-arrow-l" onclick="document.getElementById('tab-bar').scrollBy({left:-200,behavior:'smooth'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
 <div class="tab-bar" id="tab-bar">
     <button class="tab-btn actif" onclick="changerOnglet('vehicules')">{!! $icCar !!} Véhicules <span class="pill p-cours">{{ $vehicules->count() }}</span></button>
     <button class="tab-btn" onclick="changerOnglet('pannes')">{!! $icWrench !!} Pannes @if($kpi['pannes_ouvertes']>0)<span class="pill p-ko">{{ $kpi['pannes_ouvertes'] }}</span>@endif</button>
@@ -180,15 +192,14 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <button class="tab-btn" onclick="changerOnglet('emprunts')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
         Emprunts @if(($emprunts ?? collect())->where('statut','en_cours')->count()>0)<span class="pill p-ko">{{ ($emprunts ?? collect())->where('statut','en_cours')->count() }}</span> @endif</button>
-    <button class="tab-btn" onclick="changerOnglet('planning')">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Planning</button>
     <button class="tab-btn" onclick="changerOnglet('prets')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         Prêts @if(($pretsAccordes ?? collect())->where('statut','en_cours')->count()>0)<span class="pill p-ko">{{ ($pretsAccordes ?? collect())->where('statut','en_cours')->count() }}</span> @endif</button>
     <button class="tab-btn" onclick="changerOnglet('ressources')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
         Ressources <span class="pill p-cours">{{ ($autresRessources ?? collect())->count() }}</span></button>
+</div>
+<button type="button" class="scroll-arrow right" id="tab-arrow-r" onclick="document.getElementById('tab-bar').scrollBy({left:200,behavior:'smooth'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg></button>
 </div>
 
 {{-- ==================== TAB VÉHICULES ==================== --}}
@@ -259,7 +270,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>{{ $p->delai_resolution !== null ? $p->delai_resolution.'j' : '—' }}</td>
         <td>
             <div class="act-row">
-                @if($p->description || $p->diagnostic || $p->decision)
+                @if($p->description || $p->diagnostic || $p->decision || $p->lignes->count())
                 <button class="act-btn info" title="Détails" onclick="toggleDetail('panne-{{ $p->id }}')">{!! $icEye !!}</button>
                 @endif
                 <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $p->vehicule_id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
@@ -276,11 +287,30 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
-    @if($p->description || $p->diagnostic || $p->decision)
+    @if($p->description || $p->diagnostic || $p->decision || $p->lignes->count())
     <tr class="detail-row" id="panne-{{ $p->id }}" style="display:none"><td colspan="8"><div class="detail-content">
         @if($p->description)<strong>Description :</strong> {{ $p->description }}<br>@endif
         @if($p->diagnostic)<strong>Diagnostic :</strong> {{ $p->diagnostic }}<br>@endif
-        @if($p->decision)<strong>Décision :</strong> {{ $p->decision }}@endif
+        @if($p->decision)<strong>Decision :</strong> {{ $p->decision }}<br>@endif
+        @if($p->lignes->count())
+        <div style="margin-top:8px">
+            <strong>Details intervention :</strong>
+            <table style="width:100%;max-width:500px;border-collapse:collapse;font-size:12px;margin-top:4px">
+                <thead><tr style="background:var(--fond)"><th style="text-align:left;padding:3px 6px">Designation</th><th style="text-align:center;padding:3px 4px">Qte</th><th style="text-align:right;padding:3px 4px">P.U.</th><th style="text-align:right;padding:3px 4px">Montant</th></tr></thead>
+                <tbody>
+                @foreach($p->lignes as $li)
+                <tr style="border-bottom:1px solid var(--bord)">
+                    <td style="padding:3px 6px">{{ $li->designation }}</td>
+                    <td style="text-align:center;padding:3px 4px">{{ $li->quantite }}</td>
+                    <td style="text-align:right;padding:3px 4px">{{ number_format($li->prix_unitaire, 0, ',', ' ') }}</td>
+                    <td style="text-align:right;padding:3px 4px">{{ number_format($li->montant, 0, ',', ' ') }}</td>
+                </tr>
+                @endforeach
+                </tbody>
+                <tfoot><tr style="border-top:2px solid var(--accent)"><td colspan="3" style="text-align:right;padding:3px 6px;font-weight:700">Total</td><td style="text-align:right;padding:3px 4px;font-weight:700">{{ number_format($p->lignes->sum('montant'), 0, ',', ' ') }} F</td></tr></tfoot>
+            </table>
+        </div>
+        @endif
     </div></td></tr>
     @endif
     @empty
@@ -342,7 +372,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Historique
             </button>
-            @if(!$estDG)<button type="button" class="btn sm sec" onclick="ouvrirSaisieIndiv()">{!! $icPlus !!} Saisie individuelle</button> @endif
         </div>
     </div>
 
@@ -375,183 +404,228 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     @endif
 
-    {{-- ===== FORMULAIRE CACHÉ POUR SOUMISSION ===== --}}
-    <form method="POST" action="{{ route('parc.recettes.validerJournee') }}" id="form-grille-ind" style="display:none">
-        @csrf
-        <input type="hidden" name="date_jour" value="{{ $dateJour }}">
-        <input type="hidden" name="lignes[0][vehicule_id]" id="gi-vehicule">
-        <input type="hidden" name="lignes[0][chauffeur]" id="gi-chauffeur">
-        <input type="hidden" name="lignes[0][recette]" id="gi-recette">
-        <input type="hidden" name="lignes[0][pointage]" id="gi-pointage">
-        <input type="hidden" name="lignes[0][mode_remise]" id="gi-mode">
-        <input type="hidden" name="lignes[0][motif_absence]" id="gi-motif">
-        <input type="hidden" name="lignes[0][perspective]" id="gi-perspective">
-        <input type="hidden" name="lignes[0][justification_valable]" id="gi-justif" value="1">
-        <input type="hidden" name="lignes[0][controle_par]" value="{{ auth()->user()->name }}">
-        <input type="hidden" name="lignes[0][est_repos]" id="gi-repos" value="0">
-        <input type="hidden" name="lignes[0][motif_modification]" id="gi-motif-modif" value="">
-    </form>
-
-    {{-- ===== FILTRE RECHERCHE ===== --}}
-    <div style="margin-bottom:12px">
-        <input type="text" id="gc-search" placeholder="Rechercher un chauffeur..." oninput="filtrerGrilleCh(this.value)" style="width:100%;max-width:360px;padding:8px 14px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:var(--carte)">
-    </div>
-
-    {{-- ===== GRILLE CHAUFFEURS ===== --}}
-    <div class="gc-list" id="gc-list">
-    @foreach($grilleJour as $i => $g)
+    {{-- ===== FORMULAIRE + RECAPITULATIF RECETTES ===== --}}
     @php
-        $v = $g['vehicule'];
-        $deja = $g['deja_saisi'];
-        $rec = $g['recette'];
-        $repos = $g['est_repos'];
-        $nomCh = $g['chauffeur'] ?: 'Sans chauffeur';
-        $chActif = $g['chauffeur_actif'] ?? true;
-        $vehiculePrisPar = $g['vehicule_pris_par'] ?? null;
-        $montantAff = $deja ? number_format($rec->recette, 0, ',', ' ') . ' F' : '';
-        $ecartOk = $deja && $rec->ecart >= 0;
-        $sousObjectif = $deja && $rec->ecart < 0 && $rec->recette > 0;
-        $aRecouvrement = $deja && ($recouvrements ?? collect())->where('recette_vehicule_id', $rec->id ?? 0)->where('statut', 'actif')->isNotEmpty();
+        $chauffeursPending = collect($grilleJour)->filter(fn($g) => !$g['deja_saisi'] && ($g['chauffeur_actif'] ?? true) && !($g['vehicule_pris_par'] ?? null));
+        $chauffeursFaits = collect($grilleJour)->filter(fn($g) => $g['deja_saisi']);
+        $totalRecJour = $chauffeursFaits->sum(fn($g) => $g['recette']->recette ?? 0);
+        $totalObjJour = $chauffeursFaits->sum(fn($g) => $g['recette']->objectif ?? 0);
+        $totalPtgJour = $chauffeursFaits->sum(fn($g) => $g['recette']->pointage ?? 0);
     @endphp
-    <div class="gc-item {{ $repos ? 'gc-repos' : ($deja ? 'gc-fait' : ($vehiculePrisPar ? 'gc-bloque' : '')) }}{{ !$chActif ? ' gc-inactif' : '' }}" id="gc-{{ $i }}" data-vid="{{ $v->id }}" data-repos="{{ $repos ? '1' : '0' }}" data-objectif="{{ $g['objectif'] }}" data-nom="{{ mb_strtolower($nomCh) }}" data-pris="{{ $vehiculePrisPar ? '1' : '0' }}">
-        <div class="gc-row" onclick="toggleRecette({{ $i }})">
-            <div class="gc-avatar{{ !$chActif ? ' gc-av-off' : '' }}">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </div>
-            <div class="gc-info">
-                <div class="gc-nom">{{ $nomCh }}@if(!$chActif) <span class="pill p-ko" style="font-size:9px;padding:1px 5px;margin-left:6px">Inactif</span>@endif</div>
-                <div class="gc-sub">
-                    <span>{{ $v->immatriculation }}</span>
-                    <span class="cat-pill {{ $v->categorie === 'taxi' ? 'cat-taxi' : 'cat-vtc' }}" style="font-size:10px;padding:1px 6px">{{ $v->categorieLabel() }}</span>
-                    <span>Obj. {{ number_format($g['objectif'], 0, ',', ' ') }} F</span>
-                </div>
-            </div>
-            @if($repos && ($g['repos_alternance'] ?? false))
-            <span class="pill p-ok" style="font-size:11px">Repos (alternance)</span>
-            @elseif($repos)
-            <span class="pill p-ok" style="font-size:11px">Repos</span>
-            @elseif($deja && $rec->recette == 0)
-            <span class="pill p-ko" style="font-size:11px">Pas en service</span>
-            @elseif($deja)
-            <div class="gc-montant {{ $ecartOk ? 'gc-ok' : 'gc-ko' }}">{{ $montantAff }}</div>
-            @else
-            @if($vehiculePrisPar)
-            <span class="pill p-ko" style="font-size:10px">Véh. pris par {{ $vehiculePrisPar }}</span>
-            @else
-            <span class="pill p-warn" style="font-size:11px">En attente</span>
-            @endif
-            @endif
-            <svg class="gc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+
+    {{-- ===== RECAPITULATIF DU JOUR (toujours visible, en premier) ===== --}}
+    @if($chauffeursFaits->count() > 0)
+    <div style="margin-bottom:16px">
+        {{-- En-tete recap avec totaux --}}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+            {!! $ic('M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8', 16) !!}
+            <span style="font-size:14px;font-weight:700;color:var(--bleu)">Saisies du jour</span>
+            <span class="pill {{ $tousValides ? 'p-ok' : 'p-cours' }}">{{ $nbSaisis }}/{{ $nbTotal }}</span>
+            <span style="margin-left:auto;font-size:12px;color:var(--mute)">
+                Total : <strong style="color:var(--bleu)">{{ number_format($totalRecJour, 0, ',', ' ') }} F</strong>
+                @if($totalPtgJour > 0) + {{ number_format($totalPtgJour, 0, ',', ' ') }} F ptg @endif
+            </span>
         </div>
-        <div class="gc-detail" id="gc-detail-{{ $i }}">
+
+        {{-- Cards recettes saisies --}}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+        @foreach($grilleJour as $i => $g)
+            @if($g['deja_saisi'])
             @php
-                $chNom = $g['chauffeur'] ?? '';
-                $chId = $g['chauffeur_obj']->id ?? null;
-                $moisDebut = \Carbon\Carbon::parse($dateJour)->startOfMonth();
-                $moisFin = \Carbon\Carbon::parse($dateJour)->endOfMonth();
-                $recsCh = $chNom !== '' ? $recettes->filter(fn($r) => $r->chauffeur === $chNom && $r->date && $r->date->gte($moisDebut) && $r->date->lte($moisFin)) : collect();
-                $totalMois = $recsCh->sum('recette');
-                $nbJours = $recsCh->count();
-                $penaCh = $chNom !== '' ? $penalites->where('chauffeur', $chNom)->where('statut', '!=', 'payee') : collect();
-                $recouvCh = $chId ? ($recouvrements ?? collect())->where('chauffeur_id', $chId)->where('statut', 'actif') : collect();
+                $rv = $g['vehicule'];
+                $rc = $g['recette'];
+                $ecOk = ($rc->ecart ?? 0) >= 0;
+                $statutMotif = $rc->statut_motif ?? (($rc->justification_valable ?? false) ? 'valide' : 'en_attente');
+                $borderColor = $ecOk ? '#86efac' : ($statutMotif === 'valide' ? '#fde68a' : '#fca5a5');
             @endphp
-            @php $totalPtgMois = $recsCh->sum('pointage'); @endphp
-            <div style="padding:4px 16px 8px;display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:#6b7280;border-bottom:1px solid var(--bord)">
-                <span><strong style="color:var(--bleu)">{{ number_format($totalMois, 0, ',', ' ') }} F</strong> ce mois</span>
-                <span>{{ $nbJours }} jour(s) saisi(s)</span>
-                @if($totalPtgMois > 0)<span>Pointage : <strong style="color:var(--accent)">{{ number_format($totalPtgMois, 0, ',', ' ') }} F</strong></span> @endif
-                @if($penaCh->count())<span style="color:var(--ko)">{{ $penaCh->count() }} pénalité(s)</span> @endif
-                @if($recouvCh->count())<span style="color:var(--ko)">{{ $recouvCh->count() }} recouvrement(s) : {{ number_format($recouvCh->sum('solde'), 0, ',', ' ') }} F</span> @endif
-            </div>
-            @if($repos && ($g['repos_alternance'] ?? false))
-            <div style="padding:4px 16px 12px;font-size:12px;color:var(--ok);font-weight:600">Repos alternance — a travaillé la veille</div>
-            @elseif($repos)
-            <div style="padding:4px 16px 12px;font-size:12px;color:var(--ok);font-weight:600">Repos automatique — recette enregistrée à 0 F</div>
-            @elseif($vehiculePrisPar && !$deja)
-            <div style="padding:8px 16px 12px;font-size:12px;color:#b91c1c;background:#fef2f2;border-radius:6px;margin:4px 16px 8px">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#dc2626" stroke-width="2" style="vertical-align:-2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                Ce véhicule est déjà conduit par <strong>{{ $vehiculePrisPar }}</strong> aujourd'hui. Un seul chauffeur par véhicule par jour.
-            </div>
-            @else
-            <div class="gc-form" style="grid-template-columns:1fr 1fr 1fr 1fr auto">
-                <div>
-                    <label>Recette (F)</label>
-                    <input type="number" id="gr-rec-{{ $i }}" value="{{ $deja ? $rec->recette : '' }}" min="0" placeholder="Montant" oninput="recetteChange({{ $i }})">
-                </div>
-                <div>
-                    <label>Pointage (F)</label>
-                    <input type="number" id="gr-ptg-{{ $i }}" value="{{ $deja ? ($rec->pointage ?? 0) : 0 }}" min="0" placeholder="0">
-                </div>
-                <div id="gc-mode-wrap-{{ $i }}" style="{{ ($deja && $rec->recette == 0) ? 'display:none' : '' }}">
-                    <label>Mode remise</label>
-                    <select id="gr-mode-{{ $i }}">
-                        <option value="">—</option>
-                        <option value="especes"{{ $deja && ($rec->mode_remise ?? '') === 'especes' ? ' selected' : '' }}>Espèces</option>
-                        <option value="mobile_money"{{ $deja && ($rec->mode_remise ?? '') === 'mobile_money' ? ' selected' : '' }}>Mobile Money</option>
-                        <option value="cheque"{{ $deja && ($rec->mode_remise ?? '') === 'cheque' ? ' selected' : '' }}>Chèque</option>
-                        <option value="virement"{{ $deja && ($rec->mode_remise ?? '') === 'virement' ? ' selected' : '' }}>Virement</option>
-                        <option value="autre"{{ $deja && ($rec->mode_remise ?? '') === 'autre' ? ' selected' : '' }}>Autre</option>
-                    </select>
-                </div>
-                <div id="gc-motif-wrap-{{ $i }}" style="{{ ($sousObjectif || ($deja && $rec->recette == 0)) ? '' : 'display:none' }}">
-                    <label>Motif</label>
-                    <select id="grille-motif-{{ $i }}">
-                        <option value="">—</option>
-                        <option value="sous_objectif"{{ $deja && ($rec->motif_absence ?? '') === 'sous_objectif' ? ' selected' : '' }}>Sous objectif</option>
-                        @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}"{{ $deja && ($rec->motif_absence ?? '') === $ma->code ? ' selected' : '' }}>{{ $ma->libelle }}</option>@endforeach
-                    </select>
-                </div>
-                @php $recVerrouillee = $deja && ($rec->valide_par ?? null); @endphp
-                <div>
-                    <label>&nbsp;</label>
-                    @if($recVerrouillee && !$estChargeOps)
-                    <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--ok);font-weight:600;padding:6px 10px">
-                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-                        Validé
-                    </span>
+            <div style="background:var(--carte);border:1px solid {{ $borderColor }};border-radius:10px;padding:12px 14px;position:relative;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseleave="this.style.boxShadow='none'">
+                {{-- Ligne 1 : chauffeur + statut --}}
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <div style="width:28px;height:28px;border-radius:50%;background:{{ $ecOk ? '#dcfce7' : '#fef2f2' }};display:flex;align-items:center;justify-content:center">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="{{ $ecOk ? '#16a34a' : '#dc2626' }}" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        </div>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--texte)">{{ $g['chauffeur'] ?: 'Sans chauffeur' }}</div>
+                            <div style="font-size:11px;color:var(--mute)">{{ $rv->immatriculation }}</div>
+                        </div>
+                    </div>
+                    @if($ecOk)
+                    <span class="pill p-ok" style="font-size:10px">Atteint</span>
+                    @elseif($statutMotif === 'valide')
+                    <span class="pill p-warn" style="font-size:10px">Motif valide</span>
                     @else
-                    <button type="button" class="gc-btn-val {{ $deja ? 'maj' : 'nouveau' }}" onclick="validerLigne({{ $i }})">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                        {{ $deja ? 'MAJ' : 'Valider' }}
+                    <span class="pill p-ko" style="font-size:10px">Deficit</span>
+                    @endif
+                </div>
+                {{-- Ligne 2 : montants --}}
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center;padding:6px 0;border-top:1px solid var(--bord);border-bottom:1px solid var(--bord)">
+                    <div>
+                        <div style="font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.3px">Recette</div>
+                        <div style="font-size:14px;font-weight:700;color:var(--bleu)">{{ number_format($rc->recette, 0, ',', ' ') }}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.3px">Objectif</div>
+                        <div style="font-size:13px;font-weight:600;color:var(--texte)">{{ number_format($rc->objectif, 0, ',', ' ') }}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.3px">Ecart</div>
+                        <div style="font-size:13px;font-weight:700;color:{{ $ecOk ? 'var(--ok)' : 'var(--ko)' }}">{{ ($rc->ecart >= 0 ? '+' : '') . number_format($rc->ecart, 0, ',', ' ') }}</div>
+                    </div>
+                </div>
+                {{-- Ligne 3 : details + bouton --}}
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+                    <div style="font-size:11px;color:var(--mute)">
+                        @if(($rc->pointage ?? 0) > 0)<span style="margin-right:8px">Ptg: {{ number_format($rc->pointage, 0, ',', ' ') }} F</span> @endif
+                        @if($rc->mode_remise)<span>{{ ucfirst(str_replace('_', ' ', $rc->mode_remise)) }}</span> @endif
+                    </div>
+                    @if(auth()->user()->estAdmin())
+                    <button class="act-btn info" title="Modifier" onclick="editRecette({{ $rc->id }})" style="padding:4px 8px;border-radius:6px;background:var(--fond)">
+                        {!! $ic('M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z', 13) !!}
                     </button>
                     @endif
                 </div>
             </div>
-            @if($recVerrouillee && $estChargeOps)
-            <div style="padding:0 16px 8px">
-                <input type="text" id="gr-motif-modif-{{ $i }}" placeholder="Motif de la modification..." style="width:100%;padding:6px 10px;border:1px solid var(--warn);border-radius:6px;font-size:12px;background:#fffbeb">
-            </div>
             @endif
-            {{-- Perspective (visible si recette < objectif) --}}
-            <div class="gc-perspective" id="gc-persp-wrap-{{ $i }}" style="padding:0 16px 12px;{{ ($sousObjectif || $aRecouvrement) ? '' : 'display:none' }}">
-                <div style="display:flex;gap:16px;align-items:center;margin-bottom:8px">
-                    <span style="font-size:10.5px;color:var(--ko);font-weight:600;text-transform:uppercase;letter-spacing:.3px">Justification du déficit</span>
-                    <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
-                        <input type="radio" name="justif-{{ $i }}" value="1"{{ !$aRecouvrement ? ' checked' : '' }} onchange="toggleJustif({{ $i }})"> Valable
-                    </label>
-                    <label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;color:var(--ko)">
-                        <input type="radio" name="justif-{{ $i }}" value="0"{{ $aRecouvrement ? ' checked' : '' }} onchange="toggleJustif({{ $i }})"> Non valable → Recouvrement
-                    </label>
-                </div>
-                <textarea id="gr-persp-{{ $i }}" rows="2" placeholder="Perspective de rattrapage ou justification..." style="width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;resize:vertical">{{ $deja ? ($rec->perspective ?? '') : '' }}</textarea>
-                <div id="gc-recouv-warn-{{ $i }}" style="{{ $aRecouvrement ? '' : 'display:none;' }}margin-top:6px;padding:6px 10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:11.5px;color:#b91c1c">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    Une créance sera automatiquement créée pour le déficit.
-                </div>
-            </div>
-            @endif
+        @endforeach
         </div>
     </div>
-    @endforeach
-    </div>
+    @endif
 
-    <div style="display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap">
-        @if($tousValides)
-        <span style="font-size:12px;color:var(--ok);font-weight:600">Journée complète</span>
-        @else
-        <span style="font-size:12px;color:var(--ko)">{{ $nbTotal - $nbSaisis }} chauffeur(s) en attente</span>
-        @endif
+    {{-- ===== FORMULAIRE DE SAISIE ===== --}}
+    @if(!$estDG)
+    @if($chauffeursPending->isEmpty() && $nbTotal > 0)
+    <div style="text-align:center;padding:20px 16px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:12px;margin-bottom:14px">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#16a34a" stroke-width="2" style="margin-bottom:4px"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div style="font-size:16px;font-weight:700;color:#166534;margin-top:2px">Journee complete</div>
+        <div style="font-size:12px;color:#15803d;margin-top:2px">{{ $nbTotal }} recette(s) enregistree(s) — Total : {{ number_format($totalRecJour, 0, ',', ' ') }} F</div>
     </div>
+    @else
+    <div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--bord);background:var(--carte)">
+        {{-- En-tete formulaire --}}
+        <div style="background:linear-gradient(135deg,var(--bleu),var(--accent));padding:12px 18px;display:flex;align-items:center;gap:8px">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span style="font-size:14px;font-weight:700;color:#fff">Saisie de recette</span>
+            <span style="margin-left:auto;font-size:11px;color:rgba(255,255,255,.8);background:rgba(255,255,255,.15);padding:2px 10px;border-radius:20px">{{ $chauffeursPending->count() }} en attente</span>
+        </div>
+
+        <form method="POST" action="{{ route('parc.recettes.store') }}" id="form-saisie-recette" onsubmit="return validerFormSaisie()" style="padding:16px 18px">
+            @csrf
+            <input type="hidden" name="vehicule_id" id="sr-vehic">
+
+            {{-- Section 0 : Date de la recette --}}
+            <div style="margin-bottom:12px">
+                <label style="font-size:12px;font-weight:600;color:var(--bleu)">Date de la recette <span class="req">*</span></label>
+                <input type="date" name="date" id="sr-date" value="{{ $dateJour }}" required max="{{ date('Y-m-d') }}" style="margin-top:4px;max-width:200px" onchange="onSrDateChange()">
+                <span style="font-size:11px;color:var(--mute);margin-left:8px">Par defaut : veille. Modifiable pour saisir des recettes anterieures.</span>
+            </div>
+
+            {{-- Section 1 : Identification --}}
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--bleu)">Chauffeur <span class="req">*</span></label>
+                    <select name="chauffeur" id="sr-chauff" required onchange="onSrChauffeurChange()" style="margin-top:4px">
+                        <option value="">-- Choisir un chauffeur --</option>
+                        @foreach($grilleJour as $i => $g)
+                            @if(!$g['deja_saisi'] && ($g['chauffeur_actif'] ?? true) && !($g['vehicule_pris_par'] ?? null) && $g['chauffeur'])
+                            <option value="{{ $g['chauffeur'] }}" data-vid="{{ $g['vehicule']->id }}" data-vimmat="{{ $g['vehicule']->immatriculation }}" data-objectif="{{ $g['objectif'] }}" data-repos="{{ $g['est_repos'] ? '1' : '0' }}">{{ $g['chauffeur'] }}</option>
+                            @endif
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--bleu)">Vehicule</label>
+                    <input type="text" id="sr-vehic-label" readonly style="margin-top:4px;background:var(--fond);font-weight:600;color:var(--bleu);border:1px dashed var(--bord)" placeholder="Automatique">
+                </div>
+            </div>
+
+            {{-- Indicateur objectif --}}
+            <div id="sr-objectif-info" style="display:none;margin:10px 0;padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:600;border:1px solid #bfdbfe;background:#eff6ff;color:#1e40af;align-items:center;gap:6px">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#2563eb" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span id="sr-obj-label"></span>
+            </div>
+
+            {{-- Section 2 : Montants --}}
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px">
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--bleu)">Recette (FCFA) <span class="req">*</span></label>
+                    <input type="number" name="recette" id="sr-recette" min="0" required placeholder="Montant" style="margin-top:4px;font-size:15px;font-weight:700">
+                </div>
+                <div>
+                    <label style="font-size:12px;font-weight:600;color:var(--bleu)">Pointage (FCFA) <span class="req">*</span></label>
+                    <input type="number" name="pointage" id="sr-pointage" min="0" value="0" required style="margin-top:4px">
+                </div>
+                <div id="sr-mode-wrap">
+                    <label style="font-size:12px;font-weight:600;color:var(--bleu)">Mode remise <span class="req">*</span></label>
+                    <select name="mode_remise" id="sr-mode" style="margin-top:4px">
+                        <option value="">--</option><option value="especes">Especes</option><option value="mobile_money">Mobile Money</option><option value="cheque">Cheque</option><option value="virement">Virement</option><option value="autre">Autre</option>
+                    </select>
+                </div>
+            </div>
+
+            {{-- Ecart temps reel --}}
+            <div id="sr-ecart-info" style="display:none;margin:8px 0;padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:600"></div>
+
+            {{-- Section 3 : Controle --}}
+            <div style="margin-top:10px">
+                <label style="font-size:12px;font-weight:600;color:var(--bleu)">Controle par</label>
+                <select name="controle_par" id="sr-ctrl" style="margin-top:4px;max-width:260px">
+                    <option value="">-- Choisir --</option>
+                    @foreach($collaborateurs as $u)<option value="{{ $u->name }}"{{ $u->id === auth()->id() ? ' selected' : '' }}>{{ $u->name }}</option> @endforeach
+                </select>
+            </div>
+
+            {{-- Zone motif (conditionnelle) --}}
+            <div id="sr-motif-zone" style="display:none;margin-top:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#d97706" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <label id="sr-motif-label" style="color:#92400e;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px">JUSTIFICATION OBLIGATOIRE</label>
+                </div>
+                <select name="motif_absence" id="sr-motif" style="margin-bottom:4px">
+                    <option value="">-- Choisir un motif --</option>
+                    @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}">{{ $ma->libelle }}</option> @endforeach
+                </select>
+                <div id="sr-perspective-zone" style="margin-top:8px;display:none">
+                    <label style="color:#92400e;font-weight:600;font-size:11px">Perspective / Strategie</label>
+                    <textarea name="perspective" id="sr-perspective" rows="2" style="margin-top:4px" placeholder="Comment rattraper ce deficit ?"></textarea>
+                </div>
+            </div>
+
+            {{-- Zone validation gestionnaire --}}
+            <div id="sr-validation-zone" style="display:none;margin-top:10px;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:12px 14px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <label style="color:#991b1b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px">VALIDATION DU GESTIONNAIRE</label>
+                </div>
+                <div style="font-size:11.5px;color:#92400e;margin-bottom:8px">La justification est-elle valable ?</div>
+                <div style="display:flex;gap:12px;align-items:center">
+                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 10px;border-radius:6px;border:1px solid #fca5a5;background:#fff">
+                        <input type="radio" name="justification_valable" value="0" checked> Non valable
+                    </label>
+                    <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 10px;border-radius:6px;border:1px solid #86efac;background:#fff">
+                        <input type="radio" name="justification_valable" value="1"> Valable
+                    </label>
+                </div>
+            </div>
+
+            {{-- Observations --}}
+            <div style="margin-top:10px">
+                <label style="font-size:12px;font-weight:600;color:var(--bleu)">Observations</label>
+                <textarea name="observations" id="sr-obs" rows="2" style="margin-top:4px" placeholder="Notes complementaires (optionnel)"></textarea>
+            </div>
+
+            {{-- Bouton soumettre --}}
+            <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;align-items:center">
+                <span style="font-size:11px;color:var(--mute)">{{ $chauffeursPending->count() }} chauffeur(s) restant(s)</span>
+                <button class="btn" id="sr-btn-submit" style="padding:8px 20px;font-size:13px;border-radius:8px">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+    @endif
+    @endif
 
 </div>
 
@@ -802,16 +876,17 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 </div>
                 <div class="form-row" style="grid-template-columns:1fr 1fr">
                     <div>
-                        <label>Payeur</label>
-                        <select name="source_paiement" id="vs-source">
+                        <label>Payeur <span class="req">*</span></label>
+                        <select name="source_paiement" id="vs-source" required>
+                            <option value="">— Payeur —</option>
                             <option value="chauffeur">Chauffeur</option>
                             <option value="entreprise">Entreprise</option>
                         </select>
                     </div>
                     <div>
-                        <label>Mode de paiement</label>
-                        <select name="mode_paiement">
-                            <option value="">—</option>
+                        <label>Mode de paiement <span class="req">*</span></label>
+                        <select name="mode_paiement" required>
+                            <option value="">— Mode —</option>
                             <option value="especes">Espèces</option>
                             <option value="mobile_money">Mobile Money</option>
                             <option value="cheque">Chèque</option>
@@ -922,7 +997,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>@if($rec->motif_absence)<span class="pill p-warn">{{ $rec->motif_absence }}</span>@else — @endif</td>
         <td>
             <div class="act-row">
+                @if(auth()->user()->estAdmin())
                 <button type="button" class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
+                @endif
                 @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return demanderMotifSuppression(this,'cette recette')">@csrf @method('DELETE')
                     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
@@ -960,17 +1037,18 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
             <div class="form-row" style="grid-template-columns:1fr 1fr">
                 <div>
-                    <label>Source du paiement</label>
-                    <select name="source_paiement">
+                    <label>Source du paiement <span class="req">*</span></label>
+                    <select name="source_paiement" id="pp-source" required onchange="toggleFinancementPenal(this.value)">
+                        <option value="">— Source —</option>
                         <option value="pointage">Pointage</option>
                         <option value="chauffeur">Chauffeur</option>
                         <option value="entreprise">Entreprise</option>
                     </select>
                 </div>
                 <div>
-                    <label>Mode de paiement</label>
-                    <select name="mode_paiement">
-                        <option value="">—</option>
+                    <label>Mode de paiement <span class="req">*</span></label>
+                    <select name="mode_paiement" required>
+                        <option value="">— Mode —</option>
                         <option value="especes">Espèces</option>
                         <option value="mobile_money">Mobile Money</option>
                         <option value="cheque">Chèque</option>
@@ -979,8 +1057,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                     </select>
                 </div>
             </div>
-            <div>
-                <label>Financement</label>
+            <div id="pp-financement-wrap" style="display:none">
+                <label>Financement <span class="req">*</span></label>
                 <select name="source_financement" onchange="toggleEmpruntFields(this)">
                     <option value="entreprise">Fonds propres</option>
                     <option value="emprunt">Emprunt</option>
@@ -1037,6 +1115,69 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </form>
 </dialog>
 
+{{-- Dialog Resume Recette --}}
+<dialog id="dlg-resume-recette" style="max-width:420px;width:calc(100% - 32px);border-radius:14px;border:none;box-shadow:0 12px 40px rgba(0,0,0,.2);padding:0;overflow:hidden">
+<div id="res-header" style="background:linear-gradient(135deg,var(--bleu),var(--accent));padding:16px 20px;color:#fff;text-align:center">
+    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#fff" stroke-width="2" style="margin-bottom:4px"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <div style="font-size:16px;font-weight:700">Recette enregistree</div>
+    <div id="res-header-sub" style="font-size:12px;opacity:.8;margin-top:2px"></div>
+</div>
+<div style="padding:18px 20px">
+    {{-- Bloc montant principal --}}
+    <div style="text-align:center;margin-bottom:14px">
+        <div style="font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.5px">Montant verse</div>
+        <div id="res-montant" style="font-size:28px;font-weight:800;color:var(--bleu);line-height:1.2"></div>
+    </div>
+    {{-- Grille details --}}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--bord);border-radius:10px;overflow:hidden;border:1px solid var(--bord);margin-bottom:12px">
+        <div style="background:var(--carte);padding:10px 12px;text-align:center">
+            <div style="font-size:10px;color:var(--mute);text-transform:uppercase">Chauffeur</div>
+            <div id="res-chauffeur" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+        </div>
+        <div style="background:var(--carte);padding:10px 12px;text-align:center">
+            <div style="font-size:10px;color:var(--mute);text-transform:uppercase">Vehicule</div>
+            <div id="res-vehicule" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+        </div>
+        <div style="background:var(--carte);padding:10px 12px;text-align:center">
+            <div style="font-size:10px;color:var(--mute);text-transform:uppercase">Objectif</div>
+            <div id="res-objectif" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+        </div>
+        <div style="background:var(--carte);padding:10px 12px;text-align:center">
+            <div style="font-size:10px;color:var(--mute);text-transform:uppercase">Ecart</div>
+            <div id="res-ecart" style="font-size:13px;font-weight:700;margin-top:2px"></div>
+        </div>
+    </div>
+    <div style="text-align:center;margin-bottom:6px">
+        <span id="res-date" style="font-size:11px;color:var(--mute)"></span>
+    </div>
+    <div style="text-align:center;margin-bottom:10px" id="res-statut"></div>
+
+    {{-- Actions motif --}}
+    <div id="res-motif-actions" style="display:none;padding-top:12px;border-top:1px solid var(--bord)">
+        <div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:10px;text-align:center;text-transform:uppercase;letter-spacing:.3px">Validation du motif de deficit</div>
+        <div style="display:flex;gap:10px">
+            <form method="POST" id="res-form-valider" style="flex:1">
+                @csrf <input type="hidden" name="_method" value="PATCH">
+                <button class="btn sm" style="width:100%;background:#16a34a;border-color:#16a34a;border-radius:8px;padding:8px 0;font-size:12px">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#fff" stroke-width="2.5" style="vertical-align:-2px;margin-right:3px"><polyline points="20 6 9 17 4 12"/></svg>
+                    Valider motif
+                </button>
+            </form>
+            <form method="POST" id="res-form-invalider" style="flex:1">
+                @csrf <input type="hidden" name="_method" value="PATCH">
+                <button class="btn sm" style="width:100%;background:#dc2626;border-color:#dc2626;border-radius:8px;padding:8px 0;font-size:12px">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#fff" stroke-width="2.5" style="vertical-align:-2px;margin-right:3px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Invalider
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+<div style="padding:0 20px 16px;text-align:center">
+    <button type="button" class="btn sec sm" onclick="this.closest('dialog').close()" style="border-radius:8px;padding:7px 24px">Fermer</button>
+</div>
+</dialog>
+
 {{-- Dialog Déclaration panne --}}
 <dialog id="dlg-panne">
 <h3 id="dlg-panne-titre">{!! $icWrench !!} Déclarer une panne</h3>
@@ -1091,16 +1232,43 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <option value="">— Choisir —</option><option value="Réparer">Réparer</option><option value="Remplacer pièce">Remplacer pièce</option><option value="Sous-traitance">Sous-traitance</option><option value="Réforme">Réforme</option><option value="Autre">Autre</option>
             </select>
         </div>
-        <div><label>Coût réel (FCFA)</label><input type="number" name="cout_reel" id="s-cout" min="0"></div>
+        <div><label>Coût réel (FCFA)</label><input type="number" name="cout_reel" id="s-cout" min="0" readonly style="background:#f0f0f0;cursor:not-allowed" title="Calculé automatiquement depuis les lignes d'intervention"></div>
         <div><label>Statut <span class="req">*</span></label>
             <select name="statut" id="s-statut" required>
                 <option value="declaree">Déclarée</option><option value="en_diagnostic">En diagnostic</option><option value="en_intervention">En intervention</option><option value="cloturee">Clôturée</option>
             </select>
         </div>
     </div>
+    @if(!$estDG)
+    <div class="dlg-section">Lignes d'intervention (facture)</div>
+    <div id="s-lignes-wrap" style="margin-bottom:14px">
+        <table id="s-lignes-table" style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead><tr style="background:var(--fond);border-bottom:2px solid var(--bord)">
+                <th style="text-align:left;padding:6px 8px">Designation</th>
+                <th style="text-align:center;padding:6px 4px;width:60px">Qte</th>
+                <th style="text-align:right;padding:6px 4px;width:90px">P.U. (F)</th>
+                <th style="text-align:right;padding:6px 4px;width:90px">Montant</th>
+                <th style="width:60px;padding:6px 4px"></th>
+            </tr></thead>
+            <tbody id="s-lignes-body"></tbody>
+            <tfoot><tr style="border-top:2px solid var(--accent)">
+                <td colspan="3" style="text-align:right;padding:6px 8px;font-weight:700">Total</td>
+                <td style="text-align:right;padding:6px 4px;font-weight:700" id="s-lignes-total">0</td>
+                <td></td>
+            </tr></tfoot>
+        </table>
+        <div style="margin-top:8px;display:flex;gap:6px;align-items:flex-end" id="s-ligne-add-row">
+            <input type="text" id="sl-desig" placeholder="Designation" style="flex:2;padding:6px 8px;border:1px solid var(--bord);border-radius:6px;font-size:12.5px">
+            <input type="number" id="sl-qte" placeholder="Qte" value="1" min="1" style="width:55px;padding:6px 4px;border:1px solid var(--bord);border-radius:6px;font-size:12.5px;text-align:center">
+            <input type="number" id="sl-pu" placeholder="P.U." min="0" style="width:80px;padding:6px 4px;border:1px solid var(--bord);border-radius:6px;font-size:12.5px;text-align:right">
+            <button type="button" class="btn sm" onclick="ajouterLigneIntervention()" style="white-space:nowrap">+ Ajouter</button>
+        </div>
+    </div>
+    @endif
+
     <div class="form-row">
-        <div><label>Début intervention</label><input type="date" name="date_debut_intervention" id="s-ddi"></div>
-        <div><label>Date clôture</label><input type="date" name="date_cloture" id="s-dcl"></div>
+        <div><label>Debut intervention</label><input type="date" name="date_debut_intervention" id="s-ddi"></div>
+        <div><label>Date cloture</label><input type="date" name="date_cloture" id="s-dcl"></div>
     </div>
     <div class="form-row">
         <div><label>Financement</label>
@@ -1125,7 +1293,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @csrf <div id="recette-method"></div>
     <div class="dlg-section">Versement</div>
     <div class="form-row3">
-        <div><label>Date <span class="req">*</span></label><input type="date" name="date" id="r-date" value="{{ $dateJour }}" required></div>
+        <div><label>Date <span class="req">*</span></label><input type="date" name="date" id="r-date" value="{{ $dateJour }}" required max="{{ date('Y-m-d') }}" onchange="onRDateChange()">
+            <div id="r-date-retro" style="display:none;margin-top:4px;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e;border:1px solid #fde68a">Saisie retroactive</div>
+        </div>
         <div><label>Véhicule <span class="req">*</span></label>
             <select name="vehicule_id" id="r-vehic" required onchange="onVehiculeChange()">
                 @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }} ({{ $v->categorieLabel() }})</option> @endforeach
@@ -1203,14 +1373,14 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </select>
         </div>
         <div><label>Type <span class="req">*</span></label>
-            <select name="type_echeance" id="m-type" required>
-                @foreach($typesMaintenance as $tm)<option value="{{ $tm->code }}">{{ $tm->libelle }}</option>@endforeach
+            <select name="type_echeance" id="m-type" required onchange="calcProchaineEcheanceCreation()">
+                @foreach($typesMaintenance as $tm)<option value="{{ $tm->code }}">{{ $tm->libelle }}{{ $tm->intervalle_jours ? ' ('.$tm->intervalle_jours.'j)' : '' }}</option>@endforeach
             </select>
         </div>
     </div>
     <div class="form-row">
-        <div><label>Dernière réalisation</label><input type="date" name="derniere_realisation" id="m-dr"></div>
-        <div><label>Prochaine échéance</label><input type="date" name="prochaine_echeance" id="m-pe"></div>
+        <div><label>Dernière réalisation</label><input type="date" name="derniere_realisation" id="m-dr" onchange="calcProchaineEcheanceCreation()"></div>
+        <div><label>Prochaine échéance</label><input type="date" name="prochaine_echeance" id="m-pe" onchange="this._manuallySet=true" onfocus="this._manuallySet=true"><small style="color:var(--gris);font-size:11px">Calculee automatiquement selon le type</small></div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="m-obs" rows="2"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
@@ -1232,14 +1402,15 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     <div class="dlg-section">Réalisation</div>
     <div class="form-row3">
-        <div><label>Date réalisation <span class="req">*</span></label><input type="date" name="date_realisation" id="rm-date" value="{{ date('Y-m-d') }}" required></div>
+        <div><label>Date réalisation <span class="req">*</span></label><input type="date" name="date_realisation" id="rm-date" value="{{ date('Y-m-d') }}" required onchange="calcProchaineEcheanceRealisation(document.getElementById('rm-type-code').value, this.value)"></div>
+        <input type="hidden" id="rm-type-code" value="">
         <div><label>Coût (F) <span class="req">*</span></label><input type="number" name="cout" id="rm-cout" min="1" required placeholder="Montant obligatoire"></div>
         <div><label>Prestataire <span class="req">*</span></label><input type="text" name="prestataire" id="rm-prest" maxlength="150" placeholder="Nom du prestataire" required></div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="rm-obs" rows="2" placeholder="Détails de l'intervention"></textarea></div>
     <div class="dlg-section">Prochaine échéance</div>
     <div class="form-row">
-        <div><label>Prochaine échéance</label><input type="date" name="prochaine_echeance_suivante" id="rm-pe-suivante"><small style="color:var(--gris);font-size:11px">Laisser vide si pas de renouvellement</small></div>
+        <div><label>Prochaine échéance</label><input type="date" name="prochaine_echeance_suivante" id="rm-pe-suivante"><small style="color:var(--gris);font-size:11px">Calculee automatiquement. Modifiable manuellement.</small></div>
     </div>
     <div class="dlg-section">Financement</div>
     <div class="form-row">
@@ -1279,20 +1450,20 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </div>
     <div class="form-row3">
-        <div><label>Chauffeur</label>
-            <select name="chauffeur" id="pe-chauff">
+        <div><label>Chauffeur <span class="req">*</span></label>
+            <select name="chauffeur" id="pe-chauff" required>
                 <option value="">— Chauffeur —</option>
             </select>
         </div>
-        <div><label>Lieu</label>
-            <select name="lieu" id="pe-lieu">
+        <div><label>Lieu <span class="req">*</span></label>
+            <select name="lieu" id="pe-lieu" required>
                 <option value="">— Lieu —</option>
                 @foreach($lieuxSugg as $l)<option value="{{ $l }}">{{ $l }}</option>@endforeach
             </select>
         </div>
         <div><label>Montant (FCFA) <span class="req">*</span></label><input type="number" name="montant" id="pe-mont" min="0" required></div>
     </div>
-    <div><label>Description</label><textarea name="description" id="pe-desc" rows="2" placeholder="Décrivez l'infraction"></textarea></div>
+    <div><label>Description <span class="req">*</span></label><textarea name="description" id="pe-desc" rows="2" placeholder="Décrivez l'infraction" required></textarea></div>
     <div><label>Observations</label><textarea name="observations" id="pe-obs" rows="2" placeholder="Observations complémentaires"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
@@ -1559,64 +1730,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 </div>
 
-{{-- ==================== TAB PLANNING JOURNALIER ==================== --}}
-<div class="tab-panel" id="tab-planning">
-<div class="panel-head">
-    <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Planning journalier</h3>
-    <div style="display:flex;align-items:center;gap:10px">
-        <form method="GET" action="{{ route('parc.index') }}" style="display:flex;gap:8px;align-items:center">
-            <input type="hidden" name="tab" value="planning">
-            <input type="date" name="date_planning" value="{{ $datePlanning ?? date('Y-m-d') }}" onchange="this.form.submit()" style="padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
-        </form>
-        @if(!$estDG)
-        <button class="btn sm" onclick="document.getElementById('dlg-planning').showModal()">{!! $icPlus !!} Affecter</button>
-        @endif
-    </div>
-</div>
-
-@php $planDate = $datePlanning ?? date('Y-m-d'); @endphp
-
-<div class="panneau" style="overflow-x:auto">
-@if(($planningJour ?? collect())->isEmpty())
-    <div style="text-align:center;color:var(--gris);padding:30px">Aucune affectation pour le {{ \Carbon\Carbon::parse($planDate)->format('d/m/Y') }}</div>
-@else
-<table class="tableau" style="width:100%">
-<thead><tr>
-    <th>Véhicule</th>
-    <th>Chauffeur</th>
-    <th>Action</th>
-    <th>Motif</th>
-    <th>Remplaçant</th>
-    <th>Observations</th>
-    @if(!$estDG)<th style="width:80px">Actions</th>@endif
-</tr></thead>
-<tbody>
-@foreach($planningJour ?? [] as $pl)
-<tr>
-    <td style="font-weight:600">{{ $pl->vehicule->immatriculation ?? '?' }}</td>
-    <td>{{ $pl->chauffeur_nom ?? '—' }}</td>
-    <td><span class="pill {{ $pl->estEnService() ? 'p-ok' : 'p-ko' }}">{{ $pl->actionLabel() }}</span></td>
-    <td style="font-size:12px;color:var(--gris)">{{ $pl->motif ?? '—' }}</td>
-    <td>{{ $pl->chauffeur_remplacant_nom ?? '—' }}</td>
-    <td style="font-size:12px">{{ $pl->observations ?? '—' }}</td>
-    @if(!$estDG)
-    <td>
-        <div style="display:flex;gap:4px">
-            <button class="btn sm sec" title="Modifier" onclick="ouvrirEditPlanning({{ $pl->id }})">{!! $icEdit !!}</button>
-            <form method="POST" action="{{ route('parc.planning.destroy', $pl) }}" onsubmit="return demanderMotifSuppression(this, 'cette affectation')">
-                @csrf @method('DELETE')
-                <button class="btn sm ko" title="Supprimer">{!! $icDel !!}</button>
-            </form>
-        </div>
-    </td>
-    @endif
-</tr>
-@endforeach
-</tbody>
-</table>
-@endif
-</div>
-</div>
 
 {{-- ==================== TAB PRÊTS ACCORDÉS ==================== --}}
 <div class="tab-panel" id="tab-prets">
@@ -1844,53 +1957,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </form>
 </dialog>
 
-{{-- Dialog Planning --}}
-<dialog id="dlg-planning" style="width:90vw;max-width:520px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-    <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Affectation planning</h3>
-    <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
-</div>
-<form method="POST" action="{{ route('parc.planning.store') }}" id="form-planning">
-    @csrf <div id="planning-method"></div>
-    <div style="display:grid;gap:12px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label>Date <span class="req">*</span></label><input type="date" name="date_jour" id="pl-date" value="{{ $datePlanning ?? date('Y-m-d') }}" required></div>
-            <div><label>Véhicule <span class="req">*</span></label>
-                <select name="vehicule_id" id="pl-vehicule" required>
-                    <option value="">— Choisir —</option>
-                    @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option>@endforeach
-                </select>
-            </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label>Chauffeur</label>
-                <select name="chauffeur_id" id="pl-chauffeur">
-                    <option value="">— Aucun —</option>
-                    @foreach($chauffeurs->where('statut','actif') as $ch)<option value="{{ $ch->id }}">{{ $ch->nomComplet() }}</option>@endforeach
-                </select>
-            </div>
-            <div><label>Action <span class="req">*</span></label>
-                <select name="action" id="pl-action" required>
-                    <option value="">— Choisir —</option>
-                    @foreach($actionsPlanning ?? [] as $ap)<option value="{{ $ap->code }}">{{ $ap->libelle }}</option>@endforeach
-                </select>
-            </div>
-        </div>
-        <div><label>Chauffeur remplaçant</label>
-            <select name="chauffeur_remplacant_id" id="pl-remplacant">
-                <option value="">— Aucun —</option>
-                @foreach($chauffeurs->where('statut','actif') as $ch)<option value="{{ $ch->id }}">{{ $ch->nomComplet() }}</option>@endforeach
-            </select>
-        </div>
-        <div><label>Motif</label><input type="text" name="motif" id="pl-motif" maxlength="200" placeholder="Motif optionnel"></div>
-        <div><label>Observations</label><textarea name="observations" id="pl-obs" rows="2" maxlength="500"></textarea></div>
-        <div style="display:flex;gap:10px;justify-content:flex-end">
-            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
-            <button class="btn">Enregistrer</button>
-        </div>
-    </div>
-</form>
-</dialog>
 
 {{-- Dialog Prêt accordé --}}
 <dialog id="dlg-pret" style="width:90vw;max-width:480px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
@@ -2037,6 +2103,11 @@ foreach($pannes as $_p) {
         'date_cloture' => $_p->date_cloture ? $_p->date_cloture->format('Y-m-d') : '',
         'cout_reel' => $_p->cout_reel,
         'statut' => $_p->statut,
+        'lignes' => $_p->lignes->map(fn($l) => [
+            'id' => $l->id, 'designation' => $l->designation,
+            'quantite' => $l->quantite, 'prix_unitaire' => $l->prix_unitaire,
+            'montant' => $l->montant,
+        ])->values()->toArray(),
     ];
 }
 $_rData = [];
@@ -2121,7 +2192,7 @@ function changerOnglet(nom){
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('actif')});
     document.getElementById('tab-'+nom).classList.add('actif');
     var btns=document.querySelectorAll('.tab-btn');
-    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses','emprunts','planning','prets','ressources'];
+    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses','emprunts','prets','ressources'];
     var idx=noms.indexOf(nom);
     if(idx>=0 && btns[idx]) btns[idx].classList.add('actif');
 }
@@ -2191,6 +2262,7 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 var recettesData = @json($_rData);
 var maintData = @json($_mData);
+var maintIntervalles = @json($typesMaintenance->pluck('intervalle_jours', 'code'));
 var penalData = @json($_peData);
 var chauffeurData = @json($_chData);
 var depensesData = @json($_depData);
@@ -2256,7 +2328,156 @@ function statuerPanne(id){
     document.getElementById('s-statut').value=d.statut;
     document.getElementById('s-ddi').value=d.date_debut_intervention||'';
     document.getElementById('s-dcl').value=d.date_cloture||'';
+    // Charger les lignes d'intervention existantes
+    _currentPanneId = id;
+    var tbody=document.getElementById('s-lignes-body');
+    if(tbody){
+        tbody.innerHTML='';
+        if(d.lignes && d.lignes.length>0){
+            d.lignes.forEach(function(l){ renderLigneRow(l); });
+        }
+        recalcTotalLignes();
+    }
     document.getElementById('dlg-statuer').showModal();
+}
+
+var _currentPanneId = null;
+
+function renderLigneRow(l){
+    var tbody=document.getElementById('s-lignes-body'); if(!tbody) return;
+    var tr=document.createElement('tr');
+    tr.setAttribute('data-ligne-id', l.id);
+    tr.style.borderBottom='1px solid var(--bord)';
+    tr.innerHTML='<td style="padding:5px 8px">'+escH(l.designation)+'</td>'
+        +'<td style="text-align:center;padding:5px 4px">'+l.quantite+'</td>'
+        +'<td style="text-align:right;padding:5px 4px">'+formatN(l.prix_unitaire)+'</td>'
+        +'<td style="text-align:right;padding:5px 4px">'+formatN(l.montant)+'</td>'
+        +'<td style="text-align:center;padding:5px 4px">'
+        +'<button type="button" class="btn sm" onclick="editLigneIntervention('+l.id+')" title="Modifier" style="padding:2px 6px;font-size:11px">M</button> '
+        +'<button type="button" class="btn sm ko" onclick="supprimerLigneIntervention('+l.id+')" title="Supprimer" style="padding:2px 6px;font-size:11px">X</button>'
+        +'</td>';
+    tbody.appendChild(tr);
+}
+
+function escH(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function formatN(n){ return Number(n).toLocaleString('fr-FR'); }
+
+function recalcTotalLignes(){
+    var rows=document.querySelectorAll('#s-lignes-body tr');
+    var total=0;
+    rows.forEach(function(tr){
+        var cells=tr.querySelectorAll('td');
+        if(cells.length>=4){
+            var mt=cells[3].textContent.replace(/\s/g,'').replace(/,/g,'');
+            total+=parseInt(mt)||0;
+        }
+    });
+    var el=document.getElementById('s-lignes-total');
+    if(el) el.textContent=formatN(total);
+    var coutEl=document.getElementById('s-cout');
+    if(coutEl) coutEl.value=total;
+}
+
+function ajouterLigneIntervention(){
+    var desig=document.getElementById('sl-desig').value.trim();
+    var qte=parseInt(document.getElementById('sl-qte').value)||1;
+    var pu=parseInt(document.getElementById('sl-pu').value)||0;
+    if(!desig){ alert('Designation obligatoire'); return; }
+    if(pu<=0){ alert('Prix unitaire obligatoire'); return; }
+    var fd=new FormData();
+    fd.append('_token','{{ csrf_token() }}');
+    fd.append('designation',desig);
+    fd.append('quantite',qte);
+    fd.append('prix_unitaire',pu);
+    fetch('{{ url("parc/pannes") }}/'+_currentPanneId+'/lignes',{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        if(data.success){
+            renderLigneRow(data.ligne);
+            recalcTotalLignes();
+            document.getElementById('sl-desig').value='';
+            document.getElementById('sl-qte').value='1';
+            document.getElementById('sl-pu').value='';
+            // Mettre a jour pannesData
+            if(pannesData[_currentPanneId]){
+                if(!pannesData[_currentPanneId].lignes) pannesData[_currentPanneId].lignes=[];
+                pannesData[_currentPanneId].lignes.push(data.ligne);
+                pannesData[_currentPanneId].cout_reel=data.cout_reel;
+            }
+        } else { alert(data.message||'Erreur'); }
+    }).catch(function(e){ alert('Erreur reseau'); });
+}
+
+function editLigneIntervention(ligneId){
+    var tr=document.querySelector('#s-lignes-body tr[data-ligne-id="'+ligneId+'"]');
+    if(!tr) return;
+    var cells=tr.querySelectorAll('td');
+    var oldDesig=cells[0].textContent;
+    var oldQte=cells[1].textContent;
+    var oldPu=cells[2].textContent.replace(/\s/g,'').replace(/,/g,'');
+    cells[0].innerHTML='<input type="text" value="'+escH(oldDesig)+'" style="width:100%;padding:3px 6px;border:1px solid var(--bord);border-radius:4px;font-size:12px" id="el-d-'+ligneId+'">';
+    cells[1].innerHTML='<input type="number" value="'+oldQte+'" min="1" style="width:50px;padding:3px 4px;border:1px solid var(--bord);border-radius:4px;font-size:12px;text-align:center" id="el-q-'+ligneId+'">';
+    cells[2].innerHTML='<input type="number" value="'+oldPu+'" min="0" style="width:75px;padding:3px 4px;border:1px solid var(--bord);border-radius:4px;font-size:12px;text-align:right" id="el-p-'+ligneId+'">';
+    cells[4].innerHTML='<button type="button" class="btn sm" onclick="saveLigneEdit('+ligneId+')" style="padding:2px 6px;font-size:11px">OK</button>';
+}
+
+function saveLigneEdit(ligneId){
+    var desig=document.getElementById('el-d-'+ligneId).value.trim();
+    var qte=parseInt(document.getElementById('el-q-'+ligneId).value)||1;
+    var pu=parseInt(document.getElementById('el-p-'+ligneId).value)||0;
+    if(!desig){ alert('Designation obligatoire'); return; }
+    var fd=new FormData();
+    fd.append('_token','{{ csrf_token() }}');
+    fd.append('_method','PUT');
+    fd.append('designation',desig);
+    fd.append('quantite',qte);
+    fd.append('prix_unitaire',pu);
+    fetch('{{ url("parc/pannes/lignes") }}/'+ligneId,{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        if(data.success){
+            var tr=document.querySelector('#s-lignes-body tr[data-ligne-id="'+ligneId+'"]');
+            if(tr){
+                tr.innerHTML='<td style="padding:5px 8px">'+escH(data.ligne.designation)+'</td>'
+                    +'<td style="text-align:center;padding:5px 4px">'+data.ligne.quantite+'</td>'
+                    +'<td style="text-align:right;padding:5px 4px">'+formatN(data.ligne.prix_unitaire)+'</td>'
+                    +'<td style="text-align:right;padding:5px 4px">'+formatN(data.ligne.montant)+'</td>'
+                    +'<td style="text-align:center;padding:5px 4px">'
+                    +'<button type="button" class="btn sm" onclick="editLigneIntervention('+ligneId+')" title="Modifier" style="padding:2px 6px;font-size:11px">M</button> '
+                    +'<button type="button" class="btn sm ko" onclick="supprimerLigneIntervention('+ligneId+')" title="Supprimer" style="padding:2px 6px;font-size:11px">X</button>'
+                    +'</td>';
+            }
+            recalcTotalLignes();
+            // Mettre a jour pannesData
+            if(pannesData[_currentPanneId]){
+                pannesData[_currentPanneId].cout_reel=data.cout_reel;
+                var lignes=pannesData[_currentPanneId].lignes||[];
+                for(var i=0;i<lignes.length;i++){
+                    if(lignes[i].id==ligneId){ lignes[i]=data.ligne; break; }
+                }
+            }
+        } else { alert(data.message||'Erreur'); }
+    }).catch(function(e){ alert('Erreur reseau'); });
+}
+
+function supprimerLigneIntervention(ligneId){
+    if(!confirm('Supprimer cette ligne ?')) return;
+    var fd=new FormData();
+    fd.append('_token','{{ csrf_token() }}');
+    fd.append('_method','DELETE');
+    fetch('{{ url("parc/pannes/lignes") }}/'+ligneId,{method:'POST',body:fd,headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+        if(data.success){
+            var tr=document.querySelector('#s-lignes-body tr[data-ligne-id="'+ligneId+'"]');
+            if(tr) tr.remove();
+            recalcTotalLignes();
+            if(pannesData[_currentPanneId]){
+                pannesData[_currentPanneId].cout_reel=data.cout_reel;
+                pannesData[_currentPanneId].lignes=(pannesData[_currentPanneId].lignes||[]).filter(function(l){return l.id!=ligneId;});
+            }
+        } else { alert(data.message||'Erreur'); }
+    }).catch(function(e){ alert('Erreur reseau'); });
 }
 
 /* ── Objectifs par véhicule pour saisie individuelle ── */
@@ -2462,6 +2683,12 @@ function validerLigne(idx){
     document.getElementById('form-grille-ind').submit();
 }
 
+function toggleFinancementPenal(val){
+    var w=document.getElementById('pp-financement-wrap');
+    var e=w?w.closest('form').querySelector('.emprunt-fields'):null;
+    if(w) w.style.display=val==='entreprise'?'block':'none';
+    if(e && val!=='entreprise') e.style.display='none';
+}
 function ouvrirPaiementPenal(penId, chauffeur, solde){
     document.getElementById('dlg-pp-titre').textContent='Paiement — '+chauffeur;
     document.getElementById('form-paie-penal').action='{{ url("parc/penalites") }}/'+penId+'/paiement';
@@ -2469,6 +2696,8 @@ function ouvrirPaiementPenal(penId, chauffeur, solde){
     document.getElementById('pp-montant').value='';
     document.getElementById('pp-solde-info').textContent='Solde restant : '+solde.toLocaleString('fr-FR')+' F';
     document.getElementById('pp-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('pp-source').value='';
+    toggleFinancementPenal('');
     document.getElementById('dlg-paie-penal').showModal();
 }
 
@@ -2499,8 +2728,9 @@ function ouvrirVersement(recId, chauffeur, solde){
 
 function editRecette(id){
     var d=recettesData[id]; if(!d)return;
-    var verrouille=!!d.valide_par;
-    document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} '+(verrouille?'Consulter la recette':'Modifier la recette');
+    var estAdmin={{ auth()->user()->estAdmin() ? 'true' : 'false' }};
+    var verrouille=!!d.valide_par && !estAdmin;
+    document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} '+(d.valide_par && !estAdmin?'Consulter la recette':'Modifier la recette');
     document.getElementById('form-recette').action='{{ url("parc/recettes") }}/'+id;
     document.getElementById('recette-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
     document.getElementById('r-date').value=d.date;
@@ -2542,12 +2772,28 @@ function ouvrirSaisieIndiv(){
         dlg.showModal();
     }catch(e){console.error('Erreur ouverture saisie individuelle:',e);}
 }
+function onRDateChange(){
+    var d=document.getElementById('r-date');
+    var hier='{{ $dateJour }}';
+    var retro=document.getElementById('r-date-retro');
+    if(d.value && d.value < hier){
+        d.style.borderColor='#f59e0b';d.style.background='#fffbeb';
+        if(retro) retro.style.display='';
+    } else {
+        d.style.borderColor='';d.style.background='';
+        if(retro) retro.style.display='none';
+    }
+}
 function resetRecetteForm(){
     document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} Nouvelle recette';
     document.getElementById('form-recette').action='{{ route("parc.recettes.store") }}';
     document.getElementById('recette-method').innerHTML='';
     document.getElementById('form-recette').reset();
     document.getElementById('r-date').value='{{ $dateJour }}';
+    document.getElementById('r-date').style.borderColor='';
+    document.getElementById('r-date').style.background='';
+    var retro=document.getElementById('r-date-retro');
+    if(retro) retro.style.display='none';
     var champs=document.querySelectorAll('#form-recette input:not([type="hidden"]),#form-recette select,#form-recette textarea');
     champs.forEach(function(el){el.disabled=false});
     var btnSubmit=document.getElementById('r-btn-submit');
@@ -2569,6 +2815,148 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 @endif
 
+/* ── Nouveau formulaire saisie recette (remplace la grille) ── */
+function onSrDateChange(){
+    // Quand la date change, informer visuellement que la saisie est pour une date differente
+    var dateInput=document.getElementById('sr-date');
+    var today=new Date().toISOString().split('T')[0];
+    var hier=new Date(Date.now()-86400000).toISOString().split('T')[0];
+    if(dateInput.value && dateInput.value < hier){
+        dateInput.style.borderColor='#f59e0b';
+        dateInput.style.background='#fffbeb';
+    } else {
+        dateInput.style.borderColor='';
+        dateInput.style.background='';
+    }
+}
+function onSrChauffeurChange(){
+    var sel=document.getElementById('sr-chauff');
+    var opt=sel.options[sel.selectedIndex];
+    var vid=opt?opt.getAttribute('data-vid'):'';
+    var vimmat=opt?opt.getAttribute('data-vimmat'):'';
+    var objectif=parseFloat(opt?opt.getAttribute('data-objectif'):'0')||0;
+    var repos=opt?opt.getAttribute('data-repos')==='1':false;
+    document.getElementById('sr-vehic').value=vid;
+    document.getElementById('sr-vehic-label').value=vimmat||'';
+    var objInfo=document.getElementById('sr-objectif-info');
+    var objLabel=document.getElementById('sr-obj-label');
+    if(objectif>0){
+        objLabel.textContent='Objectif attendu : '+objectif.toLocaleString('fr-FR')+' F';
+        objInfo.style.display='flex';
+    } else {
+        objInfo.style.display='none';
+    }
+    // Reset recette + ecart
+    document.getElementById('sr-recette').value='';
+    document.getElementById('sr-pointage').value='0';
+    document.getElementById('sr-mode').value='';
+    document.getElementById('sr-obs').value='';
+    srToggleMotif();
+}
+
+function srGetObjectif(){
+    var sel=document.getElementById('sr-chauff');
+    var opt=sel.options[sel.selectedIndex];
+    return parseFloat(opt?opt.getAttribute('data-objectif'):'0')||0;
+}
+
+function srToggleMotif(){
+    var m=document.getElementById('sr-recette');
+    var z=document.getElementById('sr-motif-zone');
+    var pz=document.getElementById('sr-perspective-zone');
+    var vz=document.getElementById('sr-validation-zone');
+    var lbl=document.getElementById('sr-motif-label');
+    var modeWrap=document.getElementById('sr-mode-wrap');
+    var ecartInfo=document.getElementById('sr-ecart-info');
+    var montant=parseInt(m.value||'')||0;
+    var objectif=srGetObjectif();
+
+    if(m.value!=='' && montant===0){
+        modeWrap.style.display='none';
+        document.getElementById('sr-mode').value='';
+    } else {
+        modeWrap.style.display='';
+    }
+
+    if(m.value!=='' && objectif>0){
+        var ecart=montant-objectif;
+        if(ecart>=0){
+            ecartInfo.style.display='block';
+            ecartInfo.style.background='#f0fdf4';ecartInfo.style.border='1px solid #86efac';ecartInfo.style.color='#166534';
+            ecartInfo.textContent='Objectif atteint'+(ecart>0?' (+'+ecart.toLocaleString('fr-FR')+' F)':'');
+        } else {
+            ecartInfo.style.display='block';
+            ecartInfo.style.background='#fef2f2';ecartInfo.style.border='1px solid #fca5a5';ecartInfo.style.color='#991b1b';
+            ecartInfo.textContent='Deficit : '+Math.abs(ecart).toLocaleString('fr-FR')+' F sous l\'objectif';
+        }
+    } else {
+        ecartInfo.style.display='none';
+    }
+
+    if(montant===0 && m.value!==''){
+        z.style.display='block';
+        lbl.textContent='JUSTIFICATION OBLIGATOIRE -- recette nulle';
+        if(pz) pz.style.display='none';
+        if(vz) vz.style.display='none';
+    } else if(montant>0 && objectif>0 && montant<objectif){
+        z.style.display='block';
+        lbl.textContent='MOTIF OBLIGATOIRE -- objectif non atteint ('+objectif.toLocaleString('fr-FR')+' F)';
+        if(pz) pz.style.display='block';
+        if(vz) vz.style.display='block';
+    } else {
+        z.style.display='none';
+        if(vz) vz.style.display='none';
+    }
+}
+var srRec=document.getElementById('sr-recette');
+if(srRec) srRec.addEventListener('input',srToggleMotif);
+
+function validerFormSaisie(){
+    var chauff=document.getElementById('sr-chauff');
+    if(!chauff||!chauff.value){alert('Selectionnez un chauffeur.');return false;}
+    var montant=parseInt(document.getElementById('sr-recette').value||'')||0;
+    var mode=document.getElementById('sr-mode').value;
+    var motif=document.getElementById('sr-motif').value;
+    var ptg=document.getElementById('sr-pointage');
+    var objectif=srGetObjectif();
+    if(!ptg||ptg.value===''){alert('Le pointage (FCFA) est obligatoire.');return false;}
+    if(montant>0 && !mode){alert('Mode de remise obligatoire.');return false;}
+    if(montant===0 && !motif){alert('Motif obligatoire lorsque la recette est nulle.');return false;}
+    if(montant>0 && objectif>0 && montant<objectif && !motif){alert('Motif obligatoire : objectif non atteint ('+objectif.toLocaleString('fr-FR')+' F).');return false;}
+    return true;
+}
+
+/* ── Resume dialog auto-show ── */
+@if(session('resume_recette'))
+document.addEventListener('DOMContentLoaded',function(){
+    var d=@json(session('resume_recette'));
+    document.getElementById('res-header-sub').textContent=d.chauffeur+' — '+d.vehicule;
+    document.getElementById('res-chauffeur').textContent=d.chauffeur;
+    document.getElementById('res-vehicule').textContent=d.vehicule;
+    document.getElementById('res-date').textContent=d.date;
+    document.getElementById('res-montant').textContent=parseInt(d.montant).toLocaleString('fr-FR')+' FCFA';
+    document.getElementById('res-objectif').textContent=parseInt(d.objectif).toLocaleString('fr-FR')+' F';
+    var ecart=parseInt(d.ecart);
+    var resEcart=document.getElementById('res-ecart');
+    resEcart.textContent=(ecart>=0?'+':'')+ecart.toLocaleString('fr-FR')+' F';
+    resEcart.style.color=ecart>=0?'var(--ok)':'var(--ko)';
+    var resStatut=document.getElementById('res-statut');
+    if(ecart>=0){
+        resStatut.innerHTML='<span class="pill p-ok">Objectif atteint</span>';
+    } else {
+        resStatut.innerHTML='<span class="pill p-ko" style="font-size:11px">Deficit — motif requis</span>';
+    }
+    // Afficher boutons valider/invalider si deficit
+    var actions=document.getElementById('res-motif-actions');
+    if(parseInt(d.deficit)>0){
+        actions.style.display='block';
+        document.getElementById('res-form-valider').action='{{ url("parc/recettes") }}/'+d.recette_id+'/valider-motif';
+        document.getElementById('res-form-invalider').action='{{ url("parc/recettes") }}/'+d.recette_id+'/invalider-motif';
+    }
+    document.getElementById('dlg-resume-recette').showModal();
+});
+@endif
+
 function editMaint(id){
     var d=maintData[id]; if(!d)return;
     document.getElementById('dlg-maint-titre').innerHTML='{!! $icCalCheck !!} Modifier l\'échéance';
@@ -2577,7 +2965,7 @@ function editMaint(id){
     document.getElementById('m-vehic').value=d.vehicule_id;
     document.getElementById('m-type').value=d.type_echeance;
     document.getElementById('m-dr').value=d.derniere_realisation||'';
-    document.getElementById('m-pe').value=d.prochaine_echeance||'';
+    var pe=document.getElementById('m-pe');pe.value=d.prochaine_echeance||'';pe._manuallySet=!!d.prochaine_echeance;
     document.getElementById('m-obs').value=d.observations||'';
     document.getElementById('dlg-maint').showModal();
 }
@@ -2588,16 +2976,34 @@ function realiserMaint(id){
     document.getElementById('rm-info-vehic').textContent=d.vehicule_label||'?';
     document.getElementById('rm-info-type').textContent=d.type_label||d.type_echeance;
     document.getElementById('rm-info-echeance').textContent='Échéance : '+(d.prochaine_echeance||'Non définie');
-    document.getElementById('rm-date').value=new Date().toISOString().slice(0,10);
+    document.getElementById('rm-type-code').value=d.type_echeance;
+    var today=new Date().toISOString().slice(0,10);
+    document.getElementById('rm-date').value=today;
     document.getElementById('rm-cout').value='';
     document.getElementById('rm-prest').value='';
     document.getElementById('rm-obs').value='';
-    // Auto-suggérer prochaine échéance selon le type
-    var intervals={vidange:90,assurance:365,visite_technique:365,patente:365,carte_stationnement:365};
-    var jours=intervals[d.type_echeance]||180;
-    var next=new Date(); next.setDate(next.getDate()+jours);
-    document.getElementById('rm-pe-suivante').value=next.toISOString().slice(0,10);
+    // Auto-suggérer prochaine échéance depuis date_realisation + intervalle du type
+    calcProchaineEcheanceRealisation(d.type_echeance, today);
     document.getElementById('dlg-realiser-maint').showModal();
+}
+
+function calcProchaineEcheanceRealisation(typeCode, dateReal){
+    var jours=maintIntervalles[typeCode]||180;
+    if(dateReal){
+        var next=new Date(dateReal); next.setDate(next.getDate()+jours);
+        document.getElementById('rm-pe-suivante').value=next.toISOString().slice(0,10);
+    }
+}
+
+function calcProchaineEcheanceCreation(){
+    var type=document.getElementById('m-type').value;
+    var dr=document.getElementById('m-dr').value;
+    var pe=document.getElementById('m-pe');
+    if(dr && type && !pe._manuallySet){
+        var jours=maintIntervalles[type]||180;
+        var next=new Date(dr); next.setDate(next.getDate()+jours);
+        pe.value=next.toISOString().slice(0,10);
+    }
 }
 
 function editPenal(id){
@@ -2955,7 +3361,7 @@ document.querySelectorAll('dialog').forEach(function(dlg){
         if(dlg.id==='dlg-vehicule'){if(form)form.action='{{ route("parc.vehicules.store") }}';document.getElementById('v-chauffeurs-list').innerHTML='';chauffRowIdx=0;}
         if(dlg.id==='dlg-panne'&&form)form.action='{{ route("parc.pannes.store") }}';
         if(dlg.id==='dlg-recette'&&form){form.action='{{ route("parc.recettes.store") }}';onVehiculeChange();}
-        if(dlg.id==='dlg-maint'&&form)form.action='{{ route("parc.maintenances.store") }}';
+        if(dlg.id==='dlg-maint'&&form){form.action='{{ route("parc.maintenances.store") }}';var pe=document.getElementById('m-pe');if(pe)pe._manuallySet=false;}
         if(dlg.id==='dlg-penal'&&form){form.action='{{ route("parc.penalites.store") }}';var pv=document.getElementById('pe-vehic');if(pv&&pv.value)majChauffeurs(pv.value,'pe-chauff');}
         if(dlg.id==='dlg-chauffeur'&&form)form.action='{{ route("parc.chauffeurs.store") }}';
         if(dlg.id==='dlg-depense'&&form)form.action='{{ route("parc.depenses.store") }}';
@@ -2990,12 +3396,6 @@ function editerDepense(id){
 }
 
 // === Planning ===
-function ouvrirEditPlanning(id){
-    // Simplified — reload with edit parameter
-    // For full edit, you'd populate the form via JS data
-    alert('Fonctionnalité de modification en cours. Supprimez et recréez pour le moment.');
-}
-
 // === Prêts ===
 function ouvrirRembPret(pretId, beneficiaire, solde){
     document.getElementById('dlg-rp-titre').textContent = 'Remboursement — ' + beneficiaire;
@@ -3035,5 +3435,58 @@ function ouvrirEditRessource(id){
     document.getElementById('rs-desc').value = d.description || '';
     document.getElementById('dlg-ressource').showModal();
 }
+
+// ═══ Boutons défilement horizontal ═══
+document.addEventListener('DOMContentLoaded', function() {
+    const arrowSvgL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>';
+    const arrowSvgR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>';
+
+    // Tab-bar scroll arrows
+    var tabBar = document.getElementById('tab-bar');
+    var tabL = document.getElementById('tab-arrow-l');
+    var tabR = document.getElementById('tab-arrow-r');
+    if (tabBar && tabL && tabR) {
+        function updateTabArrows() {
+            tabL.style.display = tabBar.scrollLeft > 5 ? 'flex' : 'none';
+            tabR.style.display = tabBar.scrollLeft + tabBar.clientWidth < tabBar.scrollWidth - 5 ? 'flex' : 'none';
+        }
+        tabBar.addEventListener('scroll', updateTabArrows);
+        window.addEventListener('resize', updateTabArrows);
+        setTimeout(updateTabArrows, 200);
+    }
+
+    document.querySelectorAll('.panneau[style*="overflow-x"], div[style*="overflow-x:auto"]').forEach(function(el) {
+        if (el.closest('dialog')) return;
+        if (el.scrollWidth <= el.clientWidth + 10) return;
+
+        var wrap = document.createElement('div');
+        wrap.className = 'scroll-wrap';
+        el.parentNode.insertBefore(wrap, el);
+        wrap.appendChild(el);
+
+        var btnL = document.createElement('button');
+        btnL.type = 'button';
+        btnL.className = 'scroll-arrow left';
+        btnL.innerHTML = arrowSvgL;
+        btnL.addEventListener('click', function() { el.scrollBy({left: -200, behavior: 'smooth'}); });
+
+        var btnR = document.createElement('button');
+        btnR.type = 'button';
+        btnR.className = 'scroll-arrow right';
+        btnR.innerHTML = arrowSvgR;
+        btnR.addEventListener('click', function() { el.scrollBy({left: 200, behavior: 'smooth'}); });
+
+        wrap.insertBefore(btnL, el);
+        wrap.appendChild(btnR);
+
+        function updateArrows() {
+            btnL.style.display = el.scrollLeft > 5 ? 'flex' : 'none';
+            btnR.style.display = el.scrollLeft + el.clientWidth < el.scrollWidth - 5 ? 'flex' : 'none';
+        }
+        el.addEventListener('scroll', updateArrows);
+        window.addEventListener('resize', updateArrows);
+        setTimeout(updateArrows, 200);
+    });
+});
 </script>
 @endpush

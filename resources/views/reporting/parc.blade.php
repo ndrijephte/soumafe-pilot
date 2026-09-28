@@ -977,14 +977,15 @@
             </table>
         </div>
         <div>
-            <h4 style="font-size:13px;color:var(--ko);margin:0 0 10px">Sorties</h4>
+            <h4 style="font-size:13px;color:var(--ko);margin:0 0 10px">Sorties (fonds propres)</h4>
             <table class="rp-tbl">
                 <tbody>
-                    <tr><td>D&eacute;penses bureau</td><td class="num neg">{{ number_format($depensesTotal ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Maintenance</td><td class="num neg">{{ number_format($coutMaintenance ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Pannes</td><td class="num neg">{{ number_format($coutPannes ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>P&eacute;nalit&eacute;s pay&eacute;es</td><td class="num neg">{{ number_format($penalitesPayees ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>D&eacute;penses bureau</td><td class="num neg">{{ number_format($fondsData['depenses_fp'] ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Maintenance</td><td class="num neg">{{ number_format($fondsData['maint_fp'] ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Pannes</td><td class="num neg">{{ number_format($fondsData['pannes_fp'] ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>P&eacute;nalit&eacute;s pay&eacute;es</td><td class="num neg">{{ number_format($penalitesPayeesFP ?? 0,0,',',' ') }}</td></tr>
                     <tr><td>Pr&ecirc;ts accord&eacute;s</td><td class="num neg">{{ number_format($pretsData['total_prete'] ?? 0,0,',',' ') }}</td></tr>
+                    <tr><td>Remboursements emprunts</td><td class="num neg">{{ number_format($remboursementsPeriode ?? 0,0,',',' ') }}</td></tr>
                     <tr style="font-weight:700;border-top:2px solid var(--bord)"><td>Total sorties</td><td class="num neg">{{ number_format($tresoSorties ?? 0,0,',',' ') }}</td></tr>
                 </tbody>
             </table>
@@ -1003,21 +1004,22 @@
     </div>
 </div>
 
-{{-- ═══ CAISSES MULTIPLES ═══ --}}
-@if(($soldesCaisses ?? collect())->isNotEmpty())
+{{-- ═══ 2 CAISSES : Bureau + Pointage ═══ --}}
 <div class="rp-section">
     <h3>{!! $ico('<path d="M21 4H3a2 2 0 00-2 2v12a2 2 0 002 2h18a2 2 0 002-2V6a2 2 0 00-2-2z"/><path d="M1 10h22"/>') !!} Solde par caisse</h3>
     <div class="rp-kpi" style="margin-bottom:14px">
-        @foreach($soldesCaisses as $cs)
         <div class="kpi-c">
-            <div class="kpi-v" style="color:{{ $cs['solde'] >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ number_format($cs['solde'],0,',',' ') }}</div>
-            <div class="kpi-l">{{ $cs['libelle'] }}</div>
-            <div class="kpi-sub" style="font-size:10px;color:var(--gris)">+{{ number_format($cs['entrees'],0,',',' ') }} / -{{ number_format($cs['sorties'],0,',',' ') }}</div>
+            <div class="kpi-v" style="color:{{ ($caisseBureauSolde ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ number_format($caisseBureauSolde ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Caisse Bureau</div>
+            <div class="kpi-sub" style="font-size:10px;color:var(--gris)">+{{ number_format($caisseBureauEntrees ?? 0,0,',',' ') }} / -{{ number_format($caisseBureauSorties ?? 0,0,',',' ') }}</div>
         </div>
-        @endforeach
+        <div class="kpi-c">
+            <div class="kpi-v" style="color:{{ ($caissePointageSolde ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ number_format($caissePointageSolde ?? 0,0,',',' ') }} F</div>
+            <div class="kpi-l">Pointage</div>
+            <div class="kpi-sub" style="font-size:10px;color:var(--gris)">+{{ number_format($caissePointageEntrees ?? 0,0,',',' ') }}</div>
+        </div>
     </div>
 </div>
-@endif
 
 {{-- ═══ PRÊTS ACCORDÉS ═══ --}}
 @if(($pretsData['nb_prets'] ?? 0) > 0 || ($pretsData['nb_en_cours'] ?? 0) > 0)

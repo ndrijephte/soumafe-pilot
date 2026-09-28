@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 class TypeParc extends Model
 {
     protected $table = 'types_parc';
-    protected $fillable = ['categorie', 'code', 'libelle', 'actif', 'ordre'];
+    protected $fillable = ['categorie', 'code', 'libelle', 'actif', 'ordre', 'intervalle_jours'];
     protected $casts = ['actif' => 'boolean'];
 
     public static function penalites()

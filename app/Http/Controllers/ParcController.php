@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, AutreRessource, Caisse, Chauffeur, Depense, Emprunt, JourFerie, MaintenancePreventive, MouvementCaisse, Panne, PaiementPenalite, ParametreParc, Penalite, PlanningJournalier, PretAccorde, Recouvrement, RecetteVehicule, RemboursementEmprunt, RemboursementPret, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, AutreRessource, Caisse, Chauffeur, Depense, Emprunt, JourFerie, LigneInterventionPanne, MaintenancePreventive, MouvementCaisse, Panne, PaiementPenalite, ParametreParc, Penalite, PretAccorde, Recouvrement, RecetteVehicule, RemboursementEmprunt, RemboursementPret, TypeParc, User, Vehicule, VersementRecouvrement};
 use App\Services\AlerteParcService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -35,7 +35,7 @@ class ParcController extends Controller
         $collaborateurs = User::where('actif', true)->orderBy('name')->get();
 
         // Toutes les données chargées (sections empilées)
-        $pannes = Panne::with(['vehicule', 'emprunt'])->orderByDesc('date_declaration')->get();
+        $pannes = Panne::with(['vehicule', 'emprunt', 'lignes'])->orderByDesc('date_declaration')->get();
         $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->limit(200)->get();
         $maintenances = MaintenancePreventive::with('vehicule')->orderBy('prochaine_echeance')->get();
         $penalites = Penalite::with(['vehicule', 'paiements'])->orderByDesc('date_infraction')->get();
@@ -68,14 +68,6 @@ class ParcController extends Controller
             ? Emprunt::with(['vehicule', 'remboursements'])->orderByDesc('date_emprunt')->get()
             : collect();
 
-        // --- Planning journalier ---
-        $datePlanning = $r->get('date_planning', today()->format('Y-m-d'));
-        $planningJour = Schema::hasTable('planning_journalier')
-            ? PlanningJournalier::with(['vehicule', 'chauffeur', 'remplacant'])
-                ->whereDate('date_jour', $datePlanning)->get()
-            : collect();
-        $actionsPlanning = TypeParc::actionsPlanning();
-
         // --- Prêts accordés ---
         $pretsAccordes = Schema::hasTable('prets_accordes')
             ? PretAccorde::with(['chauffeur', 'remboursements'])->orderByDesc('date_pret')->get()
@@ -95,7 +87,6 @@ class ParcController extends Controller
             'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
             'depenses', 'typesDepense', 'emprunts',
-            'datePlanning', 'planningJour', 'actionsPlanning',
             'pretsAccordes', 'autresRessources', 'typesRessource', 'caisses'
         ));
     }
@@ -482,6 +473,75 @@ class ParcController extends Controller
         return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne supprimée.');
     }
 
+    /* ===== LIGNES INTERVENTION PANNE ===== */
+    public function storeLigneIntervention(Request $r, Panne $panne)
+    {
+        $this->autoriser($r);
+        $data = $r->validate([
+            'designation'   => 'required|string|max:200',
+            'quantite'      => 'required|integer|min:1',
+            'prix_unitaire' => 'required|integer|min:0',
+        ]);
+        $data['montant'] = $data['quantite'] * $data['prix_unitaire'];
+        $data['panne_id'] = $panne->id;
+
+        $ligne = LigneInterventionPanne::create($data);
+        $panne->recalculerCout();
+        AuditLog::log('creation', 'ligne_intervention', "Panne #{$panne->id}", "Ligne: {$data['designation']}, Montant: {$data['montant']} F");
+
+        if ($r->ajax()) {
+            return response()->json([
+                'success' => true,
+                'ligne' => ['id' => $ligne->id, 'designation' => $ligne->designation, 'quantite' => $ligne->quantite, 'prix_unitaire' => $ligne->prix_unitaire, 'montant' => $ligne->montant],
+                'cout_reel' => $panne->fresh()->cout_reel,
+            ]);
+        }
+        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Ligne ajoutee.');
+    }
+
+    public function updateLigneIntervention(Request $r, LigneInterventionPanne $ligne)
+    {
+        $this->autoriser($r);
+        $data = $r->validate([
+            'designation'   => 'required|string|max:200',
+            'quantite'      => 'required|integer|min:1',
+            'prix_unitaire' => 'required|integer|min:0',
+        ]);
+        $data['montant'] = $data['quantite'] * $data['prix_unitaire'];
+
+        $ligne->update($data);
+        $ligne->panne->recalculerCout();
+        AuditLog::log('modification', 'ligne_intervention', "Panne #{$ligne->panne_id}", "Ligne: {$data['designation']}");
+
+        if ($r->ajax()) {
+            return response()->json([
+                'success' => true,
+                'ligne' => ['id' => $ligne->id, 'designation' => $ligne->designation, 'quantite' => $ligne->quantite, 'prix_unitaire' => $ligne->prix_unitaire, 'montant' => $ligne->montant],
+                'cout_reel' => $ligne->panne->fresh()->cout_reel,
+            ]);
+        }
+        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Ligne mise a jour.');
+    }
+
+    public function destroyLigneIntervention(Request $r, LigneInterventionPanne $ligne)
+    {
+        $this->autoriser($r);
+        $panneId = $ligne->panne_id;
+        $panne = $ligne->panne;
+        $desig = $ligne->designation;
+        AuditLog::log('suppression', 'ligne_intervention', "Panne #{$panneId}", "Ligne: {$desig}");
+        $ligne->delete();
+        $panne->recalculerCout();
+
+        if ($r->ajax()) {
+            return response()->json([
+                'success' => true,
+                'cout_reel' => $panne->fresh()->cout_reel,
+            ]);
+        }
+        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Ligne supprimee.');
+    }
+
     /* ===== RECETTES CRUD ===== */
     public function storeRecette(Request $r)
     {
@@ -504,12 +564,12 @@ class ParcController extends Controller
 
         // Recette > 0 → mode_remise obligatoire
         if ($montant > 0 && empty($data['mode_remise'])) {
-            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
                 ->withInput()->withErrors(['mode_remise' => 'Le mode de remise est obligatoire.']);
         }
         // Recette = 0 → motif obligatoire, mode_remise facultatif
         if ($montant == 0 && empty($data['motif_absence'])) {
-            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
                 ->withInput()->withErrors(['motif_absence' => 'Le motif est obligatoire lorsque la recette est à 0.']);
         }
         // Recette > 0 → vider le motif
@@ -530,7 +590,7 @@ class ParcController extends Controller
                 ->where('chauffeur', '!=', $data['chauffeur'] ?? '')
                 ->first();
             if ($conflit) {
-                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
                     ->withInput()->withErrors(['vehicule_id' => 'Ce véhicule est déjà utilisé par ' . $conflit->chauffeur . ' le ' . $conflit->date->format('d/m/Y')]);
             }
 
@@ -541,7 +601,7 @@ class ParcController extends Controller
 
             // Recette < objectif et > 0 → motif et perspective obligatoires
             if ($montant > 0 && $montant < $data['objectif'] && empty($data['motif_absence'])) {
-                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
                     ->withInput()->withErrors(['motif_absence' => 'Motif obligatoire : objectif non atteint.']);
             }
 
@@ -591,9 +651,26 @@ class ParcController extends Controller
                 AuditLog::log('creation', 'recouvrement', $data['chauffeur'], "Déficit {$deficit} F — justification non valable (saisie individuelle)");
             }
 
-            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $data['date']])->with('succes', 'Recette enregistrée.');
+            // Flash résumé pour dialog post-soumission
+            $resumeRecette = [
+                'chauffeur' => $data['chauffeur'] ?? '—',
+                'vehicule' => $v->immatriculation ?? '—',
+                'date' => \Carbon\Carbon::parse($data['date'])->format('d/m/Y'),
+                'montant' => $montant,
+                'objectif' => $data['objectif'],
+                'ecart' => $data['ecart'],
+                'pointage' => $data['pointage'] ?? 0,
+                'mode_remise' => $data['mode_remise'] ?? '',
+                'deficit' => $deficit,
+                'recette_id' => $rec->id,
+                'statut' => $montant >= $data['objectif'] ? 'Objectif atteint' : 'En attente de validation',
+            ];
+
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $data['date']])
+                ->with('succes', 'Recette enregistrée.')
+                ->with('resume_recette', $resumeRecette);
         } catch (\Exception $e) {
-            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
                 ->withErrors(['Erreur : ' . $e->getMessage()]);
         }
     }
@@ -601,9 +678,10 @@ class ParcController extends Controller
     public function updateRecette(Request $r, RecetteVehicule $recette)
     {
         $this->autoriser($r);
+        abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent modifier une recette.');
 
         // Bloquer modification si déjà validée par le gestionnaire
-        if ($recette->valide_par) {
+        if ($recette->valide_par && !$r->user()->estAdmin()) {
             return back()->withErrors(['Recette déjà validée par ' . $recette->valide_par . '. Aucune modification autorisée.']);
         }
 
@@ -904,6 +982,25 @@ class ParcController extends Controller
 
         $msg = "Journée du " . \Carbon\Carbon::parse($dateJour)->format('d/m/Y') . " validée : {$nbCrees} créée(s), {$nbMaj} mise(s) à jour.";
         AuditLog::log($nbMaj > 0 ? 'modification' : 'creation', 'recettes', $dateJour, "{$nbCrees} créée(s), {$nbMaj} MAJ");
+
+        // Flash résumé pour dialog post-soumission (dernière ligne traitée)
+        if (isset($recetteObj) && isset($v)) {
+            $resumeRecette = [
+                'chauffeur' => $recetteObj->chauffeur ?? '—',
+                'vehicule' => $v->immatriculation ?? '—',
+                'date' => \Carbon\Carbon::parse($dateJour)->format('d/m/Y'),
+                'montant' => $recetteObj->recette ?? 0,
+                'objectif' => $recetteObj->objectif ?? 0,
+                'ecart' => $recetteObj->ecart ?? 0,
+                'pointage' => $recetteObj->pointage ?? 0,
+                'mode_remise' => $recetteObj->mode_remise ?? '',
+                'deficit' => max(0, ($recetteObj->objectif ?? 0) - ($recetteObj->recette ?? 0)),
+                'recette_id' => $recetteObj->id,
+                'statut' => ($recetteObj->recette ?? 0) >= ($recetteObj->objectif ?? 0) ? 'Objectif atteint' : 'En attente de validation',
+            ];
+            session()->flash('resume_recette', $resumeRecette);
+        }
+
         if (!empty($erreurs)) {
             $msg .= ' Erreurs : ' . implode(' | ', $erreurs);
             return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $dateJour])->with('succes', $msg)->withErrors($erreurs);
@@ -923,9 +1020,18 @@ class ParcController extends Controller
             'observations' => 'nullable|string|max:500',
         ]);
 
-        $m = MaintenancePreventive::create($r->only([
-            'vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations',
-        ]));
+        $data = $r->only(['vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations']);
+
+        // Auto-calcul prochaine échéance si non renseignée et derniere_realisation fournie
+        if (empty($data['prochaine_echeance']) && !empty($data['derniere_realisation'])) {
+            $tp = TypeParc::where('categorie', 'maintenance')->where('code', $data['type_echeance'])->first();
+            if ($tp && $tp->intervalle_jours) {
+                $data['prochaine_echeance'] = \Carbon\Carbon::parse($data['derniere_realisation'])
+                    ->addDays($tp->intervalle_jours)->toDateString();
+            }
+        }
+
+        $m = MaintenancePreventive::create($data);
         AuditLog::log('creation', 'maintenance', "Maintenance #{$m->id}", "Type: {$m->type_echeance}, Véhicule ID: {$m->vehicule_id}");
 
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance ajoutée.');
@@ -1001,18 +1107,29 @@ class ParcController extends Controller
         $maintenance->save();
         AuditLog::log('realisation', 'maintenance', "Maintenance #{$maintenance->id}", "Coût: {$maintenance->cout} F, Véhicule: " . ($maintenance->vehicule->immatriculation ?? ''));
 
-        // Auto-créer la prochaine échéance si date fournie
+        // Auto-créer la prochaine échéance
         $msg = 'Maintenance réalisée.';
-        if ($r->prochaine_echeance_suivante) {
+        $dateProchaineEch = $r->prochaine_echeance_suivante;
+
+        // Si pas de date prochaine fournie, calculer automatiquement depuis l'intervalle du type
+        if (!$dateProchaineEch) {
+            $tp = TypeParc::where('categorie', 'maintenance')->where('code', $maintenance->type_echeance)->first();
+            if ($tp && $tp->intervalle_jours) {
+                $dateProchaineEch = \Carbon\Carbon::parse($r->date_realisation)
+                    ->addDays($tp->intervalle_jours)->toDateString();
+            }
+        }
+
+        if ($dateProchaineEch) {
             $next = MaintenancePreventive::create([
                 'vehicule_id' => $maintenance->vehicule_id,
                 'type_echeance' => $maintenance->type_echeance,
                 'derniere_realisation' => $r->date_realisation,
-                'prochaine_echeance' => $r->prochaine_echeance_suivante,
+                'prochaine_echeance' => $dateProchaineEch,
                 'observations' => null,
             ]);
             AuditLog::log('creation', 'maintenance', "Maintenance #{$next->id}", "Prochaine échéance auto — Type: {$next->type_echeance}, Véhicule: " . ($maintenance->vehicule->immatriculation ?? ''));
-            $msg = 'Maintenance réalisée. Prochaine échéance planifiée au ' . date('d/m/Y', strtotime($r->prochaine_echeance_suivante)) . '.';
+            $msg = 'Maintenance réalisée. Prochaine échéance planifiée au ' . date('d/m/Y', strtotime($dateProchaineEch)) . '.';
         }
 
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', $msg);
@@ -1036,9 +1153,9 @@ class ParcController extends Controller
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
             'type' => 'required|string|max:50',
-            'chauffeur' => 'nullable|string|max:100',
-            'lieu' => 'nullable|string|max:120',
-            'description' => 'nullable|string|max:500',
+            'chauffeur' => 'required|string|max:100',
+            'lieu' => 'required|string|max:120',
+            'description' => 'required|string|max:500',
             'montant' => 'required|integer|min:0',
             'statut' => 'required|in:non_payee,payee,en_cours,contestee',
             'date_paiement' => 'nullable|date',
@@ -1090,9 +1207,9 @@ class ParcController extends Controller
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
             'type' => 'required|string|max:50',
-            'chauffeur' => 'nullable|string|max:100',
-            'lieu' => 'nullable|string|max:120',
-            'description' => 'nullable|string|max:500',
+            'chauffeur' => 'required|string|max:100',
+            'lieu' => 'required|string|max:120',
+            'description' => 'required|string|max:500',
             'montant' => 'required|integer|min:0',
             'statut' => 'required|in:non_payee,payee,en_cours,contestee',
             'date_paiement' => 'nullable|date',
@@ -1125,23 +1242,25 @@ class ParcController extends Controller
         $r->validate([
             'montant' => 'required|integer|min:1|max:' . $penalite->soldeRestant(),
             'date_paiement' => 'required|date',
-            'mode_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
-            'source_paiement' => 'nullable|in:pointage,chauffeur,entreprise',
+            'mode_paiement' => 'required|in:especes,mobile_money,cheque,virement,autre',
+            'source_paiement' => 'required|in:pointage,chauffeur,entreprise',
             'observations' => 'nullable|string|max:500',
         ]);
+
+        $sourcePaiement = $r->source_paiement;
 
         $ppData = [
             'penalite_id' => $penalite->id,
             'montant' => $r->montant,
             'date_paiement' => $r->date_paiement,
             'mode_paiement' => $r->mode_paiement,
-            'source_paiement' => $r->source_paiement ?? 'chauffeur',
+            'source_paiement' => $sourcePaiement,
             'recu_par' => auth()->user()->name,
             'observations' => $r->observations,
         ];
 
-        // Emprunt si source_financement = emprunt
-        if ($r->source_financement === 'emprunt') {
+        // Emprunt si source_financement = emprunt ET source = entreprise
+        if ($sourcePaiement === 'entreprise' && $r->source_financement === 'emprunt') {
             $emp = Emprunt::create([
                 'montant' => $r->montant,
                 'date_emprunt' => $r->date_paiement,
@@ -1159,20 +1278,40 @@ class ParcController extends Controller
 
         $penalite->recalculerPaiement();
 
-        // Mettre à jour le recouvrement lié
+        // Synchroniser avec le recouvrement lié via VersementRecouvrement
         if (Schema::hasTable('recouvrements') && Schema::hasColumn('recouvrements', 'penalite_id')) {
             $recouv = Recouvrement::where('penalite_id', $penalite->id)->where('statut', 'actif')->first();
             if ($recouv) {
-                $recouv->montant_recouvre = $penalite->montant_paye;
-                $recouv->solde = $penalite->soldeRestant();
-                if ($recouv->solde <= 0) {
-                    $recouv->statut = 'solde';
+                // Créer un VersementRecouvrement pour que le reporting fonctionne
+                $versData = [
+                    'recouvrement_id' => $recouv->id,
+                    'montant' => $r->montant,
+                    'date_versement' => $r->date_paiement,
+                    'mode_paiement' => $r->mode_paiement,
+                    'source_paiement' => $sourcePaiement,
+                    'recu_par' => auth()->user()->name,
+                    'observations' => 'Via paiement pénalité #' . $penalite->id,
+                ];
+
+                // Si entreprise paie → créer une dépense liée
+                if ($sourcePaiement === 'entreprise') {
+                    $dep = Depense::create([
+                        'date_depense' => $r->date_paiement,
+                        'type_depense' => 'recouvrement',
+                        'vehicule_id' => $penalite->vehicule_id,
+                        'montant' => $r->montant,
+                        'commentaire' => "Pénalité #{$penalite->id} — {$penalite->typeLabel()} — {$penalite->chauffeur}",
+                        'cree_par' => auth()->user()->name,
+                    ]);
+                    $versData['depense_id'] = $dep->id;
                 }
-                $recouv->save();
+
+                VersementRecouvrement::create($versData);
+                $recouv->recalculerSolde();
             }
         }
 
-        AuditLog::log('creation', 'paiement_penalite', "Pénalité #{$penalite->id}", "Versement: {$r->montant} F, Solde: {$penalite->soldeRestant()} F");
+        AuditLog::log('creation', 'paiement_penalite', "Pénalité #{$penalite->id}", "Versement: {$r->montant} F ({$sourcePaiement}), Solde: {$penalite->soldeRestant()} F");
         return redirect()->route('parc.index', ['tab' => 'penal'])->with('succes', 'Paiement enregistré. Solde : ' . number_format($penalite->soldeRestant(), 0, ',', ' ') . ' F');
     }
 
@@ -1585,8 +1724,8 @@ class ParcController extends Controller
         $data = $r->validate([
             'montant' => 'required|integer|min:1',
             'date_versement' => 'required|date',
-            'mode_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
-            'source_paiement' => 'nullable|in:chauffeur,entreprise',
+            'mode_paiement' => 'required|in:especes,mobile_money,cheque,virement,autre',
+            'source_paiement' => 'required|in:chauffeur,entreprise',
             'observations' => 'nullable|string|max:500',
         ]);
 
@@ -1780,74 +1919,6 @@ class ParcController extends Controller
         AuditLog::log('suppression', 'emprunt', "Emprunt #{$emprunt->id}", "Prêteur: {$emprunt->preteur}, Montant: {$emprunt->montant} F, Motif: " . $r->motif_suppression);
         $emprunt->delete();
         return redirect()->route('parc.index', ['tab' => 'emprunts'])->with('succes', 'Emprunt supprimé.');
-    }
-
-    /* ═══════════════════════════════════════════════════════
-     *  PLANNING JOURNALIER
-     * ═══════════════════════════════════════════════════════ */
-
-    public function storePlanning(Request $r)
-    {
-        $this->autoriser($r);
-        $data = $r->validate([
-            'date_jour'               => 'required|date',
-            'vehicule_id'             => 'required|exists:vehicules,id',
-            'chauffeur_id'            => 'nullable|exists:chauffeurs,id',
-            'action'                  => 'required|string|max:30',
-            'motif'                   => 'nullable|string|max:200',
-            'chauffeur_remplacant_id' => 'nullable|exists:chauffeurs,id',
-            'observations'            => 'nullable|string|max:500',
-        ]);
-
-        // Remplir noms pour historique
-        if (!empty($data['chauffeur_id'])) {
-            $ch = Chauffeur::find($data['chauffeur_id']);
-            $data['chauffeur_nom'] = $ch?->nomComplet();
-        }
-        if (!empty($data['chauffeur_remplacant_id'])) {
-            $rem = Chauffeur::find($data['chauffeur_remplacant_id']);
-            $data['chauffeur_remplacant_nom'] = $rem?->nomComplet();
-        }
-        $data['cree_par'] = auth()->user()->name;
-
-        $planning = PlanningJournalier::create($data);
-        AuditLog::log('creation', 'planning', "Planning #{$planning->id}", "Action: {$data['action']}, Véhicule ID: {$data['vehicule_id']}");
-        return redirect()->route('parc.index', ['tab' => 'planning', 'date_planning' => $data['date_jour']])->with('succes', 'Planning enregistré.');
-    }
-
-    public function updatePlanning(Request $r, PlanningJournalier $planning)
-    {
-        $this->autoriser($r);
-        $data = $r->validate([
-            'action'                  => 'required|string|max:30',
-            'motif'                   => 'nullable|string|max:200',
-            'chauffeur_remplacant_id' => 'nullable|exists:chauffeurs,id',
-            'observations'            => 'nullable|string|max:500',
-        ]);
-
-        if (!empty($data['chauffeur_remplacant_id'])) {
-            $rem = Chauffeur::find($data['chauffeur_remplacant_id']);
-            $data['chauffeur_remplacant_nom'] = $rem?->nomComplet();
-        } else {
-            $data['chauffeur_remplacant_id'] = null;
-            $data['chauffeur_remplacant_nom'] = null;
-        }
-        $data['modifie_par'] = auth()->user()->name;
-        $data['modifie_le'] = now();
-
-        $planning->update($data);
-        AuditLog::log('modification', 'planning', "Planning #{$planning->id}", "Action: {$data['action']}");
-        return redirect()->route('parc.index', ['tab' => 'planning', 'date_planning' => $planning->date_jour->format('Y-m-d')])->with('succes', 'Planning mis à jour.');
-    }
-
-    public function destroyPlanning(Request $r, PlanningJournalier $planning)
-    {
-        $this->autoriser($r);
-        abort_unless($r->user()->estAdmin(), 403);
-        $r->validate(['motif_suppression' => 'required|string|min:5']);
-        AuditLog::log('suppression', 'planning', "Planning #{$planning->id}", "Motif: " . $r->motif_suppression);
-        $planning->delete();
-        return redirect()->route('parc.index', ['tab' => 'planning'])->with('succes', 'Planning supprimé.');
     }
 
     /* ═══════════════════════════════════════════════════════

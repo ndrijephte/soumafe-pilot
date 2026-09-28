@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, AutreRessource, Caisse, Chauffeur, Depense, Emprunt, MaintenancePreventive, MouvementCaisse, Objectif, Panne, Penalite, PretAccorde, Recouvrement, RecetteVehicule, RemboursementEmprunt, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{AuditLog, AutreRessource, Chauffeur, Depense, Emprunt, MaintenancePreventive, Objectif, Panne, Penalite, PretAccorde, Recouvrement, RecetteVehicule, RemboursementEmprunt, TypeParc, User, Vehicule, VersementRecouvrement};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
@@ -515,38 +515,29 @@ class ReportingParcController extends Controller
         // ═══════ TRÉSORERIE FORMALISÉE ═══════
         // Entrées = recettes + pointages + autres ressources + recouvrements perçus
         $tresoEntrees = $recetteTotal + $pointageTotal + $autresRessourcesTotal + $recouvrementPercu;
-        // Sorties = dépenses bureau + maintenance + pannes + pénalités payées + prêts accordés
+        // Sorties = charges fonds propres uniquement (pas emprunt) + remboursements emprunts + prêts accordés
         $penalitesPayees = 0;
         if (Schema::hasTable('paiements_penalites')) {
             $penalitesPayees = (int) DB::table('paiements_penalites')->whereBetween('date_paiement', [$debut, $fin])->sum('montant');
         }
-        $tresoSorties = $depensesTotal + $coutMaintenance + $coutPannes + $penalitesPayees + $pretsData['total_prete'];
+        // Pénalités fonds propres
+        $penalitesPayeesFP = $penalitesPayees - $fondsData['penalites_emp'];
+        // Sorties réelles de caisse = uniquement ce qui est sorti en fonds propres + remboursements emprunts
+        $tresoSortiesFP = $fondsData['depenses_fp'] + $fondsData['maint_fp'] + $fondsData['pannes_fp'] + $penalitesPayeesFP + $pretsData['total_prete'] + $remboursementsPeriode;
+        $tresoSorties = $tresoSortiesFP;
         $soldeBrut = $tresoEntrees - $tresoSorties;
         // Solde après engagements = solde brut - dette emprunts restante - créances prêts non remboursées
         $soldeApresEngagements = $soldeBrut - ($detteGlobale ?? 0) - $pretsData['creances'];
 
-        // ═══════ CAISSES MULTIPLES ═══════
-        $soldesCaisses = collect();
-        if (Schema::hasTable('caisses') && Schema::hasTable('mouvements_caisse')) {
-            $soldesCaisses = Caisse::where('actif', true)->get()->map(function ($c) use ($debut, $fin) {
-                $entrees = (int) MouvementCaisse::where('caisse_code', $c->code)
-                    ->where('sens', 'entree')
-                    ->whereBetween('date_mouvement', [$debut, $fin])
-                    ->sum('montant');
-                $sorties = (int) MouvementCaisse::where('caisse_code', $c->code)
-                    ->where('sens', 'sortie')
-                    ->whereBetween('date_mouvement', [$debut, $fin])
-                    ->sum('montant');
-                return [
-                    'code' => $c->code,
-                    'libelle' => $c->libelle,
-                    'entrees' => $entrees,
-                    'sorties' => $sorties,
-                    'solde' => $c->solde_initial + $entrees - $sorties,
-                    'mouvement_net' => $entrees - $sorties,
-                ];
-            });
-        }
+        // ═══════ 2 CAISSES : Bureau + Pointage ═══════
+        // Caisse bureau = alimentée par recettes + ressources additionnelles, diminuée par sorties FP + prêts + remboursements
+        $caisseBureauEntrees = $recetteTotal + $autresRessourcesTotal + $recouvrementPercu;
+        $caisseBureauSorties = $fondsData['depenses_fp'] + $fondsData['maint_fp'] + $fondsData['pannes_fp'] + $penalitesPayeesFP + $pretsData['total_prete'] + $remboursementsPeriode;
+        $caisseBureauSolde = $caisseBureauEntrees - $caisseBureauSorties;
+        // Caisse pointage = pointages FCFA uniquement
+        $caissePointageEntrees = $pointageTotal;
+        $caissePointageSorties = 0;
+        $caissePointageSolde = $caissePointageEntrees;
 
         // ═══════ RENTABILITÉ DYNAMIQUE PAR VÉHICULE ═══════
         $rentaVehicules = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
@@ -608,8 +599,9 @@ class ReportingParcController extends Controller
             'rentaVehicules', 'nbRentables', 'nbDeficit', 'profitTotal', 'depTotalVeh', 'detteNetteTotale',
             'totalCharges', 'coutMaintenance',
             'pretsData', 'autresRessourcesTotal', 'autresRessourcesType',
-            'tresoEntrees', 'tresoSorties', 'soldeBrut', 'soldeApresEngagements', 'penalitesPayees',
-            'soldesCaisses'
+            'tresoEntrees', 'tresoSorties', 'soldeBrut', 'soldeApresEngagements', 'penalitesPayees', 'penalitesPayeesFP',
+            'caisseBureauEntrees', 'caisseBureauSorties', 'caisseBureauSolde',
+            'caissePointageEntrees', 'caissePointageSorties', 'caissePointageSolde'
         ));
     }
 

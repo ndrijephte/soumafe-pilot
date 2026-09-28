@@ -133,6 +133,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/pannes', [ParcController::class, 'storePanne'])->name('parc.pannes.store');
     Route::put('/parc/pannes/{panne}', [ParcController::class, 'updatePanne'])->name('parc.pannes.update');
     Route::delete('/parc/pannes/{panne}', [ParcController::class, 'destroyPanne'])->name('parc.pannes.destroy');
+    Route::post('/parc/pannes/{panne}/lignes', [ParcController::class, 'storeLigneIntervention'])->name('parc.pannes.lignes.store');
+    Route::put('/parc/pannes/lignes/{ligne}', [ParcController::class, 'updateLigneIntervention'])->name('parc.pannes.lignes.update');
+    Route::delete('/parc/pannes/lignes/{ligne}', [ParcController::class, 'destroyLigneIntervention'])->name('parc.pannes.lignes.destroy');
     Route::post('/parc/recettes', [ParcController::class, 'storeRecette'])->name('parc.recettes.store');
     Route::put('/parc/recettes/{recette}', [ParcController::class, 'updateRecette'])->name('parc.recettes.update');
     Route::delete('/parc/recettes/{recette}', [ParcController::class, 'destroyRecette'])->name('parc.recettes.destroy');
@@ -163,11 +166,6 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/emprunts', [ParcController::class, 'storeEmprunt'])->name('parc.emprunts.store');
     Route::post('/parc/emprunts/{emprunt}/remboursement', [ParcController::class, 'storeRemboursement'])->name('parc.emprunts.remboursement');
     Route::delete('/parc/emprunts/{emprunt}', [ParcController::class, 'destroyEmprunt'])->name('parc.emprunts.destroy');
-
-    // Planning journalier
-    Route::post('/parc/planning', [ParcController::class, 'storePlanning'])->name('parc.planning.store');
-    Route::put('/parc/planning/{planning}', [ParcController::class, 'updatePlanning'])->name('parc.planning.update');
-    Route::delete('/parc/planning/{planning}', [ParcController::class, 'destroyPlanning'])->name('parc.planning.destroy');
 
     // Prêts accordés
     Route::post('/parc/prets', [ParcController::class, 'storePret'])->name('parc.prets.store');

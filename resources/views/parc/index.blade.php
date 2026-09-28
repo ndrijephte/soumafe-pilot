@@ -526,11 +526,21 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                     <label style="font-size:12px;font-weight:600;color:var(--bleu)">Chauffeur <span class="req">*</span></label>
                     <select name="chauffeur" id="sr-chauff" required onchange="onSrChauffeurChange()" style="margin-top:4px">
                         <option value="">-- Choisir un chauffeur --</option>
+                        @php $nomsGrille = []; @endphp
                         @foreach($grilleJour as $i => $g)
                             @if(!$g['deja_saisi'] && ($g['chauffeur_actif'] ?? true) && !($g['vehicule_pris_par'] ?? null) && $g['chauffeur'])
                             <option value="{{ $g['chauffeur'] }}" data-vid="{{ $g['vehicule']->id }}" data-vimmat="{{ $g['vehicule']->immatriculation }}" data-objectif="{{ $g['objectif'] }}" data-repos="{{ $g['est_repos'] ? '1' : '0' }}">{{ $g['chauffeur'] }}</option>
+                            @php $nomsGrille[] = $g['chauffeur']; @endphp
                             @endif
                         @endforeach
+                        @php $autresChauff = $chauffeurs->where('statut', 'actif')->whereNotIn('nom', $nomsGrille); @endphp
+                        @if($autresChauff->isNotEmpty())
+                        <option disabled>── Autres chauffeurs ──</option>
+                        @foreach($autresChauff as $ac)
+                            @php $acVeh = $ac->vehicules->first(); @endphp
+                            <option value="{{ $ac->nom }}" data-vid="{{ $acVeh->id ?? '' }}" data-vimmat="{{ $acVeh->immatriculation ?? '' }}" data-objectif="0" data-repos="0">{{ $ac->nom }}</option>
+                        @endforeach
+                        @endif
                     </select>
                 </div>
                 <div>
@@ -2235,15 +2245,29 @@ function majChauffeurs(vehicId, selectId, valeur){
     var sel=document.getElementById(selectId); if(!sel)return;
     sel.innerHTML='<option value="">— Chauffeur —</option>';
     var v=vehiculesData[vehicId];
+    var nomsAffectes={};
     if(v && v.chauffeurs && v.chauffeurs.length>0){
         v.chauffeurs.forEach(function(c){
             var opt=document.createElement('option');
             opt.value=c.nom;
             opt.textContent=c.nom+' ('+c.role+')';
             sel.appendChild(opt);
+            nomsAffectes[c.nom]=true;
         });
+        // Ajouter les autres chauffeurs actifs apres separateur
+        var autres=chauffeursActifs.filter(function(c){return !nomsAffectes[c.nom];});
+        if(autres.length>0){
+            var sep=document.createElement('option');
+            sep.disabled=true;sep.textContent='── Autres chauffeurs ──';
+            sel.appendChild(sep);
+            autres.forEach(function(c){
+                var opt=document.createElement('option');
+                opt.value=c.nom;
+                opt.textContent=c.nom;
+                sel.appendChild(opt);
+            });
+        }
     } else {
-        // Aucun chauffeur affecté → proposer tous les actifs
         chauffeursActifs.forEach(function(c){
             var opt=document.createElement('option');
             opt.value=c.nom;

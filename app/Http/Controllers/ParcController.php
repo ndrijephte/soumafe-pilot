@@ -36,7 +36,7 @@ class ParcController extends Controller
 
         // Toutes les données chargées (sections empilées)
         $pannes = Panne::with(['vehicule', 'emprunt', 'lignes'])->orderByDesc('date_declaration')->get();
-        $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->limit(200)->get();
+        $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->limit(2000)->get();
         $maintenances = MaintenancePreventive::with('vehicule')->orderBy('prochaine_echeance')->get();
         $penalites = Penalite::with(['vehicule', 'paiements'])->orderByDesc('date_infraction')->get();
 
@@ -564,17 +564,13 @@ class ParcController extends Controller
 
         // Recette > 0 → mode_remise obligatoire
         if ($montant > 0 && empty($data['mode_remise'])) {
-            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
                 ->withInput()->withErrors(['mode_remise' => 'Le mode de remise est obligatoire.']);
         }
         // Recette = 0 → motif obligatoire, mode_remise facultatif
         if ($montant == 0 && empty($data['motif_absence'])) {
-            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
                 ->withInput()->withErrors(['motif_absence' => 'Le motif est obligatoire lorsque la recette est à 0.']);
-        }
-        // Recette > 0 → vider le motif
-        if ($montant > 0) {
-            $data['motif_absence'] = null;
         }
         // Recette = 0 → vider mode_remise
         if ($montant == 0) {
@@ -590,7 +586,7 @@ class ParcController extends Controller
                 ->where('chauffeur', '!=', $data['chauffeur'] ?? '')
                 ->first();
             if ($conflit) {
-                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
+                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
                     ->withInput()->withErrors(['vehicule_id' => 'Ce véhicule est déjà utilisé par ' . $conflit->chauffeur . ' le ' . $conflit->date->format('d/m/Y')]);
             }
 
@@ -601,8 +597,13 @@ class ParcController extends Controller
 
             // Recette < objectif et > 0 → motif et perspective obligatoires
             if ($montant > 0 && $montant < $data['objectif'] && empty($data['motif_absence'])) {
-                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date')])
+                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
                     ->withInput()->withErrors(['motif_absence' => 'Motif obligatoire : objectif non atteint.']);
+            }
+
+            // Recette >= objectif → vider le motif (pas besoin de justification)
+            if ($montant > 0 && $montant >= $data['objectif']) {
+                $data['motif_absence'] = null;
             }
 
             // Validation gestionnaire : justification_valable
@@ -702,15 +703,12 @@ class ParcController extends Controller
         $montant = (int) ($data['recette'] ?? 0);
 
         if ($montant > 0 && empty($data['mode_remise'])) {
-            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette', 'edit_recette_id' => $recette->id])
                 ->withInput()->withErrors(['mode_remise' => 'Le mode de remise est obligatoire.']);
         }
         if ($montant == 0 && empty($data['motif_absence'])) {
-            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+            return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette', 'edit_recette_id' => $recette->id])
                 ->withInput()->withErrors(['motif_absence' => 'Le motif est obligatoire lorsque la recette est à 0.']);
-        }
-        if ($montant > 0) {
-            $data['motif_absence'] = null;
         }
         if ($montant == 0) {
             $data['mode_remise'] = null;
@@ -726,7 +724,7 @@ class ParcController extends Controller
                 ->where('id', '!=', $recette->id)
                 ->first();
             if ($conflit) {
-                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette', 'edit_recette_id' => $recette->id])
                     ->withInput()->withErrors(['vehicule_id' => 'Ce véhicule est déjà utilisé par ' . $conflit->chauffeur . ' le ' . $conflit->date->format('d/m/Y')]);
             }
 
@@ -736,8 +734,13 @@ class ParcController extends Controller
             $data['ecart'] = $data['recette'] - $data['objectif'];
 
             if ($montant > 0 && $montant < $data['objectif'] && empty($data['motif_absence'])) {
-                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette'])
+                return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $r->input('date'), 'open_dlg' => 'recette', 'edit_recette_id' => $recette->id])
                     ->withInput()->withErrors(['motif_absence' => 'Motif obligatoire : objectif non atteint.']);
+            }
+
+            // Recette >= objectif → vider le motif (pas besoin de justification)
+            if ($montant > 0 && $montant >= $data['objectif']) {
+                $data['motif_absence'] = null;
             }
 
             // Validation gestionnaire
@@ -748,6 +751,30 @@ class ParcController extends Controller
             $data['valide_le'] = now();
 
             $recette->update($data);
+
+            AuditLog::log('modification', 'recette', "Recette #{$recette->id}", "Modifiee par " . $r->user()->name . " — {$data['chauffeur']} / " . ($v->immatriculation ?? '') . " du " . $data['date']);
+
+            // Mise a jour mouvements caisse
+            if (Schema::hasTable('mouvements_caisse')) {
+                MouvementCaisse::where('source_type', 'recette')->where('source_id', $recette->id)->delete();
+                MouvementCaisse::where('source_type', 'pointage')->where('source_id', $recette->id)->delete();
+                if ($montant > 0) {
+                    MouvementCaisse::create([
+                        'caisse_code' => 'generale', 'sens' => 'entree', 'montant' => $montant,
+                        'date_mouvement' => $data['date'], 'source_type' => 'recette', 'source_id' => $recette->id,
+                        'libelle' => "Recette — " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
+                        'cree_par' => auth()->user()->name,
+                    ]);
+                }
+                if (($data['pointage'] ?? 0) > 0) {
+                    MouvementCaisse::create([
+                        'caisse_code' => 'pointage', 'sens' => 'entree', 'montant' => $data['pointage'],
+                        'date_mouvement' => $data['date'], 'source_type' => 'pointage', 'source_id' => $recette->id,
+                        'libelle' => "Pointage — " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
+                        'cree_par' => auth()->user()->name,
+                    ]);
+                }
+            }
 
             // Création recouvrement si déficit ET justification non valable
             if ($deficit > 0 && !$justifValable && Schema::hasTable('recouvrements') && !empty($data['chauffeur'])) {

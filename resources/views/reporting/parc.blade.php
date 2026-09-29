@@ -66,7 +66,12 @@
 @php
     $ico = fn(string $d) => '<svg class="ico" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $d . '</svg>';
 @endphp
-<a href="{{ route('parc.index') }}" class="lien-retour">← Retour au parc</a>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+    <a href="{{ route('parc.index') }}" class="lien-retour" style="margin-bottom:0">← Retour au parc</a>
+    <a href="{{ route('observations.fiche-collaborateur') }}" class="btn" style="font-size:12px;padding:6px 14px;text-decoration:none;background:#fff;color:var(--accent);border:1px solid var(--accent);border-radius:8px;display:inline-flex;align-items:center;gap:4px">
+        {!! $ico('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>') !!} Fiche collaborateur
+    </a>
+</div>
 <h2>Reporting Parc Automobile</h2>
 <div class="crumb">Période : {{ \Carbon\Carbon::parse($debut)->format('d/m/Y') }} — {{ \Carbon\Carbon::parse($fin)->format('d/m/Y') }}</div>
 

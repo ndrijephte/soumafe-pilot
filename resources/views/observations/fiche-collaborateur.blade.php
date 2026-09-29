@@ -97,8 +97,33 @@
     @endif
 </div>
 
+{{-- Score global dynamique --}}
+@php
+    $s = $data['stats'];
+    $scoreGlobal = $data['scoreGlobal'];
+    $scoreComposantes = $data['scoreComposantes'];
+    $couleurScore = $scoreGlobal >= 80 ? 'var(--ok)' : ($scoreGlobal >= 50 ? '#b45309' : 'var(--ko)');
+@endphp
+<div class="panneau" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+    <div style="text-align:center;min-width:100px">
+        <div style="font-size:42px;font-weight:800;color:{{ $couleurScore }};line-height:1">{{ $scoreGlobal }}%</div>
+        <div style="font-size:11px;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;margin-top:4px">Score Global</div>
+    </div>
+    <div style="flex:1;display:flex;gap:6px;flex-wrap:wrap;min-width:200px">
+        @foreach($scoreComposantes as $comp)
+        @php $cCouleur = $comp['score'] >= 80 ? 'var(--ok)' : ($comp['score'] >= 50 ? '#b45309' : 'var(--ko)'); @endphp
+        <div style="flex:1;min-width:110px;background:var(--fond);border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px">{{ $comp['label'] }} ({{ $comp['poids'] }}%)</div>
+            <div style="background:#e2e8f0;border-radius:4px;height:6px;overflow:hidden">
+                <div style="width:{{ $comp['score'] }}%;height:100%;background:{{ $cCouleur }};border-radius:4px;transition:width .3s"></div>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:{{ $cCouleur }};margin-top:4px">{{ $comp['score'] }}%</div>
+        </div>
+        @endforeach
+    </div>
+</div>
+
 {{-- KPIs résumé --}}
-@php $s = $data['stats']; @endphp
 <div class="kpis">
     <div class="kpi"><div class="val">{{ $s['taches_total'] }}</div><div class="lbl">Tâches</div></div>
     <div class="kpi"><div class="val" style="color:var(--ok)">{{ $s['taux_completion'] }}%</div><div class="lbl">Complétion</div></div>
@@ -109,7 +134,9 @@
     <div class="kpi"><div class="val" style="color:var(--ok)">{{ $s['jours_presents'] }}</div><div class="lbl">Jours présent</div></div>
     <div class="kpi"><div class="val" style="color:var(--ko)">{{ $s['retards'] }}</div><div class="lbl">Retards</div></div>
     <div class="kpi"><div class="val">{{ $s['obs_total'] }}</div><div class="lbl">Observations</div></div>
+    <div class="kpi"><div class="val">{{ $s['obs_suivies'] ?? 0 }}</div><div class="lbl">Obs. suivies</div></div>
     <div class="kpi"><div class="val">{{ $s['reunions_total'] }}</div><div class="lbl">Réunions</div></div>
+    <div class="kpi"><div class="val">{{ $s['audit_actions'] ?? 0 }}</div><div class="lbl">Actions audit</div></div>
 </div>
 
 <div class="section-grid">
@@ -187,6 +214,49 @@
     @endif
 </div>
 
+{{-- Observations suivies (délégation) --}}
+@if(!empty($data['observationsSuivies']) && $data['observationsSuivies']->isNotEmpty())
+<div class="panneau" style="overflow-x:auto">
+    <h3>{!! $icBug !!} Observations suivies ({{ $data['observationsSuivies']->count() }})</h3>
+    <table class="mini-table">
+        <thead><tr><th>Code</th><th>Projet</th><th>Description</th><th>Statut</th></tr></thead>
+        <tbody>
+        @foreach($data['observationsSuivies'] as $obs)
+        <tr>
+            <td style="font-family:monospace;font-size:11px;font-weight:700;color:var(--accent)">{{ $obs->code }}</td>
+            <td style="font-size:11px">{{ $obs->projet?->code ?? '—' }}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $obs->description }}">{{ $obs->description }}</td>
+            <td><span class="badge {{ match($obs->statut) { 'resolu' => 'b-ok', 'en_cours' => 'b-warn', 'bloque' => 'b-ko', default => 'b-info' } }}">{{ $obs->statutLibelle() }}</span></td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+
+{{-- Historique d'actions (audit global) --}}
+@if(!empty($data['auditGlobal']) && $data['auditGlobal']->isNotEmpty())
+<div class="panneau" style="overflow-x:auto">
+    <h3>{!! $ic('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>') !!} Historique d'actions ({{ $data['auditGlobal']->count() }})</h3>
+    <table class="mini-table">
+        <thead><tr><th>Date</th><th>Module</th><th>Action</th><th>Cible</th></tr></thead>
+        <tbody>
+        @foreach($data['auditGlobal']->take(20) as $log)
+        <tr>
+            <td style="font-size:11px;white-space:nowrap">{{ $log->created_at->format('d/m H:i') }}</td>
+            <td><span class="badge b-info">{{ $log->module }}</span></td>
+            <td style="font-size:11px">{{ $log->action }}</td>
+            <td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $log->cible }}">{{ \Illuminate\Support\Str::limit($log->cible ?? '—', 40) }}</td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+    @if($data['auditGlobal']->count() > 20)
+    <p style="color:var(--gris);font-size:11px;text-align:center;margin-top:6px">+ {{ $data['auditGlobal']->count() - 20 }} autres actions</p>
+    @endif
+</div>
+@endif
+
 {{-- Pointage --}}
 <div class="panneau" style="overflow-x:auto">
     <h3>{!! $icClock !!} Pointage ({{ $data['pointages']->count() }} jours)</h3>
@@ -211,6 +281,35 @@
     @endif
     @endif
 </div>
+
+{{-- Activités Parc Automobile (si gestionnaire) --}}
+@if(!empty($data['parcData']))
+@php $p = $data['parcData']; @endphp
+<div class="panneau">
+    <h3>{!! $ic('<rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H7"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>') !!} Gestion Parc Automobile</h3>
+    <div class="kpis" style="margin-bottom:12px">
+        <div class="kpi"><div class="val">{{ $p['recettes_count'] }}</div><div class="lbl">Recettes saisies</div></div>
+        <div class="kpi"><div class="val">{{ number_format($p['recettes_total'], 0, ',', ' ') }}</div><div class="lbl">Total recettes (F)</div></div>
+        <div class="kpi"><div class="val">{{ $p['depenses_count'] }}</div><div class="lbl">Depenses enregistrees</div></div>
+        <div class="kpi"><div class="val">{{ number_format($p['depenses_total'], 0, ',', ' ') }}</div><div class="lbl">Total depenses (F)</div></div>
+        <div class="kpi"><div class="val">{{ $p['audit_count'] }}</div><div class="lbl">Actions parc</div></div>
+    </div>
+    @if($p['audit_actions']->isNotEmpty())
+    <table class="mini-table">
+        <thead><tr><th>Date</th><th>Action</th><th>Cible</th></tr></thead>
+        <tbody>
+        @foreach($p['audit_actions']->take(10) as $log)
+        <tr>
+            <td style="font-size:11px;white-space:nowrap">{{ $log->created_at->format('d/m H:i') }}</td>
+            <td style="font-size:11px">{{ $log->action }}</td>
+            <td style="font-size:11px">{{ \Illuminate\Support\Str::limit($log->cible ?? '—', 40) }}</td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+    @endif
+</div>
+@endif
 
 {{-- Planning réunions --}}
 <div class="panneau" style="overflow-x:auto">

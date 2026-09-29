@@ -66,6 +66,8 @@ dialog textarea{resize:vertical}
     $u = auth()->user();
     $isAdmin = $u->estAdmin();
     $isPilote = $u->estPilote();
+    $isSuiveur = fn($obs) => (int) ($obs->suivi_par ?? 0) === (int) $u->id;
+    $peutAgir = fn($obs) => $isPilote || $isSuiveur($obs);
 
     $badgeCls = fn($s) => match($s) {
         'nouveau'  => 'b-info',
@@ -164,8 +166,9 @@ dialog textarea{resize:vertical}
             <th>Type</th>
             <th>Priorité</th>
             <th>Responsable</th>
+            <th>Suivi par</th>
             <th>Statut</th>
-            @if($isPilote)<th style="width:90px">Actions</th>@endif
+            @if($isPilote || $observations->contains(fn($o) => $isSuiveur($o)))<th style="width:110px">Actions</th> @endif
         </tr>
         </thead>
         <tbody>
@@ -178,14 +181,22 @@ dialog textarea{resize:vertical}
             <td style="font-size:11px">{{ $obs->type_difficulte }}</td>
             <td><span class="badge {{ $prioCls($obs->priorite) }}">{{ ucfirst($obs->priorite) }}</span></td>
             <td style="font-size:11.5px">{{ $obs->responsable?->nomComplet() ?? '—' }}</td>
+            <td style="font-size:11.5px">
+                @if($obs->suivi_par)
+                    <span class="badge b-info">{{ $obs->suiveur?->prenom ?? $obs->suiveur?->name ?? '—' }}</span>
+                @else — @endif
+            </td>
             <td><span class="badge {{ $badgeCls($obs->statut) }}">{{ $obs->statutLibelle() }}</span></td>
-            @if($isPilote)
+            @if($isPilote || $observations->contains(fn($o) => $isSuiveur($o)))
             <td>
                 <div class="act-row">
+                    @if($peutAgir($obs))
                     <button class="act-btn" title="Détail / Résoudre" onclick="ouvrirResolution({{ $obs->id }})">
                         {!! $icEdit !!}
                     </button>
+                    @endif
                     @if($isAdmin)
+                    <button class="act-btn" title="Déléguer suivi" onclick="ouvrirDelegation({{ $obs->id }})" style="color:var(--accent)">{!! $ic('<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/>') !!}</button>
                     <form method="POST" action="{{ route('observations.destroy', $obs) }}" onsubmit="return demanderMotifSuppression(this,'cette observation')">@csrf @method('DELETE')
                         <input type="hidden" name="motif_suppression" class="motif-suppr-input">
                         <button class="act-btn" title="Supprimer" style="color:var(--ko)">{!! $icTrash !!}</button>
@@ -273,7 +284,7 @@ dialog textarea{resize:vertical}
 {{-- ============================================ --}}
 {{-- Dialog Phase 2 — Résolution --}}
 {{-- ============================================ --}}
-@if($isPilote)
+@if($isPilote || $observations->contains(fn($o) => $isSuiveur($o)))
 <dialog id="dlg-resolution">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <h3 style="color:var(--bleu);margin:0">Traitement <span class="phase-tag ph2">Phase 2</span> <span id="res-code" class="code-obs" style="margin-left:6px"></span></h3>
@@ -294,7 +305,34 @@ dialog textarea{resize:vertical}
     </div>
 
     <form method="POST" id="form-resolution">@csrf @method('PUT')
+        <label>Description <span class="req">*</span></label>
+        <textarea name="description" id="res-description" required rows="2"></textarea>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+            <div>
+                <label>Type de difficulté <span class="req">*</span></label>
+                <select name="type_difficulte" id="res-type" required>
+                    @foreach($types as $t)
+                    <option value="{{ $t }}">{{ $t }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label>Priorité <span class="req">*</span></label>
+                <select name="priorite" id="res-priorite" required>
+                    @foreach($priorites as $p)
+                    <option value="{{ $p }}">{{ ucfirst($p) }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
+                <label>Origine <span class="req">*</span></label>
+                <select name="origine" id="res-origine" required>
+                    @foreach($origines as $o)
+                    <option value="{{ $o }}">{{ $o }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div>
                 <label>Statut <span class="req">*</span></label>
                 <select name="statut" id="res-statut" required>
@@ -312,6 +350,7 @@ dialog textarea{resize:vertical}
                     @endforeach
                 </select>
             </div>
+            @if($isPilote)
             <div>
                 <label>Responsable technique</label>
                 <select name="responsable_id" id="res-responsable" onchange="chargerPerf(this.value)">
@@ -321,11 +360,15 @@ dialog textarea{resize:vertical}
                     @endforeach
                 </select>
             </div>
+            @endif
             <div>
                 <label>Date de livraison</label>
                 <input type="date" name="date_livraison" id="res-date-livraison">
             </div>
         </div>
+
+        <label>Commentaires</label>
+        <textarea name="commentaires" id="res-commentaires" rows="2"></textarea>
 
         <label>Commentaire de résolution</label>
         <textarea name="commentaire_resolution" id="res-commentaire" rows="3" placeholder="Décrivez la solution apportée ou le blocage..."></textarea>
@@ -336,6 +379,30 @@ dialog textarea{resize:vertical}
         </div>
     </form>
 </dialog>
+
+{{-- Dialog Délégation suivi --}}
+@if($isAdmin)
+<dialog id="dlg-delegation">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <h3 style="color:var(--bleu);margin:0">Déléguer le suivi <span id="deleg-code" class="code-obs" style="margin-left:6px"></span></h3>
+        <button type="button" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--gris)" onclick="this.closest('dialog').close()">&times;</button>
+    </div>
+    <p style="font-size:12px;color:var(--gris);margin-bottom:10px">Désignez un collaborateur pour assurer le suivi complet de cette observation.</p>
+    <form method="POST" id="form-delegation">@csrf
+        <label>Collaborateur <span class="req">*</span></label>
+        <select name="suivi_par" required>
+            <option value="">— Sélectionner —</option>
+            @foreach($responsables->where('role', 'collaborateur') as $c)
+            <option value="{{ $c->id }}">{{ $c->nomComplet() }}</option>
+            @endforeach
+        </select>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Déléguer</button>
+        </div>
+    </form>
+</dialog>
+@endif
 @endif
 
 @endsection
@@ -350,7 +417,7 @@ function filtrerObs(){
     });
 }
 
-@if($isPilote)
+@if($isPilote || $observations->contains(fn($o) => $isSuiveur($o)))
 @php
 $obsJson = $observations->map(fn($o) => [
     'id'              => $o->id,
@@ -358,7 +425,7 @@ $obsJson = $observations->map(fn($o) => [
     'projet'          => $o->projet ? $o->projet->code . ' — ' . $o->projet->libelle : null,
     'description'     => $o->description,
     'type_difficulte' => $o->type_difficulte,
-    'priorite'        => ucfirst($o->priorite),
+    'priorite'        => $o->priorite,
     'origine'         => $o->origine,
     'date_reception'  => $o->date_reception->format('d/m/Y'),
     'statut'          => $o->statut,
@@ -376,24 +443,28 @@ function ouvrirResolution(id){
     const o = obsData.find(x => x.id === id);
     if(!o) return;
     document.getElementById('res-code').textContent = o.code;
-    let resume = '<strong>'+escHtml(o.description)+'</strong><br>';
-    if(o.projet) resume += '<span style="color:var(--accent)">'+escHtml(o.projet)+'</span><br>';
-    resume += '<span>Type : '+escHtml(o.type_difficulte)+' · Priorité : '+escHtml(o.priorite)+' · Origine : '+escHtml(o.origine)+'</span><br>';
-    resume += '<span>Déclaré le '+escHtml(o.date_reception)+' par '+escHtml(o.declarant)+'</span>';
-    if(o.commentaires) resume += '<br><em>'+escHtml(o.commentaires)+'</em>';
+    let resume = '';
+    if(o.projet) resume += '<span style="color:var(--accent)">'+escHtml(o.projet)+'</span> · ';
+    resume += 'Déclaré le '+escHtml(o.date_reception)+' par '+escHtml(o.declarant);
     document.getElementById('res-resume').innerHTML = resume;
     document.getElementById('form-resolution').action = '{{ url("observations") }}/'+o.id;
+    document.getElementById('res-description').value = o.description || '';
+    document.getElementById('res-type').value = o.type_difficulte || '';
+    document.getElementById('res-priorite').value = o.priorite || '';
+    document.getElementById('res-origine').value = o.origine || '';
     document.getElementById('res-statut').value = o.statut;
     document.getElementById('res-mode').value = o.mode_execution || '';
-    document.getElementById('res-responsable').value = o.responsable_id || '';
+    const resResp = document.getElementById('res-responsable');
+    if(resResp) resResp.value = o.responsable_id || '';
     document.getElementById('res-date-livraison').value = o.date_livraison || '';
+    document.getElementById('res-commentaires').value = o.commentaires || '';
     document.getElementById('res-commentaire').value = o.commentaire_resolution || '';
-    // Charger perf du responsable
-    if(o.responsable_id) chargerPerf(o.responsable_id);
+    if(o.responsable_id && typeof chargerPerf === 'function') chargerPerf(o.responsable_id);
     else document.getElementById('res-perf').style.display='none';
     document.getElementById('dlg-resolution').showModal();
 }
 
+@if($isPilote)
 function chargerPerf(userId){
     const box = document.getElementById('res-perf');
     if(!userId){ box.style.display='none'; return; }
@@ -408,6 +479,17 @@ function chargerPerf(userId){
         })
         .catch(()=>{ box.style.display='none'; });
 }
+@endif
+
+@if($isAdmin)
+function ouvrirDelegation(id){
+    const o = obsData.find(x => x.id === id);
+    if(!o) return;
+    document.getElementById('deleg-code').textContent = o.code;
+    document.getElementById('form-delegation').action = '{{ url("observations") }}/'+o.id+'/deleguer-suivi';
+    document.getElementById('dlg-delegation').showModal();
+}
+@endif
 @endif
 </script>
 @endpush

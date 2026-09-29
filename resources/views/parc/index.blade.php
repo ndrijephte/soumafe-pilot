@@ -69,6 +69,8 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .act-btn:hover{background:#f1f5f9;color:var(--bleu)}
 .act-btn.del{color:var(--ko)}
 .act-btn.del:hover{background:#fef2f2}
+.edit-icon-btn{width:32px;height:32px;border-radius:50%;background:rgba(46,116,181,.1);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:all .2s ease;border:none;cursor:pointer;padding:0}
+.edit-icon-btn:hover{background:var(--accent);color:#fff;transform:scale(1.1);box-shadow:0 2px 8px rgba(31,78,121,.25)}
 .header-actions{display:flex;gap:8px;align-items:center}
 .empty-msg{text-align:center;color:var(--gris);padding:24px;font-size:12.5px}
 .dg-mode .act-row,.dg-mode .gc-detail,.dg-mode .gc-chevron,.dg-mode #form-grille-ind{display:none!important}
@@ -368,6 +370,11 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             @endif
         </form>
         <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+            @if(!$estDG)
+            <button type="button" class="btn sm" onclick="ouvrirSaisieIndiv()" style="background:var(--accent);color:#fff">
+                {!! $ic('M12 5v14 M5 12h14', 14) !!} Saisie individuelle
+            </button>
+            @endif
             <button type="button" class="btn sm sec" onclick="ouvrirHistoRecettes()">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 Historique
@@ -480,9 +487,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                         @if($rc->mode_remise)<span>{{ ucfirst(str_replace('_', ' ', $rc->mode_remise)) }}</span> @endif
                     </div>
                     @if(auth()->user()->estAdmin())
-                    <button class="act-btn info" title="Modifier" onclick="editRecette({{ $rc->id }})" style="padding:4px 8px;border-radius:6px;background:var(--fond)">
-                        {!! $ic('M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z', 13) !!}
-                    </button>
+                    <button class="act-btn edit-icon-btn" title="Modifier cette recette" onclick="editRecette({{ $rc->id }})">{!! $ic('M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7 M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z', 15) !!}</button>
                     @endif
                 </div>
             </div>
@@ -991,12 +996,18 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Historique des recettes</h3>
         <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
     </div>
-    <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <label style="font-size:12px;font-weight:600;color:var(--mute)">Filtrer par mois :</label>
+        <input type="month" id="histo-filtre-mois" onchange="filtrerHistoMois()" style="padding:4px 8px;border:1px solid var(--bord);border-radius:6px;font-size:12px">
+        <button type="button" onclick="document.getElementById('histo-filtre-mois').value='';filtrerHistoMois()" class="btn sec" style="padding:4px 10px;font-size:11px">Tous</button>
+        <span id="histo-compteur" style="font-size:11px;color:var(--mute);margin-left:auto"></span>
+    </div>
+    <div style="overflow-x:auto;max-height:60vh;overflow-y:auto">
     <table>
     <thead><tr><th>Date</th><th>Chauffeur</th><th>Véhicule</th><th>Recette</th><th>Objectif</th><th>Écart</th><th>Mode</th><th>Motif</th><th></th></tr></thead>
-    <tbody>
+    <tbody id="histo-tbody">
     @forelse($recettes as $rec)
-    <tr>
+    <tr data-mois="{{ $rec->date->format('Y-m') }}">
         <td>{{ $rec->date->format('d/m/Y') }}</td>
         <td><strong>{{ $rec->chauffeur ?? '—' }}</strong></td>
         <td>{{ $rec->vehicule->immatriculation ?? '?' }}</td>
@@ -1008,7 +1019,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>
             <div class="act-row">
                 @if(auth()->user()->estAdmin())
-                <button type="button" class="act-btn" title="Modifier" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
+                <button type="button" class="act-btn edit-icon-btn" title="Modifier cette recette" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
                 @endif
                 @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.recettes.destroy', $rec) }}" onsubmit="return demanderMotifSuppression(this,'cette recette')">@csrf @method('DELETE')
@@ -2083,7 +2094,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 @php
 $_vData = [];
 foreach($vehicules as $_v) {
-    $_vChauffs = $_v->chauffeurs->where('pivot.actif', true)->map(fn($c) => [
+    $_vChauffs = $_v->chauffeurs->where('pivot.actif', true)->where('statut', 'actif')->map(fn($c) => [
         'id' => $c->id, 'nom' => $c->nomComplet(), 'role' => $c->pivot->role,
     ])->values()->toArray();
     $_vData[$_v->id] = [
@@ -2136,6 +2147,26 @@ foreach($recettes as $_r) {
         'valide_par' => $_r->valide_par,
         'justification_valable' => $_r->justification_valable ?? null,
     ];
+}
+// Fusionner les recettes de la grille du jour (garantit que les records visibles sont toujours editables)
+foreach($grilleJour as $_g) {
+    if (!empty($_g['recette']) && !isset($_rData[$_g['recette']->id])) {
+        $_r = $_g['recette'];
+        $_rData[$_r->id] = [
+            'date' => $_r->date->format('Y-m-d'),
+            'vehicule_id' => $_r->vehicule_id,
+            'chauffeur' => $_r->chauffeur,
+            'recette' => $_r->recette,
+            'pointage' => $_r->pointage ?? 0,
+            'mode_remise' => $_r->mode_remise,
+            'controle_par' => $_r->controle_par,
+            'observations' => $_r->observations,
+            'motif_absence' => $_r->motif_absence,
+            'perspective' => $_r->perspective ?? '',
+            'valide_par' => $_r->valide_par,
+            'justification_valable' => $_r->justification_valable ?? null,
+        ];
+    }
 }
 $_mData = [];
 foreach($maintenances as $_m) {
@@ -2751,7 +2782,10 @@ function ouvrirVersement(recId, chauffeur, solde){
 }
 
 function editRecette(id){
-    var d=recettesData[id]; if(!d)return;
+    var d=recettesData[id]; if(!d){alert('Donnees de la recette introuvables (ID '+id+'). Rechargez la page.');return;}
+    // Fermer le dialog historique s'il est ouvert (evite superposition)
+    var histoDlg=document.getElementById('dlg-histo-recettes');
+    if(histoDlg && histoDlg.open) histoDlg.close();
     var estAdmin={{ auth()->user()->estAdmin() ? 'true' : 'false' }};
     var verrouille=!!d.valide_par && !estAdmin;
     document.getElementById('dlg-recette-titre').innerHTML='{!! $icWallet !!} '+(d.valide_par && !estAdmin?'Consulter la recette':'Modifier la recette');
@@ -2766,7 +2800,18 @@ function editRecette(id){
     document.getElementById('r-mode-wrap').style.display=(d.recette>0)?'':'none';
     document.getElementById('r-ctrl').value=d.controle_par||'';
     document.getElementById('r-obs').value=d.observations||'';
-    document.getElementById('r-motif').value=d.motif_absence||'';
+    // Motif : s'assurer que la valeur stockee est selectionnable
+    var motifSel=document.getElementById('r-motif');
+    var motifVal=d.motif_absence||'';
+    if(motifVal){
+        var motifExiste=false;
+        for(var i=0;i<motifSel.options.length;i++){if(motifSel.options[i].value===motifVal){motifExiste=true;break;}}
+        if(!motifExiste){
+            var opt=document.createElement('option');opt.value=motifVal;opt.textContent=motifVal;
+            motifSel.appendChild(opt);
+        }
+    }
+    motifSel.value=motifVal;
     if(document.getElementById('r-perspective'))document.getElementById('r-perspective').value=d.perspective||'';
     // Validation gestionnaire
     if(d.justification_valable!==null && d.justification_valable!==undefined){
@@ -2785,8 +2830,20 @@ function ouvrirHistoRecettes(){
     try{
         var dlg=document.getElementById('dlg-histo-recettes');
         if(!dlg){console.error('Dialog dlg-histo-recettes introuvable');return;}
+        filtrerHistoMois();
         dlg.showModal();
     }catch(e){console.error('Erreur ouverture historique recettes:',e);}
+}
+function filtrerHistoMois(){
+    var filtre=document.getElementById('histo-filtre-mois').value;
+    var rows=document.querySelectorAll('#histo-tbody tr[data-mois]');
+    var nb=0,total=rows.length;
+    rows.forEach(function(tr){
+        if(!filtre||tr.getAttribute('data-mois')===filtre){tr.style.display='';nb++;}
+        else{tr.style.display='none';}
+    });
+    var cpt=document.getElementById('histo-compteur');
+    if(cpt) cpt.textContent=filtre?(nb+' / '+total+' recettes'):(total+' recettes');
 }
 function ouvrirSaisieIndiv(){
     try{
@@ -2813,6 +2870,13 @@ function resetRecetteForm(){
     document.getElementById('form-recette').action='{{ route("parc.recettes.store") }}';
     document.getElementById('recette-method').innerHTML='';
     document.getElementById('form-recette').reset();
+    // Retirer les options de motif ajoutees dynamiquement
+    var motifSel=document.getElementById('r-motif');
+    var motifCodes=@json($motifsAbsence->pluck('code')->toArray());
+    for(var i=motifSel.options.length-1;i>=0;i--){
+        var v=motifSel.options[i].value;
+        if(v!=='' && motifCodes.indexOf(v)===-1) motifSel.remove(i);
+    }
     document.getElementById('r-date').value='{{ $dateJour }}';
     document.getElementById('r-date').style.borderColor='';
     document.getElementById('r-date').style.background='';
@@ -2834,8 +2898,18 @@ function resetRecetteForm(){
 // Réouvrir le dialog automatiquement après erreur serveur
 @if(request()->get('open_dlg')==='recette' && $errors->any())
 document.addEventListener('DOMContentLoaded',function(){
-    resetRecetteForm();
-    document.getElementById('dlg-recette').showModal();
+    var editId={{ (int) request()->get('edit_recette_id', 0) }};
+    if(editId && recettesData[editId]){
+        editRecette(editId);
+    } else {
+        resetRecetteForm();
+        document.getElementById('dlg-recette').showModal();
+    }
+    // Afficher l'erreur de validation
+    var errMsg=@json($errors->first());
+    if(errMsg){
+        setTimeout(function(){alert(errMsg);},300);
+    }
 });
 @endif
 

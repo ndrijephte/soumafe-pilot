@@ -19,7 +19,13 @@ class ObservationController extends Controller
             ]);
         }
 
-        $query = Observation::with(['responsable', 'declarant', 'projet'])->orderByDesc('date_reception');
+        $query = Observation::with(['responsable', 'declarant', 'projet', 'suiveur'])->orderByDesc('date_reception');
+
+        // Collaborateur non-pilote : uniquement ses observations déléguées
+        $u = auth()->user();
+        if ($u && !$u->estPilote()) {
+            $query->where('suivi_par', $u->id);
+        }
 
         if ($r->filled('statut'))       $query->where('statut', $r->statut);
         if ($r->filled('priorite'))     $query->where('priorite', $r->priorite);
@@ -87,12 +93,25 @@ class ObservationController extends Controller
     /** Phase 2 — Résolution / mise à jour statut */
     public function update(Request $r, Observation $observation)
     {
+        $u = $r->user();
+        // Pilotes OU collaborateur délégué au suivi peuvent modifier
+        abort_unless(
+            $u->estPilote() || (int) $observation->suivi_par === (int) $u->id,
+            403,
+            'Vous n\'avez pas les droits pour modifier cette observation.'
+        );
+
         $v = $r->validate([
             'statut'                  => 'required|in:nouveau,en_cours,resolu,bloque,rejete',
             'mode_execution'          => 'nullable|string|max:100',
             'date_livraison'          => 'nullable|date',
             'commentaire_resolution'  => 'nullable|string|max:2000',
             'responsable_id'          => 'nullable|exists:users,id',
+            'description'             => 'nullable|string|max:2000',
+            'type_difficulte'         => 'nullable|string|max:100',
+            'priorite'                => 'nullable|string|max:30',
+            'origine'                 => 'nullable|string|max:100',
+            'commentaires'            => 'nullable|string|max:2000',
         ]);
 
         $ancienResp = $observation->responsable_id;
@@ -102,7 +121,14 @@ class ObservationController extends Controller
         $observation->date_livraison         = $v['date_livraison'] ?? null;
         $observation->commentaire_resolution = trim($v['commentaire_resolution'] ?? '') ?: null;
 
-        if ($r->filled('responsable_id')) {
+        // Champs modifiables par le collaborateur délégué
+        if (isset($v['description']) && $v['description'])     $observation->description = $v['description'];
+        if (isset($v['type_difficulte']) && $v['type_difficulte']) $observation->type_difficulte = $v['type_difficulte'];
+        if (isset($v['priorite']) && $v['priorite'])           $observation->priorite = $v['priorite'];
+        if (isset($v['origine']) && $v['origine'])             $observation->origine = $v['origine'];
+        if (array_key_exists('commentaires', $v))              $observation->commentaires = trim($v['commentaires'] ?? '') ?: null;
+
+        if ($r->filled('responsable_id') && $u->estPilote()) {
             $observation->responsable_id = $r->responsable_id;
         }
 
@@ -122,6 +148,35 @@ class ObservationController extends Controller
 
         return redirect()->route('observations.index')
             ->with('succes', 'Observation mise à jour.');
+    }
+
+    /** Déléguer le suivi d'une observation à un collaborateur */
+    public function deleguerSuivi(Request $r, Observation $observation)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+
+        $r->validate(['suivi_par' => 'required|exists:users,id']);
+
+        $observation->suivi_par = $r->suivi_par;
+        $observation->save();
+
+        // Notifier le collaborateur
+        $collab = User::find($r->suivi_par);
+        if ($collab) {
+            NotificationApp::create([
+                'user_id' => $collab->id,
+                'type'    => 'observation',
+                'contenu' => 'Suivi observation ' . $observation->code . ' — ' . \Illuminate\Support\Str::limit($observation->description, 80),
+                'lien'    => route('observations.index'),
+                'lu'      => false,
+                'canal'   => 'in_app',
+            ]);
+        }
+
+        $this->auditer('deleguer_suivi_observation', $observation->code . ' → ' . ($collab?->nomComplet() ?? '?'));
+
+        return redirect()->route('observations.index')
+            ->with('succes', 'Suivi délégué à ' . ($collab?->nomComplet() ?? '—'));
     }
 
     /** Suppression */
@@ -160,9 +215,11 @@ class ObservationController extends Controller
         $objAtteints  = (clone $objectifs)->where('avancement', '>=', 100)->count();
         $objScore     = (clone $objectifs)->avg('avancement') ?? 0;
 
-        // Observations assignées
-        $obsTotal   = Observation::where('responsable_id', $userId)->count();
-        $obsResolus = Observation::where('responsable_id', $userId)->where('statut', 'resolu')->count();
+        // Observations assignées + suivies
+        $obsTotal   = Observation::where('responsable_id', $userId)->orWhere('suivi_par', $userId)->count();
+        $obsResolus = Observation::where(function($q) use ($userId) {
+            $q->where('responsable_id', $userId)->orWhere('suivi_par', $userId);
+        })->where('statut', 'resolu')->count();
 
         return response()->json([
             'nom'              => $user->nomComplet(),
@@ -182,7 +239,7 @@ class ObservationController extends Controller
     public function ficheCollaborateur(Request $r)
     {
         $u = $r->user();
-        abort_unless($u->estPilote(), 403);
+        abort_unless($u->estPilote() || $u->peutGererParc(), 403);
 
         $collaborateurs = User::where('actif', true)
             ->whereNotIn('role', ['invite', 'administrateur', 'direction'])
@@ -219,12 +276,29 @@ class ObservationController extends Controller
                 ->orderByDesc('created_at')
                 ->get();
 
-            // Observations assignées
+            // Observations assignées (responsable)
             $observations = Observation::where('responsable_id', $collab->id)
                 ->whereBetween('date_reception', [$debut, $fin])
                 ->with('projet')
                 ->orderByDesc('date_reception')
                 ->get();
+
+            // Observations suivies (suivi_par)
+            $observationsSuivies = Observation::where('suivi_par', $collab->id)
+                ->whereBetween('date_reception', [$debut, $fin])
+                ->with('projet')
+                ->orderByDesc('date_reception')
+                ->get();
+
+            // Audit global (toutes actions sur tous modules)
+            $auditGlobal = collect();
+            if (Schema::hasTable('audit_logs')) {
+                $auditGlobal = \App\Models\AuditLog::where('user_id', $collab->id)
+                    ->whereBetween('created_at', [$debut, $fin . ' 23:59:59'])
+                    ->orderByDesc('created_at')
+                    ->limit(30)
+                    ->get();
+            }
 
             // Pointages
             $pointages = collect();
@@ -272,14 +346,82 @@ class ObservationController extends Controller
                 ? round($taches->where('statut', 'termine')->count() / $taches->count() * 100)
                 : 0;
 
+            // Activités parc automobile (si gestionnaire parc)
+            $parcData = null;
+            if ($collab->peutGererParc()) {
+                $nomComplet = $collab->nomComplet();
+                $recettesParc = \App\Models\RecetteVehicule::where('controle_par', $nomComplet)
+                    ->whereBetween('date', [$debut, $fin])
+                    ->get();
+                $depensesParc = \App\Models\Depense::where('cree_par', $nomComplet)
+                    ->whereBetween('date_depense', [$debut, $fin])
+                    ->get();
+                $auditParc = collect();
+                if (Schema::hasTable('audit_logs')) {
+                    $auditParc = \App\Models\AuditLog::where('user_id', $collab->id)
+                        ->where('module', 'parc')
+                        ->whereBetween('created_at', [$debut, $fin . ' 23:59:59'])
+                        ->orderByDesc('created_at')
+                        ->limit(20)
+                        ->get();
+                }
+                $parcData = [
+                    'recettes'           => $recettesParc,
+                    'recettes_total'     => $recettesParc->sum('recette'),
+                    'recettes_count'     => $recettesParc->count(),
+                    'depenses'           => $depensesParc,
+                    'depenses_total'     => $depensesParc->sum('montant'),
+                    'depenses_count'     => $depensesParc->count(),
+                    'audit_actions'      => $auditParc,
+                    'audit_count'        => $auditParc->count(),
+                ];
+            }
+
+            // Observations combinées (responsable + suivies, sans doublons)
+            $obsTotal = $observations->count() + $observationsSuivies->reject(fn($o) => $observations->contains('id', $o->id))->count();
+            $obsResolus = $observations->where('statut', 'resolu')->count()
+                + $observationsSuivies->reject(fn($o) => $observations->contains('id', $o->id))->where('statut', 'resolu')->count();
+
+            // Score global dynamique (pondéré)
+            $scoreComposantes = [];
+            // 1. Tâches (40%)
+            $scoreTaches = $taches->count() > 0
+                ? round($taches->where('statut', 'termine')->count() / $taches->count() * 100) : 0;
+            $scoreComposantes['taches'] = ['poids' => 40, 'score' => $scoreTaches, 'label' => 'Tâches'];
+            // 2. OKR (25%)
+            $scoreComposantes['okr'] = ['poids' => 25, 'score' => round($scoreOKR), 'label' => 'Objectifs (OKR)'];
+            // 3. Observations (15%)
+            $scoreObs = $obsTotal > 0 ? round($obsResolus / $obsTotal * 100) : 0;
+            $scoreComposantes['obs'] = ['poids' => 15, 'score' => $scoreObs, 'label' => 'Observations'];
+            // 4. Assiduité (15%)
+            $joursAttendus = $pointages->count();
+            $joursPresents = $pointages->whereIn('statut', ['present', 'retard', 'sorti_tot'])->count();
+            $scoreAssiduite = $joursAttendus > 0 ? round($joursPresents / $joursAttendus * 100) : 0;
+            $scoreComposantes['assiduite'] = ['poids' => 15, 'score' => $scoreAssiduite, 'label' => 'Assiduité'];
+            // 5. Réunions (5%)
+            $scoreReunions = $reunions->count() > 0
+                ? round($reunions->whereIn('statut', ['prevu', 'present'])->count() / $reunions->count() * 100) : 0;
+            $scoreComposantes['reunions'] = ['poids' => 5, 'score' => $scoreReunions, 'label' => 'Réunions'];
+
+            $scoreGlobal = 0;
+            foreach ($scoreComposantes as $c) {
+                $scoreGlobal += $c['score'] * $c['poids'] / 100;
+            }
+            $scoreGlobal = round($scoreGlobal);
+
             // Stats résumé
             $data = [
-                'taches'       => $taches,
-                'objectifs'    => $objectifs,
-                'observations' => $observations,
-                'pointages'    => $pointages,
-                'reunions'     => $reunions,
-                'stats'        => [
+                'taches'             => $taches,
+                'objectifs'          => $objectifs,
+                'observations'       => $observations,
+                'observationsSuivies' => $observationsSuivies,
+                'pointages'          => $pointages,
+                'reunions'           => $reunions,
+                'auditGlobal'        => $auditGlobal,
+                'parcData'           => $parcData,
+                'scoreComposantes'   => $scoreComposantes,
+                'scoreGlobal'        => $scoreGlobal,
+                'stats'              => [
                     'taches_total'     => $taches->count(),
                     'taches_terminees' => $taches->where('statut', 'termine')->count(),
                     'taches_retard'    => $taches->filter(fn($t) => !$t->date_fin_reelle && $t->echeance && $t->echeance->isPast())->count(),
@@ -291,13 +433,16 @@ class ObservationController extends Controller
                     'kr_total'         => $krTotal,
                     'kr_valides'       => $krValides,
                     'kr_atteints'      => $krAtteints,
-                    'obs_total'        => $observations->count(),
-                    'obs_resolus'      => $observations->where('statut', 'resolu')->count(),
-                    'jours_presents'   => $pointages->whereIn('statut', ['present', 'retard', 'sorti_tot'])->count(),
+                    'obs_total'        => $obsTotal,
+                    'obs_resolus'      => $obsResolus,
+                    'obs_suivies'      => $observationsSuivies->count(),
+                    'obs_suivies_resolues' => $observationsSuivies->where('statut', 'resolu')->count(),
+                    'jours_presents'   => $joursPresents,
                     'jours_absents'    => $pointages->where('statut', 'absent')->count(),
                     'retards'          => $pointages->where('statut', 'retard')->count(),
                     'reunions_total'   => $reunions->count(),
                     'reunions_present' => $reunions->whereIn('statut', ['prevu', 'present'])->count(),
+                    'audit_actions'    => $auditGlobal->count(),
                 ],
             ];
         }

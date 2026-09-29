@@ -367,50 +367,55 @@ class CompteRenduController extends Controller
     {
         $logoPath = public_path('images/logo_soumafe.png');
         $hasLogo = file_exists($logoPath);
+        $cr->load(['redacteur', 'president', 'sprint.projet']);
+
+        $redacteur = $cr->redacteur;
+        $redNom = $redacteur?->nomComplet() ?? '—';
+        $redTitre = $redacteur?->titre_poste ?? '';
+        $projetNom = $cr->sprint?->projet?->libelle ?? 'SOUMAFÊ';
+        $typeLabel = $cr->type === 'reunion_ordinaire' ? 'Réunion ordinaire' : 'Réunion extraordinaire';
+        $headerLine = "SOUMAFÊ — {$projetNom} | Compte-rendu de {$typeLabel}";
 
         $xml = $this->docxHeader();
 
-        // Logo centré
-        if ($hasLogo) {
-            $xml .= $this->docxImage($logoPath, 1200000, 840000); // ~1.2cm x 0.84cm proportionnel
-        }
+        // Logo centré (plus grand)
+        if ($hasLogo) $xml .= $this->docxImage($logoPath, 1500000, 1050000);
 
-        // En-tête
-        $typeLabel = $cr->type === 'reunion_ordinaire' ? 'RÉUNION ORDINAIRE (HEBDOMADAIRE)' : 'RÉUNION EXTRAORDINAIRE (STRATÉGIQUE)';
-        $xml .= $this->p("COMPTE RENDU DE {$typeLabel}", true, 14, 'center');
-        $xml .= $this->p('', false, 6);
+        // Titre dans bloc bleu
+        $typeTitre = $cr->type === 'reunion_ordinaire' ? 'RÉUNION ORDINAIRE' : 'RÉUNION EXTRAORDINAIRE';
+        $xml .= $this->titreBloc("COMPTE RENDU DE {$typeTitre}");
+        $xml .= $this->p('');
 
-        // Tableau résumé
+        // Encadré rédacteur
+        $redLigne = "Rédigé par : {$redNom}";
+        if ($redTitre) $redLigne .= " — {$redTitre}, SOUMAFÊ";
+        $xml .= $this->encadre($redLigne);
+        $xml .= $this->p('');
+
+        // Tableau d'information
         $president = $cr->president?->nomComplet() ?? '—';
-        $redacteur = $cr->redacteur?->nomComplet() ?? '—';
-        $infos = [
+        $xml .= $this->docxInfoTable([
             ['Date', $cr->date_reunion->format('d/m/Y')],
             ['Heure début', $cr->heure_debut ?? '—'],
             ['Heure fin', $cr->heure_fin ?? '—'],
             ['Lieu', $cr->lieu ?? '—'],
-            ['Président', $president],
-            ['Rédacteur', $redacteur],
-        ];
-        $xml .= $this->docxInfoTable($infos);
+            ['Président de séance', $president],
+            ['Rédacteur', $redNom],
+        ]);
         $xml .= $this->p('');
 
-        // Présences
-        if (!empty($d['presences'])) {
-            $xml .= $this->p("Liste de présence", true, 12, 'left', true);
-            $xml .= $this->docxTable2Col('Collaborateur', 'Présent',
-                array_map(fn($p) => [$p['nom'], ($p['present'] ?? false) ? 'Présent' : 'Absent'], $d['presences'])
-            );
-            $xml .= $this->p('');
+        // --- SECTION 1: CONTEXTE ET OBJECTIFS ---
+        $xml .= $this->titreSection('1', 'CONTEXTE ET OBJECTIFS');
+        $xml .= $this->sousTitre('1.1', 'Contexte');
+        if (!empty($d['contexte'])) {
+            $xml .= $this->htmlToOoxml($d['contexte']);
+        } else {
+            $xml .= $this->encadre('(Non renseigné)');
         }
-
-        // 1. Contexte et objectifs
-        $xml .= $this->p("1. Contexte et objectifs de la réunion", true, 12, 'left', true);
-        $xml .= $this->htmlToOoxml($d['contexte'] ?? '(Non renseigné)');
         $xml .= $this->p('');
 
-        // Ordre du jour
         if (!empty($d['ordre_du_jour'])) {
-            $xml .= $this->p("Ordre du jour :", true, 12);
+            $xml .= $this->sousTitre('1.2', 'Ordre du jour');
             $num = 1;
             foreach ($d['ordre_du_jour'] as $odj) {
                 if (!empty($odj['point'])) {
@@ -421,15 +426,21 @@ class CompteRenduController extends Controller
             $xml .= $this->p('');
         }
 
-        // 2. Déroulement
-        $xml .= $this->p("2. Déroulement de la réunion", true, 12, 'left', true);
+        // --- SECTION 2: LISTE DE PRÉSENCE ---
+        if (!empty($d['presences'])) {
+            $xml .= $this->titreSection('2', 'LISTE DE PRÉSENCE');
+            $presRows = array_map(fn($p) => [$p['nom'], ($p['present'] ?? false) ? 'Présent' : 'Absent'], $d['presences']);
+            $xml .= $this->docxTableMultiAlt(['Collaborateur', 'Statut'], $presRows, [6400, 3200]);
+            $xml .= $this->p('');
+        }
 
-        // Points de l'ordre du jour avec contenu
+        // --- SECTION 3: DÉROULEMENT ---
+        $xml .= $this->titreSection('3', 'DÉROULEMENT DE LA RÉUNION');
         if (!empty($d['ordre_du_jour'])) {
             $sub = 1;
             foreach ($d['ordre_du_jour'] as $odj) {
                 if (!empty($odj['point'])) {
-                    $xml .= $this->p("2.{$sub}. {$odj['point']}", true, 12);
+                    $xml .= $this->sousTitre("3.{$sub}", $odj['point']);
                     $xml .= $this->htmlToOoxml(!empty($odj['contenu']) ? $odj['contenu'] : '(Non renseigné)');
                     $xml .= $this->p('');
                     $sub++;
@@ -437,84 +448,215 @@ class CompteRenduController extends Controller
             }
         }
 
-        // 3. Décisions
-        $xml .= $this->p("3. Décisions prises / Actions à mener", true, 12, 'left', true);
+        // --- SECTION 4: DÉCISIONS ET ACTIONS ---
+        $xml .= $this->titreSection('4', 'DÉCISIONS ET ACTIONS À MENER');
         if (!empty($d['decisions'])) {
             $decRows = [];
             foreach ($d['decisions'] as $i => $dec) {
                 $rDec = $dec['responsables'] ?? (isset($dec['responsable']) && $dec['responsable'] ? [$dec['responsable']] : []);
-                $decRows[] = [(string)($i + 1), $dec['action'] ?? '', implode(', ', $rDec), $dec['echeance'] ?? ''];
+                $prio = $dec['priorite'] ?? '—';
+                $decRows[] = [(string)($i + 1), $dec['action'] ?? '', implode(', ', $rDec), $prio, $dec['echeance'] ?? ''];
             }
-            $xml .= $this->docxTableMulti(['N°', 'Décision / Action', 'Responsable(s)', 'Échéance'], $decRows);
+            $xml .= $this->docxTableMultiAlt(
+                ['N°', 'Décision / Action', 'Responsable(s)', 'Priorité', 'Échéance'],
+                $decRows, [600, 4200, 1800, 1200, 1800]
+            );
         } else {
-            $xml .= $this->p("(Aucune décision enregistrée)");
+            $xml .= $this->p('(Aucune décision enregistrée)');
         }
         $xml .= $this->p('');
 
-        // 4. Conclusion
-        $xml .= $this->p("4. Conclusion", true, 12, 'left', true);
-        $xml .= $this->htmlToOoxml(!empty($d['conclusion']) ? $d['conclusion'] : '(Non renseignée)');
+        // --- SECTION 5: CONCLUSION ---
+        $xml .= $this->titreSection('5', 'CONCLUSION');
+        if (!empty($d['conclusion'])) {
+            $xml .= $this->htmlToOoxml($d['conclusion']);
+        } else {
+            $xml .= $this->encadre('(Non renseignée)');
+        }
 
-        $xml .= $this->docxFooter();
-        $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null);
+        // Signature
+        $xml .= $this->signatureBloc($redNom, $redTitre, $cr->date_reunion->format('d/m/Y'));
+
+        $xml .= $this->docxSectPr();
+        $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null, $headerLine);
     }
 
     private function genererDocxDemo(CompteRendu $cr, array $d, string $path): void
     {
         $logoPath = public_path('images/logo_soumafe.png');
         $hasLogo = file_exists($logoPath);
+        $cr->load(['redacteur', 'president', 'sprint.projet']);
+
+        $redacteur = $cr->redacteur;
+        $redNom = $redacteur?->nomComplet() ?? '—';
+        $redTitre = $redacteur?->titre_poste ?? '';
+        $projetNom = $cr->sprint?->projet?->libelle ?? $d['projet'] ?? 'SOUMAFÊ';
+        $sprintLabel = $d['sprint'] ?? 'Sprint';
+        $headerLine = "SOUMAFÊ — {$projetNom} | Compte-rendu de démonstration — {$sprintLabel}";
 
         $xml = $this->docxHeader();
 
-        if ($hasLogo) $xml .= $this->docxImage($logoPath, 1200000, 840000);
+        if ($hasLogo) $xml .= $this->docxImage($logoPath, 1500000, 1050000);
 
-        $xml .= $this->p("COMPTE RENDU DE DÉMONSTRATION SPRINT", true, 14, 'center');
-        $xml .= $this->p("Sprint : " . ($d['sprint'] ?? '—') . " — Projet : " . ($d['projet'] ?? '—'), false, 11, 'center');
-        $xml .= $this->p("Période : " . ($d['date_debut'] ?? '') . " au " . ($d['date_fin'] ?? ''), false, 11, 'center');
-        $xml .= $this->p("Date démonstration : " . $cr->date_reunion->format('d/m/Y'), false, 11, 'center');
+        // Titre dans bloc bleu
+        $xml .= $this->titreBloc('COMPTE RENDU DE DÉMONSTRATION');
+        $xml .= $this->titreBloc($sprintLabel, 22);
         $xml .= $this->p('');
 
-        // Tableau tâches
-        $xml .= $this->p("1. Résultats par tâche", true, 12, 'left', true);
-        $rows = [];
-        foreach (($d['taches'] ?? []) as $i => $t) {
-            $rows[] = [(string)($i + 1), $t['tache'], (string)$t['points'], $t['attribution'], ($t['termine'] ?? false) ? '✓' : '✗', $t['observation'] ?? ''];
+        // Encadré rédacteur
+        $redLigne = "Rédigé par : {$redNom}";
+        if ($redTitre) $redLigne .= " — {$redTitre}, SOUMAFÊ";
+        $xml .= $this->encadre($redLigne);
+        $xml .= $this->p('');
+
+        // Tableau résumé projet
+        $xml .= $this->docxInfoTable([
+            ['Projet', $projetNom],
+            ['Sprint', $sprintLabel],
+            ['Période', ($d['date_debut'] ?? '') . ' au ' . ($d['date_fin'] ?? '')],
+            ['Date démonstration', $cr->date_reunion->format('d/m/Y')],
+            ['Score global', ($d['points_realises'] ?? 0) . '/' . ($d['total_points'] ?? 0) . ' pts (' . ($d['score_pourcent'] ?? 0) . '%)'],
+        ]);
+        $xml .= $this->p('');
+
+        // === SECTION 1: CONTEXTE ===
+        $xml .= $this->titreSection('1', 'CONTEXTE DE LA DÉMONSTRATION');
+
+        // 1.1 Sprint Goal
+        $xml .= $this->sousTitre('1.1', 'Sprint Goal');
+        if (!empty($d['note_sprint'])) {
+            $xml .= $this->encadre(strip_tags($d['note_sprint']));
+        } else {
+            $xml .= $this->encadre('(À renseigner)');
         }
-        $xml .= $this->docxTableMulti(['N°', 'Tâche', 'Pts', 'Attribution', 'État', 'Observation'], $rows);
         $xml .= $this->p('');
 
-        // Score
-        $xml .= $this->p("2. Évaluation du sprint", true, 12, 'left', true);
-        $xml .= $this->p("Score global : {$d['points_realises']}/{$d['total_points']} points ({$d['score_pourcent']}%)", true, 12);
+        // 1.2 Indicateurs clés
+        $xml .= $this->sousTitre('1.2', 'Indicateurs clés');
+        $totalTaches = count($d['taches'] ?? []);
+        $tachesTerminees = count(array_filter($d['taches'] ?? [], fn($t) => !empty($t['termine'])));
+        $tachesEnCours = $totalTaches - $tachesTerminees;
+        $xml .= $this->docxTableMultiAlt(
+            ['Tâches totales', 'Terminées', 'En cours', 'Points totaux', 'Score'],
+            [[(string)$totalTaches, (string)$tachesTerminees, (string)$tachesEnCours, (string)($d['total_points'] ?? 0), ($d['score_pourcent'] ?? 0) . '%']],
+            [1920, 1920, 1920, 1920, 1920]
+        );
+        $xml .= $this->p('');
+
+        // === SECTION 2: RÉSULTATS PAR TÂCHE ===
+        $xml .= $this->titreSection('2', 'RÉSULTATS PAR TÂCHE');
+
+        // Grouper par développeur
+        $parDev = [];
+        foreach ($d['taches'] ?? [] as $t) {
+            $dev = $t['attribution'] ?? '—';
+            $parDev[$dev][] = $t;
+        }
+
+        $subNum = 1;
+        foreach ($parDev as $devNom => $tachesDev) {
+            $xml .= $this->sousTitre("2.{$subNum}", $devNom);
+
+            $devRows = [];
+            $devTotal = 0;
+            $devRealise = 0;
+            foreach ($tachesDev as $i => $t) {
+                $pts = $t['points'] ?? 1;
+                $devTotal += $pts;
+                $termine = !empty($t['termine']);
+                if ($termine) $devRealise += $pts;
+                $statut = $termine ? 'Terminé' : ucfirst($t['statut'] ?? 'En cours');
+                $devRows[] = [(string)($i + 1), $t['tache'] ?? '', $devNom, (string)$pts, $statut, $t['observation'] ?? ''];
+            }
+            $xml .= $this->docxTableMultiAlt(
+                ['N°', 'Tâche', 'Attribution', 'PTS', 'Statut', 'Observation'],
+                $devRows, [500, 3200, 1600, 600, 1200, 2500]
+            );
+
+            // Bilan par développeur (couleur adaptée au score)
+            $devPct = $devTotal > 0 ? round($devRealise / $devTotal * 100) : 0;
+            $xml .= $this->bilanBloc(
+                "Bilan — {$devNom}",
+                "Score : {$devRealise}/{$devTotal} pts ({$devPct}%)",
+                $devPct >= 80 ? 'F0F7ED' : ($devPct >= 50 ? 'FFF8E1' : 'FEECEC'),
+                $devPct >= 80 ? '2E8B57' : ($devPct >= 50 ? 'E6A817' : 'CC3333')
+            );
+            $xml .= $this->p('');
+            $subNum++;
+        }
+
+        // === SECTION 3: ÉVALUATION GLOBALE ===
+        $xml .= $this->titreSection('3', 'ÉVALUATION GLOBALE DU SPRINT');
+
+        $scorePct = $d['score_pourcent'] ?? 0;
+        $appreciation = $scorePct >= 90 ? 'Excellent' : ($scorePct >= 75 ? 'Bon' : ($scorePct >= 50 ? 'Acceptable' : 'Insuffisant'));
+
+        $xml .= $this->bilanBloc(
+            'Résultat global',
+            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) — Appréciation : {$appreciation}",
+            $scorePct >= 75 ? 'F0F7ED' : ($scorePct >= 50 ? 'FFF8E1' : 'FEECEC'),
+            $scorePct >= 75 ? '2E8B57' : ($scorePct >= 50 ? 'E6A817' : 'CC3333')
+        );
+
         if (!empty($d['par_dev'])) {
             $xml .= $this->p('');
-            $xml .= $this->p("Score par développeur :", true, 12);
-            $devRows = array_map(fn($dev) => [$dev['nom'], (string)$dev['realise'], (string)$dev['total'], $dev['pourcent'] . '%'], $d['par_dev']);
-            $xml .= $this->docxTableMulti(['Développeur', 'Réalisé', 'Total', '%'], $devRows);
+            $xml .= $this->sousTitre('3.1', 'Score par développeur');
+            $devScoreRows = array_map(fn($dev) => [
+                $dev['nom'], (string)$dev['realise'], (string)$dev['total'], $dev['pourcent'] . '%',
+            ], $d['par_dev']);
+            $xml .= $this->docxTableMultiAlt(
+                ['Développeur', 'Réalisé', 'Total', '%'],
+                $devScoreRows, [3600, 2000, 2000, 2000]
+            );
         }
         $xml .= $this->p('');
 
-        // Actions
-        $xml .= $this->p("3. Actions à mener", true, 12, 'left', true);
+        // === SECTION 4: PROCHAINES ÉTAPES ===
+        $xml .= $this->titreSection('4', 'PROCHAINES ÉTAPES');
+        if (!empty($d['prochaines_etapes'])) {
+            foreach ($d['prochaines_etapes'] as $i => $etape) {
+                $num = $i + 1;
+                $label = is_array($etape) ? ($etape['titre'] ?? $etape['action'] ?? '') : (string)$etape;
+                $desc = is_array($etape) ? ($etape['description'] ?? '') : '';
+                $xml .= $this->p("{$num}. {$label}", true);
+                if ($desc) $xml .= $this->p("   {$desc}");
+            }
+        } else {
+            $xml .= $this->p('(À définir)');
+        }
+        $xml .= $this->p('');
+
+        // === SECTION 5: PLAN D'ACTIONS ===
+        $xml .= $this->titreSection('5', "PLAN D'ACTIONS");
         if (!empty($d['actions_a_mener'])) {
             $actRows = [];
             foreach ($d['actions_a_mener'] as $i => $a) {
                 $rAct = $a['responsables'] ?? (isset($a['responsable']) && $a['responsable'] ? [$a['responsable']] : []);
-                $actRows[] = [(string)($i + 1), $a['action'] ?? '', implode(', ', $rAct), $a['echeance'] ?? ''];
+                $prio = $a['priorite'] ?? '—';
+                $actRows[] = [(string)($i + 1), $a['action'] ?? '', implode(', ', $rAct), $prio, $a['echeance'] ?? ''];
             }
-            $xml .= $this->docxTableMulti(['N°', 'Action', 'Responsable(s)', 'Échéance'], $actRows);
+            $xml .= $this->docxTableMultiAlt(
+                ['N°', 'Action', 'Responsable(s)', 'Priorité', 'Échéance'],
+                $actRows, [500, 3800, 2000, 1200, 2100]
+            );
         } else {
-            $xml .= $this->p("(À compléter)");
+            $xml .= $this->p('(À compléter)');
+        }
+        $xml .= $this->p('');
+
+        // === SECTION 6: CONCLUSION ===
+        $xml .= $this->titreSection('6', 'CONCLUSION');
+        if (!empty($d['conclusion'])) {
+            $xml .= $this->htmlToOoxml($d['conclusion']);
+        } else {
+            $xml .= $this->encadre('(À renseigner)');
         }
 
-        if (!empty($d['note_sprint'])) {
-            $xml .= $this->p('');
-            $xml .= $this->p("4. Note pour le sprint suivant", true, 12, 'left', true);
-            $xml .= $this->htmlToOoxml($d['note_sprint']);
-        }
+        // Signature
+        $xml .= $this->signatureBloc($redNom, $redTitre, $cr->date_reunion->format('d/m/Y'));
 
-        $xml .= $this->docxFooter();
-        $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null);
+        $xml .= $this->docxSectPr();
+        $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null, $headerLine);
     }
 
     /* ===================================================================
@@ -543,12 +685,15 @@ class CompteRenduController extends Controller
             . '<w:body>';
     }
 
-    private function docxFooter(): string
+    /** Section properties : A4, marges réduites, références header/footer */
+    private function docxSectPr(): string
     {
-        // sectPr : A4 (11906 x 16838 twips), marges 1440 twips (1 pouce = 2,54 cm)
+        // A4 (11906 x 16838), marges 0.8" L/R (1152tw) 0.6" T/B (864tw)
         return '<w:sectPr>'
+            . '<w:headerReference w:type="default" r:id="rId20"/>'
+            . '<w:footerReference w:type="default" r:id="rId21"/>'
             . '<w:pgSz w:w="11906" w:h="16838"/>'
-            . '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>'
+            . '<w:pgMar w:top="864" w:right="1152" w:bottom="864" w:left="1152" w:header="432" w:footer="432" w:gutter="0"/>'
             . '<w:cols w:space="720"/>'
             . '<w:docGrid w:linePitch="360"/>'
             . '</w:sectPr>'
@@ -653,6 +798,195 @@ class CompteRenduController extends Controller
             . '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
             . '</pic:pic></a:graphicData></a:graphic></wp:inline>'
             . '</w:drawing></w:r></w:p>';
+    }
+
+    /** Titre de section numéroté — bleu SOUMAFÊ */
+    private function titreSection(string $num, string $text): string
+    {
+        $escaped = htmlspecialchars("{$num}. {$text}", ENT_XML1, 'UTF-8');
+        return '<w:p><w:pPr>'
+            . '<w:spacing w:before="240" w:after="120" w:line="360" w:lineRule="auto"/>'
+            . '<w:jc w:val="left"/>'
+            . '</w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:b/><w:color w:val="1F4E79"/>'
+            . '<w:sz w:val="26"/><w:szCs w:val="26"/>'
+            . '<w:u w:val="single"/>'
+            . '</w:rPr>'
+            . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
+    }
+
+    /** Sous-titre de section (ex: 2.1 Backend) */
+    private function sousTitre(string $num, string $text): string
+    {
+        $escaped = htmlspecialchars("{$num} {$text}", ENT_XML1, 'UTF-8');
+        return '<w:p><w:pPr>'
+            . '<w:spacing w:before="180" w:after="80" w:line="360" w:lineRule="auto"/>'
+            . '<w:jc w:val="left"/>'
+            . '</w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:b/><w:color w:val="2E74B5"/>'
+            . '<w:sz w:val="24"/><w:szCs w:val="24"/>'
+            . '</w:rPr>'
+            . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
+    }
+
+    /** Encadré — bloc avec fond coloré et bordure gauche épaisse */
+    private function encadre(string $text, string $bgColor = 'E8EEF4', string $borderColor = '1F4E79'): string
+    {
+        $escaped = htmlspecialchars($text, ENT_XML1, 'UTF-8');
+        return '<w:p><w:pPr>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bgColor}\"/>"
+            . '<w:pBdr>'
+            . "<w:left w:val=\"single\" w:sz=\"18\" w:space=\"4\" w:color=\"{$borderColor}\"/>"
+            . '</w:pBdr>'
+            . '<w:spacing w:before="60" w:after="60" w:line="360" w:lineRule="auto"/>'
+            . '<w:ind w:left="120" w:right="120"/>'
+            . '<w:jc w:val="both"/>'
+            . '</w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:sz w:val="22"/><w:szCs w:val="22"/>'
+            . '</w:rPr>'
+            . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
+    }
+
+    /** Bloc titre plein (fond bleu SOUMAFÊ, texte blanc, centré) */
+    private function titreBloc(string $text, int $size = 28): string
+    {
+        $escaped = htmlspecialchars($text, ENT_XML1, 'UTF-8');
+        return '<w:p><w:pPr>'
+            . '<w:shd w:val="clear" w:color="auto" w:fill="1F4E79"/>'
+            . '<w:spacing w:before="60" w:after="60" w:line="360" w:lineRule="auto"/>'
+            . '<w:jc w:val="center"/>'
+            . '</w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:b/><w:color w:val="FFFFFF"/>'
+            . "<w:sz w:val=\"{$size}\"/><w:szCs w:val=\"{$size}\"/>"
+            . '</w:rPr>'
+            . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
+    }
+
+    /** Bloc de bilan stylé (fond pastel + bordure gauche colorée) */
+    private function bilanBloc(string $label, string $content, string $bgColor = 'F0F7ED', string $borderColor = '2E8B57'): string
+    {
+        $xml = '<w:p><w:pPr>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bgColor}\"/>"
+            . '<w:pBdr>'
+            . "<w:left w:val=\"single\" w:sz=\"18\" w:space=\"4\" w:color=\"{$borderColor}\"/>"
+            . '</w:pBdr>'
+            . '<w:spacing w:before="80" w:after="40" w:line="300" w:lineRule="auto"/>'
+            . '<w:ind w:left="120" w:right="120"/>'
+            . '</w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . "<w:b/><w:color w:val=\"{$borderColor}\"/>"
+            . '<w:sz w:val="22"/><w:szCs w:val="22"/>'
+            . '</w:rPr>'
+            . '<w:t xml:space="preserve">' . htmlspecialchars($label, ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+        $xml .= '<w:p><w:pPr>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bgColor}\"/>"
+            . '<w:pBdr>'
+            . "<w:left w:val=\"single\" w:sz=\"18\" w:space=\"4\" w:color=\"{$borderColor}\"/>"
+            . '</w:pBdr>'
+            . '<w:spacing w:before="0" w:after="80" w:line="300" w:lineRule="auto"/>'
+            . '<w:ind w:left="120" w:right="120"/>'
+            . '<w:jc w:val="both"/>'
+            . '</w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:sz w:val="22"/><w:szCs w:val="22"/>'
+            . '</w:rPr>'
+            . '<w:t xml:space="preserve">' . htmlspecialchars($content, ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+        return $xml;
+    }
+
+    /** Bloc de signature en fin de document */
+    private function signatureBloc(string $nom, string $titre, string $date): string
+    {
+        $xml = $this->p('') . $this->p('');
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+        // Trait
+        $xml .= '<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:line="360" w:lineRule="auto"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/><w:color w:val=\"1F4E79\"/></w:rPr>"
+            . '<w:t xml:space="preserve">________________________</w:t></w:r></w:p>';
+        // Nom
+        $xml .= '<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:b/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/><w:color w:val=\"1F4E79\"/></w:rPr>"
+            . '<w:t xml:space="preserve">' . htmlspecialchars($nom, ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+        if ($titre) {
+            $xml .= '<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:i/><w:sz w:val=\"20\"/><w:szCs w:val=\"20\"/><w:color w:val=\"666666\"/></w:rPr>"
+                . '<w:t xml:space="preserve">' . htmlspecialchars($titre, ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+        }
+        $xml .= '<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:sz w:val=\"20\"/><w:szCs w:val=\"20\"/><w:color w:val=\"666666\"/></w:rPr>"
+            . '<w:t xml:space="preserve">' . htmlspecialchars($date, ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+        return $xml;
+    }
+
+    /** Table avec lignes alternées et largeurs personnalisables */
+    private function docxTableMultiAlt(array $headers, array $rows, ?array $widths = null): string
+    {
+        $n = count($headers);
+        $totalW = 9600;
+        $defaultW = intdiv($totalW, $n);
+        $xml = "<w:tbl><w:tblPr><w:tblW w:w=\"{$totalW}\" w:type=\"dxa\"/><w:tblBorders>" . $this->borders() . '</w:tblBorders></w:tblPr>';
+        $xml .= '<w:tr>';
+        foreach ($headers as $i => $h) $xml .= $this->cell($h, true, '1F4E79', 'FFFFFF', $widths[$i] ?? $defaultW);
+        $xml .= '</w:tr>';
+        foreach ($rows as $ri => $r) {
+            $bg = ($ri % 2 === 1) ? 'F4F7FB' : null;
+            $xml .= '<w:tr>';
+            foreach ($r as $ci => $c) $xml .= $this->cell((string)$c, false, $bg, null, $widths[$ci] ?? $defaultW);
+            $xml .= '</w:tr>';
+        }
+        return $xml . '</w:tbl>';
+    }
+
+    /** Générer le XML du header (en-tête de page) */
+    private function genDocxHeaderXml(string $line): string
+    {
+        $escaped = htmlspecialchars($line, ENT_XML1, 'UTF-8');
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            . ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<w:p><w:pPr>'
+            . '<w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="1F4E79"/></w:pBdr>'
+            . '<w:jc w:val="center"/>'
+            . '</w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:sz w:val="16"/><w:szCs w:val="16"/>'
+            . '<w:i/><w:color w:val="1F4E79"/>'
+            . '</w:rPr>'
+            . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>"
+            . '</w:hdr>';
+    }
+
+    /** Générer le XML du footer (pied de page avec numéro) */
+    private function genDocxFooterXml(string $line = 'Confidentiel — Usage interne'): string
+    {
+        $escaped = htmlspecialchars($line, ENT_XML1, 'UTF-8');
+        $rpr = '<w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:sz w:val="16"/><w:szCs w:val="16"/>'
+            . '<w:i/><w:color w:val="999999"/>'
+            . '</w:rPr>';
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            . '<w:p><w:pPr>'
+            . '<w:pBdr><w:top w:val="single" w:sz="4" w:space="1" w:color="1F4E79"/></w:pBdr>'
+            . '<w:jc w:val="center"/>'
+            . '</w:pPr>'
+            . "<w:r>{$rpr}<w:t xml:space=\"preserve\">{$escaped} — Page </w:t></w:r>"
+            . "<w:r>{$rpr}<w:fldChar w:fldCharType=\"begin\"/></w:r>"
+            . "<w:r>{$rpr}<w:instrText xml:space=\"preserve\"> PAGE </w:instrText></w:r>"
+            . "<w:r>{$rpr}<w:fldChar w:fldCharType=\"end\"/></w:r>"
+            . '</w:p></w:ftr>';
     }
 
     /** Nettoyer le HTML provenant du contenteditable (garder uniquement b, u, i, ol, ul, li, br, div) */
@@ -768,7 +1102,7 @@ class CompteRenduController extends Controller
         return $segments;
     }
 
-    private function ecrireDocx(string $path, string $documentXml, ?string $logoPath = null): void
+    private function ecrireDocx(string $path, string $documentXml, ?string $logoPath = null, string $headerLine = '', string $footerLine = 'Confidentiel — Usage interne'): void
     {
         if (file_exists($path)) unlink($path);
         $zip = new \ZipArchive();
@@ -780,6 +1114,10 @@ class CompteRenduController extends Controller
             $imgContentType = '<Default Extension="png" ContentType="image/png"/>';
         }
 
+        // Header & Footer XML parts
+        $zip->addFromString('word/header1.xml', $this->genDocxHeaderXml($headerLine));
+        $zip->addFromString('word/footer1.xml', $this->genDocxFooterXml($footerLine));
+
         $zip->addFromString('[Content_Types].xml',
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -788,6 +1126,8 @@ class CompteRenduController extends Controller
             . $imgContentType
             . '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
             . '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+            . '<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>'
+            . '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
             . '</Types>');
 
         $zip->addFromString('_rels/.rels',
@@ -804,6 +1144,8 @@ class CompteRenduController extends Controller
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
             . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            . '<Relationship Id="rId20" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>'
+            . '<Relationship Id="rId21" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>'
             . $imgRel
             . '</Relationships>');
 

@@ -362,12 +362,12 @@
         <div style="margin-bottom:10px">
             <label style="font-size:12px;font-weight:600;color:var(--gris);display:block;margin-bottom:3px">Message <span style="color:var(--ko)">*</span></label>
             <div class="rte-toolbar">
-                <button type="button" onclick="rteCmd('bold')" title="Gras"><strong>G</strong></button>
-                <button type="button" onclick="rteCmd('underline')" title="Souligne"><u>S</u></button>
-                <button type="button" onclick="rteCmd('italic')" title="Italique"><em>I</em></button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('bold')" title="Gras"><strong>G</strong></button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('underline')" title="Souligne"><u>S</u></button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('italic')" title="Italique"><em>I</em></button>
                 <span style="width:1px;background:var(--bord);margin:2px 4px"></span>
-                <button type="button" onclick="rteCmd('insertUnorderedList')" title="Liste a puces">{!! $ic('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>', 14) !!}</button>
-                <button type="button" onclick="rteCmd('insertOrderedList')" title="Liste numerotee">{!! $ic('<line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',14) !!}</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('insertUnorderedList')" title="Liste a puces">{!! $ic('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>', 14) !!}</button>
+                <button type="button" onmousedown="event.preventDefault()" onclick="rteCmd('insertOrderedList')" title="Liste numerotee">{!! $ic('<line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>',14) !!}</button>
             </div>
             <div contenteditable="true" id="notif-contenu" style="min-height:120px;max-height:250px;overflow-y:auto;padding:10px 12px;border:1px solid var(--bord);border-top:none;border-radius:0 0 8px 8px;font-size:13px;line-height:1.6;outline:none" placeholder="Votre message..."></div>
         </div>

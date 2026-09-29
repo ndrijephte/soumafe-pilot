@@ -30,8 +30,15 @@
 .audit-pag .disabled span{opacity:.4}
 .audit-vide{text-align:center;padding:40px;color:var(--gris);font-size:14px}
 @media(max-width:768px){
-.audit-filtres{flex-direction:column}.audit-filtres select,.audit-filtres input{width:100%}
-.audit-tbl{display:block;overflow-x:auto}
+    .audit-filtres{flex-direction:column}
+    .audit-filtres select,.audit-filtres input{width:100%;min-width:0}
+    .audit-filtres .btn{width:100%}
+}
+@media(max-width:600px){
+    .audit-tbl .col-ip{display:none}
+    .audit-tbl .td-details{max-width:160px;font-size:11px}
+    .audit-tbl td,.audit-tbl th{padding:6px 6px;font-size:11.5px}
+    .audit-pag a,.audit-pag span{padding:4px 8px;font-size:11px}
 }
 </style>
 @endpush
@@ -95,7 +102,7 @@ $ic = fn(string $d, int $s=17) => '<svg viewBox="0 0 24 24" width="'.$s.'" heigh
             <th>Module</th>
             <th>Cible</th>
             <th>Détails</th>
-            <th>IP</th>
+            <th class="col-ip">IP</th>
         </tr>
     </thead>
     <tbody>
@@ -107,7 +114,7 @@ $ic = fn(string $d, int $s=17) => '<svg viewBox="0 0 24 24" width="'.$s.'" heigh
             <td>{{ ucfirst($log->module) }}</td>
             <td style="font-size:12px">{{ $log->cible }}</td>
             <td class="td-details">{{ $log->details }}</td>
-            <td style="font-size:11px;color:var(--gris)">{{ $log->ip_address }}</td>
+            <td class="col-ip" style="font-size:11px;color:var(--gris)">{{ $log->ip_address }}</td>
         </tr>
         @endforeach
     </tbody>

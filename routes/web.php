@@ -57,6 +57,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/saisie/evenement', [SaisieController::class, 'evenement'])->name('saisie.evenement');
     Route::patch('/saisie/{jour}/justifier', [SaisieController::class, 'justifier'])->name('saisie.justifier');
     Route::post('/saisie/rappeler', [SaisieController::class, 'rappeler'])->name('saisie.rappeler');
+    Route::post('/saisie/notifier', [SaisieController::class, 'notifierCollaborateurs'])->name('saisie.notifier');
     Route::post('/saisie/absence', [SaisieController::class, 'declarerAbsence'])->name('saisie.absence');
     Route::delete('/saisie/absence/{absence}', [SaisieController::class, 'annulerAbsence'])->name('saisie.absence.annuler');
 

@@ -26,7 +26,17 @@
 .pagination-wrap a,.pagination-wrap span{padding:6px 12px;border-radius:6px;font-size:12px;text-decoration:none;border:1px solid var(--bord);color:var(--gris)}
 .pagination-wrap a:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 .pagination-wrap .current{background:var(--accent);color:#fff;border-color:var(--accent)}
-@media(max-width:600px){.notif-card{padding:10px 12px}.notif-actions{flex-direction:column}}
+@media(max-width:600px){
+    .notif-card{padding:10px 12px;flex-direction:column;gap:8px}
+    .notif-ico{width:28px;height:28px}
+    .notif-ico svg{width:14px;height:14px}
+    .notif-actions{flex-direction:row;align-self:flex-end}
+    .notif-filtres{gap:6px}
+    .notif-filtres a{padding:5px 10px;font-size:11px}
+    .notif-meta{flex-direction:column;gap:4px}
+    .notif-txt{font-size:12.5px}
+    .pagination-wrap a,.pagination-wrap span{padding:5px 8px;font-size:11px}
+}
 </style>
 @endpush
 
@@ -71,7 +81,7 @@
 <div class="notif-card {{ $n->lu ? '' : 'non-lue' }}">
     <div class="notif-ico">{!! $ic($typeIcons[$iconKey]) !!}</div>
     <div class="notif-body">
-        <div class="notif-txt">{{ $n->contenu }}</div>
+        <div class="notif-txt">{!! $n->contenu !!}</div>
         <div class="notif-meta">
             <span>{{ $n->created_at->locale('fr')->diffForHumans() }}</span>
             <span>{{ $n->created_at->format('d/m/Y H:i') }}</span>

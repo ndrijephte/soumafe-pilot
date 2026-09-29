@@ -55,16 +55,17 @@ class NotificationController extends Controller
         ]);
 
         $dest = User::findOrFail($r->user_id);
+        $contenuHtml = strip_tags($r->contenu, '<b><i><u><strong><em><ul><ol><li><br><p>');
         $contenuTexte = strip_tags($r->contenu);
         $envoyeApp = false;
         $envoyeEmail = false;
 
-        // Notification in-app
+        // Notification in-app (HTML formaté)
         if (in_array($r->canal, ['in_app', 'les_deux'])) {
             NotificationApp::create([
                 'user_id' => $dest->id,
                 'type'    => 'message',
-                'contenu' => $r->sujet . ' — ' . $contenuTexte,
+                'contenu' => '<strong>' . e($r->sujet) . '</strong><br>' . $contenuHtml,
                 'lien'    => null,
                 'lu'      => false,
                 'canal'   => 'in_app',

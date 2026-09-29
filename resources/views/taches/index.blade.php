@@ -41,6 +41,9 @@
     }
     @media(max-width:600px){
         .kanban{grid-template-columns:1fr}
+        dialog{width:min(430px,92vw);padding:16px}
+        .tache{font-size:12px;padding:8px 10px}
+        .tache .meta{flex-direction:column;gap:2px}
     }
 </style>
 @endpush

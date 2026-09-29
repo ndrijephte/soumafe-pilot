@@ -131,11 +131,20 @@ class SaisieController extends Controller
 
         $rappelsAujourdhui = $rappelsAujourdhui ?? [];
 
+        // Liste collaborateurs pour notification multi-select (pilotes)
+        $collaborateurs = collect();
+        if ($user->estPilote()) {
+            $collaborateurs = User::where('actif', true)
+                ->whereNotIn('role', ['direction', 'invite'])
+                ->where('id', '!=', $user->id)
+                ->orderBy('name')->get();
+        }
+
         return view('saisie.index', compact(
             'tachesDuJour', 'confirmations', 'jours', 'evenementsDuJour',
             'historique', 'evenementsRecents', 'typesEvenement',
             'sanseSaisie', 'justificationsEnAttente', 'absences', 'absencesEquipe',
-            'rappelsAujourdhui'
+            'rappelsAujourdhui', 'collaborateurs'
         ));
     }
 
@@ -322,5 +331,37 @@ class SaisieController extends Controller
         ]);
 
         return back()->with('succes', "Rappel envoyé à {$cible->nomComplet()}.");
+    }
+
+    /** Pilote : notifier un ou plusieurs collaborateurs avec message personnalisé. */
+    public function notifierCollaborateurs(Request $r)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $r->validate([
+            'user_ids'   => 'required|array|min:1',
+            'user_ids.*' => 'exists:users,id',
+            'message'    => 'required|string|min:5|max:5000',
+        ]);
+
+        $expediteur = $r->user()->nomComplet();
+        $msgHtml = strip_tags($r->message, '<b><i><u><strong><em><ul><ol><li><br><p>');
+        $count = 0;
+        foreach ($r->user_ids as $uid) {
+            NotificationApp::create([
+                'user_id' => (int) $uid,
+                'type'    => 'notification',
+                'contenu' => $msgHtml . '<br><small style="color:#64748b">— ' . e($expediteur) . '</small>',
+                'lien'    => route('saisie.index'),
+                'lu'      => false,
+                'canal'   => 'in_app',
+            ]);
+            $count++;
+        }
+
+        if (class_exists(\App\Models\AuditLog::class) && Schema::hasTable('audit_logs')) {
+            \App\Models\AuditLog::log('notification', 'saisie', "{$count} collaborateur(s)", $r->message);
+        }
+
+        return back()->with('succes', "Notification envoyée à {$count} collaborateur(s).");
     }
 }

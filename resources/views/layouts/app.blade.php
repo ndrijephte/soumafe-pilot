@@ -85,7 +85,14 @@
             .hamburger{display:flex;align-items:center}
             .recherche{max-width:none}
         }
+        @media(max-width:600px){
+            #notif-panel{width:calc(100vw - 24px) !important;right:-60px !important;max-height:70vh !important}
+            .user-info{display:none}
+        }
         .btn{justify-content:center}
+        #notif-panel ul,#notif-panel ol,.notif-txt ul,.notif-txt ol{margin:4px 0;padding-left:18px}
+        #notif-panel li,.notif-txt li{margin:2px 0}
+        .notif-txt{line-height:1.5}
     </style>
     @stack('styles')
 </head>

@@ -41,7 +41,14 @@ dialog textarea{min-height:60px;resize:vertical}
 .hist-line:last-child{border:none}
 .st-saisi{color:var(--ok)}.st-justifie{color:var(--accent)}.st-a_justifier{color:var(--ko)}
 .grille{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:768px){.grille{grid-template-columns:1fr}.tache-confirm{flex-direction:column}}
+@media(max-width:768px){
+    .grille{grid-template-columns:1fr}
+    .tache-confirm{flex-direction:column;gap:8px}
+    .confirm-actions{align-self:flex-end}
+    dialog{width:min(480px,92vw);padding:16px}
+    .section-titre{font-size:13px;flex-wrap:wrap}
+    .hist-line{flex-direction:column;gap:2px}
+}
 </style>
 @endpush
 @section('contenu')
@@ -159,9 +166,15 @@ dialog textarea{min-height:60px;resize:vertical}
 
 @if(auth()->user()->estPilote() && isset($sanseSaisie) && $sanseSaisie->count() > 0)
 <div class="section">
-    <div class="section-titre">
-        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        Collaborateurs sans saisie hier ({{ $sanseSaisie->count() }})
+    <div class="section-titre" style="justify-content:space-between">
+        <span style="display:flex;align-items:center;gap:8px">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            Collaborateurs sans saisie hier ({{ $sanseSaisie->count() }})
+        </span>
+        <button type="button" class="btn-ic-s accent" onclick="document.getElementById('dlg-notif').showModal()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Notifier
+        </button>
     </div>
     <div class="carte">
         @foreach($sanseSaisie as $u)
@@ -345,10 +358,68 @@ dialog textarea{min-height:60px;resize:vertical}
     </form>
 </dialog>
 @endif
+
+{{-- Dialog notification multi-collaborateurs (pilotes) --}}
+@if(auth()->user()->estPilote() && isset($collaborateurs) && $collaborateurs->count() > 0)
+<dialog id="dlg-notif" style="width:min(460px,92vw)">
+    <h3 style="color:var(--bleu);margin-bottom:4px;display:flex;align-items:center;gap:8px">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Notifier des collaborateurs
+    </h3>
+    <p style="font-size:12px;color:var(--gris);margin-bottom:12px">S&eacute;lectionnez les destinataires et r&eacute;digez votre message.</p>
+    <form method="POST" action="{{ route('saisie.notifier') }}" id="form-notif">@csrf
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+            <button type="button" class="btn-ic-s accent" onclick="toggleAllNotif(true)" style="font-size:10px;padding:2px 8px">Tout s&eacute;lectionner</button>
+            <button type="button" class="btn-ic-s" onclick="toggleAllNotif(false)" style="font-size:10px;padding:2px 8px">Tout d&eacute;s&eacute;lectionner</button>
+        </div>
+        <div style="max-height:200px;overflow-y:auto;border:1px solid var(--bord);border-radius:8px;padding:8px 10px;margin-bottom:12px">
+            @foreach($collaborateurs as $c)
+            <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;border-bottom:1px solid #f1f5f9">
+                <input type="checkbox" name="user_ids[]" value="{{ $c->id }}" class="notif-cb" style="accent-color:var(--accent);width:16px;height:16px">
+                <span style="font-weight:600">{{ $c->nomComplet() }}</span>
+                @if($c->titre_poste) <span style="font-size:10.5px;color:var(--gris)">— {{ $c->titre_poste }}</span> @endif
+            </label>
+            @endforeach
+        </div>
+        <label style="font-size:12px;color:var(--gris);display:block;margin-bottom:4px">Message <span style="color:var(--ko);font-weight:700">*</span></label>
+        <div class="rte-toolbar" style="display:flex;gap:2px;padding:4px 6px;background:#f8fafc;border:1px solid var(--bord);border-bottom:none;border-radius:8px 8px 0 0">
+            <button type="button" onmousedown="event.preventDefault()" onclick="rteNotif('bold')" title="Gras" style="background:none;border:1px solid transparent;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:13px;color:var(--bleu);font-weight:700">G</button>
+            <button type="button" onmousedown="event.preventDefault()" onclick="rteNotif('italic')" title="Italique" style="background:none;border:1px solid transparent;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:13px;color:var(--bleu);font-style:italic">I</button>
+            <button type="button" onmousedown="event.preventDefault()" onclick="rteNotif('underline')" title="Souligné" style="background:none;border:1px solid transparent;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:13px;color:var(--bleu);text-decoration:underline">S</button>
+            <button type="button" onmousedown="event.preventDefault()" onclick="rteNotif('insertUnorderedList')" title="Liste à puces" style="background:none;border:1px solid transparent;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:13px;color:var(--bleu)">&#8226;</button>
+            <button type="button" onmousedown="event.preventDefault()" onclick="rteNotif('insertOrderedList')" title="Liste numérotée" style="background:none;border:1px solid transparent;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:13px;color:var(--bleu)">1.</button>
+        </div>
+        <div id="notif-msg-rte" contenteditable="true" placeholder="Ex : Merci de mettre à jour votre saisie quotidienne..." style="min-height:70px;max-height:160px;overflow-y:auto;padding:8px 10px;border:1px solid var(--bord);border-radius:0 0 8px 8px;font-size:13px;line-height:1.5;outline:none;background:#fff"></div>
+        <input type="hidden" name="message" id="notif-msg-hidden">
+        <style>
+        #notif-msg-rte:empty:before{content:attr(placeholder);color:#94a3b8;pointer-events:none}
+        #notif-msg-rte:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
+        #notif-msg-rte ul,#notif-msg-rte ol{margin:4px 0;padding-left:20px}
+        </style>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button type="submit" class="btn" id="btn-notif-submit">Envoyer</button>
+        </div>
+    </form>
+</dialog>
+@endif
 @endsection
 
 @push('scripts')
 <script>
+function toggleAllNotif(state){
+    document.querySelectorAll('.notif-cb').forEach(cb => cb.checked = state);
+}
+function rteNotif(cmd){
+    document.execCommand(cmd, false, null);
+    document.getElementById('notif-msg-rte').focus();
+}
+document.getElementById('form-notif')?.addEventListener('submit', function(){
+    var rte = document.getElementById('notif-msg-rte');
+    var txt = rte.innerHTML.replace(/<br\s*\/?>\s*$/i,'').trim();
+    if(!txt || txt === '<br>'){rte.focus();event.preventDefault();return;}
+    document.getElementById('notif-msg-hidden').value = txt;
+});
 function infirmer(id, label) {
     document.getElementById('infirm-label').textContent = label;
     document.getElementById('infirm-form').action = '/saisie/' + id + '/confirmer';

@@ -157,6 +157,10 @@ class CompteRenduController extends Controller
             }
             unset($odj);
         }
+        // Nettoyer annotations (retirer entrées vides)
+        if (!empty($donnees['annotations'])) {
+            $donnees['annotations'] = array_values(array_filter($donnees['annotations'], fn($a) => !empty($a['contenu']) && !empty($a['type'])));
+        }
         $cr->setDonnees($donnees);
         $cr->titre = $r->input('titre', $cr->titre);
         $cr->lieu = $r->input('lieu', $cr->lieu);
@@ -419,7 +423,7 @@ class CompteRenduController extends Controller
             $num = 1;
             foreach ($d['ordre_du_jour'] as $odj) {
                 if (!empty($odj['point'])) {
-                    $xml .= $this->p("   {$num}. {$odj['point']}");
+                    $xml .= $this->listItemParagraph("{$num}.", $odj['point']);
                     $num++;
                 }
             }
@@ -495,6 +499,7 @@ class CompteRenduController extends Controller
         $headerLine = "SOUMAFÊ — {$projetNom} | Compte-rendu de démonstration — {$sprintLabel}";
 
         $xml = $this->docxHeader();
+        $annotations = $d['annotations'] ?? [];
 
         if ($hasLogo) $xml .= $this->docxImage($logoPath, 1500000, 1050000);
 
@@ -542,6 +547,7 @@ class CompteRenduController extends Controller
             [1920, 1920, 1920, 1920, 1920]
         );
         $xml .= $this->p('');
+        $xml .= $this->insererAnnotations($annotations, '1');
 
         // === SECTION 2: RÉSULTATS PAR TÂCHE ===
         $xml .= $this->titreSection('2', 'RÉSULTATS PAR TÂCHE');
@@ -584,6 +590,7 @@ class CompteRenduController extends Controller
             $xml .= $this->p('');
             $subNum++;
         }
+        $xml .= $this->insererAnnotations($annotations, '2');
 
         // === SECTION 3: ÉVALUATION GLOBALE ===
         $xml .= $this->titreSection('3', 'ÉVALUATION GLOBALE DU SPRINT');
@@ -610,6 +617,7 @@ class CompteRenduController extends Controller
             );
         }
         $xml .= $this->p('');
+        $xml .= $this->insererAnnotations($annotations, '3');
 
         // === SECTION 4: PROCHAINES ÉTAPES ===
         $xml .= $this->titreSection('4', 'PROCHAINES ÉTAPES');
@@ -625,6 +633,7 @@ class CompteRenduController extends Controller
             $xml .= $this->p('(À définir)');
         }
         $xml .= $this->p('');
+        $xml .= $this->insererAnnotations($annotations, '4');
 
         // === SECTION 5: PLAN D'ACTIONS ===
         $xml .= $this->titreSection('5', "PLAN D'ACTIONS");
@@ -643,6 +652,7 @@ class CompteRenduController extends Controller
             $xml .= $this->p('(À compléter)');
         }
         $xml .= $this->p('');
+        $xml .= $this->insererAnnotations($annotations, '5');
 
         // === SECTION 6: CONCLUSION ===
         $xml .= $this->titreSection('6', 'CONCLUSION');
@@ -651,6 +661,7 @@ class CompteRenduController extends Controller
         } else {
             $xml .= $this->encadre('(À renseigner)');
         }
+        $xml .= $this->insererAnnotations($annotations, '6');
 
         // Signature
         $xml .= $this->signatureBloc($redNom, $redTitre, $cr->date_reunion->format('d/m/Y'));
@@ -803,14 +814,14 @@ class CompteRenduController extends Controller
     /** Titre de section numéroté — bleu SOUMAFÊ */
     private function titreSection(string $num, string $text): string
     {
-        $escaped = htmlspecialchars("{$num}. {$text}", ENT_XML1, 'UTF-8');
+        $escaped = htmlspecialchars("{$num}. " . mb_strtoupper($text, 'UTF-8'), ENT_XML1, 'UTF-8');
         return '<w:p><w:pPr>'
             . '<w:spacing w:before="240" w:after="120" w:line="360" w:lineRule="auto"/>'
             . '<w:jc w:val="left"/>'
             . '</w:pPr>'
             . '<w:r><w:rPr>'
             . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
-            . '<w:b/><w:color w:val="1F4E79"/>'
+            . '<w:b/><w:caps/><w:color w:val="1F4E79"/>'
             . '<w:sz w:val="26"/><w:szCs w:val="26"/>'
             . '<w:u w:val="single"/>'
             . '</w:rPr>'
@@ -820,14 +831,14 @@ class CompteRenduController extends Controller
     /** Sous-titre de section (ex: 2.1 Backend) */
     private function sousTitre(string $num, string $text): string
     {
-        $escaped = htmlspecialchars("{$num} {$text}", ENT_XML1, 'UTF-8');
+        $escaped = htmlspecialchars("{$num} " . mb_strtoupper($text, 'UTF-8'), ENT_XML1, 'UTF-8');
         return '<w:p><w:pPr>'
             . '<w:spacing w:before="180" w:after="80" w:line="360" w:lineRule="auto"/>'
             . '<w:jc w:val="left"/>'
             . '</w:pPr>'
             . '<w:r><w:rPr>'
             . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
-            . '<w:b/><w:color w:val="2E74B5"/>'
+            . '<w:b/><w:caps/><w:color w:val="2E74B5"/>'
             . '<w:sz w:val="24"/><w:szCs w:val="24"/>'
             . '</w:rPr>'
             . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
@@ -856,7 +867,7 @@ class CompteRenduController extends Controller
     /** Bloc titre plein (fond bleu SOUMAFÊ, texte blanc, centré) */
     private function titreBloc(string $text, int $size = 28): string
     {
-        $escaped = htmlspecialchars($text, ENT_XML1, 'UTF-8');
+        $escaped = htmlspecialchars(mb_strtoupper($text, 'UTF-8'), ENT_XML1, 'UTF-8');
         return '<w:p><w:pPr>'
             . '<w:shd w:val="clear" w:color="auto" w:fill="1F4E79"/>'
             . '<w:spacing w:before="60" w:after="60" w:line="360" w:lineRule="auto"/>'
@@ -864,7 +875,7 @@ class CompteRenduController extends Controller
             . '</w:pPr>'
             . '<w:r><w:rPr>'
             . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
-            . '<w:b/><w:color w:val="FFFFFF"/>'
+            . '<w:b/><w:caps/><w:color w:val="FFFFFF"/>'
             . "<w:sz w:val=\"{$size}\"/><w:szCs w:val=\"{$size}\"/>"
             . '</w:rPr>'
             . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
@@ -925,6 +936,69 @@ class CompteRenduController extends Controller
         $xml .= '<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="0" w:line="276" w:lineRule="auto"/></w:pPr>'
             . "<w:r><w:rPr>{$rpr}<w:sz w:val=\"20\"/><w:szCs w:val=\"20\"/><w:color w:val=\"666666\"/></w:rPr>"
             . '<w:t xml:space="preserve">' . htmlspecialchars($date, ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+        return $xml;
+    }
+
+    /** Bloc d'annotation stylé (7 types : remarque, attention, retenir, blocage, recommandation, bonne_pratique, rappel) */
+    private function blocAnnote(string $type, string $contenu): string
+    {
+        $types = [
+            'remarque'        => ['label' => 'Remarque',        'icon' => "\xE2\x84\xB9", 'bg' => 'E8EEF4', 'border' => '2E74B5'],
+            'attention'       => ['label' => 'Attention',       'icon' => "\xE2\x9A\xA0", 'bg' => 'FFF3E0', 'border' => 'E6A817'],
+            'retenir'         => ['label' => "\xC3\x80 retenir",'icon' => "\xE2\x98\x85", 'bg' => 'F0F7ED', 'border' => '2E8B57'],
+            'blocage'         => ['label' => 'Blocage',         'icon' => "\xE2\x9B\x94", 'bg' => 'FEECEC', 'border' => 'CC3333'],
+            'recommandation'  => ['label' => 'Recommandation',  'icon' => "\xE2\x9E\xA4", 'bg' => 'F3E8F9', 'border' => '7B2D8E'],
+            'bonne_pratique'  => ['label' => 'Bonne pratique',  'icon' => "\xE2\x9C\x93", 'bg' => 'E0F2FE', 'border' => '0288D1'],
+            'rappel'          => ['label' => 'Rappel',          'icon' => "\xF0\x9F\x94\x94", 'bg' => 'E8F5E9', 'border' => '00897B'],
+        ];
+        $cfg = $types[$type] ?? $types['remarque'];
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+
+        // Ligne label (icône + titre en gras coloré)
+        $xml = '<w:p><w:pPr>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$cfg['bg']}\"/>"
+            . '<w:pBdr>'
+            . "<w:left w:val=\"single\" w:sz=\"24\" w:space=\"6\" w:color=\"{$cfg['border']}\"/>"
+            . "<w:top w:val=\"single\" w:sz=\"4\" w:space=\"1\" w:color=\"{$cfg['border']}\"/>"
+            . "<w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"1\" w:color=\"{$cfg['border']}\"/>"
+            . "<w:right w:val=\"single\" w:sz=\"4\" w:space=\"1\" w:color=\"{$cfg['border']}\"/>"
+            . '</w:pBdr>'
+            . '<w:spacing w:before="120" w:after="40" w:line="300" w:lineRule="auto"/>'
+            . '<w:ind w:left="180" w:right="120"/>'
+            . '</w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+            . '<w:t xml:space="preserve">' . $cfg['icon'] . '  </w:t></w:r>'
+            . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"{$cfg['border']}\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+            . '<w:t xml:space="preserve">' . htmlspecialchars($cfg['label'], ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+
+        // Ligne contenu
+        $xml .= '<w:p><w:pPr>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$cfg['bg']}\"/>"
+            . '<w:pBdr>'
+            . "<w:left w:val=\"single\" w:sz=\"24\" w:space=\"6\" w:color=\"{$cfg['border']}\"/>"
+            . "<w:top w:val=\"none\" w:sz=\"0\" w:space=\"0\" w:color=\"auto\"/>"
+            . "<w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"1\" w:color=\"{$cfg['border']}\"/>"
+            . "<w:right w:val=\"single\" w:sz=\"4\" w:space=\"1\" w:color=\"{$cfg['border']}\"/>"
+            . '</w:pBdr>'
+            . '<w:spacing w:before="0" w:after="120" w:line="300" w:lineRule="auto"/>'
+            . '<w:ind w:left="180" w:right="120"/>'
+            . '<w:jc w:val="both"/>'
+            . '</w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:sz w:val=\"21\"/><w:szCs w:val=\"21\"/></w:rPr>"
+            . '<w:t xml:space="preserve">' . htmlspecialchars($contenu, ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+
+        return $xml;
+    }
+
+    /** Insérer les annotations ciblant une section donnée */
+    private function insererAnnotations(array $annotations, string $section): string
+    {
+        $xml = '';
+        foreach ($annotations as $a) {
+            if (($a['section'] ?? '') === $section && !empty($a['contenu'])) {
+                $xml .= $this->blocAnnote($a['type'] ?? 'remarque', $a['contenu']);
+            }
+        }
         return $xml;
     }
 
@@ -1012,12 +1086,11 @@ class CompteRenduController extends Controller
         // Traiter les listes
         $html = preg_replace_callback('/<(ol|ul)>(.*?)<\/\1>/si', function ($m) use (&$xml) {
             $type = $m[1]; // ol ou ul
-            $items = [];
             preg_match_all('/<li>(.*?)<\/li>/si', $m[2], $lis);
             foreach ($lis[1] as $i => $li) {
-                $prefix = ($type === 'ol') ? ($i + 1) . '. ' : '• ';
-                $text = strip_tags($li, '<b><u><i><strong><em>');
-                $xml .= $this->richParagraph($prefix . $text);
+                $prefix = ($type === 'ol') ? ($i + 1) . '.' : "\xE2\x80\xA2";
+                $text = trim(strip_tags($li));
+                $xml .= $this->listItemParagraph($prefix, $text);
             }
             return ''; // Retirer le HTML traité
         }, $html);
@@ -1035,10 +1108,11 @@ class CompteRenduController extends Controller
     }
 
     /** Convertir une ligne HTML avec <b>, <u>, <i> en un paragraphe OOXML avec runs formatés */
-    private function richParagraph(string $html): string
+    private function richParagraph(string $html, bool $isListItem = false): string
     {
         $spacing = '<w:spacing w:line="360" w:lineRule="auto"/>';
-        $p = "<w:p><w:pPr><w:jc w:val=\"both\"/>{$spacing}</w:pPr>";
+        $indent = $isListItem ? '<w:ind w:left="720" w:hanging="360"/>' : '';
+        $p = "<w:p><w:pPr><w:jc w:val=\"both\"/>{$spacing}{$indent}</w:pPr>";
 
         // Parser les segments avec balisage inline
         $segments = $this->parseInlineHtml($html);
@@ -1057,6 +1131,32 @@ class CompteRenduController extends Controller
         }
 
         return $p . '</w:p>';
+    }
+
+    /** Paragraphe de liste (puce/numéro + texte) avec indentation OOXML propre */
+    private function listItemParagraph(string $bullet, string $text): string
+    {
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+             . '<w:sz w:val="24"/><w:szCs w:val="24"/>';
+        $spacing = '<w:spacing w:line="360" w:lineRule="auto"/>';
+        $escaped = htmlspecialchars($text, ENT_XML1, 'UTF-8');
+        $bulletEsc = htmlspecialchars($bullet, ENT_XML1, 'UTF-8');
+
+        return '<w:p><w:pPr>'
+            . '<w:jc w:val="both"/>'
+            . $spacing
+            . '<w:ind w:left="720" w:hanging="360"/>'
+            . '<w:tabs><w:tab w:val="left" w:pos="720"/></w:tabs>'
+            . '</w:pPr>'
+            // Run 1 : puce/numéro
+            . "<w:r><w:rPr>{$rpr}</w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$bulletEsc}</w:t></w:r>"
+            // Tab entre puce et texte
+            . '<w:r><w:tab/></w:r>'
+            // Run 2 : texte
+            . "<w:r><w:rPr>{$rpr}</w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r>"
+            . '</w:p>';
     }
 
     /** Parser le HTML inline (b, u, i, strong, em) en segments avec attributs */

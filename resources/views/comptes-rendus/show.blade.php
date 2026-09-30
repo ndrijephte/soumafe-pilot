@@ -207,6 +207,33 @@
         @endif
     @endif
 
+    {{-- ANNOTATIONS --}}
+    @if(!empty($d['annotations']))
+    <div class="section">
+        <h3>Annotations</h3>
+        @php
+        $annotTypes = [
+            'remarque'       => ['label' => 'Remarque',       'icon' => '&#8505;',  'bg' => '#E8EEF4', 'border' => '#2E74B5'],
+            'attention'      => ['label' => 'Attention',      'icon' => '&#9888;',  'bg' => '#FFF3E0', 'border' => '#E6A817'],
+            'retenir'        => ['label' => 'A retenir',      'icon' => '&#9733;',  'bg' => '#F0F7ED', 'border' => '#2E8B57'],
+            'blocage'        => ['label' => 'Blocage',        'icon' => '&#9940;',  'bg' => '#FEECEC', 'border' => '#CC3333'],
+            'recommandation' => ['label' => 'Recommandation', 'icon' => '&#10148;', 'bg' => '#F3E8F9', 'border' => '#7B2D8E'],
+            'bonne_pratique' => ['label' => 'Bonne pratique', 'icon' => '&#10003;', 'bg' => '#E0F2FE', 'border' => '#0288D1'],
+            'rappel'         => ['label' => 'Rappel',         'icon' => '&#128276;','bg' => '#E8F5E9', 'border' => '#00897B'],
+        ];
+        @endphp
+        @foreach($d['annotations'] as $ann)
+            @if(!empty($ann['contenu']))
+            @php $cfg = $annotTypes[$ann['type'] ?? 'remarque'] ?? $annotTypes['remarque']; @endphp
+            <div style="background:{{ $cfg['bg'] }};border-left:4px solid {{ $cfg['border'] }};border-radius:8px;padding:12px 16px;margin-bottom:10px">
+                <div style="font-weight:700;color:{{ $cfg['border'] }};font-size:.88rem;margin-bottom:4px">{!! $cfg['icon'] !!} {{ $cfg['label'] }} <span style="font-weight:400;color:#94a3b8;font-size:.78rem">— Section {{ $ann['section'] ?? '?' }}</span></div>
+                <div style="font-size:.88rem;color:#334155;line-height:1.5">{{ $ann['contenu'] }}</div>
+            </div>
+            @endif
+        @endforeach
+    </div>
+    @endif
+
     <div class="cr-bar">
         <a href="{{ route('comptes-rendus.index') }}" class="btn-retour">&larr; Retour</a>
         @if(auth()->user()->estAdmin() || ($cr->estBrouillon() && auth()->id() === $cr->redacteur_id))

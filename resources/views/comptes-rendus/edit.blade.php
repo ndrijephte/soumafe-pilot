@@ -49,7 +49,7 @@
 .odj-item{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px 18px 48px;margin-bottom:12px;position:relative;transition:box-shadow .15s}
 .odj-item:hover{box-shadow:0 2px 8px rgba(31,78,121,.08)}
 .odj-item .num{position:absolute;left:14px;top:20px;background:var(--bleu,#1F4E79);color:#fff;font-size:.78rem;font-weight:700;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.odj-item input[type=text]{padding:10px 14px;font-size:.92rem;border-radius:8px;border:1px solid #d1d5db}
+.odj-item textarea{padding:10px 14px;font-size:.92rem;border-radius:8px;border:1px solid #d1d5db;font-family:inherit}
 /* Bottom bar */
 .cr-bottom{display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0}
 .cr-bottom .btn-retour{padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:500;text-decoration:none;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;transition:all .15s}
@@ -160,7 +160,7 @@
                         <div class="odj-item" data-idx="{{ $k }}">
                             <span class="num">{{ $k + 1 }}</span>
                             <div style="display:flex;gap:10px;align-items:center">
-                                <div style="flex:1"><input type="text" name="donnees[ordre_du_jour][{{ $k }}][point]" value="{{ $odj['point'] ?? '' }}" placeholder="Ex : Revue des livrables de la semaine"></div>
+                                <div style="flex:1"><textarea name="donnees[ordre_du_jour][{{ $k }}][point]" rows="2" style="width:100%;padding:10px 14px;font-size:.92rem;border-radius:8px;border:1px solid #d1d5db;resize:vertical;font-family:inherit" placeholder="Ex : Revue des livrables de la semaine">{{ $odj['point'] ?? '' }}</textarea></div>
                                 <button type="button" class="btn-rm" onclick="this.closest('.odj-item').remove();renum()" title="Supprimer">&#10005;</button>
                             </div>
                         </div>
@@ -367,6 +367,55 @@
             </div>
         @endif
 
+        @if(!$cr->estReunion())
+        {{-- ANNOTATIONS (demo uniquement) --}}
+        <div class="section" data-sect="annotations">
+            <div class="section-head" onclick="toggleSection(this)">
+                <h3>Annotations du redacteur</h3>
+                <div class="sect-status"><span class="sect-toggle">&#9660;</span></div>
+            </div>
+            <div class="section-body">
+                <p style="font-size:.82rem;color:#94a3b8;margin-bottom:12px">Ajoutez des blocs annotes apres les sections du document DOCX.</p>
+                <div id="annotations-list">
+                @foreach($donnees['annotations'] ?? [] as $k => $ann)
+                    <div class="annot-item" data-idx="{{ $k }}" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px">
+                        <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+                            <select name="donnees[annotations][{{ $k }}][type]" class="annot-type" style="width:180px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem">
+                                <option value="remarque" @selected(($ann['type'] ?? '') === 'remarque')>&#8505; Remarque</option>
+                                <option value="attention" @selected(($ann['type'] ?? '') === 'attention')>&#9888; Attention</option>
+                                <option value="retenir" @selected(($ann['type'] ?? '') === 'retenir')>&#9733; A retenir</option>
+                                <option value="blocage" @selected(($ann['type'] ?? '') === 'blocage')>&#9940; Blocage</option>
+                                <option value="recommandation" @selected(($ann['type'] ?? '') === 'recommandation')>&#10148; Recommandation</option>
+                                <option value="bonne_pratique" @selected(($ann['type'] ?? '') === 'bonne_pratique')>&#10003; Bonne pratique</option>
+                                <option value="rappel" @selected(($ann['type'] ?? '') === 'rappel')>&#128276; Rappel</option>
+                            </select>
+                            <select name="donnees[annotations][{{ $k }}][section]" style="width:200px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem">
+                                @if($cr->estReunion())
+                                <option value="1" @selected(($ann['section'] ?? '') === '1')>1. Contexte</option>
+                                <option value="2" @selected(($ann['section'] ?? '') === '2')>2. Presence</option>
+                                <option value="3" @selected(($ann['section'] ?? '') === '3')>3. Deroulement</option>
+                                <option value="4" @selected(($ann['section'] ?? '') === '4')>4. Decisions</option>
+                                <option value="5" @selected(($ann['section'] ?? '') === '5')>5. Conclusion</option>
+                                @else
+                                <option value="1" @selected(($ann['section'] ?? '') === '1')>1. Contexte</option>
+                                <option value="2" @selected(($ann['section'] ?? '') === '2')>2. Resultats</option>
+                                <option value="3" @selected(($ann['section'] ?? '') === '3')>3. Evaluation</option>
+                                <option value="4" @selected(($ann['section'] ?? '') === '4')>4. Prochaines etapes</option>
+                                <option value="5" @selected(($ann['section'] ?? '') === '5')>5. Plan d'actions</option>
+                                <option value="6" @selected(($ann['section'] ?? '') === '6')>6. Conclusion</option>
+                                @endif
+                            </select>
+                            <button type="button" class="btn-rm" onclick="this.closest('.annot-item').remove()">&#10005;</button>
+                        </div>
+                        <textarea name="donnees[annotations][{{ $k }}][contenu]" rows="2" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.88rem;resize:vertical">{{ $ann['contenu'] ?? '' }}</textarea>
+                    </div>
+                @endforeach
+                </div>
+                <button type="button" class="btn-add" onclick="ajouterAnnotation()" style="margin-top:8px">+ Ajouter une annotation</button>
+            </div>
+        </div>
+        @endif
+
         <div class="cr-bottom">
             <a href="{{ route('comptes-rendus.index') }}" class="btn-retour">&larr; Retour</a>
             <button type="submit" class="btn-save">{{ $cr->estConfirme() ? 'Enregistrer les modifications' : 'Enregistrer brouillon' }}</button>
@@ -385,7 +434,9 @@
 let odjIdx = {{ count($donnees['ordre_du_jour'] ?? []) }};
 let decIdx = {{ count($donnees['decisions'] ?? []) }};
 let actIdx = {{ count($donnees['actions_a_mener'] ?? []) }};
+let annIdx = {{ count($donnees['annotations'] ?? []) }};
 const collabs = @json($collaborateurs->map(fn($c) => $c->nomComplet())->values());
+const estReunion = {{ $cr->estReunion() ? 'true' : 'false' }};
 
 /* === Rich editor === */
 function execRich(cmd, btn){
@@ -430,7 +481,7 @@ function ajouterOdj(){
     div.dataset.idx = odjIdx;
     div.innerHTML = `<span class="num">${odjIdx+1}</span>
         <div style="display:flex;gap:10px;align-items:center">
-            <div style="flex:1"><input type="text" name="donnees[ordre_du_jour][${odjIdx}][point]" placeholder="Ex : Revue des livrables de la semaine"></div>
+            <div style="flex:1"><textarea name="donnees[ordre_du_jour][${odjIdx}][point]" rows="2" style="width:100%;padding:10px 14px;font-size:.92rem;border-radius:8px;border:1px solid #d1d5db;resize:vertical;font-family:inherit" placeholder="Ex : Revue des livrables de la semaine"></textarea></div>
             <button type="button" class="btn-rm" onclick="this.closest('.odj-item').remove();renum()" title="Supprimer">&#10005;</button>
         </div>`;
     list.appendChild(div);
@@ -506,6 +557,34 @@ function ajouterAction(){
 }
 function renumAct(){
     document.querySelectorAll('#actions-body tr').forEach((tr,i) => { const td = tr.querySelector('.num-col'); if(td) td.textContent = i+1; });
+}
+
+/* === Annotations === */
+function ajouterAnnotation(){
+    const list = document.getElementById('annotations-list');
+    const div = document.createElement('div');
+    div.className = 'annot-item';
+    div.dataset.idx = annIdx;
+    div.style.cssText = 'background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px';
+    const sectionOpts = estReunion
+        ? '<option value="1">1. Contexte</option><option value="2">2. Presence</option><option value="3">3. Deroulement</option><option value="4">4. Decisions</option><option value="5">5. Conclusion</option>'
+        : '<option value="1">1. Contexte</option><option value="2">2. Resultats</option><option value="3">3. Evaluation</option><option value="4">4. Prochaines etapes</option><option value="5">5. Plan d\'actions</option><option value="6">6. Conclusion</option>';
+    div.innerHTML = `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+        <select name="donnees[annotations][${annIdx}][type]" class="annot-type" style="width:180px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem">
+            <option value="remarque">&#8505; Remarque</option>
+            <option value="attention">&#9888; Attention</option>
+            <option value="retenir">&#9733; A retenir</option>
+            <option value="blocage">&#9940; Blocage</option>
+            <option value="recommandation">&#10148; Recommandation</option>
+            <option value="bonne_pratique">&#10003; Bonne pratique</option>
+            <option value="rappel">&#128276; Rappel</option>
+        </select>
+        <select name="donnees[annotations][${annIdx}][section]" style="width:200px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem">${sectionOpts}</select>
+        <button type="button" class="btn-rm" onclick="this.closest('.annot-item').remove()">&#10005;</button>
+    </div>
+    <textarea name="donnees[annotations][${annIdx}][contenu]" rows="2" style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:.88rem;resize:vertical" placeholder="Contenu de l'annotation..."></textarea>`;
+    list.appendChild(div);
+    annIdx++;
 }
 
 /* === Confirmation === */

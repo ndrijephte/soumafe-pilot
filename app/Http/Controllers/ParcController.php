@@ -634,22 +634,28 @@ class ParcController extends Controller
                 ]);
             }
 
-            // Création recouvrement si déficit ET justification non valable
+            // Création recouvrement si déficit ET justification non valable (anti-doublon)
             if ($deficit > 0 && !$justifValable && Schema::hasTable('recouvrements') && !empty($data['chauffeur'])) {
-                Recouvrement::create([
-                    'chauffeur_nom' => $data['chauffeur'],
-                    'vehicule_id' => $data['vehicule_id'],
-                    'date_recette' => $data['date'],
-                    'objectif' => $data['objectif'],
-                    'recette_realisee' => $data['recette'],
-                    'deficit' => $deficit,
-                    'montant_recouvre' => 0,
-                    'solde' => $deficit,
-                    'justification_valable' => false,
-                    'statut' => 'actif',
-                    'cree_par' => $r->user()->name,
-                ]);
-                AuditLog::log('creation', 'recouvrement', $data['chauffeur'], "Déficit {$deficit} F — justification non valable (saisie individuelle)");
+                $dejaRecouvr = Recouvrement::where('chauffeur_nom', $data['chauffeur'])
+                    ->where('vehicule_id', $data['vehicule_id'])
+                    ->whereDate('date_recette', $data['date'])
+                    ->first();
+                if (!$dejaRecouvr) {
+                    Recouvrement::create([
+                        'chauffeur_nom' => $data['chauffeur'],
+                        'vehicule_id' => $data['vehicule_id'],
+                        'date_recette' => $data['date'],
+                        'objectif' => $data['objectif'],
+                        'recette_realisee' => $data['recette'],
+                        'deficit' => $deficit,
+                        'montant_recouvre' => 0,
+                        'solde' => $deficit,
+                        'justification_valable' => false,
+                        'statut' => 'actif',
+                        'cree_par' => $r->user()->name,
+                    ]);
+                    AuditLog::log('creation', 'recouvrement', $data['chauffeur'], "Déficit {$deficit} F — justification non valable (saisie individuelle)");
+                }
             }
 
             // Flash résumé pour dialog post-soumission
@@ -1197,30 +1203,33 @@ class ParcController extends Controller
 
         $p = Penalite::create($data);
 
-        // Créer un recouvrement lié si non payée
+        // Créer un recouvrement lié si non payée (anti-doublon sur penalite_id)
         if ($p->statut !== 'payee' && $p->montant > 0 && Schema::hasTable('recouvrements') && Schema::hasColumn('recouvrements', 'penalite_id')) {
-            $chauffeurId = null;
-            if ($p->chauffeur && Schema::hasTable('chauffeurs')) {
-                $ch = Chauffeur::whereRaw("CONCAT(nom,' ',prenom) = ?", [$p->chauffeur])
-                    ->orWhereRaw("CONCAT(prenom,' ',nom) = ?", [$p->chauffeur])->first();
-                $chauffeurId = $ch?->id;
+            $dejaRecouvrPenal = Recouvrement::where('penalite_id', $p->id)->exists();
+            if (!$dejaRecouvrPenal) {
+                $chauffeurId = null;
+                if ($p->chauffeur && Schema::hasTable('chauffeurs')) {
+                    $ch = Chauffeur::whereRaw("CONCAT(nom,' ',prenom) = ?", [$p->chauffeur])
+                        ->orWhereRaw("CONCAT(prenom,' ',nom) = ?", [$p->chauffeur])->first();
+                    $chauffeurId = $ch?->id;
+                }
+                Recouvrement::create([
+                    'penalite_id' => $p->id,
+                    'chauffeur_id' => $chauffeurId,
+                    'chauffeur_nom' => $p->chauffeur,
+                    'vehicule_id' => $p->vehicule_id,
+                    'date_recette' => $p->date_infraction,
+                    'montant_verse' => 0,
+                    'objectif' => $p->montant,
+                    'deficit' => $p->montant,
+                    'montant_recouvre' => 0,
+                    'solde' => $p->montant,
+                    'statut' => 'actif',
+                    'type_recouvrement' => 'penalite',
+                    'motif' => 'Pénalité — ' . $p->typeLabel(),
+                    'cree_par' => auth()->user()->name,
+                ]);
             }
-            Recouvrement::create([
-                'penalite_id' => $p->id,
-                'chauffeur_id' => $chauffeurId,
-                'chauffeur_nom' => $p->chauffeur,
-                'vehicule_id' => $p->vehicule_id,
-                'date_recette' => $p->date_infraction,
-                'montant_verse' => 0,
-                'objectif' => $p->montant,
-                'deficit' => $p->montant,
-                'montant_recouvre' => 0,
-                'solde' => $p->montant,
-                'statut' => 'actif',
-                'type_recouvrement' => 'penalite',
-                'motif' => 'Pénalité — ' . $p->typeLabel(),
-                'cree_par' => auth()->user()->name,
-            ]);
         }
 
         AuditLog::log('creation', 'penalite', "Pénalité #{$p->id}", "Type: {$p->type}, Montant: {$p->montant} F, Chauffeur: {$p->chauffeur}");
@@ -1441,11 +1450,17 @@ class ParcController extends Controller
         $penalitesImpayees = $vehicule->penalites->where('statut', 'non_payee')->count();
         $penalitesMontant = (int) $vehicule->penalites->where('statut', 'non_payee')->sum('montant');
 
-        // Dépenses mois (hors maintenance)
-        $depensesMois = Schema::hasTable('depenses')
-            ? (int) Depense::where('vehicule_id', $vehicule->id)->where('type_depense', '!=', 'maintenance')
-                ->whereBetween('date_depense', [$moisDebut, $moisFin])->sum('montant')
-            : 0;
+        // Recouvrement perçu ce mois (versements chauffeur)
+        $recouvMois = 0;
+        if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
+            $recouvMois = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+                ->where('recouvrements.vehicule_id', $vehicule->id)
+                ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+                ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
+                ->sum('versements_recouvrement.montant');
+        }
+        $recetteMoisAvecRecouv = $recetteMois + $recouvMois;
+
         // Maintenance mois
         $maintenanceMois = Schema::hasTable('depenses')
             ? (int) Depense::where('vehicule_id', $vehicule->id)->where('type_depense', 'maintenance')
@@ -1500,20 +1515,13 @@ class ParcController extends Controller
             'type' => $m->type_echeance,
             'echeance' => $m->prochaine_echeance?->format('d/m/Y') ?? '—',
             'retard' => $m->prochaine_echeance && $m->prochaine_echeance < today(),
+            'derniere_realisation' => $m->derniere_realisation?->format('d/m/Y') ?? '—',
+            'date_realisation' => $m->date_realisation?->format('d/m/Y') ?? null,
+            'statut' => $m->statut ?? 'planifiee',
+            'cout' => (int) ($m->cout ?? 0),
         ])->values();
 
-        // Dépenses véhicule (20 dernières)
-        $depenses = collect();
-        if (Schema::hasTable('depenses')) {
-            $depenses = Depense::where('vehicule_id', $vehicule->id)
-                ->orderByDesc('date_depense')->limit(20)->get()
-                ->map(fn($d) => [
-                    'date' => $d->date_depense->format('d/m/Y'),
-                    'type' => $d->typeLibelle(),
-                    'montant' => (int) $d->montant,
-                    'commentaire' => mb_substr($d->commentaire ?? '', 0, 60),
-                ]);
-        }
+        // Dépenses véhicule retirées (bureau uniquement, pas pertinent dans fiche véhicule)
 
         // Recouvrements liés au véhicule
         $recouvrements = Recouvrement::where('vehicule_id', $vehicule->id)
@@ -1552,19 +1560,21 @@ class ParcController extends Controller
             'observations' => $vehicule->observations,
             'objectif_recette' => $vehicule->objectif_recette,
             // KPIs
-            'recette_mois' => $recetteMois, 'objectif_mois' => $objectifMois,
-            'taux_recette' => $objectifMois > 0 ? round(($recetteMois / $objectifMois) * 100) : 0,
+            'recette_mois' => $recetteMois, 'recouvrement_mois' => $recouvMois,
+            'recette_mois_avec_recouv' => $recetteMoisAvecRecouv,
+            'objectif_mois' => $objectifMois,
+            'taux_recette' => $objectifMois > 0 ? round(($recetteMoisAvecRecouv / $objectifMois) * 100) : 0,
             'nb_jours' => $nbJoursSaisis, 'pointage_mois' => $pointageMois,
             'pannes_ouvertes' => $pannesOuvertes, 'pannes_total' => $vehicule->pannes->count(),
             'echeances_retard' => $echeancesRetard,
             'penalites_impayees' => $penalitesImpayees, 'penalites_montant' => $penalitesMontant,
-            'depenses_mois' => $depensesMois, 'maintenance_mois' => $maintenanceMois,
+            'maintenance_mois' => $maintenanceMois,
             'solde_recouvrement' => $soldeRecouvr,
             // Historiques
             'chauffeurs_actifs' => $chauffeursActifs, 'chauffeurs_passes' => $chauffeursPasses,
             'recettes_historique' => $recettesHistorique,
             'pannes' => $pannes, 'penalites' => $penalites,
-            'maintenances' => $maintenances, 'depenses' => $depenses,
+            'maintenances' => $maintenances,
             'recouvrements' => $recouvrements, 'emprunts' => $emprunts,
         ]);
     }
@@ -1603,6 +1613,17 @@ class ParcController extends Controller
             ->whereBetween('date', [$moisDebut, $moisFin])->count();
         $pointageMois = RecetteVehicule::where('chauffeur', $nomComplet)
             ->whereBetween('date', [$moisDebut, $moisFin])->sum('pointage');
+
+        // Recouvrement perçu ce mois (versements chauffeur)
+        $recouvMois = 0;
+        if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
+            $recouvMois = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+                ->where('recouvrements.chauffeur_nom', $nomComplet)
+                ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+                ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
+                ->sum('versements_recouvrement.montant');
+        }
+        $recetteTotale = (int) $recetteMois + $recouvMois;
 
         // Historique recettes (30 derniers jours)
         $recettesHistorique = RecetteVehicule::where('chauffeur', $nomComplet)
@@ -1678,8 +1699,10 @@ class ParcController extends Controller
             'vehicules_actifs' => $vehiculesActifs,
             'vehicules_passes' => $vehiculesPasses,
             'recette_mois' => (int) $recetteMois,
+            'recouvrement_mois' => $recouvMois,
+            'recette_totale' => $recetteTotale,
             'objectif_mois' => (int) $objectifMois,
-            'taux_recette' => $objectifMois > 0 ? round(($recetteMois / $objectifMois) * 100) : 0,
+            'taux_recette' => $objectifMois > 0 ? round(($recetteTotale / $objectifMois) * 100) : 0,
             'jours_saisis' => $nbJoursSaisis,
             'jours_atteints' => $joursAtteints,
             'pointage_mois' => (int) $pointageMois,
@@ -1711,7 +1734,18 @@ class ParcController extends Controller
 
         $recetteMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
         $objectifMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('objectif');
-        $tauxRecette = $objectifMois > 0 ? round(($recetteMois / $objectifMois) * 100) : 0;
+        $pointageMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('pointage');
+
+        // Recouvrement perçu ce mois (versements chauffeur)
+        $recouvMois = 0;
+        if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
+            $recouvMois = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+                ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+                ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
+                ->sum('versements_recouvrement.montant');
+        }
+        $recetteTotale = $recetteMois + $recouvMois;
+        $tauxRecette = $objectifMois > 0 ? round(($recetteTotale / $objectifMois) * 100) : 0;
 
         $echeancesRetard = MaintenancePreventive::whereNotNull('prochaine_echeance')
             ->whereDate('prochaine_echeance', '<', today())->count();
@@ -1733,6 +1767,9 @@ class ParcController extends Controller
             'cout_mois' => $coutMois,
             'delai_moyen' => $delaiMoyen !== null ? round($delaiMoyen, 1) : 0,
             'recette_mois' => $recetteMois,
+            'recouvrement_mois' => $recouvMois,
+            'recette_totale' => $recetteTotale,
+            'pointage_mois' => $pointageMois,
             'objectif_mois' => $objectifMois,
             'taux_recette' => $tauxRecette,
             'echeances_retard' => $echeancesRetard,

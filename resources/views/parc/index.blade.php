@@ -170,6 +170,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="kpi"><div class="lbl">En service</div><div class="val">{{ $kpi['actifs'] }}<span style="font-size:13px;color:var(--gris);font-weight:400">/{{ $kpi['total'] }}</span></div><div class="sub">{{ $kpi['taxis'] }} Taxis · {{ $kpi['vtcs'] }} VTC</div></div>
     <div class="kpi" @if($kpi['pannes_ouvertes']>0) style="background:#fff7ed;border-color:#fed7aa" @endif><div class="lbl">Pannes ouvertes</div><div class="val" style="color:{{ $kpi['pannes_ouvertes']>0 ? '#b45309' : 'var(--ok)' }}">{{ $kpi['pannes_ouvertes'] }}</div></div>
     <div class="kpi"><div class="lbl">Coût pannes ce mois</div><div class="val" style="font-size:22px">{{ number_format($kpi['cout_mois'], 0, ',', ' ') }}</div><div class="sub">FCFA</div></div>
+    <div class="kpi"><div class="lbl">Recette mois</div><div class="val" style="font-size:20px">{{ number_format($kpi['recette_totale'], 0, ',', ' ') }}</div><div class="sub">dont recouv. {{ number_format($kpi['recouvrement_mois'], 0, ',', ' ') }} F · obj. {{ number_format($kpi['objectif_mois'], 0, ',', ' ') }}</div></div>
     <div class="kpi"><div class="lbl">Taux recette / obj.</div><div class="val" style="color:{{ $kpi['taux_recette'] >= 100 ? 'var(--ok)' : ($kpi['taux_recette'] >= 80 ? '#b45309' : 'var(--ko)') }}">{{ $kpi['taux_recette'] }}%</div></div>
     <div class="kpi" @if($kpi['echeances_retard']>0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">Échéances en retard</div><div class="val" style="color:{{ $kpi['echeances_retard']>0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $kpi['echeances_retard'] }}</div></div>
     <div class="kpi" @if($kpi['penalites_non_payees']>0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">Pénalités impayées</div><div class="val" style="color:{{ $kpi['penalites_non_payees']>0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $kpi['penalites_non_payees'] }}</div></div>
@@ -257,6 +258,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <h3>{!! $icWrench !!} Pannes @if($kpi['pannes_ouvertes']>0)<span class="pill p-ko">{{ $kpi['pannes_ouvertes'] }} ouvertes</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-panne').showModal()">{!! $icPlus !!} Panne</button>@endif
     </div>
+    @php $coutTotalPannes = $pannes->sum('cout_reel'); @endphp
+    @if($coutTotalPannes > 0)
+    <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12.5px">
+        <span style="font-weight:700;color:var(--ko)">Coût total pannes : {{ number_format($coutTotalPannes, 0, ',', ' ') }} F</span>
+        <span style="color:var(--gris)">({{ $pannes->count() }} panne(s))</span>
+    </div>
+    @endif
     <div class="panneau" style="overflow-x:auto">
     <table>
     <thead><tr><th>Véhicule</th><th>Date</th><th>Description</th><th>Urgence</th><th>Statut</th><th>Coût</th><th>Délai</th><th></th></tr></thead>
@@ -650,9 +658,16 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <h3>{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }} en retard</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-maint').showModal()">{!! $icPlus !!} Échéance</button>@endif
     </div>
+    @php $coutTotalMaint = $maintenances->sum('cout'); @endphp
+    @if($coutTotalMaint > 0)
+    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12.5px">
+        <span style="font-weight:700;color:#92400e">Coût total maintenance : {{ number_format($coutTotalMaint, 0, ',', ' ') }} F</span>
+        <span style="color:var(--gris)">({{ $maintenances->whereNotNull('cout')->where('cout', '>', 0)->count() }} intervention(s))</span>
+    </div>
+    @endif
     <div class="panneau" style="overflow-x:auto">
     <table>
-    <thead><tr><th>Véhicule</th><th>Type</th><th>Statut</th><th>Prochaine</th><th>Jours</th><th>Alerte</th><th>Coût</th><th>Observations</th><th></th></tr></thead>
+    <thead><tr><th>Véhicule</th><th>Type</th><th>Statut</th><th>Dernière réal.</th><th>Prochaine</th><th>Jours</th><th>Alerte</th><th>Coût</th><th>Observations</th><th></th></tr></thead>
     <tbody>
     @forelse($maintenances as $m)
     @php $al = $m->alerte(); $jr = $m->joursRestants(); $estReal = $m->estRealisee(); @endphp
@@ -660,7 +675,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><strong>{{ $m->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $m->typeLabel() }}</td>
         <td><span class="pill {{ $estReal ? 'p-ok' : 'p-warn' }}">{{ $m->statutLabel() }}</span></td>
-        <td>{{ $estReal ? ($m->date_realisation ? $m->date_realisation->format('d/m/Y') : '—') : ($m->prochaine_echeance ? $m->prochaine_echeance->format('d/m/Y') : '—') }}</td>
+        <td>{{ $m->derniere_realisation ? $m->derniere_realisation->format('d/m/Y') : '—' }}</td>
+        <td>{{ $m->prochaine_echeance ? $m->prochaine_echeance->format('d/m/Y') : '—' }}</td>
         <td style="font-weight:600;color:{{ $estReal ? 'var(--ok)' : ($al === 'en_retard' ? 'var(--ko)' : ($al === 'proche' ? 'var(--warn)' : 'var(--ok)')) }}">{{ $estReal ? '—' : ($jr !== null ? $jr.'j' : '—') }}</td>
         <td>@if($estReal)<span class="pill p-ok">Fait</span>@else<span class="pill {{ $al === 'en_retard' ? 'p-ko' : ($al === 'proche' ? 'p-warn' : 'p-ok') }}">{{ $al === 'en_retard' ? 'En retard' : ($al === 'proche' ? 'Proche' : 'OK') }}</span>@endif</td>
         <td style="font-weight:600;color:var(--ko)">{{ $m->cout ? number_format($m->cout, 0, ',', ' ').' F' : '—' }}</td>
@@ -1962,14 +1978,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
         <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" id="de-montant" min="1" required placeholder="0"></div>
     </div>
-    <div class="form-row3">
-        <div style="grid-column:span 2"><label>Véhicule (optionnel)</label>
-            <select name="vehicule_id" id="de-vehicule">
-                <option value="">— Aucun (dépense bureau) —</option>
-                @foreach($vehicules as $v)<option value="{{ $v->id }}">{{ $v->immatriculation }}</option>@endforeach
-            </select>
-        </div>
-    </div>
     <div><label>Commentaire</label><textarea name="commentaire" id="de-comment" rows="2" maxlength="500" placeholder="Commentaire optionnel"></textarea></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
@@ -3189,7 +3197,7 @@ function ficheVehicule(vehiculeId){
             /* ── KPIs grille ── */
             var tauxCol=d.taux_recette>=100?'var(--ok)':(d.taux_recette>=80?'#b45309':'var(--ko)');
             html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
-            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recettes mois ('+d.nb_jours+' j.)</div></div>';
+            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_mois_avec_recouv)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recette+Recouv ('+d.nb_jours+' j.)</div></div>';
             html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:10.5px;color:var(--gris)">Taux objectif</div></div>';
             html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage mois</div></div>';
             html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ok)">'+d.pannes_total+'</div><div style="font-size:10.5px;color:var(--gris)">Pannes ('+d.pannes_ouvertes+' ouv.)</div></div>';
@@ -3198,8 +3206,8 @@ function ficheVehicule(vehiculeId){
             html+='</div>';
 
             /* ── Onglets internes ── */
-            var tabs=['recettes','chauffeurs','pannes','penalites','maintenance','depenses','recouvrements'];
-            var labels=['Recettes','Chauffeurs','Pannes','Pénalités','Maintenance','Dépenses','Recouvrements'];
+            var tabs=['recettes','chauffeurs','pannes','penalites','maintenance','recouvrements'];
+            var labels=['Recettes','Chauffeurs','Pannes','Pénalités','Maintenance','Recouvrements'];
             html+='<div style="display:flex;gap:2px;border-bottom:2px solid var(--bord);margin-bottom:10px;flex-wrap:wrap">';
             tabs.forEach(function(t,i){
                 html+='<button type="button" onclick="fvTab(\''+t+'\')" id="fv-btn-'+t+'" style="padding:5px 10px;font-size:11.5px;border:none;cursor:pointer;border-radius:6px 6px 0 0;background:'+(i===0?'var(--accent)':'#e5e7eb')+';color:'+(i===0?'#fff':'var(--gris)')+';font-weight:'+(i===0?'600':'400')+'">'+labels[i]+'</button>';
@@ -3262,33 +3270,17 @@ function ficheVehicule(vehiculeId){
             /* ── Panel Maintenance ── */
             html+='<div id="fv-pan-maintenance" class="fv-panel" style="display:none">';
             if(d.maintenances && d.maintenances.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Type</th><th>Prochaine échéance</th><th>Statut</th></tr></thead><tbody>';
+                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Type</th><th>Dernière réalisation</th><th>Prochaine échéance</th><th style="text-align:right">Coût</th><th>Statut</th></tr></thead><tbody>';
                 d.maintenances.forEach(function(m){
-                    var st=m.retard?'<span style="color:var(--ko);font-weight:600">En retard</span>':'<span style="color:var(--ok)">A jour</span>';
-                    html+='<tr><td>'+m.type+'</td><td>'+m.echeance+'</td><td>'+st+'</td></tr>';
+                    var st=m.statut==='realisee'?'<span style="color:var(--ok);font-weight:600">Réalisée</span>':(m.retard?'<span style="color:var(--ko);font-weight:600">En retard</span>':'<span style="color:var(--ok)">À jour</span>');
+                    var cout=m.cout>0?fmt(m.cout):'—';
+                    html+='<tr><td>'+m.type+'</td><td>'+m.derniere_realisation+'</td><td>'+m.echeance+'</td><td style="text-align:right">'+cout+'</td><td>'+st+'</td></tr>';
                 });
                 html+='</tbody></table></div>';
             } else { html+='<p style="color:var(--gris)">Aucune maintenance planifiée</p>'; }
             html+='</div>';
 
-            /* ── Panel Dépenses ── */
-            html+='<div id="fv-pan-depenses" class="fv-panel" style="display:none">';
-            if(d.depenses && d.depenses.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Type</th><th style="text-align:right">Montant</th><th>Commentaire</th></tr></thead><tbody>';
-                d.depenses.forEach(function(dp){
-                    html+='<tr><td>'+dp.date+'</td><td>'+dp.type+'</td><td style="text-align:right">'+fmt(dp.montant)+'</td><td style="font-size:11px">'+dp.commentaire+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucune dépense</p>'; }
-            if(d.emprunts && d.emprunts.length>0){
-                html+='<div class="dlg-section" style="margin-top:12px">Emprunts liés</div>';
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Prêteur</th><th style="text-align:right">Montant</th><th style="text-align:right">Remboursé</th><th style="text-align:right">Solde</th><th>Statut</th></tr></thead><tbody>';
-                d.emprunts.forEach(function(e){
-                    html+='<tr><td>'+e.date+'</td><td>'+e.preteur+'</td><td style="text-align:right">'+fmt(e.montant)+'</td><td style="text-align:right">'+fmt(e.rembourse)+'</td><td style="text-align:right">'+fmt(e.solde)+'</td><td>'+e.statut+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            }
-            html+='</div>';
+            /* Panel Dépenses retiré (correspondait aux dépenses bureau) */
 
             /* ── Panel Recouvrements ── */
             html+='<div id="fv-pan-recouvrements" class="fv-panel" style="display:none">';
@@ -3332,7 +3324,7 @@ function ficheChauffeur(chauffeurId){
             /* ── KPIs grille ── */
             html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
             var tauxCol=d.taux_recette>=100?'var(--ok)':(d.taux_recette>=80?'#b45309':'var(--ko)');
-            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recettes mois ('+d.jours_saisis+' j.)</div></div>';
+            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_totale||d.recette_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recette+Recouv ('+d.jours_saisis+' j.)</div></div>';
             html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:10.5px;color:var(--gris)">Taux objectif</div></div>';
             html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+d.jours_atteints+'/'+d.jours_saisis+'</div><div style="font-size:10.5px;color:var(--gris)">Jours atteints</div></div>';
             html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#b45309">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage mois</div></div>';
@@ -3487,7 +3479,6 @@ function editerDepense(id){
     document.getElementById('depense-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
     document.getElementById('de-date').value=d.date_depense;
     document.getElementById('de-type').value=d.type_depense;
-    document.getElementById('de-vehicule').value=d.vehicule_id||'';
     document.getElementById('de-montant').value=d.montant;
     document.getElementById('de-comment').value=d.commentaire||'';
     document.getElementById('dlg-depense').showModal();

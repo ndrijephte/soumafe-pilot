@@ -145,21 +145,38 @@ class CompteRenduController extends Controller
             abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
         }
 
-        $donnees = $r->input('donnees', []);
-        // Sanitiser les champs HTML rich-text
-        $htmlFields = ['contexte', 'conclusion', 'note_sprint'];
-        foreach ($htmlFields as $f) {
-            if (isset($donnees[$f])) $donnees[$f] = $this->sanitizeHtml($donnees[$f]);
-        }
-        if (!empty($donnees['ordre_du_jour'])) {
-            foreach ($donnees['ordre_du_jour'] as &$odj) {
-                if (isset($odj['contenu'])) $odj['contenu'] = $this->sanitizeHtml($odj['contenu']);
+        /* ---- Demo sprint : bloc editor JSON ---- */
+        if (!$cr->estReunion() && $r->filled('bloc_data')) {
+            $donnees = json_decode($r->input('bloc_data'), true) ?: [];
+            // Sanitiser le HTML dans les blocs texte et reference
+            if (!empty($donnees['modules'])) {
+                foreach ($donnees['modules'] as &$mod) {
+                    foreach ($mod['sections'] ?? [] as &$sec) {
+                        foreach ($sec['blocs'] ?? [] as &$blc) {
+                            if (in_array($blc['type'] ?? '', ['texte', 'reference']) && isset($blc['contenu'])) {
+                                $blc['contenu'] = $this->sanitizeHtml($blc['contenu']);
+                            }
+                        }
+                    }
+                }
+                unset($mod, $sec, $blc);
             }
-            unset($odj);
-        }
-        // Nettoyer annotations (retirer entrées vides)
-        if (!empty($donnees['annotations'])) {
-            $donnees['annotations'] = array_values(array_filter($donnees['annotations'], fn($a) => !empty($a['contenu']) && !empty($a['type'])));
+        } else {
+            $donnees = $r->input('donnees', []);
+            // Sanitiser les champs HTML rich-text (reunion)
+            $htmlFields = ['contexte', 'conclusion', 'note_sprint'];
+            foreach ($htmlFields as $f) {
+                if (isset($donnees[$f])) $donnees[$f] = $this->sanitizeHtml($donnees[$f]);
+            }
+            if (!empty($donnees['ordre_du_jour'])) {
+                foreach ($donnees['ordre_du_jour'] as &$odj) {
+                    if (isset($odj['contenu'])) $odj['contenu'] = $this->sanitizeHtml($odj['contenu']);
+                }
+                unset($odj);
+            }
+            if (!empty($donnees['annotations'])) {
+                $donnees['annotations'] = array_values(array_filter($donnees['annotations'], fn($a) => !empty($a['contenu']) && !empty($a['type'])));
+            }
         }
         $cr->setDonnees($donnees);
         $cr->titre = $r->input('titre', $cr->titre);
@@ -332,15 +349,51 @@ class CompteRenduController extends Controller
             $parDev[] = ['nom' => $u?->nomComplet() ?? '—', 'total' => $devTotal, 'realise' => $devFait, 'pourcent' => $devTotal > 0 ? round($devFait / $devTotal * 100) : 0];
         }
 
+        $scorePct = $totalPoints > 0 ? round($pointsRealises / $totalPoints * 100) : 0;
+
         return [
+            'format' => 'blocs_v1',
             'sprint' => "Sprint {$sprint->numero}",
             'projet' => $sprint->projet?->libelle ?? '—',
             'date_debut' => $sprint->date_debut?->format('d/m/Y'),
             'date_fin' => $sprint->date_fin?->format('d/m/Y'),
             'taches' => $lignes,
             'total_points' => $totalPoints, 'points_realises' => $pointsRealises,
-            'score_pourcent' => $totalPoints > 0 ? round($pointsRealises / $totalPoints * 100) : 0,
-            'par_dev' => $parDev, 'actions_a_mener' => [], 'note_sprint' => '',
+            'score_pourcent' => $scorePct,
+            'par_dev' => $parDev,
+            'modules' => [
+                [
+                    'id' => 'mod_1', 'titre' => 'Resultats du Sprint',
+                    'objectif' => 'Presenter les livrables et le score du sprint',
+                    'sections' => [
+                        [
+                            'id' => 'sec_1', 'titre' => 'Taches realisees',
+                            'blocs' => [
+                                ['id' => 'blc_1', 'type' => 'tableau_taches'],
+                                ['id' => 'blc_2', 'type' => 'score'],
+                            ],
+                        ],
+                    ],
+                ],
+                [
+                    'id' => 'mod_2', 'titre' => 'Analyse et prochaines etapes',
+                    'objectif' => 'Evaluer la performance et planifier la suite',
+                    'sections' => [
+                        [
+                            'id' => 'sec_2', 'titre' => 'Actions a mener',
+                            'blocs' => [
+                                ['id' => 'blc_3', 'type' => 'actions', 'items' => []],
+                            ],
+                        ],
+                        [
+                            'id' => 'sec_3', 'titre' => 'Note pour le sprint suivant',
+                            'blocs' => [
+                                ['id' => 'blc_4', 'type' => 'texte', 'contenu' => ''],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -499,7 +552,6 @@ class CompteRenduController extends Controller
         $headerLine = "SOUMAFÊ — {$projetNom} | Compte-rendu de démonstration — {$sprintLabel}";
 
         $xml = $this->docxHeader();
-        $annotations = $d['annotations'] ?? [];
 
         if ($hasLogo) $xml .= $this->docxImage($logoPath, 1500000, 1050000);
 
@@ -524,10 +576,129 @@ class CompteRenduController extends Controller
         ]);
         $xml .= $this->p('');
 
+        // --- Génération selon le format ---
+        if (($d['format'] ?? '') === 'blocs_v1' && !empty($d['modules'])) {
+            $xml .= $this->genererDocxDemoBlocs($d);
+        } else {
+            $xml .= $this->genererDocxDemoLegacy($d);
+        }
+
+        // Signature
+        $xml .= $this->signatureBloc($redNom, $redTitre, $cr->date_reunion->format('d/m/Y'));
+
+        $xml .= $this->docxSectPr();
+        $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null, $headerLine);
+    }
+
+    /** Génération DOCX blocs_v1 : modules > sections > blocs */
+    private function genererDocxDemoBlocs(array $d): string
+    {
+        $xml = '';
+        $taches = $d['taches'] ?? [];
+
+        foreach ($d['modules'] as $mi => $mod) {
+            $modNum = $mi + 1;
+            $modTitre = mb_strtoupper($mod['titre'] ?? "Module {$modNum}");
+            $xml .= $this->titreSection((string)$modNum, $modTitre);
+
+            // Objectif du module
+            if (!empty($mod['objectif'])) {
+                $xml .= $this->encadre($mod['objectif']);
+                $xml .= $this->p('');
+            }
+
+            foreach ($mod['sections'] ?? [] as $si => $sec) {
+                $secNum = "{$modNum}." . ($si + 1);
+                if (!empty($sec['titre'])) {
+                    $xml .= $this->sousTitre($secNum, $sec['titre']);
+                }
+
+                foreach ($sec['blocs'] ?? [] as $bloc) {
+                    $type = $bloc['type'] ?? '';
+
+                    if ($type === 'texte' && !empty($bloc['contenu'])) {
+                        $xml .= $this->htmlToOoxml($bloc['contenu']);
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'tableau_taches' && !empty($taches)) {
+                        $taskRows = [];
+                        foreach ($taches as $ti => $t) {
+                            $termine = !empty($t['termine']);
+                            $statut = $termine ? 'Terminé' : ucfirst($t['statut'] ?? 'En cours');
+                            $taskRows[] = [
+                                (string)($ti + 1),
+                                $t['tache'] ?? '',
+                                (string)($t['points'] ?? 1),
+                                $t['attribution'] ?? '—',
+                                $statut,
+                                $t['observation'] ?? '',
+                            ];
+                        }
+                        $xml .= $this->docxTableMultiAlt(
+                            ['N°', 'Tâche', 'PTS', 'Attribution', 'Statut', 'Observation'],
+                            $taskRows, [500, 3200, 600, 1600, 1200, 2500]
+                        );
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'score') {
+                        $scorePct = $d['score_pourcent'] ?? 0;
+                        $appreciation = $scorePct >= 90 ? 'Excellent' : ($scorePct >= 75 ? 'Bon' : ($scorePct >= 50 ? 'Acceptable' : 'Insuffisant'));
+                        $xml .= $this->bilanBloc(
+                            'Résultat global',
+                            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) — {$appreciation}",
+                            $scorePct >= 75 ? 'F0F7ED' : ($scorePct >= 50 ? 'FFF8E1' : 'FEECEC'),
+                            $scorePct >= 75 ? '2E8B57' : ($scorePct >= 50 ? 'E6A817' : 'CC3333')
+                        );
+                        // Score par développeur si disponible
+                        if (!empty($d['par_dev'])) {
+                            $devScoreRows = array_map(fn($dev) => [
+                                $dev['nom'], (string)$dev['realise'], (string)$dev['total'], $dev['pourcent'] . '%',
+                            ], $d['par_dev']);
+                            $xml .= $this->docxTableMultiAlt(
+                                ['Développeur', 'Réalisé', 'Total', '%'],
+                                $devScoreRows, [3600, 2000, 2000, 2000]
+                            );
+                        }
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'actions' && !empty($bloc['items'])) {
+                        $actRows = [];
+                        foreach ($bloc['items'] as $ai => $act) {
+                            $rAct = $act['responsables'] ?? [];
+                            $actRows[] = [
+                                (string)($ai + 1),
+                                $act['action'] ?? '',
+                                implode(', ', $rAct) ?: '—',
+                                $act['echeance'] ?? '—',
+                            ];
+                        }
+                        $xml .= $this->docxTableMultiAlt(
+                            ['N°', 'Action', 'Responsable(s)', 'Échéance'],
+                            $actRows, [500, 4500, 2600, 2000]
+                        );
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'reference' && !empty($bloc['contenu'])) {
+                        $refType = $bloc['ref_type'] ?? 'remarque';
+                        $xml .= $this->blocAnnote($refType, strip_tags($bloc['contenu']));
+                        $xml .= $this->p('');
+                    }
+                }
+            }
+        }
+
+        return $xml;
+    }
+
+    /** Génération DOCX ancien format (backward compat) */
+    private function genererDocxDemoLegacy(array $d): string
+    {
+        $xml = '';
+        $annotations = $d['annotations'] ?? [];
+
         // === SECTION 1: CONTEXTE ===
         $xml .= $this->titreSection('1', 'CONTEXTE DE LA DÉMONSTRATION');
 
-        // 1.1 Sprint Goal
         $xml .= $this->sousTitre('1.1', 'Sprint Goal');
         if (!empty($d['note_sprint'])) {
             $xml .= $this->encadre(strip_tags($d['note_sprint']));
@@ -536,7 +707,6 @@ class CompteRenduController extends Controller
         }
         $xml .= $this->p('');
 
-        // 1.2 Indicateurs clés
         $xml .= $this->sousTitre('1.2', 'Indicateurs clés');
         $totalTaches = count($d['taches'] ?? []);
         $tachesTerminees = count(array_filter($d['taches'] ?? [], fn($t) => !empty($t['termine'])));
@@ -551,18 +721,14 @@ class CompteRenduController extends Controller
 
         // === SECTION 2: RÉSULTATS PAR TÂCHE ===
         $xml .= $this->titreSection('2', 'RÉSULTATS PAR TÂCHE');
-
-        // Grouper par développeur
         $parDev = [];
         foreach ($d['taches'] ?? [] as $t) {
             $dev = $t['attribution'] ?? '—';
             $parDev[$dev][] = $t;
         }
-
         $subNum = 1;
         foreach ($parDev as $devNom => $tachesDev) {
             $xml .= $this->sousTitre("2.{$subNum}", $devNom);
-
             $devRows = [];
             $devTotal = 0;
             $devRealise = 0;
@@ -578,8 +744,6 @@ class CompteRenduController extends Controller
                 ['N°', 'Tâche', 'Attribution', 'PTS', 'Statut', 'Observation'],
                 $devRows, [500, 3200, 1600, 600, 1200, 2500]
             );
-
-            // Bilan par développeur (couleur adaptée au score)
             $devPct = $devTotal > 0 ? round($devRealise / $devTotal * 100) : 0;
             $xml .= $this->bilanBloc(
                 "Bilan — {$devNom}",
@@ -594,17 +758,14 @@ class CompteRenduController extends Controller
 
         // === SECTION 3: ÉVALUATION GLOBALE ===
         $xml .= $this->titreSection('3', 'ÉVALUATION GLOBALE DU SPRINT');
-
         $scorePct = $d['score_pourcent'] ?? 0;
         $appreciation = $scorePct >= 90 ? 'Excellent' : ($scorePct >= 75 ? 'Bon' : ($scorePct >= 50 ? 'Acceptable' : 'Insuffisant'));
-
         $xml .= $this->bilanBloc(
             'Résultat global',
             "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) — Appréciation : {$appreciation}",
             $scorePct >= 75 ? 'F0F7ED' : ($scorePct >= 50 ? 'FFF8E1' : 'FEECEC'),
             $scorePct >= 75 ? '2E8B57' : ($scorePct >= 50 ? 'E6A817' : 'CC3333')
         );
-
         if (!empty($d['par_dev'])) {
             $xml .= $this->p('');
             $xml .= $this->sousTitre('3.1', 'Score par développeur');
@@ -663,11 +824,7 @@ class CompteRenduController extends Controller
         }
         $xml .= $this->insererAnnotations($annotations, '6');
 
-        // Signature
-        $xml .= $this->signatureBloc($redNom, $redTitre, $cr->date_reunion->format('d/m/Y'));
-
-        $xml .= $this->docxSectPr();
-        $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null, $headerLine);
+        return $xml;
     }
 
     /* ===================================================================
@@ -939,7 +1096,7 @@ class CompteRenduController extends Controller
         return $xml;
     }
 
-    /** Bloc d'annotation stylé (7 types : remarque, attention, retenir, blocage, recommandation, bonne_pratique, rappel) */
+    /** Bloc d'annotation/référence stylé */
     private function blocAnnote(string $type, string $contenu): string
     {
         $types = [
@@ -950,6 +1107,11 @@ class CompteRenduController extends Controller
             'recommandation'  => ['label' => 'Recommandation',  'icon' => "\xE2\x9E\xA4", 'bg' => 'F3E8F9', 'border' => '7B2D8E'],
             'bonne_pratique'  => ['label' => 'Bonne pratique',  'icon' => "\xE2\x9C\x93", 'bg' => 'E0F2FE', 'border' => '0288D1'],
             'rappel'          => ['label' => 'Rappel',          'icon' => "\xF0\x9F\x94\x94", 'bg' => 'E8F5E9', 'border' => '00897B'],
+            'fondamental'     => ['label' => 'Fondamental',     'icon' => "\xE2\x98\x85", 'bg' => 'FFF8E1', 'border' => 'F9A825'],
+            'methode'         => ['label' => 'Methode',         'icon' => "\xE2\x9A\x99", 'bg' => 'F3E8F9', 'border' => '7B2D8E'],
+            'conseil'         => ['label' => 'Conseil',         'icon' => "\xF0\x9F\x92\xA1", 'bg' => 'FFF8E1', 'border' => 'EF6C00'],
+            'definition'      => ['label' => 'Definition',      'icon' => "\xF0\x9F\x93\x96", 'bg' => 'E3F2FD', 'border' => '1565C0'],
+            'exemple'         => ['label' => 'Exemple',         'icon' => "\xE2\x9C\xA6", 'bg' => 'F1F8E9', 'border' => '558B2F'],
         ];
         $cfg = $types[$type] ?? $types['remarque'];
         $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';

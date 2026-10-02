@@ -152,86 +152,180 @@
 
     @else
         {{-- ===== DEMO SPRINT ===== --}}
-        @if(!empty($d['taches']))
-        <div class="section">
-            <h3>Résultats par tâche</h3>
-            <div style="font-size:.85rem;color:#64748b;margin-bottom:10px">Sprint : <strong>{{ $d['sprint'] ?? '—' }}</strong> — Projet : <strong>{{ $d['projet'] ?? '—' }}</strong></div>
-            <table class="tbl">
-                <thead><tr><th style="width:40px">N°</th><th>Tâche</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:50px">OK</th><th>Observation</th></tr></thead>
-                <tbody>
-                @foreach($d['taches'] as $i => $t)
-                <tr>
-                    <td style="text-align:center">{{ $i + 1 }}</td>
-                    <td>{{ $t['tache'] }}</td>
-                    <td style="text-align:center">{{ $t['points'] }}</td>
-                    <td>{{ $t['attribution'] }}</td>
-                    <td style="text-align:center">{!! ($t['termine'] ?? false) ? '<span class="presence-ok">✓</span>' : '<span class="presence-no">✕</span>' !!}</td>
-                    <td>{{ $t['observation'] ?? '' }}</td>
-                </tr>
-                @endforeach
-                </tbody>
-            </table>
-        </div>
-        @endif
-
-        <div class="section">
-            <h3>Score global</h3>
-            <div style="font-size:1.3rem;font-weight:700;color:var(--bleu,#1F4E79)">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }} points ({{ $d['score_pourcent'] ?? 0 }}%)</div>
-        </div>
-
-        @if(!empty($d['actions_a_mener']))
-        <div class="section">
-            <h3>Actions à mener</h3>
-            <table class="tbl">
-                <thead><tr><th style="width:40px">N°</th><th>Action</th><th>Responsable(s)</th><th style="width:120px">Échéance</th></tr></thead>
-                <tbody>
-                @foreach($d['actions_a_mener'] as $i => $a)
-                @php $rAct = $a['responsables'] ?? (isset($a['responsable']) && $a['responsable'] ? [$a['responsable']] : []); @endphp
-                <tr>
-                    <td style="text-align:center">{{ $i + 1 }}</td>
-                    <td>{{ $a['action'] ?? '' }}</td>
-                    <td>{{ implode(', ', $rAct) ?: '—' }}</td>
-                    <td>{{ $a['echeance'] ?? '—' }}</td>
-                </tr>
-                @endforeach
-                </tbody>
-            </table>
-        </div>
-        @endif
-
-        @if(!empty($d['note_sprint']))
-        <div class="section">
-            <h3>Note pour le sprint suivant</h3>
-            <div class="cr-contenu">{!! $d['note_sprint'] !!}</div>
-        </div>
-        @endif
-    @endif
-
-    {{-- ANNOTATIONS --}}
-    @if(!empty($d['annotations']))
-    <div class="section">
-        <h3>Annotations</h3>
         @php
-        $annotTypes = [
-            'remarque'       => ['label' => 'Remarque',       'icon' => '&#8505;',  'bg' => '#E8EEF4', 'border' => '#2E74B5'],
-            'attention'      => ['label' => 'Attention',      'icon' => '&#9888;',  'bg' => '#FFF3E0', 'border' => '#E6A817'],
-            'retenir'        => ['label' => 'A retenir',      'icon' => '&#9733;',  'bg' => '#F0F7ED', 'border' => '#2E8B57'],
-            'blocage'        => ['label' => 'Blocage',        'icon' => '&#9940;',  'bg' => '#FEECEC', 'border' => '#CC3333'],
-            'recommandation' => ['label' => 'Recommandation', 'icon' => '&#10148;', 'bg' => '#F3E8F9', 'border' => '#7B2D8E'],
-            'bonne_pratique' => ['label' => 'Bonne pratique', 'icon' => '&#10003;', 'bg' => '#E0F2FE', 'border' => '#0288D1'],
-            'rappel'         => ['label' => 'Rappel',         'icon' => '&#128276;','bg' => '#E8F5E9', 'border' => '#00897B'],
+        $refStyles = [
+            'rappel'         => ['label' => 'Rappel',         'bg' => '#E8F5E9', 'border' => '#00897B'],
+            'fondamental'    => ['label' => 'Fondamental',    'bg' => '#FFF8E1', 'border' => '#F9A825'],
+            'attention'      => ['label' => 'Attention',      'bg' => '#FFF3E0', 'border' => '#E6A817'],
+            'remarque'       => ['label' => 'Remarque',       'bg' => '#E8EEF4', 'border' => '#2E74B5'],
+            'methode'        => ['label' => 'Methode',        'bg' => '#F3E8F9', 'border' => '#7B2D8E'],
+            'conseil'        => ['label' => 'Conseil',        'bg' => '#FFF8E1', 'border' => '#EF6C00'],
+            'definition'     => ['label' => 'Definition',     'bg' => '#E3F2FD', 'border' => '#1565C0'],
+            'exemple'        => ['label' => 'Exemple',        'bg' => '#F1F8E9', 'border' => '#558B2F'],
+            'bonne_pratique' => ['label' => 'Bonne pratique', 'bg' => '#E0F2FE', 'border' => '#0288D1'],
+            'blocage'        => ['label' => 'Blocage',        'bg' => '#FEECEC', 'border' => '#CC3333'],
+        ];
+        $ic = fn(string $path, int $s=15) => '<svg viewBox="0 0 24 24" width="'.$s.'" height="'.$s.'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'.$path.'</svg>';
+        $refIcons = [
+            'rappel'      => $ic('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'),
+            'fondamental' => $ic('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'),
+            'attention'   => $ic('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+            'remarque'    => $ic('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
+            'methode'     => $ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'),
+            'conseil'     => $ic('<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>'),
+            'definition'  => $ic('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'),
+            'exemple'     => $ic('<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'),
+            'bonne_pratique' => $ic('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+            'blocage'     => $ic('<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>'),
         ];
         @endphp
-        @foreach($d['annotations'] as $ann)
-            @if(!empty($ann['contenu']))
-            @php $cfg = $annotTypes[$ann['type'] ?? 'remarque'] ?? $annotTypes['remarque']; @endphp
-            <div style="background:{{ $cfg['bg'] }};border-left:4px solid {{ $cfg['border'] }};border-radius:8px;padding:12px 16px;margin-bottom:10px">
-                <div style="font-weight:700;color:{{ $cfg['border'] }};font-size:.88rem;margin-bottom:4px">{!! $cfg['icon'] !!} {{ $cfg['label'] }} <span style="font-weight:400;color:#94a3b8;font-size:.78rem">— Section {{ $ann['section'] ?? '?' }}</span></div>
-                <div style="font-size:.88rem;color:#334155;line-height:1.5">{{ $ann['contenu'] }}</div>
+
+        @if(($d['format'] ?? '') === 'blocs_v1' && !empty($d['modules']))
+            {{-- AFFICHAGE BLOC WYSIWYG --}}
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:10px 16px;background:#EFF4FB;border-radius:10px">
+                <div style="font-size:.85rem;color:#64748b">
+                    Sprint : <strong style="color:var(--bleu)">{{ $d['sprint'] ?? '---' }}</strong>
+                    &mdash; Projet : <strong style="color:var(--bleu)">{{ $d['projet'] ?? '---' }}</strong>
+                    &mdash; Score : <strong style="color:var(--bleu)">{{ $d['score_pourcent'] ?? 0 }}%</strong>
+                </div>
+            </div>
+
+            @foreach($d['modules'] as $mi => $mod)
+            <div class="section" style="border:2px solid #DDEAF5">
+                <h3 style="background:linear-gradient(135deg,#1F4E79,#2E74B5);color:#fff;padding:12px 18px;margin:-20px -24px 16px;border-radius:12px 12px 0 0">
+                    {{ ($mi+1) }}. {{ $mod['titre'] ?? 'Module' }}
+                    @if(!empty($mod['objectif']))
+                    <span style="display:block;font-size:.78rem;font-weight:400;opacity:.8;margin-top:2px">{{ $mod['objectif'] }}</span>
+                    @endif
+                </h3>
+
+                @foreach($mod['sections'] ?? [] as $si => $sec)
+                <div style="margin-bottom:16px">
+                    @if(!empty($sec['titre']))
+                    <div style="font-size:.92rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #DDEAF5">{{ ($mi+1) }}.{{ ($si+1) }} {{ $sec['titre'] }}</div>
+                    @endif
+
+                    @foreach($sec['blocs'] ?? [] as $bloc)
+                        @if($bloc['type'] === 'texte' && !empty($bloc['contenu']))
+                        <div class="cr-contenu" style="margin-bottom:10px">{!! $bloc['contenu'] !!}</div>
+                        @elseif($bloc['type'] === 'tableau_taches' && !empty($d['taches']))
+                        <table class="tbl" style="margin-bottom:10px">
+                            <thead><tr><th style="width:40px">N</th><th>Tache</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:50px">OK</th><th>Observation</th></tr></thead>
+                            <tbody>
+                            @foreach($d['taches'] as $ti => $t)
+                            <tr>
+                                <td style="text-align:center">{{ $ti + 1 }}</td>
+                                <td>{{ $t['tache'] }}</td>
+                                <td style="text-align:center">{{ $t['points'] }}</td>
+                                <td>{{ $t['attribution'] }}</td>
+                                <td style="text-align:center">{!! ($t['termine'] ?? false) ? '<span class="presence-ok">&#10003;</span>' : '<span class="presence-no">&#10007;</span>' !!}</td>
+                                <td>{{ $t['observation'] ?? '' }}</td>
+                            </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                        @elseif($bloc['type'] === 'score')
+                        <div style="background:#EFF4FB;border-radius:8px;padding:14px 18px;text-align:center;margin-bottom:10px">
+                            <div style="font-size:1.3rem;font-weight:800;color:var(--bleu,#1F4E79)">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }} points ({{ $d['score_pourcent'] ?? 0 }}%)</div>
+                            <div style="font-size:.82rem;color:#64748b;margin-top:2px">Score global du sprint</div>
+                        </div>
+                        @elseif($bloc['type'] === 'actions' && !empty($bloc['items']))
+                        <table class="tbl" style="margin-bottom:10px">
+                            <thead><tr><th style="width:40px">N</th><th>Action</th><th>Responsable(s)</th><th style="width:120px">Echeance</th></tr></thead>
+                            <tbody>
+                            @foreach($bloc['items'] as $ai => $act)
+                            @php $rAct = $act['responsables'] ?? []; @endphp
+                            <tr>
+                                <td style="text-align:center">{{ $ai + 1 }}</td>
+                                <td>{{ $act['action'] ?? '' }}</td>
+                                <td>{{ implode(', ', $rAct) ?: '---' }}</td>
+                                <td>{{ $act['echeance'] ?? '---' }}</td>
+                            </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                        @elseif($bloc['type'] === 'reference' && !empty($bloc['contenu']))
+                        @php $rs = $refStyles[$bloc['ref_type'] ?? 'remarque'] ?? $refStyles['remarque']; @endphp
+                        <div style="background:{{ $rs['bg'] }};border-left:4px solid {{ $rs['border'] }};border-radius:8px;padding:12px 16px;margin-bottom:10px">
+                            <div style="font-weight:700;color:{{ $rs['border'] }};font-size:.85rem;margin-bottom:4px;display:flex;align-items:center;gap:6px">
+                                {!! $refIcons[$bloc['ref_type'] ?? 'remarque'] ?? '' !!} {{ $rs['label'] }}
+                            </div>
+                            <div class="cr-contenu" style="font-size:.88rem">{!! $bloc['contenu'] !!}</div>
+                        </div>
+                        @endif
+                    @endforeach
+                </div>
+                @endforeach
+            </div>
+            @endforeach
+
+        @else
+            {{-- ANCIEN FORMAT (backward compat) --}}
+            @if(!empty($d['taches']))
+            <div class="section">
+                <h3>Resultats par tache</h3>
+                <div style="font-size:.85rem;color:#64748b;margin-bottom:10px">Sprint : <strong>{{ $d['sprint'] ?? '---' }}</strong> --- Projet : <strong>{{ $d['projet'] ?? '---' }}</strong></div>
+                <table class="tbl">
+                    <thead><tr><th style="width:40px">N</th><th>Tache</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:50px">OK</th><th>Observation</th></tr></thead>
+                    <tbody>
+                    @foreach($d['taches'] as $i => $t)
+                    <tr>
+                        <td style="text-align:center">{{ $i + 1 }}</td>
+                        <td>{{ $t['tache'] }}</td>
+                        <td style="text-align:center">{{ $t['points'] }}</td>
+                        <td>{{ $t['attribution'] }}</td>
+                        <td style="text-align:center">{!! ($t['termine'] ?? false) ? '<span class="presence-ok">&#10003;</span>' : '<span class="presence-no">&#10007;</span>' !!}</td>
+                        <td>{{ $t['observation'] ?? '' }}</td>
+                    </tr>
+                    @endforeach
+                    </tbody>
+                </table>
             </div>
             @endif
-        @endforeach
-    </div>
+            <div class="section">
+                <h3>Score global</h3>
+                <div style="font-size:1.3rem;font-weight:700;color:var(--bleu,#1F4E79)">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }} points ({{ $d['score_pourcent'] ?? 0 }}%)</div>
+            </div>
+            @if(!empty($d['actions_a_mener']))
+            <div class="section">
+                <h3>Actions a mener</h3>
+                <table class="tbl">
+                    <thead><tr><th style="width:40px">N</th><th>Action</th><th>Responsable(s)</th><th style="width:120px">Echeance</th></tr></thead>
+                    <tbody>
+                    @foreach($d['actions_a_mener'] as $i => $a)
+                    @php $rAct = $a['responsables'] ?? (isset($a['responsable']) && $a['responsable'] ? [$a['responsable']] : []); @endphp
+                    <tr>
+                        <td style="text-align:center">{{ $i + 1 }}</td>
+                        <td>{{ $a['action'] ?? '' }}</td>
+                        <td>{{ implode(', ', $rAct) ?: '---' }}</td>
+                        <td>{{ $a['echeance'] ?? '---' }}</td>
+                    </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @endif
+            @if(!empty($d['note_sprint']))
+            <div class="section">
+                <h3>Note pour le sprint suivant</h3>
+                <div class="cr-contenu">{!! $d['note_sprint'] !!}</div>
+            </div>
+            @endif
+            @if(!empty($d['annotations']))
+            <div class="section">
+                <h3>Annotations</h3>
+                @foreach($d['annotations'] as $ann)
+                    @if(!empty($ann['contenu']))
+                    @php $rs = $refStyles[$ann['type'] ?? 'remarque'] ?? $refStyles['remarque']; @endphp
+                    <div style="background:{{ $rs['bg'] }};border-left:4px solid {{ $rs['border'] }};border-radius:8px;padding:12px 16px;margin-bottom:10px">
+                        <div style="font-weight:700;color:{{ $rs['border'] }};font-size:.88rem;margin-bottom:4px">{!! $refIcons[$ann['type'] ?? 'remarque'] ?? '' !!} {{ $rs['label'] }}</div>
+                        <div style="font-size:.88rem;color:#334155;line-height:1.5">{{ $ann['contenu'] }}</div>
+                    </div>
+                    @endif
+                @endforeach
+            </div>
+            @endif
+        @endif
     @endif
 
     <div class="cr-bar">

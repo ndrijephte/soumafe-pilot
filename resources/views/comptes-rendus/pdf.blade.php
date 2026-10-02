@@ -37,6 +37,17 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
 .section .contenu p{margin-bottom:6px}
 .section .contenu *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
 .section .contenu a{text-decoration:none!important}
+.section .contenu .lh-10{line-height:1!important}
+.section .contenu .lh-115{line-height:1.15!important}
+.section .contenu .lh-15{line-height:1.5!important}
+.section .contenu .lh-20{line-height:2!important}
+.section .contenu .lh-25{line-height:2.5!important}
+.section .contenu font[size="1"]{font-size:.75em!important}
+.section .contenu font[size="2"]{font-size:.833em!important}
+.section .contenu font[size="4"]{font-size:1.167em!important}
+.section .contenu font[size="5"]{font-size:1.333em!important}
+.section .contenu font[size="6"]{font-size:1.667em!important}
+.section .contenu font[size="7"]{font-size:2em!important}
 .section .contenu ol.hier,.section .contenu ol.hier ol{list-style:none!important;counter-reset:hier;padding-left:0!important;margin-left:0!important}
 .section .contenu ol.hier ol{margin-left:28px!important}
 .section .contenu ol.hier li{counter-increment:hier;display:block}
@@ -70,6 +81,13 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
 .print-bar .btn-retour{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4)}
 @media print{.print-bar{display:none}body{padding-top:0}}
 @media screen{body{padding-top:52px;background:#f1f5f9}}
+</style>
+@php $mef = $cr->getDonnees()['mise_en_forme'] ?? []; @endphp
+<style>
+@if(!empty($mef['titre'])).header h1{font-size:{{ (float) $mef['titre'] }}pt}@endif
+@if(!empty($mef['section'])).section h2{font-size:{{ (float) $mef['section'] }}pt}@endif
+@if(!empty($mef['sous_titre'])).section h3{font-size:{{ (float) $mef['sous_titre'] }}pt}@endif
+@if(!empty($mef['texte'])).section .contenu{font-size:{{ (float) $mef['texte'] }}pt}.tbl,.info-tbl{font-size:{{ round((float) $mef['texte'] * 0.95, 2) }}pt}.tbl th{font-size:{{ round((float) $mef['texte'] * 0.9, 2) }}pt}@endif
 </style>
 </head>
 <body>

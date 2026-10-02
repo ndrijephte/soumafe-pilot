@@ -11,6 +11,17 @@
 .section .cr-contenu{font-size:.9rem;color:#334155;line-height:1.6;padding:0 8px;overflow-wrap:break-word;word-break:break-word;max-width:100%;text-align:justify}
 .section .cr-contenu *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
 .section .cr-contenu a{text-decoration:none!important}
+.section .cr-contenu .lh-10{line-height:1!important}
+.section .cr-contenu .lh-115{line-height:1.15!important}
+.section .cr-contenu .lh-15{line-height:1.5!important}
+.section .cr-contenu .lh-20{line-height:2!important}
+.section .cr-contenu .lh-25{line-height:2.5!important}
+.section .cr-contenu font[size="1"]{font-size:.75em!important}
+.section .cr-contenu font[size="2"]{font-size:.833em!important}
+.section .cr-contenu font[size="4"]{font-size:1.167em!important}
+.section .cr-contenu font[size="5"]{font-size:1.333em!important}
+.section .cr-contenu font[size="6"]{font-size:1.667em!important}
+.section .cr-contenu font[size="7"]{font-size:2em!important}
 .section .cr-contenu ol.hier,.section .cr-contenu ol.hier ol{list-style:none!important;counter-reset:hier;padding-left:0!important;margin-left:0!important}
 .section .cr-contenu ol.hier ol{margin-left:28px!important}
 .section .cr-contenu ol.hier li{counter-increment:hier;display:block}

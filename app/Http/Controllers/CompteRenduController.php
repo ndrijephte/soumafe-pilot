@@ -118,7 +118,9 @@ class CompteRenduController extends Controller
             abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
         }
 
-        $collaborateurs = User::where('actif', true)->orderBy('name')->get();
+        $collaborateurs = User::where('actif', true)
+            ->orWhereIn('id', array_filter([$cr->redacteur_id, $cr->president_id]))
+            ->orderBy('name')->get();
         $projets = Projet::where('statut', 'actif')->orderBy('libelle')->get();
         $donnees = $cr->getDonnees();
 
@@ -188,12 +190,47 @@ class CompteRenduController extends Controller
                 $donnees['annotations'] = array_values(array_filter($donnees['annotations'], fn($a) => !empty($a['contenu']) && !empty($a['type'])));
             }
         }
+        $mef = $r->validate([
+            'mise_en_forme'   => 'nullable|array',
+            'mise_en_forme.*' => 'nullable|numeric|between:8,36',
+        ])['mise_en_forme'] ?? null;
+        if (is_array($mef)) {
+            $donnees['mise_en_forme'] = array_map(fn($v) => $v === null || $v === '' ? null : (float) $v,
+                array_intersect_key($mef, array_flip(['titre', 'section', 'sous_titre', 'texte'])));
+        } elseif (isset($cr->getDonnees()['mise_en_forme'])) {
+            $donnees['mise_en_forme'] = $cr->getDonnees()['mise_en_forme'];
+        }
         $cr->setDonnees($donnees);
         $cr->titre = $r->input('titre', $cr->titre);
         $cr->lieu = $r->input('lieu', $cr->lieu);
         $cr->heure_debut = $r->input('heure_debut', $cr->heure_debut);
         $cr->heure_fin = $r->input('heure_fin', $cr->heure_fin);
+
+        // Champs de programmation (date, type, président, rédacteur) : réservés aux pilotes
+        $ancienRedacteur = $cr->redacteur_id;
+        if ($user->estPilote() && $r->has('date_reunion')) {
+            $v = $r->validate([
+                'date_reunion' => 'required|date',
+                'type'         => $cr->estReunion() ? 'required|in:reunion_ordinaire,reunion_extraordinaire' : 'prohibited',
+                'president_id' => 'nullable|exists:users,id',
+                'redacteur_id' => 'required|exists:users,id',
+            ]);
+            $cr->date_reunion = $v['date_reunion'];
+            $cr->redacteur_id = $v['redacteur_id'];
+            if ($cr->estReunion()) {
+                $cr->type = $v['type'];
+                $cr->president_id = $v['president_id'] ?? null;
+            }
+        }
         $cr->save();
+
+        if ((int) $cr->redacteur_id !== (int) $ancienRedacteur && ($redacteur = User::find($cr->redacteur_id))) {
+            $msg = "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y');
+            if (Schema::hasTable('notification_apps')) {
+                NotificationApp::create(['user_id' => $redacteur->id, 'type' => 'designation_cr', 'message' => $msg, 'lien' => route('comptes-rendus.edit', $cr)]);
+            }
+            MailService::notifier($redacteur, 'Désignation rédacteur', $msg . " par " . $user->nomComplet() . ".\nMerci de compléter le compte rendu dans l'application.", route('comptes-rendus.edit', $cr));
+        }
 
         // Régénérer le DOCX si le CR est déjà confirmé
         if ($cr->estConfirme()) {
@@ -439,6 +476,7 @@ class CompteRenduController extends Controller
     private function genererDocx(CompteRendu $cr): void
     {
         $donnees = $cr->getDonnees();
+        $this->miseEnForme = $donnees['mise_en_forme'] ?? [];
         $dir = storage_path('app/comptes-rendus');
         if (!is_dir($dir)) mkdir($dir, 0755, true);
 
@@ -967,6 +1005,7 @@ class CompteRenduController extends Controller
 
     private function cell(string $text, bool $bold = false, ?string $bg = null, ?string $fg = null, ?int $width = null): string
     {
+        $szCell = (int) round($this->mefSz('texte', 24) * 22 / 24);
         $escaped = htmlspecialchars($text, ENT_XML1, 'UTF-8');
         $bTag = $bold ? '<w:b/>' : '';
         $colorTag = $fg ? "<w:color w:val=\"{$fg}\"/>" : '';
@@ -975,7 +1014,7 @@ class CompteRenduController extends Controller
 
         return "<w:tc><w:tcPr>{$wTag}{$shdTag}</w:tcPr><w:p><w:pPr><w:spacing w:line=\"360\" w:lineRule=\"auto\"/></w:pPr>"
             . "<w:r><w:rPr><w:rFonts w:ascii=\"Times New Roman\" w:hAnsi=\"Times New Roman\" w:cs=\"Times New Roman\"/>"
-            . "<w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/>{$bTag}{$colorTag}</w:rPr>"
+            . "<w:sz w:val=\"{$szCell}\"/><w:szCs w:val=\"{$szCell}\"/>{$bTag}{$colorTag}</w:rPr>"
             . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p></w:tc>";
     }
 
@@ -1014,7 +1053,7 @@ class CompteRenduController extends Controller
             . '<w:r><w:rPr>'
             . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
             . '<w:b/><w:caps/><w:color w:val="1F4E79"/>'
-            . '<w:sz w:val="26"/><w:szCs w:val="26"/>'
+            . '<w:sz w:val="' . $this->mefSz('section', 26) . '"/><w:szCs w:val="' . $this->mefSz('section', 26) . '"/>'
             . '<w:u w:val="single"/>'
             . '</w:rPr>'
             . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
@@ -1031,7 +1070,7 @@ class CompteRenduController extends Controller
             . '<w:r><w:rPr>'
             . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
             . '<w:b/><w:caps/><w:color w:val="2E74B5"/>'
-            . '<w:sz w:val="24"/><w:szCs w:val="24"/>'
+            . '<w:sz w:val="' . $this->mefSz('sous_titre', 24) . '"/><w:szCs w:val="' . $this->mefSz('sous_titre', 24) . '"/>'
             . '</w:rPr>'
             . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
     }
@@ -1059,6 +1098,7 @@ class CompteRenduController extends Controller
     /** Bloc titre plein (fond bleu SOUMAFÊ, texte blanc, centré) */
     private function titreBloc(string $text, int $size = 28): string
     {
+        if ($size === 28) $size = $this->mefSz('titre', 28);
         $escaped = htmlspecialchars(mb_strtoupper($text, 'UTF-8'), ENT_XML1, 'UTF-8');
         return '<w:p><w:pPr>'
             . '<w:shd w:val="clear" w:color="auto" w:fill="1F4E79"/>'
@@ -1261,14 +1301,45 @@ class CompteRenduController extends Controller
     }
 
     /** Nettoyer le HTML provenant du contenteditable (garder uniquement b, u, i, ol, ul, li, br, div) */
+    /** Classes d'interligne de l'éditeur => valeur OOXML w:line (240 = simple) */
+    private const INTERLIGNES = ['lh-10', 'lh-115', 'lh-15', 'lh-20', 'lh-25'];
+    private const INTERLIGNES_OOXML = ['lh-10' => 240, 'lh-115' => 276, 'lh-15' => 360, 'lh-20' => 480, 'lh-25' => 600];
+    private int $ooxmlInterligne = 360;
+    /** Tailles choisies dans « Mise en forme du document » (pt), null = défaut */
+    private array $miseEnForme = [];
+
+    private function mefSz(string $cle, int $defautDemiPt): int
+    {
+        $pt = $this->miseEnForme[$cle] ?? null;
+        return $pt ? (int) round($pt * 2) : $defautDemiPt;
+    }
+
+    /** Applique l'interligne porté par $el (classe lh-*) le temps de $fn */
+    private function avecInterligne(\DOMNode $el, callable $fn): string
+    {
+        $avant = $this->ooxmlInterligne;
+        if ($el instanceof \DOMElement) {
+            foreach (self::INTERLIGNES_OOXML as $classe => $val) {
+                if (str_contains(' ' . $el->getAttribute('class') . ' ', " {$classe} ")) $this->ooxmlInterligne = $val;
+            }
+        }
+        try { return (string) $fn(); } finally { $this->ooxmlInterligne = $avant; }
+    }
+
     private function sanitizeHtml(string $html): string
     {
-        $html = strip_tags($html, '<b><u><i><strong><em><ol><ul><li><br><div><p><blockquote>');
-        // Marque la liste hiérarchique avant de retirer les attributs (style, class… collés)
-        $html = preg_replace('/<ol\b[^>]*\bclass="[^"]*\bhier\b[^"]*"[^>]*>/i', '<ol data-hier>', $html);
-        $html = preg_replace('/<(\/?)(b|u|i|strong|em|ul|li|br|div|p|blockquote)\b[^>]*>/i', '<$1$2>', $html);
-        $html = preg_replace('/<ol\b(?![^>]*data-hier)[^>]*>/i', '<ol>', $html);
-        return str_replace('<ol data-hier>', '<ol class="hier">', $html);
+        $html = strip_tags($html, '<b><u><i><strong><em><ol><ul><li><br><div><p><blockquote><font>');
+        // Seule la taille (boutons A-/A+) est conservée sur <font>
+        $html = preg_replace_callback('/<font\b[^>]*>/i', fn($m) => preg_match('/\bsize=["\']?([1-7])\b/i', $m[0], $s) ? "<font size=\"{$s[1]}\">" : '<font>', $html);
+        // Retire style, class… collés ; ne garde que les classes de l'éditeur (liste hiérarchique, interligne)
+        $html = preg_replace('/<(b|u|i|strong|em|br)\b[^>]*>/i', '<$1>', $html);
+        return preg_replace_callback('/<(ol|ul|li|div|p|blockquote)\b([^>]*)>/i', function ($m) {
+            $tag = strtolower($m[1]);
+            preg_match('/\bclass=["\']([^"\']*)["\']/i', $m[2], $c);
+            $classes = array_filter(preg_split('/\s+/', $c[1] ?? ''), fn($k) =>
+                ($k === 'hier' && $tag === 'ol') || in_array($k, self::INTERLIGNES, true));
+            return $classes ? "<{$tag} class=\"" . implode(' ', $classes) . '">' : "<{$tag}>";
+        }, $html);
     }
 
     /** Convertir HTML (du contenteditable) en paragraphes OOXML Times New Roman 12pt */
@@ -1288,6 +1359,7 @@ class CompteRenduController extends Controller
 
         $xml = '';
         $segs = [];
+        $this->ooxmlInterligne = 360;
         $this->ooxmlBlocs($racine, 0, $prefixe, $segs, $xml);
         $xml .= $this->ooxmlPara($segs, 0);
 
@@ -1298,21 +1370,31 @@ class CompteRenduController extends Controller
     {
         foreach ($node->childNodes as $c) {
             $tag = $c instanceof \DOMElement ? strtolower($c->tagName) : null;
-            if ($tag === null || in_array($tag, ['b', 'strong', 'i', 'em', 'u', 'span', 'a'])) {
+            if ($tag === null || in_array($tag, ['b', 'strong', 'i', 'em', 'u', 'span', 'a', 'font'])) {
                 $this->ooxmlInline($c, [], $segs);
             } elseif ($tag === 'br') {
                 $xml .= $this->ooxmlPara($segs, $niveau);
             } elseif (in_array($tag, ['ul', 'ol'])) {
                 $xml .= $this->ooxmlPara($segs, $niveau);
-                $xml .= $this->ooxmlListe($c, $niveau, false, '', $prefixe);
+                $xml .= $this->avecInterligne($c, fn() => $this->ooxmlListe($c, $niveau, false, '', $prefixe));
             } elseif ($tag === 'blockquote') {
                 $xml .= $this->ooxmlPara($segs, $niveau);
-                $this->ooxmlBlocs($c, $niveau + 1, $prefixe, $segs, $xml);
-                $xml .= $this->ooxmlPara($segs, $niveau + 1);
+                $xml .= $this->avecInterligne($c, function () use ($c, $niveau, $prefixe) {
+                    $s = []; $x = '';
+                    $this->ooxmlBlocs($c, $niveau + 1, $prefixe, $s, $x);
+                    return $x . $this->ooxmlPara($s, $niveau + 1);
+                });
             } else {
                 $xml .= $this->ooxmlPara($segs, $niveau);
-                $this->ooxmlBlocs($c, $niveau, $prefixe, $segs, $xml);
-                $xml .= $this->ooxmlPara($segs, $niveau);
+                if (in_array($tag, ['p', 'div']) && trim(str_replace("\xC2\xA0", ' ', $c->textContent)) === '') {
+                    $xml .= '<w:p/>'; // ligne vide volontaire (bouton Espace / Entrée)
+                    continue;
+                }
+                $xml .= $this->avecInterligne($c, function () use ($c, $niveau, $prefixe) {
+                    $s = []; $x = '';
+                    $this->ooxmlBlocs($c, $niveau, $prefixe, $s, $x);
+                    return $x . $this->ooxmlPara($s, $niveau);
+                });
             }
         }
     }
@@ -1332,17 +1414,19 @@ class CompteRenduController extends Controller
                 continue;
             }
             $n++;
-            $label = !$ordonnee ? "\xE2\x80\xA2" : ($hier ? $prefixe . $chemin . $n . '.' : $n . '.');
-            $segs = [];
-            $sousListes = '';
-            foreach ($c->childNodes as $lc) {
-                if ($lc instanceof \DOMElement && in_array(strtolower($lc->tagName), ['ul', 'ol'])) {
-                    $sousListes .= $this->ooxmlListe($lc, $niveau + 1, $hier, $chemin . $n . '.', $prefixe);
-                } else {
-                    $this->ooxmlInline($lc, [], $segs);
+            $xml .= $this->avecInterligne($c, function () use ($c, $n, $ordonnee, $hier, $prefixe, $chemin, $niveau) {
+                $label = !$ordonnee ? "\xE2\x80\xA2" : ($hier ? $prefixe . $chemin . $n . '.' : $n . '.');
+                $segs = [];
+                $sousListes = '';
+                foreach ($c->childNodes as $lc) {
+                    if ($lc instanceof \DOMElement && in_array(strtolower($lc->tagName), ['ul', 'ol'])) {
+                        $sousListes .= $this->ooxmlListe($lc, $niveau + 1, $hier, $chemin . $n . '.', $prefixe);
+                    } else {
+                        $this->ooxmlInline($lc, [], $segs);
+                    }
                 }
-            }
-            $xml .= $this->ooxmlPara($segs, $niveau, $label) . $sousListes;
+                return $this->ooxmlPara($segs, $niveau, $label) . $sousListes;
+            });
         }
         return $xml;
     }
@@ -1359,6 +1443,11 @@ class CompteRenduController extends Controller
         if (in_array($tag, ['b', 'strong'])) $fmt['b'] = true;
         if (in_array($tag, ['i', 'em'])) $fmt['i'] = true;
         if ($tag === 'u') $fmt['u'] = true;
+        if ($tag === 'font' && ($taille = (int) $node->getAttribute('size'))) {
+            // Proportionnel au texte : 9, 10, 12, 14, 16, 20, 24 pt pour un texte de 12 pt
+            $ratio = [1 => 0.75, 2 => 10 / 12, 3 => 1, 4 => 14 / 12, 5 => 16 / 12, 6 => 20 / 12, 7 => 2][$taille] ?? 1;
+            $fmt['sz'] = (int) round($this->mefSz('texte', 24) * $ratio);
+        }
         foreach ($node->childNodes as $c) $this->ooxmlInline($c, $fmt, $segs);
     }
 
@@ -1370,7 +1459,7 @@ class CompteRenduController extends Controller
         if ($label === null && trim($texte) === '') { $segs = []; return ''; }
 
         $rpr = fn(array $f) => '<w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
-            . '<w:sz w:val="24"/><w:szCs w:val="24"/>'
+            . '<w:sz w:val="' . ($f['sz'] ?? $this->mefSz('texte', 24)) . '"/><w:szCs w:val="' . ($f['sz'] ?? $this->mefSz('texte', 24)) . '"/>'
             . (!empty($f['b']) ? '<w:b/>' : '') . (!empty($f['u']) ? '<w:u w:val="single"/>' : '') . (!empty($f['i']) ? '<w:i/>' : '')
             . '</w:rPr>';
 
@@ -1384,7 +1473,7 @@ class CompteRenduController extends Controller
         }
         $segs = [];
 
-        $pPr = '<w:jc w:val="both"/><w:spacing w:line="360" w:lineRule="auto"/>';
+        $pPr = '<w:jc w:val="both"/><w:spacing w:line="' . $this->ooxmlInterligne . '" w:lineRule="auto"/>';
         if ($label !== null) {
             $suspendu = mb_strlen($label) > 3 ? 720 : 360;
             $gauche = 360 + ($niveau + 1) * 360 + $suspendu;

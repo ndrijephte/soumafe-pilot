@@ -34,12 +34,27 @@
 .rich-toolbar{display:flex;gap:2px;padding:4px 6px;background:#f8fafc;border:1px solid #d1d5db;border-bottom:none;border-radius:8px 8px 0 0}
 .rich-toolbar button{background:none;border:1px solid transparent;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.8rem;color:#475569;font-weight:600;transition:all .1s}
 .rich-toolbar button:hover{background:#e2e8f0;border-color:#d1d5db}
+.lh-wrap{position:relative;display:inline-block}
+.lh-menu{display:none;position:absolute;top:100%;left:0;z-index:50;background:#fff;border:1px solid #d1d5db;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.12);padding:3px;flex-direction:column;min-width:80px}
+.lh-menu.open{display:flex}
+.lh-menu button{text-align:left}
 .rich-toolbar button.active{background:var(--bleu,#1F4E79);color:#fff}
 .rich-editor{border:1px solid #d1d5db;border-radius:0 0 8px 8px;padding:10px 14px;min-height:80px;font-size:.9rem;color:var(--bleu,#1F4E79);line-height:1.6;outline:none;text-align:justify}
 .rich-editor:focus{border-color:var(--bleu,#1F4E79);box-shadow:0 0 0 3px rgba(31,78,121,.1)}
 .rich-editor ul,.rich-editor ol{margin:4px 0 4px 20px}
 .rich-editor *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
 .rich-editor a{text-decoration:none!important;pointer-events:none}
+.rich-editor .lh-10{line-height:1!important}
+.rich-editor .lh-115{line-height:1.15!important}
+.rich-editor .lh-15{line-height:1.5!important}
+.rich-editor .lh-20{line-height:2!important}
+.rich-editor .lh-25{line-height:2.5!important}
+.rich-editor font[size="1"]{font-size:.75em!important}
+.rich-editor font[size="2"]{font-size:.833em!important}
+.rich-editor font[size="4"]{font-size:1.167em!important}
+.rich-editor font[size="5"]{font-size:1.333em!important}
+.rich-editor font[size="6"]{font-size:1.667em!important}
+.rich-editor font[size="7"]{font-size:2em!important}
 .rich-editor ol.hier,.rich-editor ol.hier ol{list-style:none!important;counter-reset:hier;padding-left:0!important;margin-left:0!important}
 .rich-editor ol.hier ol{margin-left:28px!important}
 .rich-editor ol.hier li{counter-increment:hier;display:block}
@@ -158,11 +173,77 @@
             </div>
             <div class="section-body">
                 <div class="fg"><label>Titre</label><input name="titre" value="{{ $cr->titre }}"></div>
+                @if($user->estPilote())
+                <div class="fg"><div class="row2">
+                    <div><label>Date</label><input type="date" name="date_reunion" value="{{ old('date_reunion', $cr->date_reunion->format('Y-m-d')) }}" required></div>
+                    @if($cr->estReunion())
+                    <div><label>Type de réunion</label>
+                        <select name="type">
+                            <option value="reunion_ordinaire" @selected(old('type', $cr->type) === 'reunion_ordinaire')>Réunion ordinaire</option>
+                            <option value="reunion_extraordinaire" @selected(old('type', $cr->type) === 'reunion_extraordinaire')>Réunion extraordinaire</option>
+                        </select>
+                    </div>
+                    @endif
+                </div></div>
+                <div class="fg"><div class="row2">
+                    @if($cr->estReunion())
+                    <div><label>Président de séance</label>
+                        <select name="president_id">
+                            <option value="">— Aucun —</option>
+                            @foreach($collaborateurs as $c)
+                            <option value="{{ $c->id }}" @selected((int) old('president_id', $cr->president_id) === $c->id)>{{ $c->nomComplet() }} ({{ $c->roleLibelle() }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+                    <div><label>Rédacteur</label>
+                        <select name="redacteur_id" required>
+                            @foreach($collaborateurs as $c)
+                            <option value="{{ $c->id }}" @selected((int) old('redacteur_id', $cr->redacteur_id) === $c->id)>{{ $c->nomComplet() }} ({{ $c->roleLibelle() }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div></div>
+                @endif
                 <div class="fg"><div class="row2">
                     <div><label>Heure début</label><input type="time" name="heure_debut" value="{{ $cr->heure_debut }}"></div>
                     <div><label>Heure fin</label><input type="time" name="heure_fin" value="{{ $cr->heure_fin }}"></div>
                 </div></div>
                 <div class="fg"><label>Lieu</label><input name="lieu" value="{{ $cr->lieu }}"></div>
+            </div>
+        </div>
+
+        {{-- MISE EN FORME DU DOCUMENT (PDF / Word) --}}
+        @php
+            $mef = $donnees['mise_en_forme'] ?? [];
+            $champsMef = [
+                'titre'      => ['Titre du document', 'ex. « COMPTE RENDU DE RÉUNION »'],
+                'section'    => ['Titres de section', 'ex. « 1. CONTEXTE… », « 2. DÉROULEMENT… »'],
+                'sous_titre' => ['Sous-titres', 'ex. « 2.1. Informations »'],
+                'texte'      => ['Texte', 'paragraphes, listes, tableaux'],
+            ];
+            $taillesMef = [9, 10, 10.5, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28];
+        @endphp
+        <div class="section collapsed" data-sect="mise-en-forme">
+            <div class="section-head" onclick="toggleSection(this)">
+                <h3>Mise en forme du document (tailles en pt)</h3>
+                <div class="sect-status"><span class="sect-toggle">&#9660;</span></div>
+            </div>
+            <div class="section-body">
+                <p style="font-size:.82rem;color:#94a3b8;margin-bottom:12px">S'applique à la version PDF et au fichier Word. « Par défaut » conserve la taille standard du document.</p>
+                <div class="fg"><div class="row2">
+                @foreach($champsMef as $cle => [$libelle, $aide])
+                    <div>
+                        <label>{{ $libelle }} <span style="font-weight:400;color:#94a3b8;font-size:.78rem">— {{ $aide }}</span></label>
+                        <select name="mise_en_forme[{{ $cle }}]">
+                            <option value="">Par défaut</option>
+                            @foreach($taillesMef as $pt)
+                            <option value="{{ $pt }}" @selected((string) ($mef[$cle] ?? '') === (string) $pt)>{{ str_replace('.', ',', $pt) }} pt</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endforeach
+                </div></div>
             </div>
         </div>
 
@@ -213,7 +294,7 @@
                             <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                             <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
                             <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="ctx-editor" style="--num-prefix:'1.'" data-name="donnees[contexte]">{!! $donnees['contexte'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[contexte]" id="ctx-editor-hidden">
@@ -262,7 +343,7 @@
                                 <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                             <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
                             <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
                             </div>
                             <div class="rich-editor" contenteditable="true" id="derou-{{ $k }}" style="--num-prefix:'2.{{ $k + 1 }}.'" data-name="donnees[ordre_du_jour][{{ $k }}][contenu]">{!! $odj['contenu'] ?? '' !!}</div>
                             <input type="hidden" name="donnees[ordre_du_jour][{{ $k }}][contenu]" id="derou-{{ $k }}-hidden">
@@ -335,7 +416,7 @@
                             <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                             <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
                             <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="concl-editor" style="--num-prefix:'4.'" data-name="donnees[conclusion]">{!! $donnees['conclusion'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[conclusion]" id="concl-editor-hidden">
@@ -431,6 +512,64 @@ function indenterRich(cmd, btn){
     const ed = editeurDeBouton(btn); if(!ed) return;
     ed.focus(); document.execCommand(cmd, false, null); normaliserListes(ed);
 }
+/* Taille : <font size> 1→7 = 9, 10, 12 (normal), 14, 16, 20, 24 pt */
+const TAILLES_PT = {1:'9', 2:'10', 3:'12', 4:'14', 5:'16', 6:'20', 7:'24'};
+function appliquerTaille(n, btn){
+    btn.closest('.lh-menu').classList.remove('open');
+    const ed = editeurDeBouton(btn); if(!ed) return;
+    const sel = window.getSelection();
+    const plage = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+    ed.focus();
+    if(plage && ed.contains(plage.commonAncestorContainer)){ sel.removeAllRanges(); sel.addRange(plage); }
+    if(!sel.rangeCount || sel.isCollapsed || !ed.contains(sel.getRangeAt(0).commonAncestorContainer)){ alert("Sélectionnez d'abord le texte à redimensionner."); return; }
+    document.execCommand('styleWithCSS', false, false);
+    document.execCommand('fontSize', false, String(n));
+    if(n === 3) ed.querySelectorAll('font[size="3"]').forEach(f => f.replaceWith(...f.childNodes));
+    afficherTailleCourante();
+}
+/* Affiche dans le bouton « Taille » la taille du texte sous le curseur */
+function afficherTailleCourante(){
+    const sel = window.getSelection();
+    if(!sel.rangeCount) return;
+    let n = sel.getRangeAt(0).startContainer;
+    if(n.nodeType === 3) n = n.parentNode;
+    const ed = n.closest && n.closest('.rich-editor');
+    if(!ed) return;
+    const f = n.closest('font[size]');
+    const val = TAILLES_PT[f && ed.contains(f) ? f.getAttribute('size') : 3] || '12';
+    const tb = document.querySelector(`.rich-toolbar[data-target="${ed.id}"] .taille-val`);
+    if(tb) tb.textContent = val;
+}
+document.addEventListener('selectionchange', afficherTailleCourante);
+/* Interligne : classe lh-* posée sur les paragraphes (ou listes) touchés par la sélection */
+function appliquerInterligne(classe, btn){
+    btn.closest('.lh-menu').classList.remove('open');
+    const ed = editeurDeBouton(btn); if(!ed) return;
+    const sel = window.getSelection();
+    const plage = sel.rangeCount ? sel.getRangeAt(0) : null;
+    if(!plage || !ed.contains(plage.commonAncestorContainer)){ alert('Placez le curseur ou sélectionnez les paragraphes dans la zone de texte.'); return; }
+    const [sc, so, ec, eo] = [plage.startContainer, plage.startOffset, plage.endContainer, plage.endOffset];
+    /* Regroupe le texte « nu » de premier niveau dans des <div> pour pouvoir lui appliquer l'interligne */
+    let groupe = null;
+    [...ed.childNodes].forEach(n => {
+        const bloc = n.nodeType === 1 && /^(DIV|P|UL|OL|BLOCKQUOTE)$/.test(n.tagName);
+        if(bloc){ groupe = null; return; }
+        if(n.nodeType === 1 && n.tagName === 'BR'){ if(groupe){ groupe.appendChild(n); } groupe = null; return; }
+        if(!groupe){ groupe = document.createElement('div'); n.before(groupe); }
+        groupe.appendChild(n);
+    });
+    const zone = document.createRange();
+    try { zone.setStart(sc === ed ? ed : sc, sc === ed ? Math.min(so, ed.childNodes.length) : so); zone.setEnd(ec === ed ? ed : ec, ec === ed ? Math.min(eo, ed.childNodes.length) : eo); }
+    catch(_) { zone.selectNodeContents(ed); }
+    const blocs = [...ed.children].filter(b => zone.intersectsNode(b));
+    sel.removeAllRanges(); sel.addRange(zone);
+    blocs.forEach(b => {
+        b.classList.remove('lh-10','lh-115','lh-15','lh-20','lh-25');
+        if(classe) b.classList.add(classe);
+        if(!b.classList.length) b.removeAttribute('class');
+    });
+}
+document.addEventListener('mousedown', e => { if(!e.target.closest('.lh-wrap')) document.querySelectorAll('.lh-menu.open').forEach(m => m.classList.remove('open')); });
 document.addEventListener('keydown', e => {
     if(e.key !== 'Tab') return;
     const ed = e.target.closest && e.target.closest('.rich-editor');
@@ -524,7 +663,7 @@ function genererDeroulement(){
                 <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                 <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
                 <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-                <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
+                <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
             </div>
             <div class="rich-editor" contenteditable="true" id="${edId}" data-name="donnees[ordre_du_jour][${p.idx}][contenu]"></div>
             <input type="hidden" name="donnees[ordre_du_jour][${p.idx}][contenu]" id="${edId}-hidden">`;
@@ -643,7 +782,7 @@ function beRichToolbar(edId){
         <button type="button" onmousedown="event.preventDefault();beExec('insertOrderedList','${edId}')" title="Liste numerotee">1.</button>
         <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1</button>
         <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-        <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
+        <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
     </div>`;
 }
 function beExec(cmd, edId){

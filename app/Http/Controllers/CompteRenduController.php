@@ -125,7 +125,7 @@ class CompteRenduController extends Controller
         // Garantir que la liste de présence existe pour les réunions
         if ($cr->estReunion() && empty($donnees['presences'])) {
             $donnees['presences'] = User::where('actif', true)->orderBy('name')->get()
-                ->map(fn($u) => ['nom' => $u->nomComplet(), 'present' => true])->toArray();
+                ->map(fn($u) => ['nom' => $u->nomComplet(), 'fonction' => $u->roleLibelle(), 'present' => true])->toArray();
             $cr->setDonnees($donnees);
             $cr->save();
         }
@@ -161,6 +161,15 @@ class CompteRenduController extends Controller
                 }
                 unset($mod, $sec, $blc);
             }
+            $score = $this->calculerScoreDemo($donnees['taches'] ?? []);
+            if (!empty($donnees['score_manuel'])) {
+                $pts = max(0, (int) ($donnees['points_realises'] ?? 0));
+                $tot = max(0, (int) ($donnees['total_points'] ?? 0));
+                $score['points_realises'] = $pts;
+                $score['total_points'] = $tot;
+                $score['score_pourcent'] = $tot > 0 ? (int) round($pts / $tot * 100) : 0;
+            }
+            $donnees = array_merge($donnees, $score, ['score_manuel' => !empty($donnees['score_manuel'])]);
         } else {
             $donnees = $r->input('donnees', []);
             // Sanitiser les champs HTML rich-text (reunion)
@@ -173,6 +182,7 @@ class CompteRenduController extends Controller
                     if (isset($odj['contenu'])) $odj['contenu'] = $this->sanitizeHtml($odj['contenu']);
                 }
                 unset($odj);
+                $donnees['ordre_du_jour'] = array_values(array_filter($donnees['ordre_du_jour'], fn($o) => trim($o['point'] ?? '') !== ''));
             }
             if (!empty($donnees['annotations'])) {
                 $donnees['annotations'] = array_values(array_filter($donnees['annotations'], fn($a) => !empty($a['contenu']) && !empty($a['type'])));
@@ -309,7 +319,7 @@ class CompteRenduController extends Controller
         $projets = Projet::where('statut', 'actif')->with('responsable')->orderBy('libelle')->get();
 
         $presences = User::where('actif', true)->orderBy('name')->get()
-            ->map(fn($u) => ['nom' => $u->nomComplet(), 'present' => true])->toArray();
+            ->map(fn($u) => ['nom' => $u->nomComplet(), 'fonction' => $u->roleLibelle(), 'present' => true])->toArray();
 
         return [
             'presences'     => $presences,
@@ -317,6 +327,31 @@ class CompteRenduController extends Controller
             'ordre_du_jour' => [['point' => '', 'contenu' => '']],
             'decisions'     => [],
             'conclusion'    => '',
+        ];
+    }
+
+    private function calculerScoreDemo(array $taches): array
+    {
+        $total = 0; $realise = 0; $parDev = [];
+        foreach ($taches as $t) {
+            $pts = (int) ($t['points'] ?? 1);
+            $fait = filter_var($t['termine'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $nom = $t['attribution'] ?? '—';
+            $total += $pts;
+            $parDev[$nom] ??= ['nom' => $nom, 'total' => 0, 'realise' => 0];
+            $parDev[$nom]['total'] += $pts;
+            if ($fait) { $realise += $pts; $parDev[$nom]['realise'] += $pts; }
+        }
+        foreach ($parDev as &$dev) {
+            $dev['pourcent'] = $dev['total'] > 0 ? (int) round($dev['realise'] / $dev['total'] * 100) : 0;
+        }
+        unset($dev);
+
+        return [
+            'total_points' => $total,
+            'points_realises' => $realise,
+            'score_pourcent' => $total > 0 ? (int) round($realise / $total * 100) : 0,
+            'par_dev' => array_values($parDev),
         ];
     }
 
@@ -465,7 +500,7 @@ class CompteRenduController extends Controller
         $xml .= $this->titreSection('1', 'CONTEXTE ET OBJECTIFS');
         $xml .= $this->sousTitre('1.1', 'Contexte');
         if (!empty($d['contexte'])) {
-            $xml .= $this->htmlToOoxml($d['contexte']);
+            $xml .= $this->htmlToOoxml($d['contexte'], '1.');
         } else {
             $xml .= $this->encadre('(Non renseigné)');
         }
@@ -486,8 +521,8 @@ class CompteRenduController extends Controller
         // --- SECTION 2: LISTE DE PRÉSENCE ---
         if (!empty($d['presences'])) {
             $xml .= $this->titreSection('2', 'LISTE DE PRÉSENCE');
-            $presRows = array_map(fn($p) => [$p['nom'], ($p['present'] ?? false) ? 'Présent' : 'Absent'], $d['presences']);
-            $xml .= $this->docxTableMultiAlt(['Collaborateur', 'Statut'], $presRows, [6400, 3200]);
+            $presRows = array_map(fn($p) => [$p['nom'], ($p['fonction'] ?? '') ?: '—', ($p['present'] ?? false) ? 'Présent' : 'Absent'], $d['presences']);
+            $xml .= $this->docxTableMultiAlt(['Collaborateur', 'Fonction', 'Statut'], $presRows, [3800, 3800, 2000]);
             $xml .= $this->p('');
         }
 
@@ -498,7 +533,7 @@ class CompteRenduController extends Controller
             foreach ($d['ordre_du_jour'] as $odj) {
                 if (!empty($odj['point'])) {
                     $xml .= $this->sousTitre("3.{$sub}", $odj['point']);
-                    $xml .= $this->htmlToOoxml(!empty($odj['contenu']) ? $odj['contenu'] : '(Non renseigné)');
+                    $xml .= $this->htmlToOoxml(!empty($odj['contenu']) ? $odj['contenu'] : '(Non renseigné)', "3.{$sub}.");
                     $xml .= $this->p('');
                     $sub++;
                 }
@@ -526,7 +561,7 @@ class CompteRenduController extends Controller
         // --- SECTION 5: CONCLUSION ---
         $xml .= $this->titreSection('5', 'CONCLUSION');
         if (!empty($d['conclusion'])) {
-            $xml .= $this->htmlToOoxml($d['conclusion']);
+            $xml .= $this->htmlToOoxml($d['conclusion'], '5.');
         } else {
             $xml .= $this->encadre('(Non renseignée)');
         }
@@ -617,7 +652,7 @@ class CompteRenduController extends Controller
                     $type = $bloc['type'] ?? '';
 
                     if ($type === 'texte' && !empty($bloc['contenu'])) {
-                        $xml .= $this->htmlToOoxml($bloc['contenu']);
+                        $xml .= $this->htmlToOoxml($bloc['contenu'], "{$secNum}.");
                         $xml .= $this->p('');
 
                     } elseif ($type === 'tableau_taches' && !empty($taches)) {
@@ -818,7 +853,7 @@ class CompteRenduController extends Controller
         // === SECTION 6: CONCLUSION ===
         $xml .= $this->titreSection('6', 'CONCLUSION');
         if (!empty($d['conclusion'])) {
-            $xml .= $this->htmlToOoxml($d['conclusion']);
+            $xml .= $this->htmlToOoxml($d['conclusion'], '6.');
         } else {
             $xml .= $this->encadre('(À renseigner)');
         }
@@ -1228,45 +1263,138 @@ class CompteRenduController extends Controller
     /** Nettoyer le HTML provenant du contenteditable (garder uniquement b, u, i, ol, ul, li, br, div) */
     private function sanitizeHtml(string $html): string
     {
-        return strip_tags($html, '<b><u><i><strong><em><ol><ul><li><br><div><p>');
+        $html = strip_tags($html, '<b><u><i><strong><em><ol><ul><li><br><div><p><blockquote>');
+        // Marque la liste hiérarchique avant de retirer les attributs (style, class… collés)
+        $html = preg_replace('/<ol\b[^>]*\bclass="[^"]*\bhier\b[^"]*"[^>]*>/i', '<ol data-hier>', $html);
+        $html = preg_replace('/<(\/?)(b|u|i|strong|em|ul|li|br|div|p|blockquote)\b[^>]*>/i', '<$1$2>', $html);
+        $html = preg_replace('/<ol\b(?![^>]*data-hier)[^>]*>/i', '<ol>', $html);
+        return str_replace('<ol data-hier>', '<ol class="hier">', $html);
     }
 
     /** Convertir HTML (du contenteditable) en paragraphes OOXML Times New Roman 12pt */
-    private function htmlToOoxml(string $html): string
+    /** $prefixe : numéro de la section parente (ex. "3.2.") préfixant les listes hiérarchiques */
+    private function htmlToOoxml(string $html, string $prefixe = ''): string
     {
-        // Si pas de HTML, traiter comme texte brut
-        if ($html === strip_tags($html) && !str_contains($html, '<')) {
+        if (!str_contains($html, '<')) {
             return $this->p($html);
         }
 
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML('<?xml encoding="utf-8"?><div>' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        libxml_clear_errors();
+        $racine = $dom->getElementsByTagName('div')->item(0);
+        if (!$racine) return $this->p(strip_tags($html));
+
         $xml = '';
-        // Remplacer les <div> et <p> par des sauts pour unifier
-        $html = str_replace(['<div>', '<p>'], "\n", $html);
-        $html = str_replace(['</div>', '</p>'], '', $html);
-        $html = str_replace(['<br>', '<br/>', '<br />'], "\n", $html);
-
-        // Traiter les listes
-        $html = preg_replace_callback('/<(ol|ul)>(.*?)<\/\1>/si', function ($m) use (&$xml) {
-            $type = $m[1]; // ol ou ul
-            preg_match_all('/<li>(.*?)<\/li>/si', $m[2], $lis);
-            foreach ($lis[1] as $i => $li) {
-                $prefix = ($type === 'ol') ? ($i + 1) . '.' : "\xE2\x80\xA2";
-                $text = trim(strip_tags($li));
-                $xml .= $this->listItemParagraph($prefix, $text);
-            }
-            return ''; // Retirer le HTML traité
-        }, $html);
-
-        // Traiter le reste ligne par ligne
-        $lines = preg_split('/\n+/', $html);
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if ($line === '') continue;
-            if (str_contains($line, '<li>')) continue; // Déjà traité
-            $xml .= $this->richParagraph($line);
-        }
+        $segs = [];
+        $this->ooxmlBlocs($racine, 0, $prefixe, $segs, $xml);
+        $xml .= $this->ooxmlPara($segs, 0);
 
         return $xml ?: $this->p('(Non renseigné)');
+    }
+
+    private function ooxmlBlocs(\DOMNode $node, int $niveau, string $prefixe, array &$segs, string &$xml): void
+    {
+        foreach ($node->childNodes as $c) {
+            $tag = $c instanceof \DOMElement ? strtolower($c->tagName) : null;
+            if ($tag === null || in_array($tag, ['b', 'strong', 'i', 'em', 'u', 'span', 'a'])) {
+                $this->ooxmlInline($c, [], $segs);
+            } elseif ($tag === 'br') {
+                $xml .= $this->ooxmlPara($segs, $niveau);
+            } elseif (in_array($tag, ['ul', 'ol'])) {
+                $xml .= $this->ooxmlPara($segs, $niveau);
+                $xml .= $this->ooxmlListe($c, $niveau, false, '', $prefixe);
+            } elseif ($tag === 'blockquote') {
+                $xml .= $this->ooxmlPara($segs, $niveau);
+                $this->ooxmlBlocs($c, $niveau + 1, $prefixe, $segs, $xml);
+                $xml .= $this->ooxmlPara($segs, $niveau + 1);
+            } else {
+                $xml .= $this->ooxmlPara($segs, $niveau);
+                $this->ooxmlBlocs($c, $niveau, $prefixe, $segs, $xml);
+                $xml .= $this->ooxmlPara($segs, $niveau);
+            }
+        }
+    }
+
+    private function ooxmlListe(\DOMElement $liste, int $niveau, bool $hier, string $chemin, string $prefixe): string
+    {
+        $ordonnee = strtolower($liste->tagName) === 'ol';
+        $hier = $hier || ($ordonnee && str_contains(' ' . $liste->getAttribute('class') . ' ', ' hier '));
+        $xml = '';
+        $n = 0;
+        foreach ($liste->childNodes as $c) {
+            if (!$c instanceof \DOMElement) continue;
+            $tag = strtolower($c->tagName);
+            if (in_array($tag, ['ul', 'ol'])) {
+                // Liste imbriquée directement dans la liste (produite par l'indentation du navigateur)
+                $xml .= $this->ooxmlListe($c, $niveau + 1, $hier, $chemin . max($n, 1) . '.', $prefixe);
+                continue;
+            }
+            $n++;
+            $label = !$ordonnee ? "\xE2\x80\xA2" : ($hier ? $prefixe . $chemin . $n . '.' : $n . '.');
+            $segs = [];
+            $sousListes = '';
+            foreach ($c->childNodes as $lc) {
+                if ($lc instanceof \DOMElement && in_array(strtolower($lc->tagName), ['ul', 'ol'])) {
+                    $sousListes .= $this->ooxmlListe($lc, $niveau + 1, $hier, $chemin . $n . '.', $prefixe);
+                } else {
+                    $this->ooxmlInline($lc, [], $segs);
+                }
+            }
+            $xml .= $this->ooxmlPara($segs, $niveau, $label) . $sousListes;
+        }
+        return $xml;
+    }
+
+    private function ooxmlInline(\DOMNode $node, array $fmt, array &$segs): void
+    {
+        if ($node instanceof \DOMText) {
+            $segs[] = ['text' => $node->wholeText, 'fmt' => $fmt];
+            return;
+        }
+        if (!$node instanceof \DOMElement) return;
+        $tag = strtolower($node->tagName);
+        if (in_array($tag, ['br', 'p', 'div'])) $segs[] = ['text' => ' ', 'fmt' => $fmt];
+        if (in_array($tag, ['b', 'strong'])) $fmt['b'] = true;
+        if (in_array($tag, ['i', 'em'])) $fmt['i'] = true;
+        if ($tag === 'u') $fmt['u'] = true;
+        foreach ($node->childNodes as $c) $this->ooxmlInline($c, $fmt, $segs);
+    }
+
+    /** Vide $segs dans un paragraphe ; avec $label, paragraphe de liste (puce ou numéro) */
+    private function ooxmlPara(array &$segs, int $niveau, ?string $label = null): string
+    {
+        $texte = '';
+        foreach ($segs as $s) $texte .= $s['text'];
+        if ($label === null && trim($texte) === '') { $segs = []; return ''; }
+
+        $rpr = fn(array $f) => '<w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:sz w:val="24"/><w:szCs w:val="24"/>'
+            . (!empty($f['b']) ? '<w:b/>' : '') . (!empty($f['u']) ? '<w:u w:val="single"/>' : '') . (!empty($f['i']) ? '<w:i/>' : '')
+            . '</w:rPr>';
+
+        $runs = '';
+        $debut = true;
+        foreach ($segs as $s) {
+            $t = preg_replace('/\s+/u', ' ', $s['text']);
+            if ($debut) { $t = ltrim($t); if ($t !== '') $debut = false; }
+            if ($t === '') continue;
+            $runs .= '<w:r>' . $rpr($s['fmt']) . '<w:t xml:space="preserve">' . htmlspecialchars($t, ENT_XML1, 'UTF-8') . '</w:t></w:r>';
+        }
+        $segs = [];
+
+        $pPr = '<w:jc w:val="both"/><w:spacing w:line="360" w:lineRule="auto"/>';
+        if ($label !== null) {
+            $suspendu = mb_strlen($label) > 3 ? 720 : 360;
+            $gauche = 360 + ($niveau + 1) * 360 + $suspendu;
+            $pPr .= "<w:ind w:left=\"{$gauche}\" w:hanging=\"{$suspendu}\"/><w:tabs><w:tab w:val=\"left\" w:pos=\"{$gauche}\"/></w:tabs>";
+            $runs = '<w:r>' . $rpr([]) . '<w:t xml:space="preserve">' . htmlspecialchars($label, ENT_XML1, 'UTF-8') . '</w:t></w:r><w:r><w:tab/></w:r>' . $runs;
+        } elseif ($niveau > 0) {
+            $pPr .= '<w:ind w:left="' . ($niveau * 720) . '"/>';
+        }
+
+        return "<w:p><w:pPr>{$pPr}</w:pPr>{$runs}</w:p>";
     }
 
     /** Convertir une ligne HTML avec <b>, <u>, <i> en un paragraphe OOXML avec runs formatés */

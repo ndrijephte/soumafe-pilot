@@ -24,10 +24,25 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
 .info-tbl td:first-child{background:#f0f5fa;color:#1F4E79;font-weight:600;width:140px}
 
 /* Sections */
-.section{margin-bottom:16px;overflow:hidden}
-.section h2{font-size:12pt;color:#1F4E79;font-weight:700;margin-bottom:8px;padding:6px 10px;background:linear-gradient(90deg,#EFF4FB,transparent);border-left:3px solid #2E74B5}
+.section{margin-bottom:16px;display:flow-root}
+.section h2{font-size:12pt;color:#1F4E79;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px;padding:6px 10px;background:linear-gradient(90deg,#EFF4FB,transparent);border-left:3px solid #2E74B5}
 .section h3{font-size:11pt;color:#2E74B5;font-weight:600;margin:10px 0 6px}
 .section .contenu{font-size:10.5pt;line-height:1.6;padding:0 10px;overflow-wrap:break-word;word-break:break-word;max-width:100%;text-align:justify}
+.section .contenu ul,.section .contenu ol{margin:4px 0 8px 20px;padding-left:24px}
+.section .contenu ul{list-style:disc outside}
+.section .contenu ul ul{list-style:circle}
+.section .contenu ol{list-style:decimal outside}
+.section .contenu li{margin-bottom:3px;display:list-item}
+.section .contenu [class^="MsoList"]{margin-left:40px!important}
+.section .contenu p{margin-bottom:6px}
+.section .contenu *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
+.section .contenu a{text-decoration:none!important}
+.section .contenu ol.hier,.section .contenu ol.hier ol{list-style:none!important;counter-reset:hier;padding-left:0!important;margin-left:0!important}
+.section .contenu ol.hier ol{margin-left:28px!important}
+.section .contenu ol.hier li{counter-increment:hier;display:block}
+.section .contenu ol.hier li::before{content:var(--num-prefix,"") counters(hier,".") ". ";font-weight:700;margin-right:4px}
+.section .contenu blockquote{margin:0 0 0 28px!important;padding:0!important;border:none!important}
+.section .contenu h1,.section .contenu h2,.section .contenu h3{text-transform:uppercase;color:#1F4E79;font-weight:700;margin:10px 0 6px}
 
 /* Tableaux */
 .tbl{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:10pt}
@@ -35,8 +50,8 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
 .tbl td{padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top}
 .tbl tr:nth-child(even) td{background:#f8fafc}
 .tbl .num{text-align:center;width:35px;color:#64748b;font-weight:600}
-.tbl .present{color:#059669;font-weight:600}
-.tbl .absent{color:#dc2626;font-weight:600}
+.tbl .present{color:#1F4E79;font-weight:600}
+.tbl .absent{color:#93B4D6;font-weight:600}
 .tbl .ok{color:#059669;font-weight:700;text-align:center}
 .tbl .ko{color:#dc2626;text-align:center}
 
@@ -103,12 +118,13 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
         <div class="section">
             <h2>Liste de présence</h2>
             <table class="tbl">
-                <thead><tr><th class="num">N°</th><th>Collaborateur</th><th style="width:100px;text-align:center">Présence</th></tr></thead>
+                <thead><tr><th class="num">N°</th><th>Collaborateur</th><th>Fonction</th><th style="width:100px;text-align:center">Présence</th></tr></thead>
                 <tbody>
                 @foreach($d['presences'] as $i => $p)
                 <tr>
                     <td class="num">{{ $i + 1 }}</td>
                     <td>{{ $p['nom'] }}</td>
+                    <td>{{ ($p['fonction'] ?? '') ?: '—' }}</td>
                     <td style="text-align:center" class="{{ ($p['present'] ?? false) ? 'present' : 'absent' }}">{{ ($p['present'] ?? false) ? 'Présent' : 'Absent' }}</td>
                 </tr>
                 @endforeach
@@ -120,7 +136,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
         {{-- CONTEXTE --}}
         <div class="section">
             <h2>1. Contexte et objectifs de la réunion</h2>
-            <div class="contenu">{!! $d['contexte'] ?? '—' !!}</div>
+            <div class="contenu" style="--num-prefix:'1.'">{!! $d['contexte'] ?? '—' !!}</div>
             @if(!empty($d['ordre_du_jour']))
             <h3>Ordre du jour</h3>
             <ol style="margin:4px 0 0 20px;font-size:10.5pt">
@@ -138,7 +154,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
             @foreach($d['ordre_du_jour'] as $k => $odj)
             @if(!empty($odj['contenu']))
             <h3>2.{{ $k + 1 }}. {{ $odj['point'] }}</h3>
-            <div class="contenu">{!! $odj['contenu'] !!}</div>
+            <div class="contenu" style="--num-prefix:'2.{{ $k + 1 }}.'">{!! $odj['contenu'] !!}</div>
             @endif
             @endforeach
         </div>
@@ -169,12 +185,85 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
         @if(!empty($d['conclusion']))
         <div class="section">
             <h2>4. Conclusion</h2>
-            <div class="contenu">{!! $d['conclusion'] !!}</div>
+            <div class="contenu" style="--num-prefix:'4.'">{!! $d['conclusion'] !!}</div>
         </div>
         @endif
 
+    @elseif(($d['format'] ?? '') === 'blocs_v1' && !empty($d['modules']))
+        {{-- ===== DEMO SPRINT — FORMAT BLOCS ===== --}}
+        @php
+        $refStyles = [
+            'rappel' => ['Rappel', '#E8F5E9', '#00897B'], 'fondamental' => ['Fondamental', '#FFF8E1', '#F9A825'],
+            'attention' => ['Attention', '#FFF3E0', '#E6A817'], 'remarque' => ['Remarque', '#E8EEF4', '#2E74B5'],
+            'methode' => ['Méthode', '#F3E8F9', '#7B2D8E'], 'conseil' => ['Conseil', '#FFF8E1', '#EF6C00'],
+            'definition' => ['Définition', '#E3F2FD', '#1565C0'], 'exemple' => ['Exemple', '#F1F8E9', '#558B2F'],
+            'bonne_pratique' => ['Bonne pratique', '#E0F2FE', '#0288D1'], 'blocage' => ['Blocage', '#FEECEC', '#CC3333'],
+        ];
+        @endphp
+        @foreach($d['modules'] as $mi => $mod)
+        <div class="section">
+            <h2>{{ $mi + 1 }}. {{ $mod['titre'] ?? 'Module' }}</h2>
+            @if(!empty($mod['objectif']))
+            <div class="contenu" style="font-style:italic;color:#64748b;margin-bottom:6px">{{ $mod['objectif'] }}</div>
+            @endif
+
+            @foreach($mod['sections'] ?? [] as $si => $sec)
+                @if(!empty($sec['titre']))
+                <h3>{{ $mi + 1 }}.{{ $si + 1 }}. {{ $sec['titre'] }}</h3>
+                @endif
+
+                @foreach($sec['blocs'] ?? [] as $bloc)
+                    @if($bloc['type'] === 'texte' && !empty($bloc['contenu']))
+                    <div class="contenu" style="margin-bottom:8px;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
+                    @elseif($bloc['type'] === 'tableau_taches' && !empty($d['taches']))
+                    <table class="tbl">
+                        <thead><tr><th class="num">N°</th><th>Tâche</th><th style="width:40px;text-align:center">Pts</th><th>Attribution</th><th style="width:40px;text-align:center">État</th><th>Observation</th></tr></thead>
+                        <tbody>
+                        @foreach($d['taches'] as $i => $t)
+                        <tr>
+                            <td class="num">{{ $i + 1 }}</td>
+                            <td>{{ $t['tache'] }}</td>
+                            <td style="text-align:center">{{ $t['points'] }}</td>
+                            <td>{{ $t['attribution'] }}</td>
+                            <td class="{{ ($t['termine'] ?? false) ? 'ok' : 'ko' }}">{!! ($t['termine'] ?? false) ? '&#10003;' : '&#10007;' !!}</td>
+                            <td style="font-size:9.5pt;color:#64748b">{{ $t['observation'] ?? '' }}</td>
+                        </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                    @elseif($bloc['type'] === 'score')
+                    <div class="score-box">
+                        <div class="val">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }}</div>
+                        <div class="lab">Score global — {{ $d['score_pourcent'] ?? 0 }}%</div>
+                    </div>
+                    @elseif($bloc['type'] === 'actions' && !empty($bloc['items']))
+                    <table class="tbl">
+                        <thead><tr><th class="num">N°</th><th>Action</th><th>Responsable(s)</th><th style="width:90px">Échéance</th></tr></thead>
+                        <tbody>
+                        @foreach($bloc['items'] as $ai => $act)
+                        <tr>
+                            <td class="num">{{ $ai + 1 }}</td>
+                            <td>{{ $act['action'] ?? '' }}</td>
+                            <td>{{ implode(', ', $act['responsables'] ?? []) ?: '—' }}</td>
+                            <td>{{ ($act['echeance'] ?? '') ?: '—' }}</td>
+                        </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                    @elseif($bloc['type'] === 'reference' && !empty($bloc['contenu']))
+                    @php [$rLabel, $rBg, $rBorder] = $refStyles[$bloc['ref_type'] ?? 'remarque'] ?? $refStyles['remarque']; @endphp
+                    <div style="background:{{ $rBg }};border-left:4px solid {{ $rBorder }};border-radius:6px;padding:8px 12px;margin:6px 0 10px">
+                        <div style="font-weight:700;color:{{ $rBorder }};font-size:9.5pt;margin-bottom:3px;text-transform:uppercase">{{ $rLabel }}</div>
+                        <div class="contenu" style="padding:0;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
+                    </div>
+                    @endif
+                @endforeach
+            @endforeach
+        </div>
+        @endforeach
+
     @else
-        {{-- ===== DEMO SPRINT ===== --}}
+        {{-- ===== DEMO SPRINT (ancien format) ===== --}}
         @if(!empty($d['taches']))
         <div class="section">
             <h2>1. Résultats par tâche</h2>

@@ -56,7 +56,18 @@ class CompteRendu extends Model
 
     public function getDonnees(): array
     {
-        return json_decode($this->donnees_json ?? '{}', true) ?: [];
+        $d = json_decode($this->donnees_json ?? '{}', true) ?: [];
+
+        // Anciens CR : la fonction n'était pas enregistrée dans la liste de présence
+        if (!empty($d['presences']) && collect($d['presences'])->contains(fn($p) => !array_key_exists('fonction', $p))) {
+            $fonctions = User::all()->mapWithKeys(fn($u) => [$u->nomComplet() => $u->roleLibelle()]);
+            foreach ($d['presences'] as &$p) {
+                $p['fonction'] ??= $fonctions[$p['nom'] ?? ''] ?? '';
+            }
+            unset($p);
+        }
+
+        return $d;
     }
 
     public function setDonnees(array $data): void

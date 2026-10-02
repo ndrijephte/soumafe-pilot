@@ -9,6 +9,13 @@
 .section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
 .section h3{font-size:1rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #DDEAF5}
 .section .cr-contenu{font-size:.9rem;color:#334155;line-height:1.6;padding:0 8px;overflow-wrap:break-word;word-break:break-word;max-width:100%;text-align:justify}
+.section .cr-contenu *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
+.section .cr-contenu a{text-decoration:none!important}
+.section .cr-contenu ol.hier,.section .cr-contenu ol.hier ol{list-style:none!important;counter-reset:hier;padding-left:0!important;margin-left:0!important}
+.section .cr-contenu ol.hier ol{margin-left:28px!important}
+.section .cr-contenu ol.hier li{counter-increment:hier;display:block}
+.section .cr-contenu ol.hier li::before{content:var(--num-prefix,"") counters(hier,".") ". ";font-weight:700;margin-right:4px}
+.section .cr-contenu blockquote{margin:0 0 0 28px!important;padding:0!important;border:none!important}
 .section .cr-contenu p,.section .cr-contenu div,.section .cr-contenu ul,.section .cr-contenu ol{max-width:100%;overflow-wrap:break-word;word-break:break-word}
 .tbl{width:100%;border-collapse:collapse;font-size:.85rem;table-layout:fixed}
 .tbl th{background:var(--bleu,#1F4E79);color:#fff;padding:8px 10px;text-align:left;font-weight:600}
@@ -69,12 +76,13 @@
         <div class="section">
             <h3>Liste de présence</h3>
             <table class="tbl">
-                <thead><tr><th class="num-col">N°</th><th>Collaborateur</th><th style="width:100px;text-align:center">Présence</th></tr></thead>
+                <thead><tr><th class="num-col">N°</th><th>Collaborateur</th><th>Fonction</th><th style="width:100px;text-align:center">Présence</th></tr></thead>
                 <tbody>
                 @foreach($d['presences'] as $i => $p)
                 <tr>
                     <td class="num-col">{{ $i + 1 }}</td>
                     <td>{{ $p['nom'] }}</td>
+                    <td>{{ ($p['fonction'] ?? '') ?: '—' }}</td>
                     <td style="text-align:center">
                         @if($p['present'] ?? false)
                         <span class="presence-ok">Présent</span>
@@ -92,7 +100,7 @@
         {{-- 1. CONTEXTE --}}
         <div class="section">
             <h3>1. Contexte et objectifs de la réunion</h3>
-            <div class="cr-contenu">{!! $d['contexte'] ?? '—' !!}</div>
+            <div class="cr-contenu" style="--num-prefix:'1.'">{!! $d['contexte'] ?? '—' !!}</div>
 
             @if(!empty($d['ordre_du_jour']))
             <div style="margin-top:14px">
@@ -114,7 +122,7 @@
             @if(!empty($odj['contenu']))
             <div style="margin-bottom:14px">
                 <strong style="font-size:.88rem;color:var(--bleu,#1F4E79)">2.{{ $k + 1 }}. {{ $odj['point'] }}</strong>
-                <div class="cr-contenu" style="margin-top:4px">{!! $odj['contenu'] !!}</div>
+                <div class="cr-contenu" style="margin-top:4px;--num-prefix:'2.{{ $k + 1 }}.'">{!! $odj['contenu'] !!}</div>
             </div>
             @endif
             @endforeach
@@ -146,7 +154,7 @@
         @if(!empty($d['conclusion']))
         <div class="section">
             <h3>4. Conclusion</h3>
-            <div class="cr-contenu">{!! $d['conclusion'] !!}</div>
+            <div class="cr-contenu" style="--num-prefix:'4.'">{!! $d['conclusion'] !!}</div>
         </div>
         @endif
 
@@ -207,7 +215,7 @@
 
                     @foreach($sec['blocs'] ?? [] as $bloc)
                         @if($bloc['type'] === 'texte' && !empty($bloc['contenu']))
-                        <div class="cr-contenu" style="margin-bottom:10px">{!! $bloc['contenu'] !!}</div>
+                        <div class="cr-contenu" style="margin-bottom:10px;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
                         @elseif($bloc['type'] === 'tableau_taches' && !empty($d['taches']))
                         <table class="tbl" style="margin-bottom:10px">
                             <thead><tr><th style="width:40px">N</th><th>Tache</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:50px">OK</th><th>Observation</th></tr></thead>
@@ -250,7 +258,7 @@
                             <div style="font-weight:700;color:{{ $rs['border'] }};font-size:.85rem;margin-bottom:4px;display:flex;align-items:center;gap:6px">
                                 {!! $refIcons[$bloc['ref_type'] ?? 'remarque'] ?? '' !!} {{ $rs['label'] }}
                             </div>
-                            <div class="cr-contenu" style="font-size:.88rem">{!! $bloc['contenu'] !!}</div>
+                            <div class="cr-contenu" style="font-size:.88rem;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
                         </div>
                         @endif
                     @endforeach

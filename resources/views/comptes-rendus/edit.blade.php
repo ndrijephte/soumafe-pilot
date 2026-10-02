@@ -38,6 +38,13 @@
 .rich-editor{border:1px solid #d1d5db;border-radius:0 0 8px 8px;padding:10px 14px;min-height:80px;font-size:.9rem;color:var(--bleu,#1F4E79);line-height:1.6;outline:none;text-align:justify}
 .rich-editor:focus{border-color:var(--bleu,#1F4E79);box-shadow:0 0 0 3px rgba(31,78,121,.1)}
 .rich-editor ul,.rich-editor ol{margin:4px 0 4px 20px}
+.rich-editor *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
+.rich-editor a{text-decoration:none!important;pointer-events:none}
+.rich-editor ol.hier,.rich-editor ol.hier ol{list-style:none!important;counter-reset:hier;padding-left:0!important;margin-left:0!important}
+.rich-editor ol.hier ol{margin-left:28px!important}
+.rich-editor ol.hier li{counter-increment:hier;display:block}
+.rich-editor ol.hier li::before{content:var(--num-prefix,"") counters(hier,".") ". ";font-weight:700;margin-right:4px}
+.rich-editor blockquote{margin:0 0 0 28px!important;padding:0!important;border:none!important}
 /* Buttons */
 .btn-add{background:#f1f5f9;color:#475569;border:1px dashed #94a3b8;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:.82rem}
 .btn-add:hover{background:#e2e8f0}
@@ -119,6 +126,7 @@
 /* Score bloc */
 .be-score{background:#EFF4FB;border-radius:8px;padding:14px 18px;text-align:center}
 .be-score .be-score-val{font-size:1.4rem;font-weight:800;color:var(--bleu,#1F4E79)}
+.be-score .be-score-val input{width:70px;padding:2px 6px;font:inherit;color:inherit;text-align:center;border:1px solid #c7d7ea;border-radius:6px;background:#fff}
 .be-score .be-score-sub{font-size:.82rem;color:#64748b;margin-top:2px}
 /* Actions bloc */
 .be-act-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
@@ -170,12 +178,13 @@
                 </div>
                 <div class="section-body">
                     <table class="tbl">
-                        <thead><tr><th class="num-col">N°</th><th>Collaborateur</th><th style="width:80px;text-align:center">Présent</th></tr></thead>
+                        <thead><tr><th class="num-col">N°</th><th>Collaborateur</th><th>Fonction</th><th style="width:80px;text-align:center">Présent</th></tr></thead>
                         <tbody>
                         @foreach($donnees['presences'] ?? [] as $i => $p)
                         <tr>
                             <td class="num-col">{{ $i + 1 }}</td>
                             <td>{{ $p['nom'] }}<input type="hidden" name="donnees[presences][{{ $i }}][nom]" value="{{ $p['nom'] }}"></td>
+                            <td><input type="text" name="donnees[presences][{{ $i }}][fonction]" value="{{ $p['fonction'] ?? '' }}" placeholder="Fonction"></td>
                             <td style="text-align:center"><input type="checkbox" class="chk" name="donnees[presences][{{ $i }}][present]" value="1" @checked($p['present'] ?? false)></td>
                         </tr>
                         @endforeach
@@ -202,14 +211,17 @@
                             <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
                             <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
                             <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
+                            <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
                         </div>
-                        <div class="rich-editor" contenteditable="true" id="ctx-editor" data-name="donnees[contexte]">{!! $donnees['contexte'] ?? '' !!}</div>
+                        <div class="rich-editor" contenteditable="true" id="ctx-editor" style="--num-prefix:'1.'" data-name="donnees[contexte]">{!! $donnees['contexte'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[contexte]" id="ctx-editor-hidden">
                     </div>
 
                     <label style="font-size:.85rem;font-weight:600;color:#475569;margin-bottom:8px;display:block">Ordre du jour</label>
                     <div id="odj-list">
-                    @foreach($donnees['ordre_du_jour'] ?? [['point' => '', 'contenu' => '']] as $k => $odj)
+                    @foreach(($donnees['ordre_du_jour'] ?? []) ?: [['point' => '', 'contenu' => '']] as $k => $odj)
                         <div class="odj-item" data-idx="{{ $k }}">
                             <span class="num">{{ $k + 1 }}</span>
                             <div style="display:flex;gap:10px;align-items:center">
@@ -219,7 +231,10 @@
                         </div>
                     @endforeach
                     </div>
-                    <button type="button" class="btn-add" onclick="ajouterOdj()" style="margin-top:6px">+ Ajouter un point</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                        <button type="button" class="btn-add" onclick="ajouterOdj()">+ Ajouter un point</button>
+                        <button type="button" class="btn-add" onclick="genererDeroulement()" style="background:var(--bleu,#1F4E79);color:#fff;border-color:var(--bleu,#1F4E79)" title="Créer / mettre à jour les titres du déroulement à partir de l'ordre du jour">&#10003; Valider l'ordre du jour</button>
+                    </div>
                 </div>
             </div>
 
@@ -233,7 +248,7 @@
                     </div>
                 </div>
                 <div class="section-body">
-                    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:12px">Développez chaque point de l'ordre du jour.</p>
+                    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:12px">Développez chaque point de l'ordre du jour. Après avoir modifié l'ordre du jour, cliquez sur « Valider l'ordre du jour » pour mettre à jour les titres ci-dessous.</p>
                     <div id="deroulement-list">
                     @foreach($donnees['ordre_du_jour'] ?? [] as $k => $odj)
                         @if(!empty($odj['point']))
@@ -245,8 +260,11 @@
                                 <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
                                 <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
                                 <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
+                            <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
                             </div>
-                            <div class="rich-editor" contenteditable="true" id="derou-{{ $k }}" data-name="donnees[ordre_du_jour][{{ $k }}][contenu]">{!! $odj['contenu'] ?? '' !!}</div>
+                            <div class="rich-editor" contenteditable="true" id="derou-{{ $k }}" style="--num-prefix:'2.{{ $k + 1 }}.'" data-name="donnees[ordre_du_jour][{{ $k }}][contenu]">{!! $odj['contenu'] ?? '' !!}</div>
                             <input type="hidden" name="donnees[ordre_du_jour][{{ $k }}][contenu]" id="derou-{{ $k }}-hidden">
                         </div>
                         @endif
@@ -315,8 +333,11 @@
                             <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
                             <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
                             <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
+                            <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
                         </div>
-                        <div class="rich-editor" contenteditable="true" id="concl-editor" data-name="donnees[conclusion]">{!! $donnees['conclusion'] ?? '' !!}</div>
+                        <div class="rich-editor" contenteditable="true" id="concl-editor" style="--num-prefix:'4.'" data-name="donnees[conclusion]">{!! $donnees['conclusion'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[conclusion]" id="concl-editor-hidden">
                     </div>
                 </div>
@@ -330,7 +351,7 @@
                 <div style="font-size:.85rem;color:#64748b">
                     Sprint : <strong style="color:var(--bleu)">{{ $donnees['sprint'] ?? '—' }}</strong>
                     &mdash; Projet : <strong style="color:var(--bleu)">{{ $donnees['projet'] ?? '—' }}</strong>
-                    &mdash; Score : <strong style="color:var(--bleu)">{{ $donnees['score_pourcent'] ?? 0 }}%</strong>
+                    &mdash; Score : <strong style="color:var(--bleu)" id="be-score-header">{{ $donnees['score_pourcent'] ?? 0 }}%</strong>
                 </div>
             </div>
 
@@ -368,11 +389,97 @@ function execRich(cmd, btn){
 }
 function syncEditors(){
     document.querySelectorAll('.rich-editor').forEach(ed => {
+        normaliserListes(ed);
         const hiddenId = ed.id + '-hidden';
         const hidden = document.getElementById(hiddenId);
         if(hidden) hidden.value = ed.innerHTML.trim();
     });
 }
+
+/* === Listes hiérarchiques (2.2.1.) et indentation === */
+function editeurDeBouton(btn){ return document.getElementById(btn.closest('.rich-toolbar').dataset.target); }
+function listeSousCurseur(ed){
+    const sel = window.getSelection();
+    if(!sel.rangeCount) return null;
+    let n = sel.getRangeAt(0).startContainer;
+    if(n.nodeType === 3) n = n.parentNode;
+    const ol = n.closest && n.closest('ol');
+    return ol && ed.contains(ol) ? ol : null;
+}
+/* Le navigateur imbrique parfois une liste comme sœur des <li> : on la range dans le <li> précédent */
+function normaliserListes(ed){
+    ed.querySelectorAll('ol > ol, ol > ul, ul > ol, ul > ul').forEach(sub => {
+        const prev = sub.previousElementSibling;
+        if(prev && prev.tagName === 'LI') prev.appendChild(sub);
+    });
+}
+function racineListe(ol, ed){
+    let r = ol;
+    while(r.parentElement && r.parentElement !== ed && r.parentElement.closest('ol') && ed.contains(r.parentElement.closest('ol'))) r = r.parentElement.closest('ol');
+    return r;
+}
+function listeHier(btn){
+    const ed = editeurDeBouton(btn); if(!ed) return;
+    ed.focus();
+    let ol = listeSousCurseur(ed);
+    if(ol){ racineListe(ol, ed).classList.toggle('hier'); return; }
+    document.execCommand('insertOrderedList', false, null);
+    ol = listeSousCurseur(ed);
+    if(ol) racineListe(ol, ed).classList.add('hier');
+}
+function indenterRich(cmd, btn){
+    const ed = editeurDeBouton(btn); if(!ed) return;
+    ed.focus(); document.execCommand(cmd, false, null); normaliserListes(ed);
+}
+document.addEventListener('keydown', e => {
+    if(e.key !== 'Tab') return;
+    const ed = e.target.closest && e.target.closest('.rich-editor');
+    if(!ed) return;
+    e.preventDefault();
+    document.execCommand(e.shiftKey ? 'outdent' : 'indent', false, null);
+    normaliserListes(ed);
+});
+
+/* === Collage : on ne garde que gras / italique / souligné / listes / paragraphes === */
+function nettoyerHtmlColle(html){
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('[style*="mso-list:Ignore"],[style*="mso-list: Ignore"],style,script,meta,link,title,xml').forEach(n => n.remove());
+    const GARDER = {B:'b',STRONG:'b',I:'i',EM:'i',U:'u',UL:'ul',OL:'ol',LI:'li',P:'p',DIV:'p',BR:'br',H1:'p',H2:'p',H3:'p',H4:'p',H5:'p',H6:'p'};
+    const out = document.createElement('div');
+    let listeWord = null;
+    function copier(src, dest){
+        src.childNodes.forEach(n => {
+            if(n.nodeType === 3){ dest.appendChild(document.createTextNode(n.textContent.replace(/ /g,' '))); return; }
+            if(n.nodeType !== 1) return;
+            const cls = n.className || '';
+            if(n.tagName === 'P' && /MsoList/.test(cls) && dest === out){
+                if(!listeWord){ listeWord = document.createElement('ul'); out.appendChild(listeWord); }
+                const li = document.createElement('li'); copier(n, li); listeWord.appendChild(li); return;
+            }
+            if(dest === out) listeWord = null;
+            const tag = GARDER[n.tagName];
+            if(tag === 'br'){ dest.appendChild(document.createElement('br')); return; }
+            if(tag){ const el = document.createElement(tag); copier(n, el); if(el.textContent.trim() || tag === 'ul' || tag === 'ol') dest.appendChild(el); }
+            else copier(n, dest);
+        });
+    }
+    copier(doc.body, out);
+    return out.innerHTML;
+}
+document.addEventListener('paste', e => {
+    const ed = e.target.closest && e.target.closest('.rich-editor');
+    if(!ed) return;
+    e.preventDefault();
+    const cd = e.clipboardData;
+    const html = cd.getData('text/html');
+    if(html){
+        document.execCommand('insertHTML', false, nettoyerHtmlColle(html));
+    } else {
+        const txt = cd.getData('text/plain');
+        const esc = txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        document.execCommand('insertHTML', false, esc.split(/\r?\n/).join('<br>'));
+    }
+});
 
 /* === Sections pliables === */
 function toggleSection(head){ head.closest('.section').classList.toggle('collapsed'); }
@@ -384,6 +491,52 @@ function ajouterOdj(){
     div.className = 'odj-item'; div.dataset.idx = odjIdx;
     div.innerHTML = `<span class="num">${odjIdx+1}</span><div style="display:flex;gap:10px;align-items:center"><div style="flex:1"><textarea name="donnees[ordre_du_jour][${odjIdx}][point]" rows="2" style="width:100%;padding:10px 14px;font-size:.92rem;border-radius:8px;border:1px solid #d1d5db;resize:vertical;font-family:inherit" placeholder="Ex : Revue des livrables de la semaine"></textarea></div><button type="button" class="btn-rm" onclick="this.closest('.odj-item').remove();renum()" title="Supprimer">&#10005;</button></div>`;
     list.appendChild(div); odjIdx++; renum();
+}
+/* Reconstruit les titres du déroulement (2.x) depuis l'ordre du jour, en conservant le texte déjà saisi */
+function genererDeroulement(){
+    const liste = document.getElementById('deroulement-list');
+    if(!liste) return;
+    const contenus = {};
+    liste.querySelectorAll('.derou-item').forEach(it => {
+        const ed = it.querySelector('.rich-editor');
+        contenus[it.dataset.idx] = ed ? ed.innerHTML.trim() : '';
+    });
+    const points = [];
+    document.querySelectorAll('#odj-list .odj-item').forEach(it => {
+        const txt = (it.querySelector('textarea')?.value || '').trim();
+        if(txt) points.push({idx: it.dataset.idx, point: txt});
+    });
+    const perdus = Object.keys(contenus).filter(idx => contenus[idx] && !points.some(p => p.idx === idx));
+    if(perdus.length && !confirm(`${perdus.length} point(s) retiré(s) de l'ordre du jour contiennent du texte dans le déroulement. Ce texte sera supprimé. Continuer ?`)) return;
+    if(!points.length){ alert("Renseignez au moins un point de l'ordre du jour."); return; }
+
+    liste.innerHTML = '';
+    points.forEach((p, i) => {
+        const edId = 'derou-' + p.idx, num = `2.${i+1}.`;
+        const div = document.createElement('div');
+        div.className = 'fg derou-item'; div.dataset.idx = p.idx;
+        div.innerHTML = `<label></label>
+            <div class="rich-toolbar" data-target="${edId}">
+                <button type="button" onclick="execRich('bold',this)" title="Gras"><b>G</b></button>
+                <button type="button" onclick="execRich('italic',this)" title="Italique"><i>I</i></button>
+                <button type="button" onclick="execRich('underline',this)" title="Souligné"><u>S</u></button>
+                <button type="button" onclick="execRich('insertUnorderedList',this)" title="Liste à puces">&#8226; Liste</button>
+                <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
+                <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
+                <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
+                <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
+            </div>
+            <div class="rich-editor" contenteditable="true" id="${edId}" data-name="donnees[ordre_du_jour][${p.idx}][contenu]"></div>
+            <input type="hidden" name="donnees[ordre_du_jour][${p.idx}][contenu]" id="${edId}-hidden">`;
+        div.querySelector('label').textContent = `${num} ${p.point}`;
+        const ed = div.querySelector('.rich-editor');
+        ed.style.setProperty('--num-prefix', `'${num}'`);
+        ed.innerHTML = contenus[p.idx] || '';
+        liste.appendChild(div);
+    });
+
+    const sect = liste.closest('.section');
+    if(sect){ sect.classList.remove('collapsed'); sect.scrollIntoView({behavior:'smooth', block:'start'}); }
 }
 function renum(){ document.querySelectorAll('#odj-list .odj-item .num').forEach((el,i) => el.textContent = i+1); }
 
@@ -488,6 +641,9 @@ function beRichToolbar(edId){
         <button type="button" onmousedown="event.preventDefault();beExec('underline','${edId}')" title="Souligne"><u>S</u></button>
         <button type="button" onmousedown="event.preventDefault();beExec('insertUnorderedList','${edId}')" title="Liste a puces">&#8226;</button>
         <button type="button" onmousedown="event.preventDefault();beExec('insertOrderedList','${edId}')" title="Liste numerotee">1.</button>
+        <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1</button>
+        <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
+        <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button>
     </div>`;
 }
 function beExec(cmd, edId){
@@ -524,7 +680,11 @@ function renderBloc(bloc, secEl){
     }
     else if(bloc.type === 'score'){
         const pts = BE_DONNEES.points_realises||0, tot = BE_DONNEES.total_points||0, pct = BE_DONNEES.score_pourcent||0;
-        bodyHtml += `<div class="be-score"><div class="be-score-val">${pts} / ${tot} points (${pct}%)</div><div class="be-score-sub">Score global du sprint</div></div>`;
+        bodyHtml += `<div class="be-score"><div class="be-score-val">
+            <input type="number" min="0" class="be-score-pts" value="${pts}" oninput="beScoreManuel(this)"> /
+            <input type="number" min="0" class="be-score-tot" value="${tot}" oninput="beScoreManuel(this)"> points
+            (<span class="be-score-pct">${pct}</span>%)</div>
+            <div class="be-score-sub">Score global du sprint — calculé selon les tâches cochées, modifiable manuellement</div></div>`;
     }
     else if(bloc.type === 'actions'){
         const items = bloc.items || [];
@@ -729,6 +889,7 @@ function beSerialize(){
         total_points: BE_DONNEES.total_points || 0,
         points_realises: BE_DONNEES.points_realises || 0,
         score_pourcent: BE_DONNEES.score_pourcent || 0,
+        score_manuel: !!BE_DONNEES.score_manuel,
         par_dev: BE_DONNEES.par_dev || [],
         taches: [],
         modules: []
@@ -793,8 +954,73 @@ function beSerialize(){
     return data;
 }
 
+/* --- Score dynamique : recalcul depuis les cases "OK" du tableau des tâches --- */
+function beRecalculerScore(){
+    const taches = BE_DONNEES.taches || [];
+    let tot = 0, pts = 0;
+    const parDev = {};
+    taches.forEach((t,i) => {
+        const p = parseInt(t.points, 10) || 1;
+        const chk = document.querySelector(`.be-tache-chk[data-idx="${i}"]`);
+        const fait = chk ? chk.checked : !!t.termine;
+        const nom = t.attribution || '—';
+        tot += p; if(fait) pts += p;
+        parDev[nom] = parDev[nom] || {nom, total:0, realise:0};
+        parDev[nom].total += p; if(fait) parDev[nom].realise += p;
+        t.termine = fait;
+    });
+    const pct = tot > 0 ? Math.round(pts / tot * 100) : 0;
+    BE_DONNEES.total_points = tot;
+    BE_DONNEES.points_realises = pts;
+    BE_DONNEES.score_pourcent = pct;
+    BE_DONNEES.par_dev = Object.values(parDev).map(d => ({...d, pourcent: d.total > 0 ? Math.round(d.realise / d.total * 100) : 0}));
+    BE_DONNEES.score_manuel = false;
+    beAfficherScore();
+}
+function beAfficherScore(source){
+    const {points_realises:pts=0, total_points:tot=0, score_pourcent:pct=0} = BE_DONNEES;
+    document.querySelectorAll('.be-score').forEach(box => {
+        const p = box.querySelector('.be-score-pts'), t = box.querySelector('.be-score-tot');
+        if(p && p !== source) p.value = pts;
+        if(t && t !== source) t.value = tot;
+        const s = box.querySelector('.be-score-pct'); if(s) s.textContent = pct;
+    });
+    const h = document.getElementById('be-score-header'); if(h) h.textContent = pct + '%';
+}
+function beScoreManuel(input){
+    const box = input.closest('.be-score');
+    const pts = Math.max(0, parseInt(box.querySelector('.be-score-pts').value, 10) || 0);
+    const tot = Math.max(0, parseInt(box.querySelector('.be-score-tot').value, 10) || 0);
+    BE_DONNEES.points_realises = pts;
+    BE_DONNEES.total_points = tot;
+    BE_DONNEES.score_pourcent = tot > 0 ? Math.round(pts / tot * 100) : 0;
+    BE_DONNEES.score_manuel = true;
+    beAfficherScore(input);
+}
+document.getElementById('be-modules').addEventListener('change', e => {
+    if(e.target.classList.contains('be-tache-chk')){
+        const idx = e.target.dataset.idx;
+        document.querySelectorAll(`.be-tache-chk[data-idx="${idx}"]`).forEach(c => c.checked = e.target.checked);
+        beRecalculerScore();
+    }
+});
+
 /* --- Init : rendu initial --- */
 beModules.forEach(m => renderModule(m));
+if(!BE_DONNEES.score_manuel) beRecalculerScore();
+
+/* Préfixe des listes hiérarchiques = numéro module.section, recalculé à chaque déplacement */
+function beRenumeroter(){
+    document.querySelectorAll('#be-modules > .be-module').forEach((modEl, mi) => {
+        modEl.querySelectorAll('.be-section').forEach((secEl, si) => {
+            secEl.querySelectorAll('.rich-editor').forEach(ed => ed.style.setProperty('--num-prefix', `'${mi+1}.${si+1}.'`));
+        });
+    });
+}
+beRenumeroter();
+new MutationObserver(muts => {
+    if(muts.some(m => [...m.addedNodes, ...m.removedNodes].some(n => n.classList && (n.classList.contains('be-module') || n.classList.contains('be-section') || n.classList.contains('be-bloc'))))) beRenumeroter();
+}).observe(document.getElementById('be-modules'), {childList:true, subtree:true});
 
 } /* fin if(!estReunion) */
 

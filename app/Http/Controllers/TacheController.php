@@ -30,7 +30,11 @@ class TacheController extends Controller
 
         // Tâches terminées : tri par date de fin décroissante (récente → ancienne)
         if (isset($taches['termine'])) {
-            $taches['termine'] = $taches['termine']->sortByDesc(fn ($t) => $t->date_fin_reelle ?? $t->updated_at)->values();
+            // date_fin_reelle n'a pas d'heure : updated_at départage les tâches finies le même jour
+            $taches['termine'] = $taches['termine']->sortBy([
+                fn ($a, $b) => ($b->date_fin_reelle ?? $b->updated_at)->format('Y-m-d') <=> ($a->date_fin_reelle ?? $a->updated_at)->format('Y-m-d'),
+                fn ($a, $b) => $b->updated_at <=> $a->updated_at,
+            ])->values();
         }
 
         return view('taches.index', [

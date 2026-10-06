@@ -61,7 +61,7 @@ class ReportingParcController extends Controller
         // ═══════ CHARGES : RÉPARTITION ═══════
         $typesDepenseLabels = TypeParc::depenses()->pluck('libelle', 'code')->toArray();
         $depensesParType = Schema::hasTable('depenses')
-            ? $this->depenses($vehiculeIds, $perimetreComplet, $debut, $fin)->where('type_depense', '!=', 'maintenance')
+            ? $this->autresDepenses($perimetreComplet, $debut, $fin)
                 ->selectRaw('type_depense, SUM(montant) as total')->groupBy('type_depense')->orderByDesc('total')->get()
                 ->map(fn($d) => ['type' => $typesDepenseLabels[$d->type_depense] ?? ucfirst(str_replace('_', ' ', $d->type_depense)), 'total' => (int) $d->total])
             : collect();
@@ -143,11 +143,21 @@ class ReportingParcController extends Controller
         return [$debut, $fin, 'exercice ' . ExerciceParc::libelle($exercice), $debutPrec, $finPrec, 'exercice ' . ExerciceParc::nom($prec)];
     }
 
-    /** Dépenses du périmètre : toutes si aucun filtre véhicule/catégorie, sinon celles des véhicules filtrés. */
-    private function depenses(Collection $vehiculeIds, bool $perimetreComplet, Carbon $debut, Carbon $fin)
+    /**
+     * Autres dépenses (bureau) : charges de l'entreprise, jamais imputées à un véhicule.
+     * Elles n'apparaissent donc que dans la vue d'ensemble, pas quand on filtre une catégorie ou un véhicule.
+     */
+    private function autresDepenses(bool $perimetreComplet, Carbon $debut, Carbon $fin)
     {
-        return Depense::whereBetween('date_depense', [$debut, $fin])
-            ->when(!$perimetreComplet, fn($q) => $q->whereIn('vehicule_id', $vehiculeIds));
+        return Depense::whereBetween('date_depense', [$debut, $fin])->where('type_depense', '!=', 'maintenance')
+            ->when(!$perimetreComplet, fn($q) => $q->whereRaw('1 = 0'));
+    }
+
+    /** Maintenance : coût des maintenances réalisées (même source que l'onglet Maintenance du parc). */
+    private function maintenances(Collection $vehiculeIds, Carbon $debut, Carbon $fin)
+    {
+        return MaintenancePreventive::whereIn('vehicule_id', $vehiculeIds)->where('statut', 'realisee')
+            ->whereBetween('date_realisation', [$debut, $fin]);
     }
 
     /** Recouvrements de recette payés par les chauffeurs, à la date du versement. */
@@ -183,9 +193,9 @@ class ReportingParcController extends Controller
 
         $maintenance = 0;
         $autresDepenses = 0;
+        $maintenance = (int) $this->maintenances($vehiculeIds, $debut, $fin)->sum('cout');
         if (Schema::hasTable('depenses')) {
-            $maintenance = (int) $this->depenses($vehiculeIds, $perimetreComplet, $debut, $fin)->where('type_depense', 'maintenance')->sum('montant');
-            $autresDepenses = (int) $this->depenses($vehiculeIds, $perimetreComplet, $debut, $fin)->where('type_depense', '!=', 'maintenance')->sum('montant');
+            $autresDepenses = (int) $this->autresDepenses($perimetreComplet, $debut, $fin)->sum('montant');
         }
         // Vue chauffeur : seules ses recettes et pénalités lui sont imputables
         if ($nomChauffeur) { $pannes->cout = 0; $pannes->nb = 0; $maintenance = 0; $autresDepenses = 0; }
@@ -234,19 +244,16 @@ class ReportingParcController extends Controller
                 ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
                 ->selectRaw('vehicule_id, SUM(montant) as total')->groupBy('vehicule_id')->pluck('total', 'vehicule_id')
             : collect();
-        $dep = Schema::hasTable('depenses') && !$nomChauffeur
-            ? $grp(Depense::query(), 'vehicule_id')->whereBetween('date_depense', [$debut, $fin])
-                ->selectRaw("vehicule_id, SUM(CASE WHEN type_depense = 'maintenance' THEN montant ELSE 0 END) as maint, SUM(CASE WHEN type_depense <> 'maintenance' THEN montant ELSE 0 END) as autres")
-                ->groupBy('vehicule_id')->get()->keyBy('vehicule_id')
-            : collect();
+        $maintVeh = $nomChauffeur ? collect()
+            : $this->maintenances($ids, $debut, $fin)->selectRaw('vehicule_id, SUM(cout) as total')->groupBy('vehicule_id')->pluck('total', 'vehicule_id');
 
-        return $vehicules->map(function ($v) use ($rec, $recouv, $pannes, $pen, $dep) {
+        return $vehicules->map(function ($v) use ($rec, $recouv, $pannes, $pen, $maintVeh) {
             $r = $rec[$v->id] ?? null;
             $recettes = (int) ($r->recette ?? 0) + (int) ($recouv[$v->id] ?? 0);
             $objectif = (int) ($r->objectif ?? 0);
             $pannesCout = (int) ($pannes[$v->id]->cout ?? 0);
-            $maint = (int) ($dep[$v->id]->maint ?? 0);
-            $autres = (int) ($dep[$v->id]->autres ?? 0);
+            $maint = (int) ($maintVeh[$v->id] ?? 0);
+            $autres = 0; // les autres dépenses ne sont pas imputées aux véhicules
             $penal = (int) ($pen[$v->id] ?? 0);
             $charges = $pannesCout + $maint + $penal + $autres;
             $resultat = $recettes - $charges;
@@ -357,9 +364,9 @@ class ReportingParcController extends Controller
         $pannes = collect(); $maint = collect(); $bureau = collect();
         if (!$nomChauffeur) {
             $pannes = $parJour(Panne::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_declaration', [$debut, $finEffective]), 'date_declaration', 'cout_reel');
+            $maint = $parJour($this->maintenances($vehiculeIds, $debut, $finEffective), 'date_realisation', 'cout');
             if (Schema::hasTable('depenses')) {
-                $maint = $parJour($this->depenses($vehiculeIds, $perimetreComplet, $debut, $finEffective)->where('type_depense', 'maintenance'), 'date_depense', 'montant');
-                $bureau = $parJour($this->depenses($vehiculeIds, $perimetreComplet, $debut, $finEffective)->where('type_depense', '!=', 'maintenance'), 'date_depense', 'montant');
+                $bureau = $parJour($this->autresDepenses($perimetreComplet, $debut, $finEffective), 'date_depense', 'montant');
             }
         }
 

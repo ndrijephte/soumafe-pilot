@@ -1085,7 +1085,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>{{ number_format($rec->objectif, 0, ',', ' ') }}</td>
         <td style="color:{{ $rec->ecart >= 0 ? 'var(--ok)' : 'var(--ko)' }};font-weight:600">{{ ($rec->ecart >= 0 ? '+' : '') . number_format($rec->ecart, 0, ',', ' ') }}</td>
         <td>{{ $rec->mode_remise ? ucfirst(str_replace('_', ' ', $rec->mode_remise)) : '—' }}</td>
-        <td>@if($rec->motif_absence)<span class="pill p-warn">{{ $rec->motif_absence }}</span>@else — @endif</td>
+        <td>@if($rec->motif_absence)<span class="pill p-warn">{{ \App\Models\TypeParc::libelleMotif($rec->motif_absence) }}</span>@else — @endif</td>
         <td>
             <div class="act-row">
                 @if(auth()->user()->estAdmin())
@@ -1694,26 +1694,23 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 @include('parc._filtre', ['cible' => 'tbl-depenses', 'champs' => [
-    'vehicule' => true,
     'type' => ['Tous les types', ($typesDepense ?? collect())->pluck('libelle', 'code')->all()],
-    'recherche' => 'Commentaire, saisi par…']])
+    'recherche' => 'Objet, saisi par…']])
 <div class="panneau" style="overflow-x:auto">
 <table class="tableau" id="tbl-depenses" style="width:100%">
 <thead><tr>
     <th style="width:100px">Date</th>
     <th>Type</th>
-    <th>Véhicule</th>
     <th style="text-align:right;width:120px">Montant</th>
-    <th>Commentaire</th>
+    <th>Objet de la dépense</th>
     <th style="width:80px">Par</th>
     @if(!auth()->user()->aRole('direction'))<th style="width:120px">Actions</th>@endif
 </tr></thead>
 <tbody>
 @forelse($depenses ?? [] as $dep)
-<tr id="dep-row-{{ $dep->id }}" data-ligne data-date="{{ $dep->date_depense->format('Y-m-d') }}" data-vehicule="{{ $dep->vehicule_id }}" data-type="{{ $dep->type_depense }}" data-montant="{{ (int) $dep->montant }}">
+<tr id="dep-row-{{ $dep->id }}" data-ligne data-date="{{ $dep->date_depense->format('Y-m-d') }}" data-type="{{ $dep->type_depense }}" data-montant="{{ (int) $dep->montant }}">
     <td>{{ $dep->date_depense->format('d/m/Y') }}</td>
     <td>{{ $typesLabels[$dep->type_depense] ?? ucfirst(str_replace('_', ' ', $dep->type_depense)) }}</td>
-    <td style="font-size:12px">{{ $dep->vehicule->immatriculation ?? '—' }}</td>
     <td style="text-align:right;font-weight:600;color:var(--ko)">{{ number_format($dep->montant, 0, ',', ' ') }} F</td>
     <td style="font-size:12px;color:var(--gris)">{{ $dep->commentaire ?? '—' }}</td>
     <td style="font-size:11px;color:var(--gris)">{{ $dep->cree_par }}</td>
@@ -1732,10 +1729,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @endif
 </tr>
 @if($dep->commentaire)
-<tr class="detail-row" id="dep-{{ $dep->id }}" style="display:none"><td colspan="{{ auth()->user()->aRole('direction') ? 6 : 7 }}"><div class="detail-content"><strong>Commentaire :</strong> {{ $dep->commentaire }}</div></td></tr>
+<tr class="detail-row" id="dep-{{ $dep->id }}" style="display:none"><td colspan="{{ auth()->user()->aRole('direction') ? 5 : 6 }}"><div class="detail-content"><strong>Objet de la dépense :</strong> {{ $dep->commentaire }}</div></td></tr>
 @endif
 @empty
-<tr><td colspan="{{ auth()->user()->aRole('direction') ? 6 : 7 }}" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
+<tr><td colspan="{{ auth()->user()->aRole('direction') ? 5 : 6 }}" style="text-align:center;color:var(--gris);padding:20px">Aucune dépense enregistrée</td></tr>
 @endforelse
 </tbody>
 </table>
@@ -2050,7 +2047,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
         <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" id="de-montant" min="1" required placeholder="0"></div>
     </div>
-    <div><label>Commentaire</label><textarea name="commentaire" id="de-comment" rows="2" maxlength="500" placeholder="Commentaire optionnel"></textarea></div>
+    <div><label>Objet de la dépense</label><textarea name="commentaire" id="de-comment" rows="2" maxlength="500" placeholder="Ex. : facture SODECI de septembre, achat de fournitures de bureau…"></textarea>
+        <small style="color:var(--gris);font-size:11px">Dépense de l'entreprise : elle n'est rattachée à aucun véhicule et n'entre pas dans la rentabilité par véhicule.</small></div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Enregistrer</button>

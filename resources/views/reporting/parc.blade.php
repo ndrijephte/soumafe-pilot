@@ -264,7 +264,7 @@
 <div class="rp-titre">3. Rentabilité par véhicule</div>
 <div class="rp-section">
     <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Quels véhicules rapportent, lesquels coûtent ?</h3>
-    <div class="intro">Classés du moins rentable au plus rentable. Résultat = recettes (y compris recouvrements) − pannes − maintenance − pénalités − dépenses du véhicule.</div>
+    <div class="intro">Classés du moins rentable au plus rentable. Résultat = recettes (y compris recouvrements) − pannes − maintenance − pénalités du véhicule. Les autres dépenses (bureau) ne sont imputées à aucun véhicule.</div>
     @if($parVehicule->isEmpty())
     <p style="color:var(--gris);font-size:13px">Aucun véhicule dans ce périmètre.</p>
     @else
@@ -306,7 +306,7 @@
     </div>
     @php $horsTableau = $kpi['charges'] - $parVehicule->sum('charges'); @endphp
     @if($horsTableau > 0)
-    <div class="intro" style="margin:8px 0 0">{{ $F($horsTableau) }} F de charges ne sont rattachées à aucun véhicule de ce tableau (dépenses de bureau, maintenance sans véhicule, véhicule réformé…). Elles sont comptées dans le résultat net de la section 1, pas ici.</div>
+    <div class="intro" style="margin:8px 0 0">{{ $F($horsTableau) }} F de charges ne sont rattachées à aucun véhicule de ce tableau (autres dépenses de bureau, véhicule hors tableau…). Elles sont comptées dans le résultat net de la section 1, pas ici.</div>
     @endif
     @endif
 </div>
@@ -326,7 +326,7 @@
         @foreach($chauffeurs as $c)
         <tr>
             <td><strong>{{ $c['nom'] }}</strong>@if($c['nb_vehicules'] > 1)<span class="sous">{{ $c['nb_vehicules'] }} véhicules</span>@endif</td>
-            <td class="num">{{ $c['jours'] }}<span class="sous">@if($c['jours'] === 0)aucune recette saisie@else{{ $c['jours_atteints'] }} atteint(s)@if($c['absences']) · {{ $c['absences'] }} abs.@endif @endif</span></td>
+            <td class="num">{{ $c['jours'] }}<span class="sous">@if($c['jours'] === 0) Aucune recette saisie @else {{ $c['jours_atteints'] }} jour(s) objectif atteint @if($c['absences']) · {{ $c['absences'] }} absence(s) @endif @endif</span></td>
             <td class="num">{{ $F($c['recettes']) }}<span class="sous">obj. {{ $F($c['objectif']) }}</span></td>
             <td class="taux-cell">
                 @if($c['taux'] === null)<span style="color:var(--gris)">—</span>
@@ -571,7 +571,7 @@
             <td class="num">{{ $F($dj->objectif) }}</td>
             <td class="num {{ $ec >= 0 ? 'pos' : 'neg' }}">{{ $signe($ec) }}</td>
             <td>{{ $dj->mode_remise ? ucfirst(str_replace('_', ' ', $dj->mode_remise)) : '—' }}</td>
-            <td>@if($dj->motif_absence)<span style="color:var(--ko);font-weight:600">{{ $dj->motif_absence }}</span>@else — @endif</td>
+            <td>@if($dj->motif_absence)<span style="color:var(--ko);font-weight:600">{{ \App\Models\TypeParc::libelleMotif($dj->motif_absence) }}</span>@else — @endif</td>
         </tr>
         @endforeach
         </tbody>

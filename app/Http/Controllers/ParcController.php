@@ -1111,6 +1111,9 @@ class ParcController extends Controller
         $maintenance->update($r->only([
             'vehicule_id', 'type_echeance', 'derniere_realisation', 'prochaine_echeance', 'observations',
         ]));
+        if ($maintenance->depense_id) {
+            Depense::where('id', $maintenance->depense_id)->update(['vehicule_id' => $maintenance->vehicule_id]);
+        }
         AuditLog::log('modification', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}");
 
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance mise à jour.');
@@ -1201,6 +1204,7 @@ class ParcController extends Controller
         abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}, Motif: " . $r->motif_suppression);
+        if ($maintenance->depense_id) Depense::where('id', $maintenance->depense_id)->delete();
         $maintenance->delete();
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance supprimée.');
     }
@@ -1363,7 +1367,7 @@ class ParcController extends Controller
                         'type_depense' => 'recouvrement',
                         'vehicule_id' => $penalite->vehicule_id,
                         'montant' => $r->montant,
-                        'commentaire' => "Pénalité #{$penalite->id} — {$penalite->typeLabel()} — {$penalite->chauffeur}",
+                        'commentaire' => "Pénalité payée par l'entreprise : {$penalite->typeLabel()} de {$penalite->chauffeur} du " . $penalite->date_infraction->format('d/m/Y'),
                         'cree_par' => auth()->user()->name,
                     ]);
                     $versData['depense_id'] = $dep->id;
@@ -1487,10 +1491,8 @@ class ParcController extends Controller
         $recetteMoisAvecRecouv = $recetteMois + $recouvMois;
 
         // Maintenance mois
-        $maintenanceMois = Schema::hasTable('depenses')
-            ? (int) Depense::where('vehicule_id', $vehicule->id)->where('type_depense', 'maintenance')
-                ->whereBetween('date_depense', [$moisDebut, $moisFin])->sum('montant')
-            : 0;
+        $maintenanceMois = (int) MaintenancePreventive::where('vehicule_id', $vehicule->id)->where('statut', 'realisee')
+            ->whereBetween('date_realisation', [$moisDebut, $moisFin])->sum('cout');
 
         // Chauffeurs actuels
         $chauffeursActifs = $vehicule->chauffeurs->where('pivot.actif', true)->map(fn($c) => [
@@ -1510,7 +1512,7 @@ class ParcController extends Controller
                 'chauffeur' => $rv->chauffeur ?? '—',
                 'recette' => (int) $rv->recette, 'objectif' => (int) $rv->objectif,
                 'ecart' => (int) $rv->ecart, 'pointage' => (int) ($rv->pointage ?? 0),
-                'motif' => $rv->motif_absence,
+                'motif' => TypeParc::libelleMotif($rv->motif_absence),
             ]);
 
         // Pannes (20 dernières)
@@ -1665,7 +1667,7 @@ class ParcController extends Controller
                 'objectif' => (int) $rv->objectif,
                 'ecart' => (int) $rv->ecart,
                 'pointage' => (int) ($rv->pointage ?? 0),
-                'motif' => $rv->motif_absence,
+                'motif' => TypeParc::libelleMotif($rv->motif_absence),
             ]);
 
         // Pénalités (toutes, triées)
@@ -1867,7 +1869,7 @@ class ParcController extends Controller
                     'type_depense' => 'recouvrement',
                     'vehicule_id' => $recouvrement->vehicule_id,
                     'montant' => $data['montant'],
-                    'commentaire' => "Recouvrement #{$recouvrement->id} — {$typeRecouvr} — {$recouvrement->chauffeur_nom}",
+                    'commentaire' => "Recouvrement pris en charge par l'entreprise : " . mb_strtolower($typeRecouvr) . " de {$recouvrement->chauffeur_nom} du " . $recouvrement->date_recette->format('d/m/Y'),
                     'cree_par' => $r->user()->name,
                 ]);
                 $data['depense_id'] = $dep->id;
@@ -1930,7 +1932,6 @@ class ParcController extends Controller
             'date_depense'   => 'required|date',
             'type_depense'   => 'required|string|max:100',
             'fournisseur'    => 'nullable|string|max:150',
-            'vehicule_id'    => 'nullable|exists:vehicules,id',
             'montant'        => 'required|integer|min:1',
             'moyen_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
             'caisse_source'  => 'nullable|string|max:30',
@@ -1938,6 +1939,7 @@ class ParcController extends Controller
         ]);
         $v['cree_par'] = auth()->user()->name;
         $v['caisse_source'] = $v['caisse_source'] ?? 'generale';
+        $v['vehicule_id'] = null; // charge de l'entreprise, non imputée à un véhicule
         $dep = Depense::create($v);
 
         // Mouvement caisse sortie
@@ -1964,13 +1966,12 @@ class ParcController extends Controller
             'date_depense'   => 'required|date',
             'type_depense'   => 'required|string|max:100',
             'fournisseur'    => 'nullable|string|max:150',
-            'vehicule_id'    => 'nullable|exists:vehicules,id',
             'montant'        => 'required|integer|min:1',
             'moyen_paiement' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
             'caisse_source'  => 'nullable|string|max:30',
             'commentaire'    => 'nullable|string|max:500',
         ]);
-        if (!$r->filled('vehicule_id')) $v['vehicule_id'] = null;
+        if ($depense->type_depense !== 'maintenance') $v['vehicule_id'] = null;
         $depense->update($v);
         AuditLog::log('modification', 'depense', "Dépense #{$depense->id}", "Type: {$depense->type_depense}, Montant: {$depense->montant} F");
         return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense modifiée.');

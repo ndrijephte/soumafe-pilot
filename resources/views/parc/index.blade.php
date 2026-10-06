@@ -575,12 +575,17 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                             @php $nomsGrille[] = $g['chauffeur']; @endphp
                             @endif
                         @endforeach
-                        @php $autresChauff = $chauffeurs->where('statut', 'actif')->whereNotIn('nom', $nomsGrille); @endphp
+                        @php
+                            // Chauffeurs du formulaire Chauffeurs absents de la grille (nom complet = prénom + nom), hors ceux déjà saisis ce jour
+                            $dejaSaisis = collect($grilleJour)->where('deja_saisi', true)->pluck('chauffeur')->all();
+                            $autresChauff = $chauffeurs->where('statut', 'actif')
+                                ->reject(fn($c) => in_array($c->nomComplet(), $nomsGrille, true) || in_array($c->nomComplet(), $dejaSaisis, true));
+                        @endphp
                         @if($autresChauff->isNotEmpty())
                         <option disabled>── Autres chauffeurs ──</option>
                         @foreach($autresChauff as $ac)
                             @php $acVeh = $ac->vehicules->first(); @endphp
-                            <option value="{{ $ac->nom }}" data-vid="{{ $acVeh->id ?? '' }}" data-vimmat="{{ $acVeh->immatriculation ?? '' }}" data-objectif="0" data-repos="0">{{ $ac->nom }}</option>
+                            <option value="{{ $ac->nomComplet() }}" data-vid="{{ $acVeh->id ?? '' }}" data-vimmat="{{ $acVeh->immatriculation ?? '' }}" data-objectif="0" data-repos="0">{{ $ac->nomComplet() }}</option>
                         @endforeach
                         @endif
                     </select>

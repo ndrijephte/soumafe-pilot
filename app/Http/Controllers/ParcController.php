@@ -835,6 +835,11 @@ class ParcController extends Controller
         abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'recette', "Recette #{$recette->id}", "Motif: " . $r->motif_suppression);
+        // Le déficit de cette recette n'existe plus : son recouvrement est annulé s'il n'a encore rien perçu
+        if (Schema::hasTable('recouvrements')) {
+            Recouvrement::where('recette_vehicule_id', $recette->id)->where('statut', 'actif')
+                ->where('montant_recouvre', 0)->update(['statut' => 'annule']);
+        }
         $recette->delete();
         return redirect()->route('parc.index', ['tab' => 'recettes'])->with('succes', 'Recette supprimée.');
     }
@@ -1474,9 +1479,8 @@ class ParcController extends Controller
         // Recouvrement perçu ce mois (versements chauffeur)
         $recouvMois = 0;
         if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
-            $recouvMois = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+            $recouvMois = (int) VersementRecouvrement::recetteChauffeurs()
                 ->where('recouvrements.vehicule_id', $vehicule->id)
-                ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
                 ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
                 ->sum('versements_recouvrement.montant');
         }
@@ -1644,9 +1648,8 @@ class ParcController extends Controller
         // Recouvrement perçu ce mois (versements chauffeur)
         $recouvMois = 0;
         if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
-            $recouvMois = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+            $recouvMois = (int) VersementRecouvrement::recetteChauffeurs()
                 ->where('recouvrements.chauffeur_nom', $nomComplet)
-                ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
                 ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
                 ->sum('versements_recouvrement.montant');
         }
@@ -1794,8 +1797,7 @@ class ParcController extends Controller
         // Recouvrement perçu ce mois (versements chauffeur)
         $recouvMois = 0;
         if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
-            $recouvMois = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
-                ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
+            $recouvMois = (int) VersementRecouvrement::recetteChauffeurs()
                 ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
                 ->sum('versements_recouvrement.montant');
         }

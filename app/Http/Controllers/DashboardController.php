@@ -265,7 +265,13 @@ class DashboardController extends Controller
             $vehiculesTotal = Vehicule::count();
             $vehiculesActifs = Vehicule::where('statut', 'en_service')->count();
 
-            $recetteMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
+            // Recette = recettes saisies + recouvrements de recette payés par les chauffeurs sur l'exercice
+            $recouvParVehicule = Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')
+                ? \App\Models\VersementRecouvrement::recetteChauffeurs()->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
+                    ->selectRaw('recouvrements.vehicule_id as vid, recouvrements.chauffeur_nom as nom, SUM(versements_recouvrement.montant) as total')
+                    ->groupBy('recouvrements.vehicule_id', 'recouvrements.chauffeur_nom')->get()
+                : collect();
+            $recetteMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('recette') + (int) $recouvParVehicule->sum('total');
             $objectifMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('objectif');
             $tauxRecette = $objectifMois > 0 ? round(($recetteMois / $objectifMois) * 100) : 0;
 
@@ -286,16 +292,17 @@ class DashboardController extends Controller
             $topVehicules = RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])
                 ->select('vehicule_id', \Illuminate\Support\Facades\DB::raw('SUM(recette) as total'), \Illuminate\Support\Facades\DB::raw('SUM(objectif) as obj'))
                 ->groupBy('vehicule_id')->orderByDesc('total')->limit(5)->get()
-                ->map(function ($r) {
+                ->map(function ($r) use ($recouvParVehicule) {
                     $v = Vehicule::find($r->vehicule_id);
+                    $total = (int) $r->total + (int) $recouvParVehicule->where('vid', $r->vehicule_id)->sum('total');
                     return [
                         'immat' => $v ? $v->immatriculation : '?',
                         'categorie' => $v ? $v->categorieLabel() : '?',
-                        'recette' => (int) $r->total,
+                        'recette' => $total,
                         'objectif' => (int) $r->obj,
-                        'taux' => $r->obj > 0 ? round(($r->total / $r->obj) * 100) : 0,
+                        'taux' => $r->obj > 0 ? round(($total / $r->obj) * 100) : 0,
                     ];
-                });
+                })->sortByDesc('recette')->values();
 
             $resultatNet = $recetteMois - $coutPannesMois - $montantPenalitesMois;
 
@@ -304,12 +311,12 @@ class DashboardController extends Controller
             if (Schema::hasTable('chauffeurs') && Schema::hasTable('chauffeur_vehicule')) {
                 $topChauffeurs = Chauffeur::with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
                     ->where('statut', 'actif')->get()
-                    ->map(function ($c) use ($moisDebut, $moisFin) {
+                    ->map(function ($c) use ($moisDebut, $moisFin, $recouvParVehicule) {
                         $nom = $c->nomComplet();
                         $cvIds = $c->vehicules->pluck('id');
+                        // Toutes ses recettes de l'exercice, quel que soit le véhicule conduit
                         $recQ = RecetteVehicule::where('chauffeur', $nom)->whereBetween('date', [$moisDebut, $moisFin]);
-                        if ($cvIds->isNotEmpty()) $recQ->whereIn('vehicule_id', $cvIds);
-                        $rec = (int) (clone $recQ)->sum('recette');
+                        $rec = (int) (clone $recQ)->sum('recette') + (int) $recouvParVehicule->where('nom', $nom)->sum('total');
                         $obj = (int) (clone $recQ)->sum('objectif');
                         $nbJ = (clone $recQ)->count();
                         if ($nbJ === 0) return null;

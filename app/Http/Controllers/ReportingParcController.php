@@ -150,13 +150,12 @@ class ReportingParcController extends Controller
             ->when(!$perimetreComplet, fn($q) => $q->whereIn('vehicule_id', $vehiculeIds));
     }
 
-    /** Recouvrements réellement payés par les chauffeurs (versements « chauffeur »). */
+    /** Recouvrements de recette payés par les chauffeurs, à la date du versement. */
     private function versementsChauffeurs(Collection $vehiculeIds, Carbon $debut, Carbon $fin, ?string $nomChauffeur)
     {
-        return VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+        return VersementRecouvrement::recetteChauffeurs()
             ->whereIn('recouvrements.vehicule_id', $vehiculeIds)
             ->when($nomChauffeur, fn($q) => $q->where('recouvrements.chauffeur_nom', $nomChauffeur))
-            ->where(fn($q) => $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'))
             ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin]);
     }
 

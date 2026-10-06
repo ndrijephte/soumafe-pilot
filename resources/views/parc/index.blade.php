@@ -167,10 +167,20 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 @if(session('succes'))<div class="alerte ok">{!! $ic('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',16) !!} {{ session('succes') }}</div>@endif
 
 {{-- KPI --}}
-<div style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 10px;padding:5px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12.5px;color:#1e40af">
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    Exercice en cours : <strong>{{ \App\Services\ExerciceParc::libelle(\App\Services\ExerciceParc::cle()) }}</strong>
-</div>
+<form method="GET" action="{{ route('parc.index') }}" id="form-exercice" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 12px;padding:8px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:13px;color:#1e40af">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <label for="sel-exercice" style="font-weight:600">Exercice affiché</label>
+    <select name="exercice" id="sel-exercice" onchange="changerExercice()" style="padding:6px 10px;border:1px solid #93c5fd;border-radius:8px;font-size:13px;font-weight:600;color:#1e3a8a;background:#fff">
+        @foreach($exercicesParc as $cle => $ex)
+        <option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $cle === $exerciceCourant ? ' — en cours' : '' }}</option>
+        @endforeach
+        <option value="tous" @selected($exercice === 'tous')>Toutes les périodes</option>
+    </select>
+    <input type="hidden" name="tab" id="ex-tab" value="{{ request('tab') }}">
+    @if(request('date_recette'))<input type="hidden" name="date_recette" value="{{ request('date_recette') }}">@endif
+    <span style="color:#475569;font-size:12px">Listes, totaux et indicateurs ci-dessous portent sur cet exercice.</span>
+    @if($exercice !== $exerciceCourant)<a href="{{ route('parc.index', ['tab' => request('tab')]) }}" style="margin-left:auto;font-weight:600;color:#1e40af">Revenir à l'exercice en cours</a>@endif
+</form>
 <div class="kpis">
     <div class="kpi"><div class="lbl">En service</div><div class="val">{{ $kpi['actifs'] }}<span style="font-size:13px;color:var(--gris);font-weight:400">/{{ $kpi['total'] }}</span></div><div class="sub">{{ $kpi['taxis'] }} Taxis · {{ $kpi['vtcs'] }} VTC</div></div>
     <div class="kpi" @if($kpi['pannes_ouvertes']>0) style="background:#fff7ed;border-color:#fed7aa" @endif><div class="lbl">Pannes ouvertes</div><div class="val" style="color:{{ $kpi['pannes_ouvertes']>0 ? '#b45309' : 'var(--ok)' }}">{{ $kpi['pannes_ouvertes'] }}</div></div>
@@ -263,6 +273,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB PANNES ==================== --}}
 <div class="tab-panel" id="tab-pannes">
+    @include('parc._reports', ['onglet' => 'pannes'])
     <div class="panel-head">
         <h3>{!! $icWrench !!} Pannes @if($kpi['pannes_ouvertes']>0)<span class="pill p-ko">{{ $kpi['pannes_ouvertes'] }} ouvertes</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-panne').showModal()">{!! $icPlus !!} Panne</button>@endif
@@ -275,7 +286,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     @endif
     @include('parc._filtre', ['cible' => 'tbl-pannes', 'champs' => [
-        'exercice' => '', 'vehicule' => true,
+        'vehicule' => true,
         'statut' => ['Tous les statuts', ['ouverte' => 'Non clôturées', 'declaree' => 'Déclarée', 'en_diagnostic' => 'En diagnostic', 'en_intervention' => 'En intervention', 'cloturee' => 'Clôturée']],
         'type' => ['Toutes urgences', ['critique' => 'Critique', 'haute' => 'Haute', 'moyenne' => 'Moyenne', 'faible' => 'Faible']],
         'recherche' => 'Description, diagnostic…']])
@@ -672,6 +683,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB MAINTENANCE ==================== --}}
 <div class="tab-panel" id="tab-maint">
+    @include('parc._reports', ['onglet' => 'maint'])
     <div class="panel-head">
         <h3>{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }} en retard</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-maint').showModal()">{!! $icPlus !!} Échéance</button>@endif
@@ -684,7 +696,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     @endif
     @include('parc._filtre', ['cible' => 'tbl-maint', 'champs' => [
-        'exercice' => '', 'vehicule' => true,
+        'vehicule' => true,
         'type' => ['Tous les types', $typesMaintenance->pluck('libelle', 'code')->all()],
         'statut' => ['Toutes les alertes', ['en_retard' => 'En retard', 'proche' => 'Proche', 'ok' => 'À jour', 'fait' => 'Réalisée']],
         'recherche' => 'Observations, prestataire…']])
@@ -741,12 +753,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB PÉNALITÉS ==================== --}}
 <div class="tab-panel" id="tab-penal">
+    @include('parc._reports', ['onglet' => 'penal'])
     <div class="panel-head">
         <h3>{!! $icAlert !!} Pénalités @if($kpi['penalites_non_payees']>0)<span class="pill p-ko">{{ $kpi['penalites_non_payees'] }} impayées</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-penal').showModal()">{!! $icPlus !!} Pénalité</button>@endif
     </div>
     @include('parc._filtre', ['cible' => 'tbl-penal', 'champs' => [
-        'exercice' => '', 'vehicule' => true, 'chauffeur' => true,
+        'vehicule' => true, 'chauffeur' => true,
         'type' => ['Tous les types', $typesPenalite->pluck('libelle', 'code')->all()],
         'statut' => ['Tous les statuts', ['impayee' => 'Non soldées', 'non_payee' => 'Non payée', 'en_cours' => 'En cours', 'payee' => 'Payée', 'contestee' => 'Contestée']],
         'recherche' => 'Lieu, description…']])
@@ -814,6 +827,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB RECOUVREMENTS ==================== --}}
 <div class="tab-panel" id="tab-recouv">
+    @include('parc._reports', ['onglet' => 'recouv'])
     <div class="panel-head">
         <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg> Recouvrements en cours</h3>
     </div>
@@ -830,7 +844,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
 
     @include('parc._filtre', ['cible' => 'tbl-recouv', 'champs' => [
-        'exercice' => '', 'vehicule' => true, 'chauffeur' => true,
+        'vehicule' => true, 'chauffeur' => true,
         'type' => ['Tous les types', ['recette' => 'Recette', 'penalite' => 'Pénalité']],
         'recherche' => 'Rechercher…']])
     <div style="overflow-x:auto">
@@ -891,7 +905,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--bleu);padding:6px 0">Historique soldés / annulés ({{ $recSoldes->count() }})</summary>
         <div style="margin-top:8px">
         @include('parc._filtre', ['cible' => 'tbl-recouv-soldes', 'champs' => [
-            'exercice' => '', 'chauffeur' => true,
+            'chauffeur' => true,
             'statut' => ['Tous', ['solde' => 'Soldé', 'annule' => 'Annulé']]]])
         </div>
         <div style="overflow-x:auto">
@@ -1050,7 +1064,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
     </div>
     @include('parc._filtre', ['cible' => 'tbl-histo-recettes', 'champs' => [
-        'exercice' => $exerciceCourant, 'vehicule' => true, 'chauffeur' => true,
+        'vehicule' => true, 'chauffeur' => true,
         'statut' => ['Tous les résultats', ['atteint' => 'Objectif atteint', 'non_atteint' => 'Objectif non atteint', 'absence' => "Avec motif d'absence"]],
         'recherche' => 'Rechercher…']])
     <div style="overflow-x:auto;max-height:60vh;overflow-y:auto">
@@ -1675,7 +1689,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 @include('parc._filtre', ['cible' => 'tbl-depenses', 'champs' => [
-    'exercice' => '', 'vehicule' => true,
+    'vehicule' => true,
     'type' => ['Tous les types', ($typesDepense ?? collect())->pluck('libelle', 'code')->all()],
     'recherche' => 'Commentaire, saisi par…']])
 <div class="panneau" style="overflow-x:auto">
@@ -1725,6 +1739,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB EMPRUNTS ==================== --}}
 <div class="tab-panel" id="tab-emprunts">
+    @include('parc._reports', ['onglet' => 'emprunts'])
 <div class="panel-head">
     <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Emprunts <span class="pill p-cours">{{ ($emprunts ?? collect())->count() }}</span></h3>
     @if(!$estDG)
@@ -1746,7 +1761,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 @include('parc._filtre', ['cible' => 'tbl-emprunts', 'champs' => [
-    'exercice' => '', 'vehicule' => true,
+    'vehicule' => true,
     'statut' => ['Tous les statuts', ['en_cours' => 'En cours', 'rembourse' => 'Remboursé']],
     'recherche' => 'Prêteur, motif…']])
 <div class="panneau" style="overflow-x:auto">
@@ -1813,6 +1828,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB PRÊTS ACCORDÉS ==================== --}}
 <div class="tab-panel" id="tab-prets">
+    @include('parc._reports', ['onglet' => 'prets'])
 <div class="panel-head">
     <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> Prêts accordés <span class="pill p-cours">{{ ($pretsAccordes ?? collect())->count() }}</span></h3>
     @if(!$estDG)
@@ -1834,7 +1850,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 @include('parc._filtre', ['cible' => 'tbl-prets', 'champs' => [
-    'exercice' => '', 'chauffeur' => true,
+    'chauffeur' => true,
     'statut' => ['Tous les statuts', ['en_cours' => 'En cours', 'rembourse' => 'Remboursé', 'irrécouvrable' => 'Irrécouvrable']],
     'recherche' => 'Référence, bénéficiaire…']])
 <div class="panneau" style="overflow-x:auto">
@@ -1913,7 +1929,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 @include('parc._filtre', ['cible' => 'tbl-ressources', 'champs' => [
-    'exercice' => '', 'vehicule' => true,
+    'vehicule' => true,
     'type' => ['Tous les types', ($typesRessource ?? collect())->pluck('libelle', 'code')->all()],
     'recherche' => 'Source, description…']])
 <div class="panneau" style="overflow-x:auto">
@@ -2287,6 +2303,11 @@ foreach($vehicules as $_v) {
 
 @push('scripts')
 <script>
+function changerExercice(){
+    var actif=document.querySelector('.tab-panel.actif');
+    if(actif) document.getElementById('ex-tab').value=actif.id.replace('tab-','');
+    document.getElementById('form-exercice').submit();
+}
 function changerOnglet(nom){
     document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('actif')});
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('actif')});
@@ -3222,7 +3243,7 @@ function ficheVehicule(vehiculeId){
     contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
     dlg.showModal();
     var fmt=function(n){return new Intl.NumberFormat('fr-FR').format(n||0)};
-    fetch('{{ url("parc/vehicules") }}/'+vehiculeId+'/fiche')
+    fetch('{{ url("parc/vehicules") }}/'+vehiculeId+'/fiche?exercice={{ $exercice }}')
         .then(function(r){return r.json()})
         .then(function(d){
             var html='';
@@ -3346,7 +3367,7 @@ function ficheChauffeur(chauffeurId){
     contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
     dlg.showModal();
     var fmt=function(n){return new Intl.NumberFormat('fr-FR').format(n||0)};
-    fetch('{{ url("parc/chauffeurs") }}/'+chauffeurId+'/fiche')
+    fetch('{{ url("parc/chauffeurs") }}/'+chauffeurId+'/fiche?exercice={{ $exercice }}')
         .then(function(r){return r.json()})
         .then(function(d){
             var html='';

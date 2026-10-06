@@ -35,13 +35,25 @@ class ParcController extends Controller
             : collect();
         $collaborateurs = User::where('actif', true)->orderBy('name')->get();
 
-        // Toutes les données chargées (sections empilées)
-        $pannes = Panne::with(['vehicule', 'emprunt', 'lignes'])->orderByDesc('date_declaration')->get();
-        $recettes = RecetteVehicule::with('vehicule')->orderByDesc('date')->limit(2000)->get();
-        $maintenances = MaintenancePreventive::with('vehicule')->orderBy('prochaine_echeance')->get();
-        $penalites = Penalite::with(['vehicule', 'paiements'])->orderByDesc('date_infraction')->get();
+        // ── Exercice affiché : toutes les listes, totaux et indicateurs sont bornés à cet exercice ──
+        $exercicesParc = ExerciceParc::liste(18);
+        $exerciceCourant = ExerciceParc::cle();
+        $exercice = $r->get('exercice', $exerciceCourant);
+        if ($exercice !== 'tous' && !isset($exercicesParc[$exercice])) $exercice = $exerciceCourant;
+        [$exDebut, $exFin] = $exercice === 'tous' ? [null, null] : ExerciceParc::bornes($exercice);
+        $borne = fn($q, string $col) => $exDebut ? $q->whereBetween($col, [$exDebut, $exFin]) : $q;
 
-        $kpi = $this->calculerKpi($vehicules);
+        $pannes = $borne(Panne::with(['vehicule', 'emprunt', 'lignes']), 'date_declaration')->orderByDesc('date_declaration')->get();
+        $recettes = $borne(RecetteVehicule::with('vehicule'), 'date')->orderByDesc('date')->limit(2000)->get();
+        // Maintenance : réalisée → date de réalisation ; planifiée → date d'échéance
+        $maintenances = MaintenancePreventive::with('vehicule')
+            ->when($exDebut, fn($q) => $q->where(fn($w) => $w
+                ->where(fn($a) => $a->where('statut', 'realisee')->whereBetween('date_realisation', [$exDebut, $exFin]))
+                ->orWhere(fn($b) => $b->where(fn($s) => $s->whereNull('statut')->orWhere('statut', '!=', 'realisee'))->whereBetween('prochaine_echeance', [$exDebut, $exFin]))))
+            ->orderBy('prochaine_echeance')->get();
+        $penalites = $borne(Penalite::with(['vehicule', 'paiements']), 'date_infraction')->orderByDesc('date_infraction')->get();
+
+        $kpi = $this->calculerKpi($vehicules, $exDebut, $exFin);
         $typesPenalite = TypeParc::penalites();
         $typesMaintenance = TypeParc::maintenances();
         $motifsAbsence = TypeParc::motifsAbsence();
@@ -55,41 +67,44 @@ class ParcController extends Controller
 
         // --- Recouvrements ---
         $recouvrements = Schema::hasTable('recouvrements')
-            ? Recouvrement::with(['vehicule', 'versements'])->orderByDesc('date_recette')->get()
+            ? $borne(Recouvrement::with(['vehicule', 'versements']), 'date_recette')->orderByDesc('date_recette')->get()
             : collect();
 
         // --- Dépenses (hors maintenance = dépense véhicule, pas "autre dépense") ---
         $depenses = Schema::hasTable('depenses')
-            ? Depense::with('vehicule')->where('type_depense', '!=', 'maintenance')->orderByDesc('date_depense')->get()
+            ? $borne(Depense::with('vehicule')->where('type_depense', '!=', 'maintenance'), 'date_depense')->orderByDesc('date_depense')->get()
             : collect();
         $typesDepense = TypeParc::depenses();
 
         // --- Emprunts ---
         $emprunts = Schema::hasTable('emprunts')
-            ? Emprunt::with(['vehicule', 'remboursements'])->orderByDesc('date_emprunt')->get()
+            ? $borne(Emprunt::with(['vehicule', 'remboursements']), 'date_emprunt')->orderByDesc('date_emprunt')->get()
             : collect();
 
         // --- Prêts accordés ---
         $pretsAccordes = Schema::hasTable('prets_accordes')
-            ? PretAccorde::with(['chauffeur', 'remboursements'])->orderByDesc('date_pret')->get()
+            ? $borne(PretAccorde::with(['chauffeur', 'remboursements']), 'date_pret')->orderByDesc('date_pret')->get()
             : collect();
 
         // --- Autres ressources ---
         $autresRessources = Schema::hasTable('autres_ressources')
-            ? AutreRessource::with('vehicule')->orderByDesc('date_ressource')->get()
+            ? $borne(AutreRessource::with('vehicule'), 'date_ressource')->orderByDesc('date_ressource')->get()
             : collect();
         $typesRessource = TypeParc::autresRessources();
 
         // --- Caisses ---
         $caisses = Schema::hasTable('caisses') ? Caisse::where('actif', true)->get() : collect();
 
+        $reports = $exDebut ? $this->reportsAnterieurs($exDebut) : [];
+
         return view('parc.index', compact(
             'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes',
             'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
             'depenses', 'typesDepense', 'emprunts',
-            'pretsAccordes', 'autresRessources', 'typesRessource', 'caisses'
-        ) + ['exercicesParc' => ExerciceParc::liste(18), 'exerciceCourant' => ExerciceParc::cle()]);
+            'pretsAccordes', 'autresRessources', 'typesRessource', 'caisses',
+            'exercicesParc', 'exerciceCourant', 'exercice', 'reports'
+        ));
     }
 
     /* ─── Construire la grille du jour (chauffeur-centric) ─── */
@@ -228,7 +243,7 @@ class ParcController extends Controller
 
             $grille[] = [
                 'chauffeur_obj' => null,
-                'chauffeur' => $v->chauffeur_affecte ?? '',
+                'chauffeur' => '',
                 'chauffeur_actif' => true,
                 'vehicule' => $v,
                 'objectif' => $estRepos ? 0 : $objectif,
@@ -550,7 +565,7 @@ class ParcController extends Controller
         $data = $r->validate([
             'date' => 'required|date',
             'vehicule_id' => 'required|exists:vehicules,id',
-            'chauffeur' => 'nullable|string|max:100',
+            'chauffeur' => ['nullable', \Illuminate\Validation\Rule::in(Chauffeur::nomsValides())],
             'recette' => 'required|integer|min:0',
             'pointage' => 'required|integer|min:0',
             'mode_remise' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
@@ -559,7 +574,7 @@ class ParcController extends Controller
             'motif_absence' => 'nullable|string|max:80',
             'perspective' => 'nullable|string|max:500',
             'justification_valable' => 'nullable|in:0,1',
-        ]);
+        ], ['chauffeur.in' => "Chauffeur inconnu : choisissez un chauffeur enregistré dans l'onglet Chauffeurs."]);
 
         $montant = (int) ($data['recette'] ?? 0);
 
@@ -696,7 +711,7 @@ class ParcController extends Controller
         $data = $r->validate([
             'date' => 'required|date',
             'vehicule_id' => 'required|exists:vehicules,id',
-            'chauffeur' => 'nullable|string|max:100',
+            'chauffeur' => ['nullable', \Illuminate\Validation\Rule::in(Chauffeur::nomsValides())],
             'recette' => 'required|integer|min:0',
             'pointage' => 'required|integer|min:0',
             'mode_remise' => 'nullable|in:especes,mobile_money,cheque,virement,autre',
@@ -705,7 +720,7 @@ class ParcController extends Controller
             'motif_absence' => 'nullable|string|max:80',
             'perspective' => 'nullable|string|max:500',
             'justification_valable' => 'nullable|in:0,1',
-        ]);
+        ], ['chauffeur.in' => "Chauffeur inconnu : choisissez un chauffeur enregistré dans l'onglet Chauffeurs."]);
 
         $montant = (int) ($data['recette'] ?? 0);
 
@@ -836,6 +851,7 @@ class ParcController extends Controller
         }
 
         $typeJour = $this->detecterTypeJour($dateJour);
+        $nomsChauffeurs = Chauffeur::nomsValides();
         $erreurs = [];
         $nbCrees = 0;
         $nbMaj = 0;
@@ -847,6 +863,11 @@ class ParcController extends Controller
 
                 $v = Vehicule::find($vehiculeId);
                 if (!$v) continue;
+
+                if (!empty($ligne['chauffeur']) && !in_array($ligne['chauffeur'], $nomsChauffeurs, true)) {
+                    $erreurs[] = "{$ligne['chauffeur']} : chauffeur inconnu, choisissez un chauffeur enregistré";
+                    continue;
+                }
 
                 $estRepos = isset($ligne['est_repos']) && $ligne['est_repos'];
                 $montant = (int) ($ligne['recette'] ?? 0);
@@ -1187,14 +1208,14 @@ class ParcController extends Controller
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
             'type' => 'required|string|max:50',
-            'chauffeur' => 'required|string|max:100',
+            'chauffeur' => ['required', \Illuminate\Validation\Rule::in(Chauffeur::nomsValides())],
             'lieu' => 'required|string|max:120',
             'description' => 'required|string|max:500',
             'montant' => 'required|integer|min:0',
             'statut' => 'required|in:non_payee,payee,en_cours,contestee',
             'date_paiement' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
-        ]);
+        ], ['chauffeur.in' => "Chauffeur inconnu : choisissez un chauffeur enregistré dans l'onglet Chauffeurs."]);
 
         $data = $r->only([
             'vehicule_id', 'date_infraction', 'type', 'chauffeur', 'lieu',
@@ -1244,14 +1265,14 @@ class ParcController extends Controller
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
             'type' => 'required|string|max:50',
-            'chauffeur' => 'required|string|max:100',
+            'chauffeur' => ['required', \Illuminate\Validation\Rule::in(Chauffeur::nomsValides())],
             'lieu' => 'required|string|max:120',
             'description' => 'required|string|max:500',
             'montant' => 'required|integer|min:0',
             'statut' => 'required|in:non_payee,payee,en_cours,contestee',
             'date_paiement' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
-        ]);
+        ], ['chauffeur.in' => "Chauffeur inconnu : choisissez un chauffeur enregistré dans l'onglet Chauffeurs."]);
 
         $penalite->update($r->only([
             'vehicule_id', 'date_infraction', 'type', 'chauffeur', 'lieu',
@@ -1438,7 +1459,7 @@ class ParcController extends Controller
         $this->autoriser($r);
         $vehicule->load(['chauffeurs', 'pannes', 'recettes', 'maintenances', 'penalites']);
 
-        [$moisDebut, $moisFin] = ExerciceParc::courant();
+        [$moisDebut, $moisFin] = $this->bornesFiche($r);
 
         // KPIs mois en cours
         $recetteMois = (int) $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
@@ -1579,11 +1600,18 @@ class ParcController extends Controller
         ]);
     }
 
+    private function bornesFiche(Request $r): array
+    {
+        $ex = $r->get('exercice');
+        if ($ex === 'tous') return [\Carbon\Carbon::create(2000, 1, 1), today()->endOfDay()];
+        return $ex && preg_match('/^\d{4}-\d{2}$/', $ex) ? ExerciceParc::bornes($ex) : ExerciceParc::courant();
+    }
+
     /* ===== FICHE RÉSUMÉ CHAUFFEUR (JSON) ===== */
     public function ficheChauffeur(Request $r, Chauffeur $chauffeur)
     {
         $this->autoriser($r);
-        [$moisDebut, $moisFin] = ExerciceParc::courant();
+        [$moisDebut, $moisFin] = $this->bornesFiche($r);
         $nomComplet = $chauffeur->nomComplet();
 
         // Véhicules affectés (actifs)
@@ -1717,12 +1745,41 @@ class ParcController extends Controller
     }
 
     /* ===== KPI ===== */
-    private function calculerKpi($vehicules): array
+    /** Éléments d'exercices antérieurs encore ouverts, signalés dans les onglets. */
+    private function reportsAnterieurs(\Carbon\Carbon $debut): array
+    {
+        $avant = fn($q, string $col) => $q->where($col, '<', $debut);
+        $res = [
+            'pannes' => ['nb' => $avant(Panne::query(), 'date_declaration')->whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count(), 'libelle' => 'panne(s) non clôturée(s)'],
+            'maint' => ['nb' => MaintenancePreventive::where(fn($s) => $s->whereNull('statut')->orWhere('statut', '!=', 'realisee'))->where('prochaine_echeance', '<', $debut)->count(), 'libelle' => 'maintenance(s) en retard'],
+        ];
+        if (Schema::hasTable('penalites')) {
+            $q = $avant(Penalite::query(), 'date_infraction')->where('statut', '!=', 'payee');
+            $res['penal'] = ['nb' => (clone $q)->count(), 'libelle' => 'pénalité(s) non soldée(s)', 'montant' => (int) $q->sum(DB::raw('montant - COALESCE(montant_paye, 0)'))];
+        }
+        if (Schema::hasTable('recouvrements')) {
+            $q = $avant(Recouvrement::query(), 'date_recette')->where('statut', 'actif');
+            $res['recouv'] = ['nb' => (clone $q)->count(), 'libelle' => 'recouvrement(s) encore actif(s)', 'montant' => (int) $q->sum('solde')];
+        }
+        if (Schema::hasTable('emprunts')) {
+            $q = $avant(Emprunt::query(), 'date_emprunt')->where('statut', 'en_cours');
+            $res['emprunts'] = ['nb' => (clone $q)->count(), 'libelle' => 'emprunt(s) en cours', 'montant' => (int) $q->sum(DB::raw('montant - montant_rembourse'))];
+        }
+        if (Schema::hasTable('prets_accordes')) {
+            $q = $avant(PretAccorde::query(), 'date_pret')->whereNotIn('statut', ['rembourse', 'irrécouvrable']);
+            $res['prets'] = ['nb' => (clone $q)->count(), 'libelle' => 'prêt(s) non remboursé(s)', 'montant' => (int) $q->sum(DB::raw('montant - COALESCE(montant_rembourse, 0)'))];
+        }
+        return array_filter($res, fn($x) => $x['nb'] > 0);
+    }
+
+    private function calculerKpi($vehicules, ?\Carbon\Carbon $debut = null, ?\Carbon\Carbon $fin = null): array
     {
         $actifs = $vehicules->where('statut', 'en_service')->count();
         $taxis = $vehicules->where('categorie', 'taxi')->count();
         $vtcs = $vehicules->where('categorie', 'vtc')->count();
-        [$moisDebut, $moisFin] = ExerciceParc::courant();
+        // Sans borne (« toutes les périodes ») : de l'origine à aujourd'hui
+        $moisDebut = $debut ?? \Carbon\Carbon::create(2000, 1, 1);
+        $moisFin = $fin ?? today()->endOfDay();
 
         $pannesMois = Panne::whereBetween('date_declaration', [$moisDebut, $moisFin])->count();
         $pannesOuvertes = Panne::whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count();

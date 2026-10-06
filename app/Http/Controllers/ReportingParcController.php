@@ -81,6 +81,13 @@ class ReportingParcController extends Controller
 
         // ═══════ À TRAITER (état actuel, pas seulement la période) ═══════
         $aTraiter = $this->aTraiter($vehiculeIds, $parVehicule, $chauffeurs, $nomChauffeur);
+        $inconnus = $nomChauffeur ? [] : $this->nomsInconnus($vehiculeIds, $debut, $fin);
+        if ($inconnus) {
+            array_unshift($aTraiter, ['niveau' => 'ko', 'onglet' => 'recettes',
+                'titre' => array_sum(array_column($inconnus, 'nb')) . ' saisie(s) avec un nom de chauffeur inconnu',
+                'detail' => collect($inconnus)->map(fn($i) => "« {$i['nom']} » ({$i['nb']} {$i['source']})")->join(', ')
+                    . '. Ces noms ne figurent pas dans le formulaire Chauffeurs : corriger les saisies (les montants restent comptés dans les totaux, pas dans la performance des chauffeurs).']);
+        }
 
         // ═══════ DÉTAIL JOUR PAR JOUR (filtre véhicule ou chauffeur) ═══════
         $detailJour = collect();
@@ -192,7 +199,7 @@ class ReportingParcController extends Controller
             'recette_brute' => (int) $rec->recette,
             'recouvrement' => $recouvrement,
             'objectif' => (int) $rec->objectif,
-            'taux' => $rec->objectif > 0 ? (int) round($recettes / $rec->objectif * 100) : 0,
+            'taux' => $rec->objectif > 0 ? round($recettes / $rec->objectif * 100, 2) : 0,
             'jours' => (int) $rec->jours,
             'jours_atteints' => (int) $rec->jours_atteints,
             'pannes' => (int) $pannes->cout,
@@ -203,7 +210,7 @@ class ReportingParcController extends Controller
             'autres_depenses' => $autresDepenses,
             'charges' => $charges,
             'resultat' => $recettes - $charges,
-            'marge' => $recettes > 0 ? (int) round(($recettes - $charges) / $recettes * 100) : null,
+            'marge' => $recettes > 0 ? round(($recettes - $charges) / $recettes * 100, 2) : null,
         ];
     }
 
@@ -248,7 +255,7 @@ class ReportingParcController extends Controller
                 'id' => $v->id, 'immat' => $v->immatriculation, 'categorie' => $v->categorieLabel(),
                 'statut' => $v->statut, 'statut_label' => $v->statutLabel(),
                 'jours' => (int) ($r->jours ?? 0), 'recettes' => $recettes, 'objectif' => $objectif,
-                'taux' => $objectif > 0 ? (int) round($recettes / $objectif * 100) : null,
+                'taux' => $objectif > 0 ? round($recettes / $objectif * 100, 2) : null,
                 'pannes' => $pannesCout, 'nb_pannes' => (int) ($pannes[$v->id]->nb ?? 0),
                 'maintenance' => $maint, 'penalites' => $penal, 'autres' => $autres,
                 'charges' => $charges, 'resultat' => $resultat,
@@ -260,18 +267,21 @@ class ReportingParcController extends Controller
         ->sortBy('resultat')->values();
     }
 
+    /** Uniquement les chauffeurs du formulaire Chauffeurs (prénom + nom) ; tout autre nom est une anomalie signalée à part. */
     private function performanceChauffeurs(Collection $vehiculeIds, Carbon $debut, Carbon $fin, ?string $nomChauffeur): Collection
     {
+        if (!Schema::hasTable('chauffeurs')) return collect();
+        $liste = Chauffeur::orderBy('nom')->get()
+            ->when($nomChauffeur, fn($c) => $c->filter(fn($ch) => $ch->nomComplet() === $nomChauffeur));
+        $noms = $liste->map->nomComplet();
+
         $rec = RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date', [$debut, $fin])
-            ->whereNotNull('chauffeur')->where('chauffeur', '<>', '')
-            ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+            ->whereIn('chauffeur', $noms)
             ->selectRaw('chauffeur, SUM(recette) as recette, SUM(objectif) as objectif, COUNT(*) as jours,
                 SUM(CASE WHEN recette >= objectif THEN 1 ELSE 0 END) as jours_atteints,
                 SUM(CASE WHEN motif_absence IS NOT NULL AND motif_absence <> \'\' THEN 1 ELSE 0 END) as absences,
                 COUNT(DISTINCT vehicule_id) as nb_vehicules')
-            ->groupBy('chauffeur')->get();
-        if ($rec->isEmpty()) return collect();
-
+            ->groupBy('chauffeur')->get()->keyBy('chauffeur');
         $recouv = $this->avecRecouvrements()
             ? $this->versementsChauffeurs($vehiculeIds, $debut, $fin, $nomChauffeur)
                 ->selectRaw('recouvrements.chauffeur_nom as nom, SUM(versements_recouvrement.montant) as total')
@@ -285,21 +295,45 @@ class ReportingParcController extends Controller
             ? Recouvrement::where('statut', 'actif')->selectRaw('chauffeur_nom, SUM(solde) as solde')->groupBy('chauffeur_nom')->pluck('solde', 'chauffeur_nom')
             : collect();
 
-        return $rec->map(function ($c) use ($recouv, $pen, $soldes) {
-            $recettes = (int) $c->recette + (int) ($recouv[$c->chauffeur] ?? 0);
-            $penal = (int) ($pen[$c->chauffeur]->total ?? 0);
+        return $liste->map(function ($ch) use ($rec, $recouv, $pen, $soldes) {
+            $nom = $ch->nomComplet();
+            $c = $rec[$nom] ?? null;
+            $objectif = (int) ($c->objectif ?? 0);
+            $recettes = (int) ($c->recette ?? 0) + (int) ($recouv[$nom] ?? 0);
+            $jours = (int) ($c->jours ?? 0);
             return [
-                'nom' => $c->chauffeur,
-                'jours' => (int) $c->jours, 'jours_atteints' => (int) $c->jours_atteints, 'absences' => (int) $c->absences,
-                'nb_vehicules' => (int) $c->nb_vehicules,
-                'recettes' => $recettes, 'objectif' => (int) $c->objectif,
-                'ecart' => $recettes - (int) $c->objectif,
-                'taux' => $c->objectif > 0 ? (int) round($recettes / $c->objectif * 100) : null,
-                'moyenne' => $c->jours > 0 ? (int) round($recettes / $c->jours) : 0,
-                'penalites' => $penal, 'nb_penalites' => (int) ($pen[$c->chauffeur]->nb ?? 0),
-                'dette' => (int) ($soldes[$c->chauffeur] ?? 0),
+                'nom' => $nom, 'statut' => $ch->statut,
+                'jours' => $jours, 'jours_atteints' => (int) ($c->jours_atteints ?? 0), 'absences' => (int) ($c->absences ?? 0),
+                'nb_vehicules' => (int) ($c->nb_vehicules ?? 0),
+                'recettes' => $recettes, 'objectif' => $objectif,
+                'ecart' => $recettes - $objectif,
+                'taux' => $objectif > 0 ? round($recettes / $objectif * 100, 2) : null,
+                'moyenne' => $jours > 0 ? (int) round($recettes / $jours) : 0,
+                'penalites' => (int) ($pen[$nom]->total ?? 0), 'nb_penalites' => (int) ($pen[$nom]->nb ?? 0),
+                'dette' => (int) ($soldes[$nom] ?? 0),
             ];
-        })->sortBy(fn($c) => $c['taux'] ?? 999)->values();
+        })
+        // Chauffeur inactif sans aucune activité sur la période : rien à évaluer
+        ->filter(fn($c) => $c['statut'] === 'actif' || $c['jours'] > 0 || $c['penalites'] > 0 || $c['dette'] > 0)
+        // Du taux le plus faible au plus élevé ; les chauffeurs sans saisie en fin de liste
+        ->sortBy(fn($c) => $c['taux'] ?? 100000)->values();
+    }
+
+    /** Saisies portant un nom de chauffeur absent du formulaire Chauffeurs (erreur de données). */
+    private function nomsInconnus(Collection $vehiculeIds, Carbon $debut, Carbon $fin): array
+    {
+        if (!Schema::hasTable('chauffeurs')) return [];
+        $valides = Chauffeur::nomsValides();
+        $res = [];
+        $sources = ['recettes' => [RecetteVehicule::query(), 'chauffeur', 'date']];
+        if (Schema::hasTable('penalites')) $sources['pénalités'] = [Penalite::query(), 'chauffeur', 'date_infraction'];
+        foreach ($sources as $lib => [$q, $col, $date]) {
+            $lignes = $q->whereIn('vehicule_id', $vehiculeIds)->whereBetween($date, [$debut, $fin])
+                ->whereNotNull($col)->where($col, '<>', '')->whereNotIn($col, $valides)
+                ->selectRaw("{$col} as nom, COUNT(*) as nb")->groupBy($col)->get();
+            foreach ($lignes as $l) $res[] = ['source' => $lib, 'nom' => $l->nom, 'nb' => (int) $l->nb];
+        }
+        return $res;
     }
 
     /**
@@ -363,7 +397,7 @@ class ReportingParcController extends Controller
         if ($sousObjectif->isNotEmpty()) {
             $points[] = ['niveau' => 'warn', 'onglet' => 'chauffeurs',
                 'titre' => $sousObjectif->count() . ' chauffeur(s) sous 80 % de l\'objectif',
-                'detail' => $sousObjectif->take(4)->map(fn($c) => $c['nom'] . ' (' . $c['taux'] . ' %)')->join(', ') . '.'];
+                'detail' => $sousObjectif->take(4)->map(fn($c) => $c['nom'] . ' (' . number_format($c['taux'], 2, ',', ' ') . ' %)')->join(', ') . '.'];
         }
 
         $pannesOuvertes = Panne::whereIn('vehicule_id', $vehiculeIds)->whereIn('statut', self::PANNES_OUVERTES)->get(['urgence', 'date_declaration']);

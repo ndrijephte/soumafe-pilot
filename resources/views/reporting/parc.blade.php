@@ -92,7 +92,7 @@
 .bar-label{width:130px;font-size:12px;color:#475569;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar-track{flex:1;height:16px;background:#f1f5f9;border-radius:4px;overflow:hidden}
 .bar-fill{height:100%;border-radius:4px}
-.bar-val{font-size:12px;color:#334155;width:120px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
+.bar-val{font-size:12px;color:#334155;width:140px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
 
 .lien-retour{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--accent);text-decoration:none}
 .lien-retour:hover{text-decoration:underline}
@@ -109,19 +109,20 @@
 @php
     $ico = fn(string $d) => '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $d . '</svg>';
     $F = fn($n) => number_format((int) $n, 0, ',', ' ');
+    $P = fn($v) => number_format((float) $v, 2, ',', ' ');
     $signe = fn($n) => ($n > 0 ? '+' : '') . number_format((int) $n, 0, ',', ' ');
     // Variation vs période précédente ; $hausseBonne = la hausse est-elle une bonne nouvelle ?
-    $variation = function ($cur, $prec, bool $hausseBonne = true, bool $enMontant = false) use ($libellePrec) {
+    $variation = function ($cur, $prec, bool $hausseBonne = true, bool $enMontant = false) use ($libellePrec, $P) {
         if ($enMontant) {
             $diff = (int) $cur - (int) $prec;
             if ($diff === 0) return '<span class="var eq">= identique à ' . e($libellePrec) . '</span>';
             return '<span class="var ' . ($diff > 0 ? 'up' : 'down') . '">' . ($diff > 0 ? '▲ +' : '▼ ') . number_format($diff, 0, ',', ' ') . ' F vs ' . e($libellePrec) . '</span>';
         }
         if (!$prec) return '<span class="var eq">Aucune donnée sur ' . e($libellePrec) . ' pour comparer</span>';
-        $pct = (int) round(($cur - $prec) / abs($prec) * 100);
-        if ($pct === 0) return '<span class="var eq">= stable vs ' . e($libellePrec) . '</span>';
+        $pct = round(($cur - $prec) / abs($prec) * 100, 2);
+        if ($pct == 0) return '<span class="var eq">= stable vs ' . e($libellePrec) . '</span>';
         $bon = ($pct > 0) === $hausseBonne;
-        return '<span class="var ' . ($bon ? 'up' : 'down') . '">' . ($pct > 0 ? '▲ +' : '▼ ') . $pct . ' % vs ' . e($libellePrec) . '</span>';
+        return '<span class="var ' . ($bon ? 'up' : 'down') . '">' . ($pct > 0 ? '▲ +' : '▼ ') . $P($pct) . ' % vs ' . e($libellePrec) . '</span>';
     };
     $classeTaux = fn($t) => $t === null ? 'g-warn' : ($t >= 100 ? 'g-ok' : ($t >= 80 ? 'g-warn' : 'g-ko'));
     $couleurTaux = fn($t) => $t === null ? 'var(--gris)' : ($t >= 100 ? 'var(--ok)' : ($t >= 80 ? '#b45309' : 'var(--ko)'));
@@ -207,7 +208,7 @@
     <div class="ess">
         <div class="lbl">Recettes encaissées</div>
         <div class="val">{{ $F($kpi['recettes']) }} <small>F</small></div>
-        <div class="aide">{{ $kpi['taux'] }} % de l'objectif ({{ $F($kpi['objectif']) }} F)</div>
+        <div class="aide">{{ $P($kpi['taux']) }} % de l'objectif ({{ $F($kpi['objectif']) }} F)</div>
         <div class="gauge"><div class="{{ $classeTaux($kpi['objectif'] ? $kpi['taux'] : null) }}" style="width:{{ min(100, $kpi['taux']) }}%"></div></div>
         @if($kpi['recouvrement'] > 0)<div class="aide">dont {{ $F($kpi['recouvrement']) }} F de recouvrements</div>@endif
         {!! $variation($kpi['recettes'], $kpiPrec['recettes']) !!}
@@ -224,14 +225,14 @@
     <div class="ess {{ $kpi['resultat'] >= 0 ? 'ok' : 'ko' }}">
         <div class="lbl">Résultat net</div>
         <div class="val">{{ $signe($kpi['resultat']) }} <small>F</small></div>
-        <div class="aide">Recettes − charges @if($kpi['marge'] !== null) · marge {{ $kpi['marge'] }} %@endif</div>
+        <div class="aide">Recettes − charges @if($kpi['marge'] !== null) · marge {{ $P($kpi['marge']) }} %@endif</div>
         {!! $variation($kpi['resultat'], $kpiPrec['resultat'], true, true) !!}
     </div>
     <div class="ess">
         <div class="lbl">Régularité des recettes</div>
-        @php $pctJours = $kpi['jours'] ? (int) round($kpi['jours_atteints'] / $kpi['jours'] * 100) : 0; @endphp
+        @php $pctJours = $kpi['jours'] ? round($kpi['jours_atteints'] / $kpi['jours'] * 100, 2) : 0; @endphp
         <div class="val">{{ $kpi['jours_atteints'] }} <small>/ {{ $kpi['jours'] }} jours</small></div>
-        <div class="aide">journées-chauffeur où l'objectif a été atteint ({{ $pctJours }} %)</div>
+        <div class="aide">journées-chauffeur où l'objectif a été atteint ({{ $P($pctJours) }} %)</div>
         <div class="gauge"><div class="{{ $classeTaux($kpi['jours'] ? $pctJours : null) }}" style="width:{{ $pctJours }}%"></div></div>
         @php
             $nbDeficit = $parVehicule->where('verdict', 'deficit')->count();
@@ -279,7 +280,7 @@
             <td class="taux-cell">
                 @if($v['taux'] === null)<span style="color:var(--gris);font-size:12px">—</span>
                 @else
-                <span class="t" style="color:{{ $couleurTaux($v['taux']) }}">{{ $v['taux'] }} %</span>
+                <span class="t" style="color:{{ $couleurTaux($v['taux']) }}">{{ $P($v['taux']) }} %</span>
                 <div class="gauge"><div class="{{ $classeTaux($v['taux']) }}" style="width:{{ min(100, $v['taux']) }}%"></div></div>
                 @endif
             </td>
@@ -295,8 +296,8 @@
             <td>Total ({{ $parVehicule->count() }})</td>
             <td class="num">{{ $parVehicule->sum('jours') }}</td>
             <td class="num">{{ $F($parVehicule->sum('recettes')) }}</td>
-            @php $tauxTot = $parVehicule->sum('objectif') > 0 ? (int) round($parVehicule->sum('recettes') / $parVehicule->sum('objectif') * 100) : null; @endphp
-            <td style="color:{{ $couleurTaux($tauxTot) }}">{{ $tauxTot !== null ? $tauxTot . ' %' : '—' }}</td>
+            @php $tauxTot = $parVehicule->sum('objectif') > 0 ? round($parVehicule->sum('recettes') / $parVehicule->sum('objectif') * 100, 2) : null; @endphp
+            <td style="color:{{ $couleurTaux($tauxTot) }}">{{ $tauxTot !== null ? $P($tauxTot) . ' %' : '—' }}</td>
             <td class="num">{{ $F($parVehicule->sum('charges')) }}</td>
             <td class="num {{ $parVehicule->sum('resultat') >= 0 ? 'pos' : 'neg' }}">{{ $signe($parVehicule->sum('resultat')) }}</td>
             <td></td>
@@ -314,9 +315,9 @@
 <div class="rp-titre">4. Performance des chauffeurs</div>
 <div class="rp-section">
     <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!} Qui atteint ses objectifs ?</h3>
-    <div class="intro">Classés du taux d'atteinte le plus faible au plus élevé. « Reste dû » = créances de recouvrement encore actives.</div>
+    <div class="intro">Les {{ $chauffeurs->count() }} chauffeur(s) du formulaire Chauffeurs, du taux d'atteinte le plus faible au plus élevé. « Reste dû » = créances de recouvrement encore actives.</div>
     @if($chauffeurs->isEmpty())
-    <p style="color:var(--gris);font-size:13px">Aucune recette chauffeur sur cette période.</p>
+    <p style="color:var(--gris);font-size:13px">Aucun chauffeur enregistré dans le formulaire Chauffeurs.</p>
     @else
     <div class="rp-scroll">
     <table class="rp-tbl">
@@ -325,12 +326,12 @@
         @foreach($chauffeurs as $c)
         <tr>
             <td><strong>{{ $c['nom'] }}</strong>@if($c['nb_vehicules'] > 1)<span class="sous">{{ $c['nb_vehicules'] }} véhicules</span>@endif</td>
-            <td class="num">{{ $c['jours'] }}<span class="sous">{{ $c['jours_atteints'] }} atteint(s)@if($c['absences']) · {{ $c['absences'] }} abs.@endif</span></td>
+            <td class="num">{{ $c['jours'] }}<span class="sous">@if($c['jours'] === 0)aucune recette saisie@else{{ $c['jours_atteints'] }} atteint(s)@if($c['absences']) · {{ $c['absences'] }} abs.@endif @endif</span></td>
             <td class="num">{{ $F($c['recettes']) }}<span class="sous">obj. {{ $F($c['objectif']) }}</span></td>
             <td class="taux-cell">
                 @if($c['taux'] === null)<span style="color:var(--gris)">—</span>
                 @else
-                <span class="t" style="color:{{ $couleurTaux($c['taux']) }}">{{ $c['taux'] }} %</span>
+                <span class="t" style="color:{{ $couleurTaux($c['taux']) }}">{{ $P($c['taux']) }} %</span>
                 <div class="gauge"><div class="{{ $classeTaux($c['taux']) }}" style="width:{{ min(100, $c['taux']) }}%"></div></div>
                 @endif
             </td>
@@ -474,7 +475,7 @@
             z.addEventListener('mouseenter', function(){
                 var p = infos[+z.dataset.i], x = +z.getAttribute('x') + (+z.getAttribute('width')) / 2;
                 curseur.setAttribute('x1', x); curseur.setAttribute('x2', x); curseur.setAttribute('opacity', .5);
-                var taux = p.o > 0 ? ' <span style="color:'+(p.r >= p.o ? '#16a34a' : '#dc2626')+'">('+Math.round(p.r / p.o * 100)+' %)</span>' : '';
+                var taux = p.o > 0 ? ' <span style="color:'+(p.r >= p.o ? '#16a34a' : '#dc2626')+'">('+(p.r / p.o * 100).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})+' %)</span>' : '';
                 bulle.innerHTML = '<strong>'+p.d+'</strong>'
                     + (p.s ? ligne('var(--accent)', 'Recettes', p.r).replace('</b>', '</b>'+taux) : '<div style="color:#94a3b8">Aucune recette saisie</div>')
                     + (p.o ? ligne('#94a3b8', 'Objectif', p.o) : '')
@@ -518,7 +519,7 @@
         <div class="bar-wrap">
             <div class="bar-label" title="{{ $lib }}">{{ $lib }}</div>
             <div class="bar-track"><div class="bar-fill" style="width:{{ round($mt / $totPostes * 100) }}%;background:{{ $coul }}"></div></div>
-            <div class="bar-val">{{ $F($mt) }} F · {{ round($mt / $totPostes * 100) }} %</div>
+            <div class="bar-val">{{ $F($mt) }} F · {{ $P($mt / $totPostes * 100) }} %</div>
         </div>
         @endforeach
         @endif
@@ -593,11 +594,11 @@
         <tbody>
         @if($okrGestionnaire)
         <tr><td><strong>Vous (gestionnaire)</strong></td><td class="num">{{ $okrGestionnaire['total'] }}</td><td class="num">{{ $okrGestionnaire['atteints'] }}</td>
-            <td class="taux-cell"><span class="t" style="color:{{ $couleurTaux($okrGestionnaire['score']) }}">{{ $okrGestionnaire['score'] }} %</span><div class="gauge"><div class="{{ $classeTaux($okrGestionnaire['score']) }}" style="width:{{ min(100, $okrGestionnaire['score']) }}%"></div></div></td></tr>
+            <td class="taux-cell"><span class="t" style="color:{{ $couleurTaux($okrGestionnaire['score']) }}">{{ $P($okrGestionnaire['score']) }} %</span><div class="gauge"><div class="{{ $classeTaux($okrGestionnaire['score']) }}" style="width:{{ min(100, $okrGestionnaire['score']) }}%"></div></div></td></tr>
         @endif
         @foreach($okrChauffeurs as $o)
         <tr><td>{{ $o['nom'] }}</td><td class="num">{{ $o['total'] }}</td><td class="num">{{ $o['atteints'] }}</td>
-            <td class="taux-cell"><span class="t" style="color:{{ $couleurTaux($o['score']) }}">{{ $o['score'] }} %</span><div class="gauge"><div class="{{ $classeTaux($o['score']) }}" style="width:{{ min(100, $o['score']) }}%"></div></div></td></tr>
+            <td class="taux-cell"><span class="t" style="color:{{ $couleurTaux($o['score']) }}">{{ $P($o['score']) }} %</span><div class="gauge"><div class="{{ $classeTaux($o['score']) }}" style="width:{{ min(100, $o['score']) }}%"></div></div></td></tr>
         @endforeach
         </tbody>
     </table>

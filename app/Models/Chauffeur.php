@@ -35,4 +35,10 @@ class Chauffeur extends Model
     {
         return trim($this->prenom . ' ' . $this->nom);
     }
+
+    /** Seuls noms de chauffeur admis : ceux du formulaire Chauffeurs (prénom + nom). */
+    public static function nomsValides(): array
+    {
+        return static::orderBy('nom')->get()->map->nomComplet()->all();
+    }
 }

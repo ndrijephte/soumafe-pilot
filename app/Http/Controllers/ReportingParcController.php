@@ -1,620 +1,451 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, AutreRessource, Chauffeur, Depense, Emprunt, MaintenancePreventive, Objectif, Panne, Penalite, PretAccorde, Recouvrement, RecetteVehicule, RemboursementEmprunt, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Models\{Chauffeur, Depense, MaintenancePreventive, Objectif, Panne, Penalite, Recouvrement, RecetteVehicule, TypeParc, User, Vehicule, VersementRecouvrement};
+use App\Services\ExerciceParc;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\{DB, Schema};
 
 class ReportingParcController extends Controller
 {
+    private const PANNES_OUVERTES = ['declaree', 'en_diagnostic', 'en_intervention'];
+
     public function index(Request $r)
     {
         abort_unless($r->user()->peutGererParc(), 403);
 
-        $periode = $r->get('periode', 'mois');
-        [$debut, $fin] = $this->bornesPeriode($periode, $r->get('date_debut'), $r->get('date_fin'));
-        $categorie = $r->get('categorie', 'tous');
+        // ═══════ PÉRIODE (exercices du 05 au 04) ═══════
+        $periode = match ($r->get('periode', 'exercice')) {
+            'trois_exercices', 'trimestre' => 'trois_exercices',
+            'personnalise' => 'personnalise',
+            default => 'exercice',
+        };
+        $exercices = ExerciceParc::liste(18);
+        $exercice = $r->get('exercice');
+        if ($r->get('periode') === 'mois_precedent') $exercice = ExerciceParc::decaler(ExerciceParc::cle(), -1);
+        if (!isset($exercices[$exercice])) $exercice = ExerciceParc::cle();
+
+        [$debut, $fin, $libellePeriode, $debutPrec, $finPrec, $libellePrec] = $this->bornes($periode, $exercice, $r->get('date_debut'), $r->get('date_fin'));
+
+        // ═══════ PÉRIMÈTRE ═══════
+        $categorie = in_array($r->get('categorie'), ['taxi', 'vtc'], true) ? $r->get('categorie') : 'tous';
         $filtreVehicule = $r->get('vehicule_id');
         $filtreChauffeur = $r->get('chauffeur_id');
 
-        // Filtre véhicules par catégorie
-        $vehiculesQ = Vehicule::query();
-        if ($categorie !== 'tous') $vehiculesQ->where('categorie', $categorie);
-        $vehicules = $vehiculesQ->orderBy('immatriculation')->get();
+        $vehicules = Vehicule::query()
+            ->when($categorie !== 'tous', fn($q) => $q->where('categorie', $categorie))
+            ->when($filtreVehicule, fn($q) => $q->where('id', $filtreVehicule))
+            ->orderBy('immatriculation')->get();
         $vehiculeIds = $vehicules->pluck('id');
+        $perimetreComplet = $categorie === 'tous' && !$filtreVehicule;
 
-        // Si véhicule spécifique sélectionné
-        if ($filtreVehicule) {
-            $vehiculeIds = $vehiculeIds->intersect([$filtreVehicule]);
-        }
-
-        // Tous chauffeurs et tous véhicules pour les dropdowns
         $tousVehicules = Vehicule::orderBy('immatriculation')->get();
-        $tousChauffeurs = Schema::hasTable('chauffeurs')
-            ? Chauffeur::where('statut', 'actif')->orderBy('nom')->get()
+        $tousChauffeurs = Schema::hasTable('chauffeurs') ? Chauffeur::orderBy('nom')->get() : collect();
+        $nomChauffeur = $filtreChauffeur ? $tousChauffeurs->firstWhere('id', $filtreChauffeur)?->nomComplet() : null;
+
+        // ═══════ INDICATEURS CLÉS + COMPARAISON ═══════
+        $kpi = $this->indicateurs($vehiculeIds, $perimetreComplet, $debut, $fin, $nomChauffeur);
+        $kpiPrec = $this->indicateurs($vehiculeIds, $perimetreComplet, $debutPrec, $finPrec, $nomChauffeur);
+
+        // ═══════ RENTABILITÉ PAR VÉHICULE ═══════
+        $parVehicule = $this->rentabiliteVehicules($vehicules, $debut, $fin, $nomChauffeur);
+
+        // ═══════ PERFORMANCE CHAUFFEURS ═══════
+        $chauffeurs = $this->performanceChauffeurs($vehiculeIds, $debut, $fin, $nomChauffeur);
+
+        // ═══════ ÉVOLUTION : RECETTES, OBJECTIF, DÉPENSES BUREAU ET VÉHICULES ═══════
+        $evolution = $this->evolution($vehiculeIds, $perimetreComplet, $debut, $fin, $nomChauffeur);
+
+        // ═══════ CHARGES : RÉPARTITION ═══════
+        $typesDepenseLabels = TypeParc::depenses()->pluck('libelle', 'code')->toArray();
+        $depensesParType = Schema::hasTable('depenses')
+            ? $this->depenses($vehiculeIds, $perimetreComplet, $debut, $fin)->where('type_depense', '!=', 'maintenance')
+                ->selectRaw('type_depense, SUM(montant) as total')->groupBy('type_depense')->orderByDesc('total')->get()
+                ->map(fn($d) => ['type' => $typesDepenseLabels[$d->type_depense] ?? ucfirst(str_replace('_', ' ', $d->type_depense)), 'total' => (int) $d->total])
             : collect();
 
-        // ═══════ KPI GLOBAUX ═══════
-        $recetteTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date', [$debut, $fin])->sum('recette');
-        $objectifTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date', [$debut, $fin])->sum('objectif');
-        $pointageTotal = (int) RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date', [$debut, $fin])->sum('pointage');
+        $pannesUrgence = Panne::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_declaration', [$debut, $fin])
+            ->selectRaw('urgence, COUNT(*) as nb, SUM(cout_reel) as cout')->groupBy('urgence')->get()
+            ->keyBy('urgence');
 
-        // Recouvrements perçus (versements chauffeur = argent réellement encaissé)
-        $recouvrementPercu = 0;
-        if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
-            $recouvrementPercu = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
-                ->whereIn('recouvrements.vehicule_id', $vehiculeIds)
-                ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
-                ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
-                ->sum('versements_recouvrement.montant');
-        }
-        $recetteTotalAvecRecouv = $recetteTotal + $recouvrementPercu;
-        $tauxRecette = $objectifTotal > 0 ? round(($recetteTotalAvecRecouv / $objectifTotal) * 100) : 0;
-
-        $coutPannes = (int) Panne::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
-        $nbPannes = Panne::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date_declaration', [$debut, $fin])->count();
-        $delaiMoyen = Panne::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date_declaration', [$debut, $fin])
-            ->whereNotNull('delai_resolution')->avg('delai_resolution');
-        $delaiMoyen = $delaiMoyen !== null ? round($delaiMoyen, 1) : 0;
-
-        $montantPenalites = 0;
-        $nbPenalites = 0;
-        if (Schema::hasTable('penalites')) {
-            $montantPenalites = (int) Penalite::whereIn('vehicule_id', $vehiculeIds)
-                ->whereBetween('date_infraction', [$debut, $fin])->sum('montant');
-            $nbPenalites = Penalite::whereIn('vehicule_id', $vehiculeIds)
-                ->whereBetween('date_infraction', [$debut, $fin])->count();
-        }
-
-        $maintenancesRetard = MaintenancePreventive::whereIn('vehicule_id', $vehiculeIds)
-            ->whereNotNull('prochaine_echeance')
-            ->whereDate('prochaine_echeance', '<', today())->count();
-        $maintenancesProches = MaintenancePreventive::whereIn('vehicule_id', $vehiculeIds)
-            ->whereNotNull('prochaine_echeance')
-            ->whereDate('prochaine_echeance', '>=', today())
-            ->whereDate('prochaine_echeance', '<=', today()->addDays(15))->count();
-
-        // ═══════ RECETTES PAR JOUR (graphique barres) ═══════
-        $recettesJour = RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date', [$debut, $fin])
-            ->select(DB::raw("DATE(date) as jour"), DB::raw("SUM(recette) as total"), DB::raw("SUM(objectif) as obj"))
-            ->groupBy('jour')->orderBy('jour')->get()
-            ->map(fn($r) => ['jour' => $r->jour, 'total' => (int) $r->total, 'obj' => (int) $r->obj]);
-
-        // ═══════ RECETTES PAR VÉHICULE ═══════
-        $recettesVehicule = RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date', [$debut, $fin])
-            ->select('vehicule_id', DB::raw("SUM(recette) as total"), DB::raw("SUM(objectif) as obj"), DB::raw("COUNT(*) as nb_jours"))
-            ->groupBy('vehicule_id')->get()
-            ->map(function ($r) use ($vehicules, $debut, $fin) {
-                $v = $vehicules->firstWhere('id', $r->vehicule_id);
-                $recouv = 0;
-                if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
-                    $recouv = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
-                        ->where('recouvrements.vehicule_id', $r->vehicule_id)
-                        ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
-                        ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
-                        ->sum('versements_recouvrement.montant');
-                }
-                $recTotal = (int) $r->total + $recouv;
-                return [
-                    'immat' => $v ? $v->immatriculation : '?',
-                    'categorie' => $v ? $v->categorieLabel() : '?',
-                    'recette' => (int) $r->total,
-                    'recouvrement' => $recouv,
-                    'recette_totale' => $recTotal,
-                    'objectif' => (int) $r->obj,
-                    'ecart' => $recTotal - (int) $r->obj,
-                    'taux' => $r->obj > 0 ? round(($recTotal / $r->obj) * 100) : 0,
-                    'nb_jours' => (int) $r->nb_jours,
-                    'moyenne' => $r->nb_jours > 0 ? round($recTotal / $r->nb_jours) : 0,
-                ];
-            })->sortByDesc('recette_totale')->values();
-
-        // ═══════ PANNES PAR VÉHICULE ═══════
-        $pannesVehicule = Panne::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date_declaration', [$debut, $fin])
-            ->select('vehicule_id', DB::raw("COUNT(*) as nb"), DB::raw("SUM(cout_reel) as cout"),
-                DB::raw("AVG(delai_resolution) as delai"))
-            ->groupBy('vehicule_id')->get()
-            ->map(function ($r) use ($vehicules) {
-                $v = $vehicules->firstWhere('id', $r->vehicule_id);
-                return [
-                    'immat' => $v ? $v->immatriculation : '?',
-                    'nb' => (int) $r->nb,
-                    'cout' => (int) $r->cout,
-                    'delai' => $r->delai !== null ? round($r->delai, 1) : 0,
-                ];
-            })->sortByDesc('cout')->values();
-
-        // ═══════ PANNES PAR URGENCE ═══════
-        $pannesUrgence = Panne::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date_declaration', [$debut, $fin])
-            ->select('urgence', DB::raw("COUNT(*) as nb"))
-            ->groupBy('urgence')->get()
-            ->pluck('nb', 'urgence');
-
-        // ═══════ PÉNALITÉS PAR TYPE ═══════
         $penalitesType = collect();
         if (Schema::hasTable('penalites')) {
-            $penalitesType = Penalite::whereIn('vehicule_id', $vehiculeIds)
-                ->whereBetween('date_infraction', [$debut, $fin])
-                ->select('type', DB::raw("COUNT(*) as nb"), DB::raw("SUM(montant) as montant"))
-                ->groupBy('type')->get()
-                ->map(function ($r) {
-                    $tp = TypeParc::where('categorie', 'penalite')->where('code', $r->type)->first();
-                    return [
-                        'type' => $tp ? $tp->libelle : ucfirst(str_replace('_', ' ', $r->type)),
-                        'nb' => (int) $r->nb,
-                        'montant' => (int) $r->montant,
-                    ];
-                })->sortByDesc('montant')->values();
+            $libellesPen = TypeParc::where('categorie', 'penalite')->pluck('libelle', 'code');
+            $penalitesType = Penalite::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_infraction', [$debut, $fin])
+                ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+                ->selectRaw('type, COUNT(*) as nb, SUM(montant) as montant')->groupBy('type')->orderByDesc('montant')->get()
+                ->map(fn($p) => ['type' => $libellesPen[$p->type] ?? ucfirst(str_replace('_', ' ', $p->type)), 'nb' => (int) $p->nb, 'montant' => (int) $p->montant]);
         }
 
-        // ═══════ PÉNALITÉS PAR STATUT ═══════
-        $penalitesStatut = collect();
-        if (Schema::hasTable('penalites')) {
-            $penalitesStatut = Penalite::whereIn('vehicule_id', $vehiculeIds)
-                ->whereBetween('date_infraction', [$debut, $fin])
-                ->select('statut', DB::raw("COUNT(*) as nb"), DB::raw("SUM(montant) as montant"))
-                ->groupBy('statut')->get()
-                ->pluck('montant', 'statut');
-        }
+        // ═══════ À TRAITER (état actuel, pas seulement la période) ═══════
+        $aTraiter = $this->aTraiter($vehiculeIds, $parVehicule, $chauffeurs, $nomChauffeur);
 
-        // ═══════ MAINTENANCE PAR TYPE ═══════
-        $maintenanceType = MaintenancePreventive::whereIn('vehicule_id', $vehiculeIds)
-            ->select('type_echeance', DB::raw("COUNT(*) as nb"),
-                DB::raw("SUM(CASE WHEN prochaine_echeance < CURDATE() THEN 1 ELSE 0 END) as retard"),
-                DB::raw("SUM(CASE WHEN prochaine_echeance >= CURDATE() AND prochaine_echeance <= DATE_ADD(CURDATE(), INTERVAL 15 DAY) THEN 1 ELSE 0 END) as proche"))
-            ->groupBy('type_echeance')->get()
-            ->map(function ($r) {
-                $tp = TypeParc::where('categorie', 'maintenance')->where('code', $r->type_echeance)->first();
-                return [
-                    'type' => $tp ? $tp->libelle : ucfirst(str_replace('_', ' ', $r->type_echeance)),
-                    'nb' => (int) $r->nb,
-                    'retard' => (int) $r->retard,
-                    'proche' => (int) $r->proche,
-                ];
-            });
-
-        // ═══════ PERFORMANCE CHAUFFEURS (individuelle par chauffeur) ═══════
-        $performanceChauffeurs = collect();
-        if (Schema::hasTable('chauffeurs') && Schema::hasTable('chauffeur_vehicule')) {
-            $performanceChauffeurs = Chauffeur::with(['vehicules' => fn($q) => $q->wherePivot('actif', true)])
-                ->where('statut', 'actif')->get()
-                ->map(function ($c) use ($debut, $fin, $vehiculeIds) {
-                    $nomComplet = $c->nomComplet();
-                    $cvIds = $c->vehicules->pluck('id')->intersect($vehiculeIds);
-
-                    // Recettes individuelles : filtrées par nom du chauffeur + même scope véhicules que les KPIs globaux
-                    $recQ = RecetteVehicule::where('chauffeur', $nomComplet)
-                        ->whereIn('vehicule_id', $vehiculeIds)
-                        ->whereBetween('date', [$debut, $fin]);
-                    $recTotal = (int) (clone $recQ)->sum('recette');
-                    $objTotal = (int) (clone $recQ)->sum('objectif');
-                    $nbJours = (clone $recQ)->count();
-                    $totalPointage = (int) (clone $recQ)->sum('pointage');
-
-                    if ($nbJours === 0) return null;
-
-                    // Pannes et pénalités sur les véhicules de la catégorie filtrée
-                    $coutP = (int) Panne::whereIn('vehicule_id', $vehiculeIds)
-                        ->whereBetween('date_declaration', [$debut, $fin])
-                        ->where(function($q) use ($nomComplet, $cvIds) {
-                            if ($cvIds->isNotEmpty()) $q->whereIn('vehicule_id', $cvIds);
-                        })->sum('cout_reel');
-                    $nbP = Panne::whereIn('vehicule_id', $vehiculeIds)
-                        ->whereBetween('date_declaration', [$debut, $fin])
-                        ->where(function($q) use ($cvIds) {
-                            if ($cvIds->isNotEmpty()) $q->whereIn('vehicule_id', $cvIds);
-                        })->count();
-                    $montPen = 0; $nbPen = 0;
-                    if (Schema::hasTable('penalites')) {
-                        $montPen = (int) Penalite::whereIn('vehicule_id', $vehiculeIds)
-                            ->where('chauffeur', $nomComplet)
-                            ->whereBetween('date_infraction', [$debut, $fin])->sum('montant');
-                        $nbPen = Penalite::whereIn('vehicule_id', $vehiculeIds)
-                            ->where('chauffeur', $nomComplet)
-                            ->whereBetween('date_infraction', [$debut, $fin])->count();
-                    }
-                    // Recouvrements payés par le chauffeur (versements source=chauffeur)
-                    $recouvChauffeur = 0;
-                    if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
-                        $recouvChauffeur = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
-                            ->where('recouvrements.chauffeur_nom', $nomComplet)
-                            ->whereIn('recouvrements.vehicule_id', $vehiculeIds)
-                            ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
-                            ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
-                            ->sum('versements_recouvrement.montant');
-                    }
-                    $recTotalAvecRecouv = $recTotal + $recouvChauffeur;
-                    $resultat = $recTotalAvecRecouv - $coutP - $montPen;
-                    // Tous véhicules utilisés dans la période (pas seulement assignés)
-                    $vehUtilises = RecetteVehicule::where('chauffeur', $nomComplet)
-                        ->whereIn('vehicule_id', $vehiculeIds)
-                        ->whereBetween('date', [$debut, $fin])
-                        ->distinct()->pluck('vehicule_id');
-                    $vehiculesLabels = Vehicule::whereIn('id', $vehUtilises)->pluck('immatriculation')->join(', ');
-                    return [
-                        'nom' => $nomComplet,
-                        'statut' => $c->statut,
-                        'nb_vehicules' => $vehUtilises->count(),
-                        'vehicules' => $vehiculesLabels,
-                        'recette' => $recTotal,
-                        'recouvrement' => $recouvChauffeur,
-                        'recette_totale' => $recTotalAvecRecouv,
-                        'objectif' => $objTotal,
-                        'nb_jours' => $nbJours,
-                        'taux' => $objTotal > 0 ? round(($recTotalAvecRecouv / $objTotal) * 100) : 0,
-                        'cout_pannes' => $coutP,
-                        'nb_pannes' => $nbP,
-                        'montant_penalites' => $montPen,
-                        'nb_penalites' => $nbPen,
-                        'resultat' => $resultat,
-                        'pointage' => $totalPointage,
-                    ];
-                })->filter()->sortByDesc('resultat')->values();
-        }
-
-        // ═══════ GESTIONNAIRES PARC — ACTUEL + HISTORIQUE ═══════
-        $gestionnairesActuels = User::where('actif', true)->where('delegation_parc', true)->get()
-            ->map(fn($u) => $u->nomComplet());
-        if ($gestionnairesActuels->isEmpty()) {
-            $gestionnairesActuels = User::where('actif', true)
-                ->whereIn('role', ['administrateur', 'charge_operations'])->get()
-                ->map(fn($u) => $u->nomComplet());
-        }
-        $historiqueGestionnaires = collect();
-        if (Schema::hasTable('audit_logs')) {
-            $historiqueGestionnaires = AuditLog::where('module', 'utilisateur')
-                ->where('action', 'delegation_parc')
-                ->orderByDesc('created_at')->take(20)->get();
-        }
-
-        // ═══════ PERFORMANCE OKR (gestionnaire + chauffeurs) ═══════
-        $okrGestionnaire = null;
-        $okrChauffeurs = collect();
-        $periodeOkr = now()->format('Y-m');
-        if (Schema::hasTable('objectifs') && Schema::hasColumn('objectifs', 'type')) {
-            $eagerOkr = ['resultats'];
-            // Score OKR du gestionnaire connecté
-            $mesObj = Objectif::with($eagerOkr)->where('user_id', $r->user()->id)
-                ->where('periode', $periodeOkr)->get();
-            if ($mesObj->isNotEmpty()) {
-                $okrGestionnaire = [
-                    'score' => Objectif::scoreGroupe($mesObj),
-                    'total' => $mesObj->count(),
-                    'atteints' => $mesObj->where('evaluation', 'atteint')->count(),
-                    'partiels' => $mesObj->where('evaluation', 'partiel')->count(),
-                    'en_cours' => $mesObj->whereIn('evaluation', ['en_cours', null])->count(),
-                ];
-            }
-            // Scores OKR des chauffeurs (via users liés aux chauffeurs)
-            if (Schema::hasTable('chauffeurs')) {
-                $chauffeursActifs = Chauffeur::where('statut', 'actif')->get();
-                foreach ($chauffeursActifs as $ch) {
-                    if (!$ch->user_id) continue;
-                    $objCh = Objectif::with($eagerOkr)->where('user_id', $ch->user_id)
-                        ->where('periode', $periodeOkr)->get();
-                    if ($objCh->isEmpty()) continue;
-                    $okrChauffeurs->push([
-                        'nom' => $ch->nomComplet(),
-                        'score' => Objectif::scoreGroupe($objCh),
-                        'total' => $objCh->count(),
-                        'atteints' => $objCh->where('evaluation', 'atteint')->count(),
-                    ]);
-                }
-                $okrChauffeurs = $okrChauffeurs->sortByDesc('score')->values();
-            }
-        }
-
-        // ═══════ CLASSEMENT VÉHICULES (performance globale) ═══════
-        $classement = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
-            $rec = RecetteVehicule::where('vehicule_id', $v->id)
-                ->whereBetween('date', [$debut, $fin]);
-            $recTotal = (int) (clone $rec)->sum('recette');
-            $objTotal = (int) (clone $rec)->sum('objectif');
-            // Recouvrements payés par le chauffeur pour ce véhicule
-            $recouv = 0;
-            if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
-                $recouv = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
-                    ->where('recouvrements.vehicule_id', $v->id)
-                    ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
-                    ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
-                    ->sum('versements_recouvrement.montant');
-            }
-            $recTotalAvecRecouv = $recTotal + $recouv;
-            $coutP = (int) Panne::where('vehicule_id', $v->id)
-                ->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
-            $montPen = 0;
-            if (Schema::hasTable('penalites')) {
-                $montPen = (int) Penalite::where('vehicule_id', $v->id)
-                    ->whereBetween('date_infraction', [$debut, $fin])->sum('montant');
-            }
-            $nbPannes = Panne::where('vehicule_id', $v->id)
-                ->whereBetween('date_declaration', [$debut, $fin])->count();
-            $maint = MaintenancePreventive::where('vehicule_id', $v->id)
-                ->whereNotNull('prochaine_echeance')
-                ->whereDate('prochaine_echeance', '<', today())->count();
-
-            $resultat = $recTotalAvecRecouv - $coutP - $montPen;
-
-            return [
-                'immat' => $v->immatriculation,
-                'categorie' => $v->categorieLabel(),
-                'recette' => $recTotal,
-                'recouvrement' => $recouv,
-                'recette_totale' => $recTotalAvecRecouv,
-                'objectif' => $objTotal,
-                'taux' => $objTotal > 0 ? round(($recTotalAvecRecouv / $objTotal) * 100) : 0,
-                'cout_pannes' => $coutP,
-                'penalites' => $montPen,
-                'nb_pannes' => $nbPannes,
-                'maint_retard' => $maint,
-                'resultat' => $resultat,
-            ];
-        })->sortByDesc('resultat')->values();
-
-        // ═══════ DÉTAIL JOUR PAR JOUR (si filtre véhicule ou chauffeur) ═══════
+        // ═══════ DÉTAIL JOUR PAR JOUR (filtre véhicule ou chauffeur) ═══════
         $detailJour = collect();
-        $filtreNom = null;
-        if ($filtreChauffeur && Schema::hasTable('chauffeurs')) {
-            $ch = Chauffeur::find($filtreChauffeur);
-            if ($ch) {
-                $filtreNom = $ch->nomComplet();
-                $detailJour = RecetteVehicule::where('chauffeur', $filtreNom)
-                    ->whereBetween('date', [$debut, $fin])
-                    ->orderBy('date')->get();
-            }
-        } elseif ($filtreVehicule) {
-            $vf = Vehicule::find($filtreVehicule);
-            $filtreNom = $vf ? $vf->immatriculation : null;
-            $detailJour = RecetteVehicule::where('vehicule_id', $filtreVehicule)
-                ->whereBetween('date', [$debut, $fin])
-                ->orderBy('date')->get();
+        $filtreNom = $nomChauffeur ?? ($filtreVehicule ? $vehicules->first()?->immatriculation : null);
+        if ($filtreNom) {
+            $detailJour = RecetteVehicule::with('vehicule')
+                ->whereIn('vehicule_id', $vehiculeIds)
+                ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+                ->whereBetween('date', [$debut, $fin])->orderBy('date')->get();
         }
 
-        // ═══════ DÉPENSES + RENTABILITÉ ═══════
-        $depensesTotal = 0;
-        $depensesJour = collect();
-        $depensesType = collect();
-        $coutMaintenance = 0;
-        $maintJ = collect();
-        if (Schema::hasTable('depenses')) {
-            // Autres dépenses (hors maintenance = dépense véhicule)
-            $depsQuery = Depense::whereBetween('date_depense', [$debut, $fin])
-                ->where('type_depense', '!=', 'maintenance');
-            $depensesTotal = (clone $depsQuery)->sum('montant');
-            // Par jour (pour courbe bureau)
-            $depensesJour = (clone $depsQuery)->selectRaw('date_depense as date, SUM(montant) as total')
-                ->groupBy('date_depense')->orderBy('date_depense')->get()
-                ->mapWithKeys(fn($d) => [$d->date => $d->total]);
-            // Par type (hors maintenance)
-            $depensesType = (clone $depsQuery)->selectRaw('type_depense, SUM(montant) as total')
-                ->groupBy('type_depense')->orderByDesc('total')->get();
-            // Maintenance = dépense véhicule
-            $maintQuery = Depense::whereBetween('date_depense', [$debut, $fin])
-                ->where('type_depense', 'maintenance');
-            $coutMaintenance = $maintQuery->sum('montant');
-            $maintJ = (clone $maintQuery)->selectRaw('date_depense as date, SUM(montant) as total')
-                ->groupBy('date_depense')->orderBy('date_depense')->get()
-                ->mapWithKeys(fn($d) => [$d->date => (int) $d->total]);
-        }
-        $typesDepenseLabels = TypeParc::depenses()->pluck('libelle', 'code')->toArray();
+        // ═══════ OKR (exercice courant) ═══════
+        [$okrGestionnaire, $okrChauffeurs, $periodeOkr] = $this->okr($r);
 
-        // Coûts véhicules par jour (pannes + pénalités + maintenance)
-        $depVehJour = collect();
-        $pannesJ = Panne::whereIn('vehicule_id', $vehiculeIds)
-            ->whereBetween('date_declaration', [$debut, $fin])
-            ->selectRaw('DATE(date_declaration) as date, SUM(cout_reel) as total')
-            ->groupBy(DB::raw('DATE(date_declaration)'))->get()
-            ->mapWithKeys(fn($d) => [$d->date => (int) $d->total]);
-        $penalJ = collect();
-        if (Schema::hasTable('penalites')) {
-            $penalJ = Penalite::whereIn('vehicule_id', $vehiculeIds)
-                ->whereBetween('date_infraction', [$debut, $fin])
-                ->selectRaw('DATE(date_infraction) as date, SUM(montant) as total')
-                ->groupBy(DB::raw('DATE(date_infraction)'))->get()
-                ->mapWithKeys(fn($d) => [$d->date => (int) $d->total]);
-        }
-        $allVehDates = $pannesJ->keys()->merge($penalJ->keys())->merge($maintJ->keys())->unique();
-        $depVehJour = $allVehDates->mapWithKeys(fn($d) => [$d => ($pannesJ[$d] ?? 0) + ($penalJ[$d] ?? 0) + ($maintJ[$d] ?? 0)]);
-
-        // Rentabilité = Recettes (+ recouvrements chauffeur) - Dépenses bureau - Pénalités - Coût pannes - Maintenance
-        $rentabilite = $recetteTotalAvecRecouv - $depensesTotal - $montantPenalites - $coutPannes - $coutMaintenance;
-
-        // ═══════ EMPRUNTS vs FONDS PROPRES ═══════
-        $empruntsData = ['total_emprunte' => 0, 'total_rembourse' => 0, 'solde_du' => 0, 'nb_emprunts' => 0, 'nb_en_cours' => 0];
-        $fondsData = ['pannes_fp' => 0, 'pannes_emp' => 0, 'penalites_fp' => 0, 'penalites_emp' => 0, 'maint_fp' => 0, 'maint_emp' => 0, 'depenses_fp' => 0, 'depenses_emp' => 0];
-        $remboursementsPeriode = 0;
-        if (Schema::hasTable('emprunts')) {
-            $empPeriode = Emprunt::whereBetween('date_emprunt', [$debut, $fin]);
-            $empruntsData['total_emprunte'] = (int) (clone $empPeriode)->sum('montant');
-            $empruntsData['total_rembourse'] = (int) (clone $empPeriode)->sum('montant_rembourse');
-            $empruntsData['solde_du'] = $empruntsData['total_emprunte'] - $empruntsData['total_rembourse'];
-            $empruntsData['nb_emprunts'] = (clone $empPeriode)->count();
-            $empruntsData['nb_en_cours'] = (clone $empPeriode)->where('statut', 'en_cours')->count();
-
-            // Remboursements réellement payés sur la période (cash sorti)
-            if (Schema::hasTable('remboursements_emprunt')) {
-                $remboursementsPeriode = (int) RemboursementEmprunt::whereBetween('date_remboursement', [$debut, $fin])->sum('montant');
-            }
-
-            // Pannes : fonds propres vs emprunt
-            $pannesPeriode = Panne::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_declaration', [$debut, $fin]);
-            $fondsData['pannes_emp'] = (int) (clone $pannesPeriode)->whereNotNull('emprunt_id')->sum('cout_reel');
-            $fondsData['pannes_fp'] = $coutPannes - $fondsData['pannes_emp'];
-
-            // Pénalités : fonds propres vs emprunt
-            if (Schema::hasTable('paiements_penalites')) {
-                $paiPeriode = DB::table('paiements_penalites')
-                    ->join('penalites', 'paiements_penalites.penalite_id', '=', 'penalites.id')
-                    ->whereIn('penalites.vehicule_id', $vehiculeIds)
-                    ->whereBetween('paiements_penalites.date_paiement', [$debut, $fin]);
-                $fondsData['penalites_emp'] = (int) (clone $paiPeriode)->whereNotNull('paiements_penalites.emprunt_id')->sum('paiements_penalites.montant');
-                $totalPaiePeriode = (int) (clone $paiPeriode)->sum('paiements_penalites.montant');
-                $fondsData['penalites_fp'] = $totalPaiePeriode - $fondsData['penalites_emp'];
-            }
-
-            // Maintenance : fonds propres vs emprunt
-            $maintPeriode = Depense::where('type_depense', 'maintenance')->whereBetween('date_depense', [$debut, $fin]);
-            $fondsData['maint_emp'] = (int) (clone $maintPeriode)->whereNotNull('emprunt_id')->sum('montant');
-            $fondsData['maint_fp'] = $coutMaintenance - $fondsData['maint_emp'];
-
-            // Dépenses (hors maintenance) : fonds propres vs emprunt
-            $depPeriode = Depense::where('type_depense', '!=', 'maintenance')->whereBetween('date_depense', [$debut, $fin]);
-            $fondsData['depenses_emp'] = (int) (clone $depPeriode)->whereNotNull('emprunt_id')->sum('montant');
-            $fondsData['depenses_fp'] = $depensesTotal - $fondsData['depenses_emp'];
-        }
-        $totalFP = $fondsData['pannes_fp'] + $fondsData['penalites_fp'] + $fondsData['maint_fp'] + $fondsData['depenses_fp'];
-        $totalEmp = $fondsData['pannes_emp'] + $fondsData['penalites_emp'] + $fondsData['maint_emp'] + $fondsData['depenses_emp'];
-
-        // Solde en caisse = ce qui reste en trésorerie propre
-        // Formule : Recettes - Charges fonds propres - Remboursements emprunts payés
-        // = Rentabilité + Charges financées par emprunt - Remboursements payés
-        // Les charges emprunt n'ont pas touché la caisse (payées par l'emprunt)
-        // Les remboursements ONT touché la caisse (argent propre sorti)
-        $detteGlobale = Schema::hasTable('emprunts')
-            ? (int) Emprunt::where('statut', 'en_cours')->sum(\DB::raw('montant - montant_rembourse'))
-            : 0;
-        $soldeCaisse = $rentabilite + $totalEmp - $remboursementsPeriode;
-
-        // ═══════ PRÊTS ACCORDÉS ═══════
-        $pretsData = ['total_prete' => 0, 'total_rembourse' => 0, 'creances' => 0, 'nb_prets' => 0, 'nb_en_cours' => 0];
-        if (Schema::hasTable('prets_accordes')) {
-            $pretsPeriode = PretAccorde::whereBetween('date_pret', [$debut, $fin]);
-            $pretsData['total_prete'] = (int) (clone $pretsPeriode)->sum('montant');
-            $pretsData['total_rembourse'] = (int) (clone $pretsPeriode)->sum('montant_rembourse');
-            $pretsData['creances'] = $pretsData['total_prete'] - $pretsData['total_rembourse'];
-            $pretsData['nb_prets'] = (clone $pretsPeriode)->count();
-            $pretsData['nb_en_cours'] = (int) PretAccorde::where('statut', 'en_cours')->count();
-        }
-
-        // ═══════ AUTRES RESSOURCES ═══════
-        $autresRessourcesTotal = 0;
-        $autresRessourcesType = collect();
-        if (Schema::hasTable('autres_ressources')) {
-            $autresRessourcesTotal = (int) AutreRessource::whereBetween('date_ressource', [$debut, $fin])->sum('montant');
-            $autresRessourcesType = AutreRessource::whereBetween('date_ressource', [$debut, $fin])
-                ->select('type_ressource', DB::raw('SUM(montant) as total'), DB::raw('COUNT(*) as nb'))
-                ->groupBy('type_ressource')
-                ->orderByDesc('total')
-                ->get();
-        }
-
-        // ═══════ TOTAL CHARGES (toutes sorties confondues) ═══════
-        $totalCharges = $depensesTotal + $coutMaintenance + $coutPannes + $montantPenalites;
-
-        // ═══════ TRÉSORERIE FORMALISÉE ═══════
-        // Entrées = recettes + pointages + autres ressources + recouvrements perçus
-        $tresoEntrees = $recetteTotal + $pointageTotal + $autresRessourcesTotal + $recouvrementPercu;
-        // Sorties = charges fonds propres uniquement (pas emprunt) + remboursements emprunts + prêts accordés
-        $penalitesPayees = 0;
-        if (Schema::hasTable('paiements_penalites')) {
-            $penalitesPayees = (int) DB::table('paiements_penalites')->whereBetween('date_paiement', [$debut, $fin])->sum('montant');
-        }
-        // Pénalités fonds propres
-        $penalitesPayeesFP = $penalitesPayees - $fondsData['penalites_emp'];
-        // Sorties réelles de caisse = uniquement ce qui est sorti en fonds propres + remboursements emprunts
-        $tresoSortiesFP = $fondsData['depenses_fp'] + $fondsData['maint_fp'] + $fondsData['pannes_fp'] + $penalitesPayeesFP + $pretsData['total_prete'] + $remboursementsPeriode;
-        $tresoSorties = $tresoSortiesFP;
-        $soldeBrut = $tresoEntrees - $tresoSorties;
-        // Solde après engagements = solde brut - dette emprunts restante - créances prêts non remboursées
-        $soldeApresEngagements = $soldeBrut - ($detteGlobale ?? 0) - $pretsData['creances'];
-
-        // ═══════ 2 CAISSES : Bureau + Pointage ═══════
-        // Caisse bureau = alimentée par recettes + ressources additionnelles, diminuée par sorties FP + prêts + remboursements
-        $caisseBureauEntrees = $recetteTotal + $autresRessourcesTotal + $recouvrementPercu;
-        $caisseBureauSorties = $fondsData['depenses_fp'] + $fondsData['maint_fp'] + $fondsData['pannes_fp'] + $penalitesPayeesFP + $pretsData['total_prete'] + $remboursementsPeriode;
-        $caisseBureauSolde = $caisseBureauEntrees - $caisseBureauSorties;
-        // Caisse pointage = pointages FCFA uniquement
-        $caissePointageEntrees = $pointageTotal;
-        $caissePointageSorties = 0;
-        $caissePointageSolde = $caissePointageEntrees;
-
-        // ═══════ RENTABILITÉ DYNAMIQUE PAR VÉHICULE ═══════
-        $rentaVehicules = $vehicules->where('statut', 'en_service')->map(function ($v) use ($debut, $fin) {
-            $rec = (int) RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->sum('recette');
-            $obj = (int) RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->sum('objectif');
-            $nbJ = RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->count();
-            // Recouvrements perçus (versements chauffeur) pour ce véhicule
-            $recouv = 0;
-            if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
-                $recouv = (int) VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
-                    ->where('recouvrements.vehicule_id', $v->id)
-                    ->where(function ($q) { $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'); })
-                    ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin])
-                    ->sum('versements_recouvrement.montant');
-            }
-            $recTotal = $rec + $recouv;
-            $pan = (int) Panne::where('vehicule_id', $v->id)->whereBetween('date_declaration', [$debut, $fin])->sum('cout_reel');
-            $pen = Schema::hasTable('penalites') ? (int) Penalite::where('vehicule_id', $v->id)->whereBetween('date_infraction', [$debut, $fin])->sum('montant') : 0;
-            $mai = (int) Depense::where('type_depense', 'maintenance')->where('vehicule_id', $v->id)->whereBetween('date_depense', [$debut, $fin])->sum('montant');
-            $dep = (int) Depense::where('type_depense', '!=', 'maintenance')->where('vehicule_id', $v->id)->whereBetween('date_depense', [$debut, $fin])->sum('montant');
-            $emp = Schema::hasTable('emprunts') ? (int) Emprunt::where('vehicule_id', $v->id)->whereBetween('date_emprunt', [$debut, $fin])->sum('montant') : 0;
-            $empR = Schema::hasTable('emprunts') ? (int) Emprunt::where('vehicule_id', $v->id)->whereBetween('date_emprunt', [$debut, $fin])->sum('montant_rembourse') : 0;
-            $totalDep = $pan + $pen + $mai + $dep;
-            $profit = $recTotal - $totalDep;
-            $roi = $totalDep > 0 ? round(($recTotal / $totalDep) * 100) : ($recTotal > 0 ? 999 : 0);
-            return [
-                'id' => $v->id, 'immat' => $v->immatriculation, 'categorie' => $v->categorieLabel(),
-                'recette' => $rec, 'recouvrement' => $recouv, 'recette_totale' => $recTotal, 'objectif' => $obj, 'nb_jours' => $nbJ,
-                'pannes' => $pan, 'penalites' => $pen, 'maintenance' => $mai, 'depenses' => $dep,
-                'total_depenses' => $totalDep, 'profit' => $profit, 'roi' => $roi,
-                'emprunt' => $emp, 'emprunt_rembourse' => $empR, 'dette_nette' => $emp - $empR,
-                'verdict' => $profit > 0 ? 'rentable' : ($profit == 0 ? 'equilibre' : 'deficit'),
-            ];
-        })->sortByDesc('profit')->values();
-        // KPIs décisionnels
-        $nbRentables = $rentaVehicules->where('verdict', 'rentable')->count();
-        $nbDeficit = $rentaVehicules->where('verdict', 'deficit')->count();
-        $profitTotal = $rentaVehicules->sum('profit');
-        $depTotalVeh = $rentaVehicules->sum('total_depenses');
-        $detteNetteTotale = $rentaVehicules->sum('dette_nette');
+        $gestionnaires = User::where('actif', true)->where('delegation_parc', true)->get()->map(fn($u) => $u->nomComplet());
 
         return view('reporting.parc', compact(
-            'periode', 'debut', 'fin', 'categorie',
-            'recetteTotal', 'recouvrementPercu', 'recetteTotalAvecRecouv', 'objectifTotal', 'tauxRecette', 'pointageTotal',
-            'coutPannes', 'nbPannes', 'delaiMoyen',
-            'montantPenalites', 'nbPenalites',
-            'maintenancesRetard', 'maintenancesProches',
-            'recettesJour', 'recettesVehicule',
-            'pannesVehicule', 'pannesUrgence',
-            'penalitesType', 'penalitesStatut',
-            'maintenanceType', 'classement',
-            'performanceChauffeurs', 'gestionnairesActuels', 'historiqueGestionnaires',
-            'tousVehicules', 'tousChauffeurs',
-            'filtreVehicule', 'filtreChauffeur',
-            'detailJour', 'filtreNom',
-            'depensesTotal', 'depensesJour', 'depVehJour', 'depensesType', 'typesDepenseLabels', 'rentabilite',
-            'okrGestionnaire', 'okrChauffeurs', 'periodeOkr',
-            'empruntsData', 'fondsData', 'totalFP', 'totalEmp', 'soldeCaisse', 'detteGlobale', 'remboursementsPeriode',
-            'rentaVehicules', 'nbRentables', 'nbDeficit', 'profitTotal', 'depTotalVeh', 'detteNetteTotale',
-            'totalCharges', 'coutMaintenance',
-            'pretsData', 'autresRessourcesTotal', 'autresRessourcesType',
-            'tresoEntrees', 'tresoSorties', 'soldeBrut', 'soldeApresEngagements', 'penalitesPayees', 'penalitesPayeesFP',
-            'caisseBureauEntrees', 'caisseBureauSorties', 'caisseBureauSolde',
-            'caissePointageEntrees', 'caissePointageSorties', 'caissePointageSolde'
+            'periode', 'exercice', 'exercices', 'debut', 'fin', 'libellePeriode', 'libellePrec',
+            'categorie', 'filtreVehicule', 'filtreChauffeur', 'tousVehicules', 'tousChauffeurs',
+            'kpi', 'kpiPrec', 'parVehicule', 'chauffeurs', 'evolution',
+            'depensesParType', 'pannesUrgence', 'penalitesType', 'aTraiter',
+            'detailJour', 'filtreNom', 'okrGestionnaire', 'okrChauffeurs', 'periodeOkr', 'gestionnaires'
         ));
     }
 
-    private function bornesPeriode(string $p, ?string $d, ?string $f): array
+    /** @return array{0: Carbon, 1: Carbon, 2: string, 3: Carbon, 4: Carbon, 5: string} */
+    private function bornes(string $periode, string $exercice, ?string $d, ?string $f): array
     {
-        return match ($p) {
-            'mois_precedent' => [today()->subMonth()->startOfMonth(), today()->subMonth()->endOfMonth()],
-            'trimestre' => [today()->firstOfQuarter(), today()->lastOfQuarter()],
-            'personnalise' => [
-                Carbon::parse($d ?? today()->subDays(30)->format('Y-m-d')),
-                Carbon::parse($f ?? today()->format('Y-m-d')),
-            ],
-            default => [today()->startOfMonth(), today()->endOfMonth()],
-        };
+        if ($periode === 'personnalise') {
+            $debut = Carbon::parse($d ?: ExerciceParc::courant()[0])->startOfDay();
+            $fin = Carbon::parse($f ?: today())->endOfDay();
+            if ($fin->lt($debut)) [$debut, $fin] = [$fin->copy()->startOfDay(), $debut->copy()->endOfDay()];
+            $nbJours = $debut->diffInDays($fin) + 1;
+            $finPrec = $debut->copy()->subDay()->endOfDay();
+            $debutPrec = $finPrec->copy()->subDays($nbJours - 1)->startOfDay();
+            return [$debut, $fin, 'du ' . $debut->format('d/m/Y') . ' au ' . $fin->format('d/m/Y'),
+                $debutPrec, $finPrec, 'les ' . $nbJours . ' jours précédents'];
+        }
+
+        if ($periode === 'trois_exercices') {
+            $premier = ExerciceParc::decaler($exercice, -2);
+            [$debut] = ExerciceParc::bornes($premier);
+            [, $fin] = ExerciceParc::bornes($exercice);
+            [$debutPrec] = ExerciceParc::bornes(ExerciceParc::decaler($premier, -3));
+            [, $finPrec] = ExerciceParc::bornes(ExerciceParc::decaler($premier, -1));
+            return [$debut, $fin, 'exercices ' . ExerciceParc::nom($premier) . ' à ' . ExerciceParc::nom($exercice) . ' (' . $debut->format('d/m/Y') . ' au ' . $fin->format('d/m/Y') . ')',
+                $debutPrec, $finPrec, 'les 3 exercices précédents'];
+        }
+
+        [$debut, $fin] = ExerciceParc::bornes($exercice);
+        $prec = ExerciceParc::decaler($exercice, -1);
+        [$debutPrec, $finPrec] = ExerciceParc::bornes($prec);
+        return [$debut, $fin, 'exercice ' . ExerciceParc::libelle($exercice), $debutPrec, $finPrec, 'exercice ' . ExerciceParc::nom($prec)];
+    }
+
+    /** Dépenses du périmètre : toutes si aucun filtre véhicule/catégorie, sinon celles des véhicules filtrés. */
+    private function depenses(Collection $vehiculeIds, bool $perimetreComplet, Carbon $debut, Carbon $fin)
+    {
+        return Depense::whereBetween('date_depense', [$debut, $fin])
+            ->when(!$perimetreComplet, fn($q) => $q->whereIn('vehicule_id', $vehiculeIds));
+    }
+
+    /** Recouvrements réellement payés par les chauffeurs (versements « chauffeur »). */
+    private function versementsChauffeurs(Collection $vehiculeIds, Carbon $debut, Carbon $fin, ?string $nomChauffeur)
+    {
+        return VersementRecouvrement::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')
+            ->whereIn('recouvrements.vehicule_id', $vehiculeIds)
+            ->when($nomChauffeur, fn($q) => $q->where('recouvrements.chauffeur_nom', $nomChauffeur))
+            ->where(fn($q) => $q->where('versements_recouvrement.source_paiement', 'chauffeur')->orWhereNull('versements_recouvrement.source_paiement'))
+            ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin]);
+    }
+
+    private function avecRecouvrements(): bool
+    {
+        return Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements');
+    }
+
+    private function indicateurs(Collection $vehiculeIds, bool $perimetreComplet, Carbon $debut, Carbon $fin, ?string $nomChauffeur): array
+    {
+        $rec = RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date', [$debut, $fin])
+            ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+            ->selectRaw('COALESCE(SUM(recette),0) as recette, COALESCE(SUM(objectif),0) as objectif, COUNT(*) as jours, COALESCE(SUM(CASE WHEN recette >= objectif THEN 1 ELSE 0 END),0) as jours_atteints')
+            ->first();
+        $recouvrement = $this->avecRecouvrements()
+            ? (int) $this->versementsChauffeurs($vehiculeIds, $debut, $fin, $nomChauffeur)->sum('versements_recouvrement.montant') : 0;
+
+        $pannes = Panne::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_declaration', [$debut, $fin])
+            ->selectRaw('COUNT(*) as nb, COALESCE(SUM(cout_reel),0) as cout')->first();
+        $penalites = Schema::hasTable('penalites')
+            ? Penalite::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_infraction', [$debut, $fin])
+                ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+                ->selectRaw('COUNT(*) as nb, COALESCE(SUM(montant),0) as montant')->first()
+            : (object) ['nb' => 0, 'montant' => 0];
+
+        $maintenance = 0;
+        $autresDepenses = 0;
+        if (Schema::hasTable('depenses')) {
+            $maintenance = (int) $this->depenses($vehiculeIds, $perimetreComplet, $debut, $fin)->where('type_depense', 'maintenance')->sum('montant');
+            $autresDepenses = (int) $this->depenses($vehiculeIds, $perimetreComplet, $debut, $fin)->where('type_depense', '!=', 'maintenance')->sum('montant');
+        }
+        // Vue chauffeur : seules ses recettes et pénalités lui sont imputables
+        if ($nomChauffeur) { $pannes->cout = 0; $pannes->nb = 0; $maintenance = 0; $autresDepenses = 0; }
+
+        $recettes = (int) $rec->recette + $recouvrement;
+        $charges = (int) $pannes->cout + $maintenance + (int) $penalites->montant + $autresDepenses;
+
+        return [
+            'recettes' => $recettes,
+            'recette_brute' => (int) $rec->recette,
+            'recouvrement' => $recouvrement,
+            'objectif' => (int) $rec->objectif,
+            'taux' => $rec->objectif > 0 ? (int) round($recettes / $rec->objectif * 100) : 0,
+            'jours' => (int) $rec->jours,
+            'jours_atteints' => (int) $rec->jours_atteints,
+            'pannes' => (int) $pannes->cout,
+            'nb_pannes' => (int) $pannes->nb,
+            'maintenance' => $maintenance,
+            'penalites' => (int) $penalites->montant,
+            'nb_penalites' => (int) $penalites->nb,
+            'autres_depenses' => $autresDepenses,
+            'charges' => $charges,
+            'resultat' => $recettes - $charges,
+            'marge' => $recettes > 0 ? (int) round(($recettes - $charges) / $recettes * 100) : null,
+        ];
+    }
+
+    private function rentabiliteVehicules(Collection $vehicules, Carbon $debut, Carbon $fin, ?string $nomChauffeur): Collection
+    {
+        $ids = $vehicules->pluck('id');
+        $grp = fn($q, string $col) => $q->whereIn($col, $ids);
+
+        $rec = $grp(RecetteVehicule::query(), 'vehicule_id')->whereBetween('date', [$debut, $fin])
+            ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+            ->selectRaw('vehicule_id, SUM(recette) as recette, SUM(objectif) as objectif, COUNT(*) as jours')
+            ->groupBy('vehicule_id')->get()->keyBy('vehicule_id');
+        $recouv = $this->avecRecouvrements()
+            ? $this->versementsChauffeurs($ids, $debut, $fin, $nomChauffeur)
+                ->selectRaw('recouvrements.vehicule_id as vid, SUM(versements_recouvrement.montant) as total')
+                ->groupBy('recouvrements.vehicule_id')->pluck('total', 'vid')
+            : collect();
+        $pannes = $nomChauffeur ? collect() : $grp(Panne::query(), 'vehicule_id')->whereBetween('date_declaration', [$debut, $fin])
+            ->selectRaw('vehicule_id, SUM(cout_reel) as cout, COUNT(*) as nb')->groupBy('vehicule_id')->get()->keyBy('vehicule_id');
+        $pen = Schema::hasTable('penalites')
+            ? $grp(Penalite::query(), 'vehicule_id')->whereBetween('date_infraction', [$debut, $fin])
+                ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+                ->selectRaw('vehicule_id, SUM(montant) as total')->groupBy('vehicule_id')->pluck('total', 'vehicule_id')
+            : collect();
+        $dep = Schema::hasTable('depenses') && !$nomChauffeur
+            ? $grp(Depense::query(), 'vehicule_id')->whereBetween('date_depense', [$debut, $fin])
+                ->selectRaw("vehicule_id, SUM(CASE WHEN type_depense = 'maintenance' THEN montant ELSE 0 END) as maint, SUM(CASE WHEN type_depense <> 'maintenance' THEN montant ELSE 0 END) as autres")
+                ->groupBy('vehicule_id')->get()->keyBy('vehicule_id')
+            : collect();
+
+        return $vehicules->map(function ($v) use ($rec, $recouv, $pannes, $pen, $dep) {
+            $r = $rec[$v->id] ?? null;
+            $recettes = (int) ($r->recette ?? 0) + (int) ($recouv[$v->id] ?? 0);
+            $objectif = (int) ($r->objectif ?? 0);
+            $pannesCout = (int) ($pannes[$v->id]->cout ?? 0);
+            $maint = (int) ($dep[$v->id]->maint ?? 0);
+            $autres = (int) ($dep[$v->id]->autres ?? 0);
+            $penal = (int) ($pen[$v->id] ?? 0);
+            $charges = $pannesCout + $maint + $penal + $autres;
+            $resultat = $recettes - $charges;
+            return [
+                'id' => $v->id, 'immat' => $v->immatriculation, 'categorie' => $v->categorieLabel(),
+                'statut' => $v->statut, 'statut_label' => $v->statutLabel(),
+                'jours' => (int) ($r->jours ?? 0), 'recettes' => $recettes, 'objectif' => $objectif,
+                'taux' => $objectif > 0 ? (int) round($recettes / $objectif * 100) : null,
+                'pannes' => $pannesCout, 'nb_pannes' => (int) ($pannes[$v->id]->nb ?? 0),
+                'maintenance' => $maint, 'penalites' => $penal, 'autres' => $autres,
+                'charges' => $charges, 'resultat' => $resultat,
+                'verdict' => $resultat > 0 ? 'rentable' : ($resultat < 0 ? 'deficit' : 'equilibre'),
+            ];
+        })
+        // Véhicules sans aucune activité ni service sur la période : hors classement
+        ->filter(fn($x) => $x['statut'] === 'en_service' || $x['recettes'] > 0 || $x['charges'] > 0)
+        ->sortBy('resultat')->values();
+    }
+
+    private function performanceChauffeurs(Collection $vehiculeIds, Carbon $debut, Carbon $fin, ?string $nomChauffeur): Collection
+    {
+        $rec = RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date', [$debut, $fin])
+            ->whereNotNull('chauffeur')->where('chauffeur', '<>', '')
+            ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+            ->selectRaw('chauffeur, SUM(recette) as recette, SUM(objectif) as objectif, COUNT(*) as jours,
+                SUM(CASE WHEN recette >= objectif THEN 1 ELSE 0 END) as jours_atteints,
+                SUM(CASE WHEN motif_absence IS NOT NULL AND motif_absence <> \'\' THEN 1 ELSE 0 END) as absences,
+                COUNT(DISTINCT vehicule_id) as nb_vehicules')
+            ->groupBy('chauffeur')->get();
+        if ($rec->isEmpty()) return collect();
+
+        $recouv = $this->avecRecouvrements()
+            ? $this->versementsChauffeurs($vehiculeIds, $debut, $fin, $nomChauffeur)
+                ->selectRaw('recouvrements.chauffeur_nom as nom, SUM(versements_recouvrement.montant) as total')
+                ->groupBy('recouvrements.chauffeur_nom')->pluck('total', 'nom')
+            : collect();
+        $pen = Schema::hasTable('penalites')
+            ? Penalite::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_infraction', [$debut, $fin])
+                ->selectRaw('chauffeur, SUM(montant) as total, COUNT(*) as nb')->groupBy('chauffeur')->get()->keyBy('chauffeur')
+            : collect();
+        $soldes = Schema::hasTable('recouvrements')
+            ? Recouvrement::where('statut', 'actif')->selectRaw('chauffeur_nom, SUM(solde) as solde')->groupBy('chauffeur_nom')->pluck('solde', 'chauffeur_nom')
+            : collect();
+
+        return $rec->map(function ($c) use ($recouv, $pen, $soldes) {
+            $recettes = (int) $c->recette + (int) ($recouv[$c->chauffeur] ?? 0);
+            $penal = (int) ($pen[$c->chauffeur]->total ?? 0);
+            return [
+                'nom' => $c->chauffeur,
+                'jours' => (int) $c->jours, 'jours_atteints' => (int) $c->jours_atteints, 'absences' => (int) $c->absences,
+                'nb_vehicules' => (int) $c->nb_vehicules,
+                'recettes' => $recettes, 'objectif' => (int) $c->objectif,
+                'ecart' => $recettes - (int) $c->objectif,
+                'taux' => $c->objectif > 0 ? (int) round($recettes / $c->objectif * 100) : null,
+                'moyenne' => $c->jours > 0 ? (int) round($recettes / $c->jours) : 0,
+                'penalites' => $penal, 'nb_penalites' => (int) ($pen[$c->chauffeur]->nb ?? 0),
+                'dette' => (int) ($soldes[$c->chauffeur] ?? 0),
+            ];
+        })->sortBy(fn($c) => $c['taux'] ?? 999)->values();
+    }
+
+    /**
+     * Série jour par jour (ou semaine par semaine au-delà de 100 jours) jusqu'à aujourd'hui :
+     * recettes, objectif, dépenses bureau (hors maintenance) et dépenses véhicules (pannes + maintenance + pénalités).
+     */
+    private function evolution(Collection $vehiculeIds, bool $perimetreComplet, Carbon $debut, Carbon $fin, ?string $nomChauffeur): array
+    {
+        $finEffective = $fin->copy()->min(today()->endOfDay());
+        if ($finEffective->lt($debut)) return ['points' => [], 'par_semaine' => false];
+
+        $parJour = fn($q, string $col, string $somme) => $q->selectRaw("DATE({$col}) as j, SUM({$somme}) as t")
+            ->groupBy(DB::raw("DATE({$col})"))->pluck('t', 'j')->map(fn($v) => (int) $v);
+
+        $recettes = RecetteVehicule::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date', [$debut, $finEffective])
+            ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+            ->selectRaw('DATE(date) as j, SUM(recette) as r, SUM(objectif) as o')->groupBy(DB::raw('DATE(date)'))->get()->keyBy('j');
+        $penalites = Schema::hasTable('penalites')
+            ? $parJour(Penalite::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_infraction', [$debut, $finEffective])
+                ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur)), 'date_infraction', 'montant')
+            : collect();
+        $pannes = collect(); $maint = collect(); $bureau = collect();
+        if (!$nomChauffeur) {
+            $pannes = $parJour(Panne::whereIn('vehicule_id', $vehiculeIds)->whereBetween('date_declaration', [$debut, $finEffective]), 'date_declaration', 'cout_reel');
+            if (Schema::hasTable('depenses')) {
+                $maint = $parJour($this->depenses($vehiculeIds, $perimetreComplet, $debut, $finEffective)->where('type_depense', 'maintenance'), 'date_depense', 'montant');
+                $bureau = $parJour($this->depenses($vehiculeIds, $perimetreComplet, $debut, $finEffective)->where('type_depense', '!=', 'maintenance'), 'date_depense', 'montant');
+            }
+        }
+
+        $parSemaine = $debut->diffInDays($finEffective) > 100;
+        $points = [];
+        for ($d = $debut->copy()->startOfDay(); $d->lte($finEffective); $d->addDay()) {
+            $j = $d->toDateString();
+            $cle = $parSemaine ? $d->copy()->startOfWeek()->toDateString() : $j;
+            $points[$cle] ??= ['date' => $cle, 'recette' => 0, 'objectif' => 0, 'bureau' => 0, 'vehicule' => 0, 'saisi' => false];
+            $p = &$points[$cle];
+            if (isset($recettes[$j])) { $p['recette'] += (int) $recettes[$j]->r; $p['objectif'] += (int) $recettes[$j]->o; $p['saisi'] = true; }
+            $p['bureau'] += $bureau[$j] ?? 0;
+            $p['vehicule'] += ($pannes[$j] ?? 0) + ($maint[$j] ?? 0) + ($penalites[$j] ?? 0);
+            unset($p);
+        }
+        return ['points' => array_values($points), 'par_semaine' => $parSemaine];
+    }
+
+    /** Liste priorisée de ce qui demande une décision ou une action. */
+    private function aTraiter(Collection $vehiculeIds, Collection $parVehicule, Collection $chauffeurs, ?string $nomChauffeur): array
+    {
+        $points = [];
+        $f = fn($n) => number_format($n, 0, ',', ' ') . ' F';
+
+        $deficit = $parVehicule->where('verdict', 'deficit');
+        if ($deficit->isNotEmpty()) {
+            $points[] = ['niveau' => 'ko', 'onglet' => 'vehicules',
+                'titre' => $deficit->count() . ' véhicule(s) en déficit sur la période',
+                'detail' => $deficit->take(4)->map(fn($v) => $v['immat'] . ' (' . $f($v['resultat']) . ')')->join(', ')
+                    . '. À examiner : coûts de panne, objectif, affectation du chauffeur.'];
+        }
+
+        $sousObjectif = $chauffeurs->filter(fn($c) => $c['taux'] !== null && $c['taux'] < 80);
+        if ($sousObjectif->isNotEmpty()) {
+            $points[] = ['niveau' => 'warn', 'onglet' => 'chauffeurs',
+                'titre' => $sousObjectif->count() . ' chauffeur(s) sous 80 % de l\'objectif',
+                'detail' => $sousObjectif->take(4)->map(fn($c) => $c['nom'] . ' (' . $c['taux'] . ' %)')->join(', ') . '.'];
+        }
+
+        $pannesOuvertes = Panne::whereIn('vehicule_id', $vehiculeIds)->whereIn('statut', self::PANNES_OUVERTES)->get(['urgence', 'date_declaration']);
+        if (!$nomChauffeur && $pannesOuvertes->isNotEmpty()) {
+            $graves = $pannesOuvertes->whereIn('urgence', ['haute', 'critique'])->count();
+            $anciennes = $pannesOuvertes->filter(fn($p) => $p->date_declaration && $p->date_declaration->lt(today()->subDays(7)))->count();
+            $points[] = ['niveau' => $graves > 0 ? 'ko' : 'warn', 'onglet' => 'pannes',
+                'titre' => $pannesOuvertes->count() . ' panne(s) non clôturée(s)',
+                'detail' => trim(($graves ? "{$graves} haute(s)/critique(s). " : '') . ($anciennes ? "{$anciennes} ouverte(s) depuis plus de 7 jours." : ''))];
+        }
+
+        if (!$nomChauffeur) {
+            $maint = MaintenancePreventive::whereIn('vehicule_id', $vehiculeIds)->where(fn($q) => $q->whereNull('statut')->orWhere('statut', '!=', 'realisee'))
+                ->whereNotNull('prochaine_echeance')->whereDate('prochaine_echeance', '<=', today()->addDays(15))->get(['prochaine_echeance']);
+            $retard = $maint->filter(fn($m) => $m->prochaine_echeance->lt(today()))->count();
+            $proche = $maint->count() - $retard;
+            if ($maint->isNotEmpty()) {
+                $points[] = ['niveau' => $retard ? 'ko' : 'info', 'onglet' => 'maint',
+                    'titre' => ($retard ? "{$retard} maintenance(s) en retard" : '') . ($retard && $proche ? ', ' : '') . ($proche ? "{$proche} dans les 15 jours" : ''),
+                    'detail' => 'Planifier les interventions pour éviter des pannes plus coûteuses.'];
+            }
+        }
+
+        if (Schema::hasTable('penalites')) {
+            $impayees = Penalite::whereIn('vehicule_id', $vehiculeIds)->where('statut', '!=', 'payee')
+                ->when($nomChauffeur, fn($q) => $q->where('chauffeur', $nomChauffeur))
+                ->selectRaw('COUNT(*) as nb, COALESCE(SUM(montant - COALESCE(montant_paye,0)),0) as solde')->first();
+            if ($impayees->nb > 0) {
+                $points[] = ['niveau' => 'warn', 'onglet' => 'penal',
+                    'titre' => $impayees->nb . ' pénalité(s) non soldée(s) : ' . $f($impayees->solde),
+                    'detail' => 'Relancer le paiement ou décider de la prise en charge.'];
+            }
+        }
+
+        if (Schema::hasTable('recouvrements')) {
+            $recouv = Recouvrement::whereIn('vehicule_id', $vehiculeIds)->where('statut', 'actif')
+                ->when($nomChauffeur, fn($q) => $q->where('chauffeur_nom', $nomChauffeur))
+                ->selectRaw('COUNT(*) as nb, COALESCE(SUM(solde),0) as solde')->first();
+            if ($recouv->nb > 0) {
+                $points[] = ['niveau' => 'warn', 'onglet' => 'recouv',
+                    'titre' => $f($recouv->solde) . ' à recouvrer auprès des chauffeurs',
+                    'detail' => $recouv->nb . ' créance(s) active(s).'];
+            }
+        }
+
+        $immobilises = Vehicule::whereIn('id', $vehiculeIds)->where('statut', 'immobilise')->pluck('immatriculation');
+        if (!$nomChauffeur && $immobilises->isNotEmpty()) {
+            $points[] = ['niveau' => 'info', 'onglet' => 'vehicules',
+                'titre' => $immobilises->count() . ' véhicule(s) immobilisé(s)',
+                'detail' => $immobilises->take(5)->join(', ') . ' : ne rapportent rien tant qu\'ils sont à l\'arrêt.'];
+        }
+
+        $ordre = ['ko' => 0, 'warn' => 1, 'info' => 2];
+        usort($points, fn($a, $b) => $ordre[$a['niveau']] <=> $ordre[$b['niveau']]);
+        return $points;
+    }
+
+    private function okr(Request $r): array
+    {
+        $periodeOkr = ExerciceParc::cle();
+        $okrGestionnaire = null;
+        $okrChauffeurs = collect();
+        if (!Schema::hasTable('objectifs') || !Schema::hasColumn('objectifs', 'type')) return [$okrGestionnaire, $okrChauffeurs, $periodeOkr];
+
+        $mesObj = Objectif::with('resultats')->where('user_id', $r->user()->id)->where('periode', $periodeOkr)->get();
+        if ($mesObj->isNotEmpty()) {
+            $okrGestionnaire = [
+                'score' => Objectif::scoreGroupe($mesObj),
+                'total' => $mesObj->count(),
+                'atteints' => $mesObj->where('evaluation', 'atteint')->count(),
+            ];
+        }
+        if (Schema::hasTable('chauffeurs') && Schema::hasColumn('chauffeurs', 'user_id')) {
+            $liens = Chauffeur::where('statut', 'actif')->whereNotNull('user_id')->get();
+            $objs = Objectif::with('resultats')->whereIn('user_id', $liens->pluck('user_id'))->where('periode', $periodeOkr)->get()->groupBy('user_id');
+            foreach ($liens as $ch) {
+                $o = $objs[$ch->user_id] ?? collect();
+                if ($o->isEmpty()) continue;
+                $okrChauffeurs->push(['nom' => $ch->nomComplet(), 'score' => Objectif::scoreGroupe($o), 'total' => $o->count(), 'atteints' => $o->where('evaluation', 'atteint')->count()]);
+            }
+            $okrChauffeurs = $okrChauffeurs->sortByDesc('score')->values();
+        }
+        return [$okrGestionnaire, $okrChauffeurs, $periodeOkr];
     }
 }

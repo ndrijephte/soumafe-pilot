@@ -2,7 +2,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\{ParametreParc, TypeParc};
+use App\Models\{AuditLog, ParametreParc, TypeParc};
+use App\Services\ExerciceParc;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -39,6 +40,25 @@ class ParcParametreController extends Controller
             ParametreParc::where('id', $id)->update(['valeur' => $valeur]);
         }
         return back()->with('succes', 'Paramètres du parc enregistrés.');
+    }
+
+    /* ===== EXERCICE MENSUEL ===== */
+    public function updateExercice(Request $r)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $v = $r->validate([
+            'jour_debut' => 'required|integer|min:1|max:' . ExerciceParc::JOUR_MAX,
+            'a_partir_de' => 'required|date_format:Y-m',
+        ], [], ['jour_debut' => 'jour de début', 'a_partir_de' => "exercice d'application"]);
+
+        $avant = ExerciceParc::jourDebut($v['a_partir_de']);
+        ExerciceParc::definirRegle($v['a_partir_de'], (int) $v['jour_debut']);
+
+        if (Schema::hasTable('audit_logs')) {
+            AuditLog::log('modification', 'parc', 'Exercice mensuel', "Jour de début : {$avant} → {$v['jour_debut']} à partir de l'exercice {$v['a_partir_de']}");
+        }
+
+        return back()->with('succes', "Exercice mis à jour : à partir de " . ExerciceParc::libelle($v['a_partir_de']) . '.');
     }
 
     /* ===== TYPES PARC CRUD ===== */

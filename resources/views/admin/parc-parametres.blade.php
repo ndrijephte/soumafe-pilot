@@ -33,6 +33,72 @@
 <div class="crumb">Administration &rsaquo; Paramètres parc</div>
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
+@if($errors->any())<div class="alerte" style="background:#fef2f2;border:1px solid #fecaca;color:var(--ko)">{{ $errors->first() }}</div>@endif
+
+{{-- ═══ EXERCICE MENSUEL ═══ --}}
+@php
+    use App\Services\ExerciceParc;
+    $cleCourante = ExerciceParc::cle();
+    $reglesEx = ExerciceParc::regles();
+    $choixMois = [];
+    for ($i = -6; $i <= 12; $i++) { $c = ExerciceParc::decaler($cleCourante, $i); $choixMois[$c] = ExerciceParc::nom($c); }
+    $defautMois = ExerciceParc::decaler($cleCourante, 1);
+@endphp
+<div class="carte" style="margin-bottom:16px">
+    <div class="param-section" style="margin-top:0">Exercice mensuel</div>
+    <div class="info-box">
+        Toutes les périodes du parc (indicateurs, fiches, filtres, reporting) suivent l'exercice mensuel.
+        Exercice en cours : <strong>{{ ExerciceParc::libelle($cleCourante) }}</strong>.<br>
+        Un changement s'applique à partir de l'exercice choisi : les exercices antérieurs gardent leurs dates, et celui qui précède
+        le changement est raccourci ou allongé pour qu'il n'y ait ni trou ni chevauchement.
+    </div>
+    <form method="POST" action="{{ route('admin.parc-parametres.exercice') }}" style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end"
+          onsubmit="return document.getElementById('ex-mois').value >= '{{ $cleCourante }}' || confirm('Cet exercice est déjà commencé ou passé : les rapports à partir de cet exercice seront recalculés. Continuer ?')">
+        @csrf
+        <div class="param-item">
+            <label>Jour de début de l'exercice</label>
+            <select name="jour_debut" id="ex-jour" onchange="apercuExercice()" style="padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;min-width:200px">
+                @for($j = 1; $j <= ExerciceParc::JOUR_MAX; $j++)
+                <option value="{{ $j }}" @selected($j === ExerciceParc::jourDebut($defautMois))>{{ sprintf('%02d', $j) }} {{ $j === 1 ? '(mois calendaire)' : '→ ' . sprintf('%02d', $j - 1) . ' du mois suivant' }}</option>
+                @endfor
+            </select>
+        </div>
+        <div class="param-item">
+            <label>Applicable à partir de l'exercice</label>
+            <select name="a_partir_de" id="ex-mois" onchange="apercuExercice()" style="padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;min-width:200px">
+                @foreach($choixMois as $c => $nom)
+                <option value="{{ $c }}" @selected($c === $defautMois)>{{ $nom }}{{ $c === $cleCourante ? ' (en cours)' : '' }}</option>
+                @endforeach
+            </select>
+        </div>
+        <button class="btn">Appliquer</button>
+        <div id="ex-apercu" style="font-size:12px;color:var(--gris);flex-basis:100%"></div>
+    </form>
+
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:14px">
+        <thead><tr style="text-align:left;color:var(--gris);font-size:11px;text-transform:uppercase">
+            <th style="padding:6px 8px;border-bottom:1px solid var(--bord)">Règle en vigueur depuis l'exercice</th>
+            <th style="padding:6px 8px;border-bottom:1px solid var(--bord)">Période type</th>
+        </tr></thead>
+        <tbody>
+        @foreach(array_reverse($reglesEx, true) as $depuis => $j)
+        <tr>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">{{ $depuis === '2000-01' ? 'Origine' : ExerciceParc::nom($depuis) }}@if($depuis > $cleCourante) <span style="color:var(--accent);font-weight:600">(à venir)</span>@endif</td>
+            <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">{{ $j === 1 ? 'Mois calendaire (du 01 au dernier jour)' : 'Du ' . sprintf('%02d', $j) . ' au ' . sprintf('%02d', $j - 1) . ' du mois suivant' }}</td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+</div>
+<script>
+function apercuExercice(){
+    var j=parseInt(document.getElementById('ex-jour').value,10), sel=document.getElementById('ex-mois'), m=sel.value.split('-');
+    var d=new Date(+m[0], +m[1]-1, j), f=new Date(+m[0], +m[1], j-1);
+    var fmt=function(x){return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear();};
+    document.getElementById('ex-apercu').textContent='Premier exercice avec cette règle : du '+fmt(d)+' au '+fmt(f)+'. L\'exercice précédent se terminera le '+fmt(new Date(d.getTime()-86400000))+'.';
+}
+apercuExercice();
+</script>
 
 <div class="carte">
 <div class="info-box">
@@ -43,7 +109,7 @@
     @csrf
 
     @php
-        $parGroupe = $parametres->groupBy('groupe');
+        $parGroupe = $parametres->where('groupe', '!=', 'exercice')->groupBy('groupe');
         $labelGroupe = ['recettes' => 'Objectifs de recette journalière (FCFA)', 'general' => 'Général'];
     @endphp
 

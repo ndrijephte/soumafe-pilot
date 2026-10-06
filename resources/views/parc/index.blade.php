@@ -53,7 +53,8 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .req{color:var(--ko)}
 .filtre-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
-.filtre-bar select,.filtre-bar input[type="month"],.filtre-bar input[type="text"]{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
+.filtre-resultat{margin-left:auto;font-size:12px;color:var(--mute);white-space:nowrap}
+.filtre-bar select,.filtre-bar input[type="month"],.filtre-bar input[type="text"],.filtre-bar input[type="search"]{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 #form-saisie-recette select,#form-saisie-recette input[type="number"],#form-saisie-recette input[type="date"],#form-saisie-recette textarea{width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:#fff;color:#1e293b;transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none}
 #form-saisie-recette select{background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231F4E79' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;padding-right:30px}
 #form-saisie-recette select:focus,#form-saisie-recette input[type="number"]:focus,#form-saisie-recette textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
@@ -166,11 +167,15 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 @if(session('succes'))<div class="alerte ok">{!! $ic('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',16) !!} {{ session('succes') }}</div>@endif
 
 {{-- KPI --}}
+<div style="display:inline-flex;align-items:center;gap:6px;margin:4px 0 10px;padding:5px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12.5px;color:#1e40af">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Exercice en cours : <strong>{{ \App\Services\ExerciceParc::libelle(\App\Services\ExerciceParc::cle()) }}</strong>
+</div>
 <div class="kpis">
     <div class="kpi"><div class="lbl">En service</div><div class="val">{{ $kpi['actifs'] }}<span style="font-size:13px;color:var(--gris);font-weight:400">/{{ $kpi['total'] }}</span></div><div class="sub">{{ $kpi['taxis'] }} Taxis · {{ $kpi['vtcs'] }} VTC</div></div>
     <div class="kpi" @if($kpi['pannes_ouvertes']>0) style="background:#fff7ed;border-color:#fed7aa" @endif><div class="lbl">Pannes ouvertes</div><div class="val" style="color:{{ $kpi['pannes_ouvertes']>0 ? '#b45309' : 'var(--ok)' }}">{{ $kpi['pannes_ouvertes'] }}</div></div>
-    <div class="kpi"><div class="lbl">Coût pannes ce mois</div><div class="val" style="font-size:22px">{{ number_format($kpi['cout_mois'], 0, ',', ' ') }}</div><div class="sub">FCFA</div></div>
-    <div class="kpi"><div class="lbl">Recette mois</div><div class="val" style="font-size:20px">{{ number_format($kpi['recette_totale'], 0, ',', ' ') }}</div><div class="sub">dont recouv. {{ number_format($kpi['recouvrement_mois'], 0, ',', ' ') }} F · obj. {{ number_format($kpi['objectif_mois'], 0, ',', ' ') }}</div></div>
+    <div class="kpi"><div class="lbl">Coût pannes (exercice)</div><div class="val" style="font-size:22px">{{ number_format($kpi['cout_mois'], 0, ',', ' ') }}</div><div class="sub">FCFA</div></div>
+    <div class="kpi"><div class="lbl">Recettes de l'exercice</div><div class="val" style="font-size:20px">{{ number_format($kpi['recette_totale'], 0, ',', ' ') }}</div><div class="sub">dont recouv. {{ number_format($kpi['recouvrement_mois'], 0, ',', ' ') }} F · obj. {{ number_format($kpi['objectif_mois'], 0, ',', ' ') }}</div></div>
     <div class="kpi"><div class="lbl">Taux recette / obj.</div><div class="val" style="color:{{ $kpi['taux_recette'] >= 100 ? 'var(--ok)' : ($kpi['taux_recette'] >= 80 ? '#b45309' : 'var(--ko)') }}">{{ $kpi['taux_recette'] }}%</div></div>
     <div class="kpi" @if($kpi['echeances_retard']>0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">Échéances en retard</div><div class="val" style="color:{{ $kpi['echeances_retard']>0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $kpi['echeances_retard'] }}</div></div>
     <div class="kpi" @if($kpi['penalites_non_payees']>0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">Pénalités impayées</div><div class="val" style="color:{{ $kpi['penalites_non_payees']>0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $kpi['penalites_non_payees'] }}</div></div>
@@ -211,12 +216,16 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <h3>{!! $icCar !!} Véhicules <span class="pill p-cours">{{ $vehicules->count() }}</span></h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-vehicule').showModal()">{!! $icPlus !!} Véhicule</button>@endif
     </div>
+    @include('parc._filtre', ['cible' => 'tbl-vehicules', 'champs' => [
+        'categorie' => ['Toutes catégories', ['taxi' => 'Taxi', 'vtc' => 'VTC']],
+        'statut' => ['Tous les statuts', ['en_service' => 'En service', 'immobilise' => 'Immobilisé', 'reforme' => 'Réformé']],
+        'chauffeur' => true, 'recherche' => 'Immatriculation, marque…']])
     <div class="panneau" style="overflow-x:auto">
-    <table>
+    <table id="tbl-vehicules">
     <thead><tr><th>Immatriculation</th><th>Cat.</th><th>Marque / Modèle</th><th>Chauffeur</th><th>Km</th><th>Mise en service</th><th>Statut</th><th></th></tr></thead>
     <tbody>
     @forelse($vehicules as $v)
-    <tr>
+    <tr data-ligne data-categorie="{{ $v->categorie }}" data-statut="{{ $v->statut }}" data-chauffeur="{{ $v->chauffeurs->where('pivot.actif', true)->map(fn($c) => $c->nomComplet())->join('|') }}">
         <td><strong>{{ $v->immatriculation }}</strong></td>
         <td><span class="cat-pill cat-{{ $v->categorie }}">{{ $v->categorieLabel() }}</span></td>
         <td>{{ $v->marque }} {{ $v->modele }}</td>
@@ -265,12 +274,17 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <span style="color:var(--gris)">({{ $pannes->count() }} panne(s))</span>
     </div>
     @endif
+    @include('parc._filtre', ['cible' => 'tbl-pannes', 'champs' => [
+        'exercice' => '', 'vehicule' => true,
+        'statut' => ['Tous les statuts', ['ouverte' => 'Non clôturées', 'declaree' => 'Déclarée', 'en_diagnostic' => 'En diagnostic', 'en_intervention' => 'En intervention', 'cloturee' => 'Clôturée']],
+        'type' => ['Toutes urgences', ['critique' => 'Critique', 'haute' => 'Haute', 'moyenne' => 'Moyenne', 'faible' => 'Faible']],
+        'recherche' => 'Description, diagnostic…']])
     <div class="panneau" style="overflow-x:auto">
-    <table>
+    <table id="tbl-pannes">
     <thead><tr><th>Véhicule</th><th>Date</th><th>Description</th><th>Urgence</th><th>Statut</th><th>Coût</th><th>Délai</th><th></th></tr></thead>
     <tbody>
     @forelse($pannes as $p)
-    <tr>
+    <tr data-ligne data-date="{{ $p->date_declaration?->format('Y-m-d') }}" data-vehicule="{{ $p->vehicule_id }}" data-statut="{{ $p->statut }}{{ $p->statut !== 'cloturee' ? '|ouverte' : '' }}" data-type="{{ $p->urgence }}" data-montant="{{ (int) $p->cout_reel }}">
         <td><strong>{{ $p->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $p->date_declaration ? $p->date_declaration->format('d/m/Y') : '—' }}</td>
         <td style="max-width:200px">{{ Str::limit($p->description, 60) }}</td>
@@ -442,8 +456,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </span>
         </div>
 
+        @include('parc._filtre', ['cible' => 'grille-saisies', 'champs' => [
+            'vehicule' => true,
+            'statut' => ['Tous les résultats', ['atteint' => 'Objectif atteint', 'justifie' => 'Écart justifié', 'non_atteint' => 'Objectif non atteint']],
+            'recherche' => 'Chauffeur, véhicule…']])
         {{-- Cards recettes saisies --}}
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+        <div id="grille-saisies" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
         @foreach($grilleJour as $i => $g)
             @if($g['deja_saisi'])
             @php
@@ -453,7 +471,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 $statutMotif = $rc->statut_motif ?? (($rc->justification_valable ?? false) ? 'valide' : 'en_attente');
                 $borderColor = $ecOk ? '#86efac' : ($statutMotif === 'valide' ? '#fde68a' : '#fca5a5');
             @endphp
-            <div style="background:var(--carte);border:1px solid {{ $borderColor }};border-radius:10px;padding:12px 14px;position:relative;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseleave="this.style.boxShadow='none'">
+            <div data-ligne data-vehicule="{{ $rv->id }}" data-statut="{{ $ecOk ? 'atteint' : ($statutMotif === 'valide' ? 'justifie' : 'non_atteint') }}" data-montant="{{ (int) ($rc->recette ?? 0) }}" style="background:var(--carte);border:1px solid {{ $borderColor }};border-radius:10px;padding:12px 14px;position:relative;transition:box-shadow .15s" onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,.08)'" onmouseleave="this.style.boxShadow='none'">
                 {{-- Ligne 1 : chauffeur + statut --}}
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
                     <div style="display:flex;align-items:center;gap:6px">
@@ -665,13 +683,18 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <span style="color:var(--gris)">({{ $maintenances->whereNotNull('cout')->where('cout', '>', 0)->count() }} intervention(s))</span>
     </div>
     @endif
+    @include('parc._filtre', ['cible' => 'tbl-maint', 'champs' => [
+        'exercice' => '', 'vehicule' => true,
+        'type' => ['Tous les types', $typesMaintenance->pluck('libelle', 'code')->all()],
+        'statut' => ['Toutes les alertes', ['en_retard' => 'En retard', 'proche' => 'Proche', 'ok' => 'À jour', 'fait' => 'Réalisée']],
+        'recherche' => 'Observations, prestataire…']])
     <div class="panneau" style="overflow-x:auto">
-    <table>
+    <table id="tbl-maint">
     <thead><tr><th>Véhicule</th><th>Type</th><th>Statut</th><th>Dernière réal.</th><th>Prochaine</th><th>Jours</th><th>Alerte</th><th>Coût</th><th>Observations</th><th></th></tr></thead>
     <tbody>
     @forelse($maintenances as $m)
     @php $al = $m->alerte(); $jr = $m->joursRestants(); $estReal = $m->estRealisee(); @endphp
-    <tr>
+    <tr data-ligne data-date="{{ $m->prochaine_echeance?->format('Y-m-d') }}" data-vehicule="{{ $m->vehicule_id }}" data-type="{{ $m->type_echeance }}" data-statut="{{ $estReal ? 'fait' : $al }}" data-montant="{{ (int) $m->cout }}">
         <td><strong>{{ $m->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $m->typeLabel() }}</td>
         <td><span class="pill {{ $estReal ? 'p-ok' : 'p-warn' }}">{{ $m->statutLabel() }}</span></td>
@@ -722,13 +745,18 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <h3>{!! $icAlert !!} Pénalités @if($kpi['penalites_non_payees']>0)<span class="pill p-ko">{{ $kpi['penalites_non_payees'] }} impayées</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-penal').showModal()">{!! $icPlus !!} Pénalité</button>@endif
     </div>
+    @include('parc._filtre', ['cible' => 'tbl-penal', 'champs' => [
+        'exercice' => '', 'vehicule' => true, 'chauffeur' => true,
+        'type' => ['Tous les types', $typesPenalite->pluck('libelle', 'code')->all()],
+        'statut' => ['Tous les statuts', ['impayee' => 'Non soldées', 'non_payee' => 'Non payée', 'en_cours' => 'En cours', 'payee' => 'Payée', 'contestee' => 'Contestée']],
+        'recherche' => 'Lieu, description…']])
     <div class="panneau" style="overflow-x:auto">
-    <table>
+    <table id="tbl-penal">
     <thead><tr><th>Véhicule</th><th>Date</th><th>Type</th><th>Chauffeur</th><th>Lieu</th><th>Montant</th><th>Payé</th><th>Solde</th><th>Statut</th><th></th></tr></thead>
     <tbody>
     @forelse($penalites as $pen)
     @php $soldePen = $pen->soldeRestant(); @endphp
-    <tr>
+    <tr data-ligne data-date="{{ $pen->date_infraction->format('Y-m-d') }}" data-vehicule="{{ $pen->vehicule_id }}" data-chauffeur="{{ $pen->chauffeur }}" data-type="{{ $pen->type }}" data-statut="{{ $pen->statut }}{{ $pen->statut !== 'payee' ? '|impayee' : '' }}" data-montant="{{ (int) $pen->montant }}">
         <td><strong>{{ $pen->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $pen->date_infraction->format('d/m/Y') }}</td>
         <td>{{ $pen->typeLabel() }}</td>
@@ -801,12 +829,16 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div class="kpi"><div class="lbl">Déjà recouvré</div><div class="val" style="color:var(--ok)">{{ number_format($recActifs->sum('montant_recouvre'), 0, ',', ' ') }} F</div></div>
     </div>
 
+    @include('parc._filtre', ['cible' => 'tbl-recouv', 'champs' => [
+        'exercice' => '', 'vehicule' => true, 'chauffeur' => true,
+        'type' => ['Tous les types', ['recette' => 'Recette', 'penalite' => 'Pénalité']],
+        'recherche' => 'Rechercher…']])
     <div style="overflow-x:auto">
-    <table>
+    <table id="tbl-recouv">
     <thead><tr><th>Date</th><th>Type</th><th>Chauffeur</th><th>Véhicule</th><th>Objectif</th><th>Versé</th><th>Déficit</th><th>Recouvré</th><th>Solde</th><th>Statut</th><th></th></tr></thead>
     <tbody>
     @foreach($recActifs as $rc)
-    <tr>
+    <tr data-ligne data-date="{{ $rc->date_recette->format('Y-m-d') }}" data-vehicule="{{ $rc->vehicule_id }}" data-chauffeur="{{ $rc->chauffeur_nom }}" data-type="{{ $rc->type_recouvrement ?? 'recette' }}" data-montant="{{ (int) $rc->solde }}">
         <td>{{ $rc->date_recette->format('d/m/Y') }}</td>
         <td><span class="pill {{ ($rc->type_recouvrement ?? 'recette') === 'penalite' ? 'p-ko' : 'p-cours' }}" style="font-size:10px">{{ ($rc->type_recouvrement ?? 'recette') === 'penalite' ? 'Pénalité' : 'Recette' }}</span></td>
         <td><strong>{{ $rc->chauffeur_nom ?? '—' }}</strong></td>
@@ -857,12 +889,17 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @if($recSoldes->count() > 0)
     <details style="margin-top:16px">
         <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--bleu);padding:6px 0">Historique soldés / annulés ({{ $recSoldes->count() }})</summary>
-        <div style="overflow-x:auto;margin-top:8px">
-        <table>
+        <div style="margin-top:8px">
+        @include('parc._filtre', ['cible' => 'tbl-recouv-soldes', 'champs' => [
+            'exercice' => '', 'chauffeur' => true,
+            'statut' => ['Tous', ['solde' => 'Soldé', 'annule' => 'Annulé']]]])
+        </div>
+        <div style="overflow-x:auto">
+        <table id="tbl-recouv-soldes">
         <thead><tr><th>Date</th><th>Chauffeur</th><th>Déficit</th><th>Recouvré</th><th>Statut</th>@if(auth()->user()->estAdmin())<th></th> @endif</tr></thead>
         <tbody>
         @foreach($recSoldes as $rs)
-        <tr style="opacity:.7">
+        <tr style="opacity:.7" data-ligne data-date="{{ $rs->date_recette->format('Y-m-d') }}" data-chauffeur="{{ $rs->chauffeur_nom }}" data-statut="{{ $rs->statut }}" data-montant="{{ (int) $rs->montant_recouvre }}">
             <td>{{ $rs->date_recette->format('d/m/Y') }}</td>
             <td>{{ $rs->chauffeur_nom ?? '—' }}</td>
             <td>{{ number_format($rs->deficit, 0, ',', ' ') }}</td>
@@ -1012,18 +1049,16 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Historique des recettes</h3>
         <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
-        <label style="font-size:12px;font-weight:600;color:var(--mute)">Filtrer par mois :</label>
-        <input type="month" id="histo-filtre-mois" onchange="filtrerHistoMois()" style="padding:4px 8px;border:1px solid var(--bord);border-radius:6px;font-size:12px">
-        <button type="button" onclick="document.getElementById('histo-filtre-mois').value='';filtrerHistoMois()" class="btn sec" style="padding:4px 10px;font-size:11px">Tous</button>
-        <span id="histo-compteur" style="font-size:11px;color:var(--mute);margin-left:auto"></span>
-    </div>
+    @include('parc._filtre', ['cible' => 'tbl-histo-recettes', 'champs' => [
+        'exercice' => $exerciceCourant, 'vehicule' => true, 'chauffeur' => true,
+        'statut' => ['Tous les résultats', ['atteint' => 'Objectif atteint', 'non_atteint' => 'Objectif non atteint', 'absence' => "Avec motif d'absence"]],
+        'recherche' => 'Rechercher…']])
     <div style="overflow-x:auto;max-height:60vh;overflow-y:auto">
-    <table>
+    <table id="tbl-histo-recettes">
     <thead><tr><th>Date</th><th>Chauffeur</th><th>Véhicule</th><th>Recette</th><th>Objectif</th><th>Écart</th><th>Mode</th><th>Motif</th><th></th></tr></thead>
     <tbody id="histo-tbody">
     @forelse($recettes as $rec)
-    <tr data-mois="{{ $rec->date->format('Y-m') }}">
+    <tr data-ligne data-date="{{ $rec->date->format('Y-m-d') }}" data-vehicule="{{ $rec->vehicule_id }}" data-chauffeur="{{ $rec->chauffeur }}" data-statut="{{ $rec->ecart >= 0 ? 'atteint' : 'non_atteint' }}{{ $rec->motif_absence ? '|absence' : '' }}" data-montant="{{ (int) $rec->recette }}">
         <td>{{ $rec->date->format('d/m/Y') }}</td>
         <td><strong>{{ $rec->chauffeur ?? '—' }}</strong></td>
         <td>{{ $rec->vehicule->immatriculation ?? '?' }}</td>
@@ -1639,8 +1674,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     Total dépenses : <strong style="color:var(--ko)">{{ number_format($totalDepenses, 0, ',', ' ') }} F</strong>
 </div>
 
+@include('parc._filtre', ['cible' => 'tbl-depenses', 'champs' => [
+    'exercice' => '', 'vehicule' => true,
+    'type' => ['Tous les types', ($typesDepense ?? collect())->pluck('libelle', 'code')->all()],
+    'recherche' => 'Commentaire, saisi par…']])
 <div class="panneau" style="overflow-x:auto">
-<table class="tableau" style="width:100%">
+<table class="tableau" id="tbl-depenses" style="width:100%">
 <thead><tr>
     <th style="width:100px">Date</th>
     <th>Type</th>
@@ -1652,7 +1691,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </tr></thead>
 <tbody>
 @forelse($depenses ?? [] as $dep)
-<tr id="dep-row-{{ $dep->id }}">
+<tr id="dep-row-{{ $dep->id }}" data-ligne data-date="{{ $dep->date_depense->format('Y-m-d') }}" data-vehicule="{{ $dep->vehicule_id }}" data-type="{{ $dep->type_depense }}" data-montant="{{ (int) $dep->montant }}">
     <td>{{ $dep->date_depense->format('d/m/Y') }}</td>
     <td>{{ $typesLabels[$dep->type_depense] ?? ucfirst(str_replace('_', ' ', $dep->type_depense)) }}</td>
     <td style="font-size:12px">{{ $dep->vehicule->immatriculation ?? '—' }}</td>
@@ -1706,8 +1745,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <span>Solde dû : <strong style="color:{{ $soldeTotal > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($soldeTotal, 0, ',', ' ') }} F</strong></span>
 </div>
 
+@include('parc._filtre', ['cible' => 'tbl-emprunts', 'champs' => [
+    'exercice' => '', 'vehicule' => true,
+    'statut' => ['Tous les statuts', ['en_cours' => 'En cours', 'rembourse' => 'Remboursé']],
+    'recherche' => 'Prêteur, motif…']])
 <div class="panneau" style="overflow-x:auto">
-<table class="tableau" style="width:100%">
+<table class="tableau" id="tbl-emprunts" style="width:100%">
 <thead><tr>
     <th style="width:90px">Date</th>
     <th>Prêteur</th>
@@ -1722,7 +1765,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <tbody>
 @forelse($emprunts ?? [] as $emp)
 @php $soldeEmp = $emp->soldeRestant(); @endphp
-<tr>
+<tr data-ligne data-date="{{ $emp->date_emprunt->format('Y-m-d') }}" data-vehicule="{{ $emp->vehicule_id }}" data-statut="{{ $emp->statut === 'rembourse' ? 'rembourse' : 'en_cours' }}" data-montant="{{ (int) $emp->montant }}">
     <td>{{ $emp->date_emprunt->format('d/m/Y') }}</td>
     <td style="font-weight:600">{{ $emp->preteur }}</td>
     <td><span class="pill p-cours" style="font-size:11px">{{ $emp->sourceLabel() }}</span></td>
@@ -1790,8 +1833,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <span>Créances : <strong style="color:{{ $soldePrets > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($soldePrets, 0, ',', ' ') }} F</strong></span>
 </div>
 
+@include('parc._filtre', ['cible' => 'tbl-prets', 'champs' => [
+    'exercice' => '', 'chauffeur' => true,
+    'statut' => ['Tous les statuts', ['en_cours' => 'En cours', 'rembourse' => 'Remboursé', 'irrécouvrable' => 'Irrécouvrable']],
+    'recherche' => 'Référence, bénéficiaire…']])
 <div class="panneau" style="overflow-x:auto">
-<table class="tableau" style="width:100%">
+<table class="tableau" id="tbl-prets" style="width:100%">
 <thead><tr>
     <th style="width:90px">Date</th>
     <th>Référence</th>
@@ -1804,7 +1851,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </tr></thead>
 <tbody>
 @forelse($pretsAccordes ?? [] as $prt)
-<tr onclick="var d=document.getElementById('prt-{{ $prt->id }}');d.style.display=d.style.display=='none'?'table-row':'none'" style="cursor:pointer">
+<tr data-ligne data-date="{{ $prt->date_pret->format('Y-m-d') }}" data-chauffeur="{{ $prt->beneficiaire }}" data-statut="{{ in_array($prt->statut, ['rembourse', 'irrécouvrable']) ? $prt->statut : 'en_cours' }}" data-montant="{{ (int) $prt->montant }}" onclick="var d=document.getElementById('prt-{{ $prt->id }}');d.style.display=d.style.display=='none'?'table-row':'none'" style="cursor:pointer">
     <td>{{ $prt->date_pret->format('d/m/Y') }}</td>
     <td style="font-weight:600;font-size:12px">{{ $prt->reference }}</td>
     <td>{{ $prt->beneficiaire }}</td>
@@ -1865,8 +1912,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     Total : <strong style="color:var(--ok)">{{ number_format($totalRessources, 0, ',', ' ') }} F</strong>
 </div>
 
+@include('parc._filtre', ['cible' => 'tbl-ressources', 'champs' => [
+    'exercice' => '', 'vehicule' => true,
+    'type' => ['Tous les types', ($typesRessource ?? collect())->pluck('libelle', 'code')->all()],
+    'recherche' => 'Source, description…']])
 <div class="panneau" style="overflow-x:auto">
-<table class="tableau" style="width:100%">
+<table class="tableau" id="tbl-ressources" style="width:100%">
 <thead><tr>
     <th style="width:90px">Date</th>
     <th>Type</th>
@@ -1878,7 +1929,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </tr></thead>
 <tbody>
 @forelse($autresRessources ?? [] as $res)
-<tr>
+<tr data-ligne data-date="{{ $res->date_ressource->format('Y-m-d') }}" data-vehicule="{{ $res->vehicule_id }}" data-type="{{ $res->type_ressource }}" data-montant="{{ (int) $res->montant }}">
     <td>{{ $res->date_ressource->format('d/m/Y') }}</td>
     <td><span class="pill p-cours">{{ $res->typeLibelle() }}</span></td>
     <td>{{ $res->source ?? '—' }}</td>
@@ -2842,17 +2893,7 @@ function ouvrirHistoRecettes(){
         dlg.showModal();
     }catch(e){console.error('Erreur ouverture historique recettes:',e);}
 }
-function filtrerHistoMois(){
-    var filtre=document.getElementById('histo-filtre-mois').value;
-    var rows=document.querySelectorAll('#histo-tbody tr[data-mois]');
-    var nb=0,total=rows.length;
-    rows.forEach(function(tr){
-        if(!filtre||tr.getAttribute('data-mois')===filtre){tr.style.display='';nb++;}
-        else{tr.style.display='none';}
-    });
-    var cpt=document.getElementById('histo-compteur');
-    if(cpt) cpt.textContent=filtre?(nb+' / '+total+' recettes'):(total+' recettes');
-}
+function filtrerHistoMois(){ filtrerListe('tbl-histo-recettes'); }
 function ouvrirSaisieIndiv(){
     try{
         resetRecetteForm();
@@ -3199,7 +3240,7 @@ function ficheVehicule(vehiculeId){
             html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
             html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_mois_avec_recouv)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recette+Recouv ('+d.nb_jours+' j.)</div></div>';
             html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:10.5px;color:var(--gris)">Taux objectif</div></div>';
-            html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage mois</div></div>';
+            html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage exercice</div></div>';
             html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ok)">'+d.pannes_total+'</div><div style="font-size:10.5px;color:var(--gris)">Pannes ('+d.pannes_ouvertes+' ouv.)</div></div>';
             html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:10.5px;color:var(--gris)">Pénalités ('+fmt(d.penalites_montant)+' F)</div></div>';
             html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#b45309">'+d.echeances_retard+'</div><div style="font-size:10.5px;color:var(--gris)">Maint. en retard</div></div>';
@@ -3327,7 +3368,7 @@ function ficheChauffeur(chauffeurId){
             html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_totale||d.recette_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recette+Recouv ('+d.jours_saisis+' j.)</div></div>';
             html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:10.5px;color:var(--gris)">Taux objectif</div></div>';
             html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+d.jours_atteints+'/'+d.jours_saisis+'</div><div style="font-size:10.5px;color:var(--gris)">Jours atteints</div></div>';
-            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#b45309">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage mois</div></div>';
+            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#b45309">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage exercice</div></div>';
             html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:10.5px;color:var(--gris)">Pénalités impayées ('+fmt(d.penalites_montant)+' F)</div></div>';
             html+='<div style="background:#fef9c3;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#92400e">'+d.recouvrements_actifs+'</div><div style="font-size:10.5px;color:var(--gris)">Recouvrements ('+fmt(d.solde_recouvrement)+' F)</div></div>';
             html+='</div>';
@@ -3426,6 +3467,48 @@ function fvTab(nom){
         if(btn){btn.style.background=(t===nom?'var(--accent)':'#e5e7eb');btn.style.color=(t===nom?'#fff':'var(--gris)');btn.style.fontWeight=(t===nom?'600':'400')}
     });
 }
+
+/* Filtres de liste : éléments [data-ligne] du conteneur cible ; les data-* peuvent contenir plusieurs valeurs séparées par « | » */
+function filtrerListe(cible){
+    var bar=document.querySelector('.filtre-bar[data-cible="'+cible+'"]'), cont=document.getElementById(cible);
+    if(!bar||!cont) return;
+    var crit={};
+    bar.querySelectorAll('[data-f]').forEach(function(el){ crit[el.dataset.f]=el.value.trim(); });
+    var d1='',d2='', ex=bar.querySelector('[data-f="exercice"]');
+    if(ex&&ex.value){ var o=ex.options[ex.selectedIndex]; d1=o.dataset.debut; d2=o.dataset.fin; }
+    var q=(crit.q||'').toLowerCase(), n=0, tot=0, somme=0, aMontant=false;
+    cont.querySelectorAll('[data-ligne]').forEach(function(el){
+        tot++;
+        var ok=true;
+        if(d1){ var d=el.dataset.date||''; if(!d||d<d1||d>d2) ok=false; }
+        ['vehicule','chauffeur','statut','type','categorie'].forEach(function(k){
+            if(crit[k] && ('|'+(el.dataset[k]||'')+'|').indexOf('|'+crit[k]+'|')===-1) ok=false;
+        });
+        if(q && el.textContent.toLowerCase().indexOf(q)===-1) ok=false;
+        el.style.display=ok?'':'none';
+        if(ok){ n++; if(el.dataset.montant!==undefined){ aMontant=true; somme+=parseFloat(el.dataset.montant)||0; } }
+        if(el.tagName==='TR'){
+            // Lignes rattachées (détails, paiements) : suivent la ligne principale
+            var s=el.nextElementSibling;
+            while(s && !s.hasAttribute('data-ligne')){
+                if(!ok){ s.dataset.fMasque='1'; s.style.display='none'; }
+                else if(s.dataset.fMasque){ delete s.dataset.fMasque; s.style.display=s.classList.contains('detail-row')?'none':''; }
+                s=s.nextElementSibling;
+            }
+        }
+    });
+    var res=bar.querySelector('[data-resultat]');
+    if(res) res.innerHTML=tot ? '<strong>'+n+'</strong> / '+tot+' affiché(s)'+(aMontant?' · Total : <strong>'+Math.round(somme).toLocaleString('fr-FR')+' F</strong>':'') : '';
+}
+function effacerFiltres(cible){
+    var bar=document.querySelector('.filtre-bar[data-cible="'+cible+'"]');
+    if(!bar) return;
+    bar.querySelectorAll('[data-f]').forEach(function(el){ el.value=''; });
+    filtrerListe(cible);
+}
+document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('.filtre-bar[data-cible]').forEach(function(b){ filtrerListe(b.dataset.cible); });
+});
 
 function filtrerChauffeurs(){
     var statut=document.getElementById('fc-statut').value;

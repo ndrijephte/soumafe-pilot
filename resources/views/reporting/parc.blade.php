@@ -4,95 +4,164 @@
 
 @push('styles')
 <style>
-.rp-filtres{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px}
-.rp-filtres label{font-size:12px;color:var(--gris);display:block;margin-bottom:2px}
+.rp-filtres{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:12px 0 18px;padding:12px 14px;background:#fff;border:1px solid var(--bord);border-radius:12px}
+.rp-filtres label{font-size:11.5px;color:var(--gris);display:block;margin-bottom:2px;font-weight:600}
 .rp-filtres select,.rp-filtres input[type=date]{padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:#fff}
-.rp-filtres .btn-f{padding:7px 16px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;cursor:pointer;font-weight:600}
+.rp-filtres .btn-f{padding:8px 18px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;cursor:pointer;font-weight:600}
 .rp-filtres .btn-f:hover{background:var(--bleu)}
+.rp-filtres .actions{display:flex;gap:8px;align-items:center}
+.rp-filtres .btn-raz{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid var(--bord);border-radius:8px;background:#fff;color:#475569;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer}
+.rp-filtres .btn-raz:hover{border-color:var(--ko);color:var(--ko);background:#fef2f2}
 
-.rp-kpi{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:22px}
-.kpi-c{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:14px 16px;text-align:center}
-.kpi-v{font-size:26px;font-weight:700;color:var(--bleu)}
-.kpi-l{font-size:11.5px;color:var(--gris);margin-top:2px}
-.kpi-sub{font-size:11px;margin-top:4px;font-weight:600}
-.kpi-ok{color:var(--ok)}.kpi-warn{color:var(--warn)}.kpi-ko{color:var(--ko)}
+/* Évolution */
+.evo-totaux{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:8px 0 12px}
+.evo-tot{border:1px solid var(--bord);border-left:4px solid var(--c);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column}
+.evo-tot span{font-size:11.5px;color:var(--gris);font-weight:600}
+.evo-tot strong{font-size:16px;color:#1e293b;font-variant-numeric:tabular-nums}
+.evo-tot em{font-size:10.5px;color:var(--gris);font-style:normal}
+.evo-legende{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
+.evo-legende button{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--bord);border-radius:20px;background:#fff;font-size:12px;color:#334155;cursor:pointer;opacity:.45;transition:opacity .15s}
+.evo-legende button.on{opacity:1}
+.evo-legende button i{display:inline-block;width:16px;height:3px;border-radius:2px}
+.evo-aide{font-size:11px;color:var(--gris);margin-left:auto}
+.evo-zone{position:relative}
+.evo-bulle{position:absolute;top:8px;width:230px;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:10px 12px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .12s}
+.evo-bulle.on{opacity:1}
+.evo-bulle strong{display:block;margin-bottom:6px;color:var(--bleu)}
+.evo-bulle div{display:flex;align-items:center;gap:6px;padding:2px 0;color:#475569}
+.evo-bulle div i{width:9px;height:9px;border-radius:2px;flex:none}
+.evo-bulle div b{margin-left:auto;color:#1e293b;font-variant-numeric:tabular-nums}
+@media(max-width:700px){.evo-totaux{grid-template-columns:repeat(2,1fr)}.evo-aide{display:none}}
+.periode-bandeau{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:13px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 14px;margin-bottom:16px}
 
-.rp-section{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:16px 18px;margin-bottom:18px}
-.rp-section h3{font-size:15px;color:var(--bleu);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.rp-section h3 .ico{flex:none}
+.rp-titre{font-size:13px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;margin:22px 0 10px}
 
+/* L'essentiel */
+.essentiel{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.ess{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.ess .lbl{font-size:12px;color:var(--gris);font-weight:600}
+.ess .val{font-size:24px;font-weight:800;color:var(--bleu);font-variant-numeric:tabular-nums;line-height:1.2}
+.ess .val small{font-size:13px;font-weight:600;color:var(--gris)}
+.ess .aide{font-size:11.5px;color:var(--gris)}
+.ess.ok{background:#f0fdf4;border-color:#86efac}.ess.ok .val{color:var(--ok)}
+.ess.ko{background:#fef2f2;border-color:#fca5a5}.ess.ko .val{color:var(--ko)}
+.var{font-size:11.5px;font-weight:700}
+.var.up{color:var(--ok)}.var.down{color:var(--ko)}.var.eq{color:var(--gris)}
+.mini{display:flex;justify-content:space-between;font-size:11.5px;color:#475569;border-top:1px dashed var(--bord);padding-top:3px}
+.mini:first-of-type{border-top:none}
+
+/* Jauges */
+.gauge{height:8px;background:#f1f5f9;border-radius:6px;overflow:hidden;margin-top:4px}
+.gauge>div{height:100%;border-radius:6px}
+.g-ok{background:var(--ok)}.g-warn{background:#f59e0b}.g-ko{background:var(--ko)}
+.taux-cell{min-width:110px}
+.taux-cell .t{font-weight:700;font-size:12px}
+
+/* À traiter */
+.todo{display:grid;gap:8px}
+.todo-item{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--bord);border-left:4px solid var(--gris);border-radius:10px;padding:10px 14px}
+.todo-item.ko{border-left-color:var(--ko);background:#fffafa}
+.todo-item.warn{border-left-color:#f59e0b;background:#fffdf5}
+.todo-item.info{border-left-color:var(--accent)}
+.todo-item .tt{font-weight:700;font-size:13.5px;color:var(--texte,#1e293b)}
+.todo-item .dd{font-size:12.5px;color:#475569;margin-top:2px}
+.todo-item a{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;text-decoration:none;align-self:center}
+.todo-item a:hover{text-decoration:underline}
+.todo-ok{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;color:#166534;font-size:13px;font-weight:600}
+
+.rp-section{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.rp-section h3{font-size:15px;color:var(--bleu);margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.rp-section .intro{font-size:12.5px;color:var(--gris);margin-bottom:12px}
 .rp-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:900px){.rp-grid2{grid-template-columns:1fr}.rp-tbl{display:block;overflow-x:auto}.rp-section{padding:12px 10px}}
-@media(max-width:600px){.rp-kpi{grid-template-columns:repeat(2,1fr)}.kpi-v{font-size:20px}.rp-section h3{font-size:13px}.rp-filtres{gap:6px}}
-@media(max-width:400px){.rp-kpi{grid-template-columns:1fr}.kpi-c{padding:10px}}
 
 /* Tableaux */
 .rp-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
-.rp-tbl th{text-align:left;padding:8px 10px;background:#f8fafc;color:var(--gris);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--bord)}
-.rp-tbl td{padding:7px 10px;border-bottom:1px solid #f1f5f9}
+.rp-tbl th{text-align:left;padding:8px 10px;background:#f8fafc;color:var(--gris);font-size:11px;text-transform:uppercase;border-bottom:2px solid var(--bord);white-space:nowrap}
+.rp-tbl td{padding:8px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .rp-tbl tr:hover td{background:#f8fafc}
-.rp-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
-.rp-tbl .pos{color:var(--ok);font-weight:600}
-.rp-tbl .neg{color:var(--ko);font-weight:600}
+.rp-tbl .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rp-tbl .pos{color:var(--ok);font-weight:700}
+.rp-tbl .neg{color:var(--ko);font-weight:700}
+.rp-tbl tfoot td{font-weight:700;background:#f8fafc;border-top:2px solid var(--bord)}
+.rp-tbl .sous{display:block;font-size:10.5px;color:var(--gris);font-weight:400}
+.verdict{display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700}
+.v-rentable{background:#dcfce7;color:#166534}.v-deficit{background:#fee2e2;color:#991b1b}.v-equilibre{background:#f1f5f9;color:#475569}
 
-/* Barres CSS */
-.bar-wrap{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.bar-label{width:70px;font-size:11px;text-align:right;color:#475569;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bar-track{flex:1;height:18px;background:#f1f5f9;border-radius:4px;position:relative;overflow:hidden}
-.bar-fill{height:100%;border-radius:4px;transition:width .4s ease}
-.bar-val{font-size:11px;color:#475569;width:60px;flex:none;font-variant-numeric:tabular-nums}
+/* Barres */
+.bar-wrap{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.bar-label{width:130px;font-size:12px;color:#475569;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;height:16px;background:#f1f5f9;border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px}
+.bar-val{font-size:12px;color:#334155;width:120px;flex:none;text-align:right;font-variant-numeric:tabular-nums}
 
-/* Donut CSS */
-.donut-wrap{display:flex;align-items:center;gap:24px;justify-content:center;flex-wrap:wrap;padding:16px 0}
-.donut{width:160px;height:160px;border-radius:50%;position:relative;flex-shrink:0}
-.donut-center{position:absolute;inset:32px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--bleu)}
-.donut-legend{font-size:13px;line-height:2.2}
-.donut-legend span{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:middle}
-
-/* Jauge taux */
-.gauge{width:100%;height:22px;background:#f1f5f9;border-radius:6px;overflow:hidden;position:relative;margin-top:6px}
-.gauge-fill{height:100%;border-radius:6px;transition:width .5s ease}
-.gauge-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1e293b}
-
-.lien-retour{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--accent);text-decoration:none;margin-bottom:10px}
+.lien-retour{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--accent);text-decoration:none}
 .lien-retour:hover{text-decoration:underline}
+.date-custom{display:none;gap:8px}.date-custom.show{display:flex}
+.sel-exercice.hide{display:none}
 
-.date-custom{display:none}
-.date-custom.show{display:flex;gap:8px}
+@media(max-width:1000px){.essentiel{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.rp-grid2{grid-template-columns:1fr}.rp-scroll{overflow-x:auto}.rp-section{padding:12px 10px}}
+@media(max-width:520px){.essentiel{grid-template-columns:1fr}.ess .val{font-size:21px}.bar-label{width:90px}.bar-val{width:90px}}
 </style>
 @endpush
 
 @section('contenu')
 @php
-    $ico = fn(string $d) => '<svg class="ico" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $d . '</svg>';
+    $ico = fn(string $d) => '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $d . '</svg>';
+    $F = fn($n) => number_format((int) $n, 0, ',', ' ');
+    $signe = fn($n) => ($n > 0 ? '+' : '') . number_format((int) $n, 0, ',', ' ');
+    // Variation vs période précédente ; $hausseBonne = la hausse est-elle une bonne nouvelle ?
+    $variation = function ($cur, $prec, bool $hausseBonne = true, bool $enMontant = false) use ($libellePrec) {
+        if ($enMontant) {
+            $diff = (int) $cur - (int) $prec;
+            if ($diff === 0) return '<span class="var eq">= identique à ' . e($libellePrec) . '</span>';
+            return '<span class="var ' . ($diff > 0 ? 'up' : 'down') . '">' . ($diff > 0 ? '▲ +' : '▼ ') . number_format($diff, 0, ',', ' ') . ' F vs ' . e($libellePrec) . '</span>';
+        }
+        if (!$prec) return '<span class="var eq">Aucune donnée sur ' . e($libellePrec) . ' pour comparer</span>';
+        $pct = (int) round(($cur - $prec) / abs($prec) * 100);
+        if ($pct === 0) return '<span class="var eq">= stable vs ' . e($libellePrec) . '</span>';
+        $bon = ($pct > 0) === $hausseBonne;
+        return '<span class="var ' . ($bon ? 'up' : 'down') . '">' . ($pct > 0 ? '▲ +' : '▼ ') . $pct . ' % vs ' . e($libellePrec) . '</span>';
+    };
+    $classeTaux = fn($t) => $t === null ? 'g-warn' : ($t >= 100 ? 'g-ok' : ($t >= 80 ? 'g-warn' : 'g-ko'));
+    $couleurTaux = fn($t) => $t === null ? 'var(--gris)' : ($t >= 100 ? 'var(--ok)' : ($t >= 80 ? '#b45309' : 'var(--ko)'));
 @endphp
-<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
-    <a href="{{ route('parc.index') }}" class="lien-retour" style="margin-bottom:0">← Retour au parc</a>
-</div>
-<h2>Reporting Parc Automobile</h2>
-<div class="crumb">Période : {{ \Carbon\Carbon::parse($debut)->format('d/m/Y') }} — {{ \Carbon\Carbon::parse($fin)->format('d/m/Y') }}</div>
+
+@php
+    $filtresActifs = $periode !== 'exercice' || $exercice !== array_key_first($exercices)
+        || $categorie !== 'tous' || $filtreVehicule || $filtreChauffeur;
+@endphp
+<a href="{{ route('parc.index') }}" class="lien-retour">← Retour au parc</a>
+<h2 style="margin-top:4px">Reporting Parc Automobile</h2>
 
 {{-- ═══ FILTRES ═══ --}}
 <form method="GET" action="{{ route('reporting.parc') }}" class="rp-filtres">
     <div>
         <label>Période</label>
-        <select name="periode" id="sel-periode" onchange="toggleDates()">
-            <option value="mois" {{ $periode==='mois'?'selected':'' }}>Mois en cours</option>
-            <option value="mois_precedent" {{ $periode==='mois_precedent'?'selected':'' }}>Mois précédent</option>
-            <option value="trimestre" {{ $periode==='trimestre'?'selected':'' }}>Trimestre</option>
-            <option value="personnalise" {{ $periode==='personnalise'?'selected':'' }}>Personnalisé</option>
+        <select name="periode" id="sel-periode" onchange="majPeriode()">
+            <option value="exercice" @selected($periode === 'exercice')>Un exercice (05 → 04)</option>
+            <option value="trois_exercices" @selected($periode === 'trois_exercices')>3 exercices</option>
+            <option value="personnalise" @selected($periode === 'personnalise')>Dates personnalisées</option>
         </select>
     </div>
-    <div class="date-custom {{ $periode==='personnalise'?'show':'' }}" id="dates-custom">
-        <div><label>Du</label><input type="date" name="date_debut" value="{{ \Carbon\Carbon::parse($debut)->format('Y-m-d') }}"></div>
-        <div><label>Au</label><input type="date" name="date_fin" value="{{ \Carbon\Carbon::parse($fin)->format('Y-m-d') }}"></div>
+    <div class="sel-exercice {{ $periode === 'personnalise' ? 'hide' : '' }}" id="bloc-exercice">
+        <label id="lbl-exercice">{{ $periode === 'trois_exercices' ? 'Jusqu\'à l\'exercice' : 'Exercice' }}</label>
+        <select name="exercice">
+            @foreach($exercices as $cle => $ex)
+            <option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $loop->first ? ' — en cours' : '' }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div class="date-custom {{ $periode === 'personnalise' ? 'show' : '' }}" id="dates-custom">
+        <div><label>Du</label><input type="date" name="date_debut" value="{{ $debut->format('Y-m-d') }}"></div>
+        <div><label>Au</label><input type="date" name="date_fin" value="{{ $fin->format('Y-m-d') }}"></div>
     </div>
     <div>
         <label>Catégorie</label>
         <select name="categorie">
-            <option value="tous" {{ $categorie==='tous'?'selected':'' }}>Toutes</option>
-            <option value="taxi" {{ $categorie==='taxi'?'selected':'' }}>Taxi</option>
-            <option value="vtc" {{ $categorie==='vtc'?'selected':'' }}>VTC</option>
+            <option value="tous" @selected($categorie === 'tous')>Toutes</option>
+            <option value="taxi" @selected($categorie === 'taxi')>Taxi</option>
+            <option value="vtc" @selected($categorie === 'vtc')>VTC</option>
         </select>
     </div>
     <div>
@@ -100,7 +169,7 @@
         <select name="vehicule_id">
             <option value="">Tous</option>
             @foreach($tousVehicules as $tv)
-            <option value="{{ $tv->id }}" {{ $filtreVehicule==$tv->id?'selected':'' }}>{{ $tv->immatriculation }}</option>
+            <option value="{{ $tv->id }}" @selected($filtreVehicule == $tv->id)>{{ $tv->immatriculation }}</option>
             @endforeach
         </select>
     </div>
@@ -109,984 +178,438 @@
         <select name="chauffeur_id">
             <option value="">Tous</option>
             @foreach($tousChauffeurs as $tc)
-            <option value="{{ $tc->id }}" {{ $filtreChauffeur==$tc->id?'selected':'' }}>{{ $tc->nomComplet() }}</option>
+            <option value="{{ $tc->id }}" @selected($filtreChauffeur == $tc->id)>{{ $tc->nomComplet() }}</option>
             @endforeach
         </select>
     </div>
-    <button type="submit" class="btn-f">Filtrer</button>
+    <div class="actions">
+        <button type="submit" class="btn-f">Afficher</button>
+        @if($filtresActifs)
+        <a href="{{ route('reporting.parc') }}" class="btn-raz" title="Revenir à l'exercice en cours, tous véhicules et chauffeurs">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 3 3 9 9 9"/></svg>
+            Réinitialiser
+        </a>
+        @endif
+    </div>
 </form>
 
-{{-- ═══ KPI ═══ --}}
-<div class="rp-kpi">
-    <div class="kpi-c">
-        <div class="kpi-v">{{ number_format($recetteTotalAvecRecouv, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Recettes (FCFA)</div>
-        <div class="kpi-sub {{ $tauxRecette >= 100 ? 'kpi-ok' : ($tauxRecette >= 80 ? 'kpi-warn' : 'kpi-ko') }}">{{ $tauxRecette }}% de l'objectif</div>
-        @if($recouvrementPercu > 0)<div class="kpi-sub kpi-ok" style="font-size:.7rem">dont {{ number_format($recouvrementPercu, 0, ',', ' ') }} F recouvrements</div> @endif
-    </div>
-    <div class="kpi-c">
-        <div class="kpi-v">{{ number_format($objectifTotal, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Objectif (FCFA)</div>
-        @php $ecartG = $recetteTotalAvecRecouv - $objectifTotal; @endphp
-        <div class="kpi-sub {{ $ecartG >= 0 ? 'kpi-ok' : 'kpi-ko' }}">{{ $ecartG >= 0 ? '+' : '' }}{{ number_format($ecartG, 0, ',', ' ') }}</div>
-    </div>
-    <div class="kpi-c" style="background:#fef2f2;border-color:#fca5a5">
-        <div class="kpi-v" style="color:var(--ko)">{{ number_format($totalCharges ?? 0, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Total sorties (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Pannes {{ number_format($coutPannes,0,',',' ') }} + P&eacute;nal. {{ number_format($montantPenalites,0,',',' ') }} + Maint. {{ number_format($coutMaintenance ?? 0,0,',',' ') }} + D&eacute;p. {{ number_format($depensesTotal,0,',',' ') }}</div>
-    </div>
-    <div class="kpi-c" style="background:{{ $rentabilite >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ $rentabilite >= 0 ? '#86efac' : '#fca5a5' }}">
-        <div class="kpi-v" style="color:{{ $rentabilite >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rentabilite >= 0 ? '+' : '' }}{{ number_format($rentabilite, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Rentabilit&eacute; nette (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - Total sorties</div>
-    </div>
-    <div class="kpi-c">
-        <div class="kpi-v">{{ number_format($coutPannes, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Co&ucirc;t pannes (FCFA)</div>
-        <div class="kpi-sub kpi-ko">{{ $nbPannes }} panne{{ $nbPannes > 1 ? 's' : '' }} &mdash; {{ $delaiMoyen }} j moy.</div>
-    </div>
-    <div class="kpi-c">
-        <div class="kpi-v">{{ number_format($montantPenalites, 0, ',', ' ') }}</div>
-        <div class="kpi-l">P&eacute;nalit&eacute;s (FCFA)</div>
-        <div class="kpi-sub kpi-ko">{{ $nbPenalites }} infraction{{ $nbPenalites > 1 ? 's' : '' }}</div>
-    </div>
-    <div class="kpi-c">
-        <div class="kpi-v" style="color:var(--ko)">{{ number_format($coutMaintenance ?? 0, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Maintenance (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px">
-            @if($maintenancesRetard > 0)<span class="kpi-ko">{{ $maintenancesRetard }} en retard</span> @endif
-            @if($maintenancesProches > 0)<span class="kpi-warn">{{ $maintenancesProches }} &agrave; venir</span> @endif
-        </div>
-    </div>
-    <div class="kpi-c">
-        <div class="kpi-v" style="color:var(--ko)">{{ number_format($depensesTotal, 0, ',', ' ') }}</div>
-        <div class="kpi-l">D&eacute;penses bureau (FCFA)</div>
-    </div>
-    @if(($totalEmp ?? 0) > 0 || ($remboursementsPeriode ?? 0) > 0)
-    <div class="kpi-c" style="background:{{ $soldeCaisse >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ $soldeCaisse >= 0 ? '#86efac' : '#fca5a5' }}">
-        <div class="kpi-v" style="color:{{ $soldeCaisse >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $soldeCaisse >= 0 ? '+' : '' }}{{ number_format($soldeCaisse, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Solde en caisse (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Recettes - charges fonds propres - remboursements ({{ number_format($remboursementsPeriode ?? 0, 0, ',', ' ') }} F)</div>
-    </div>
-    @endif
-    @if(($empruntsData['nb_emprunts'] ?? 0) > 0)
-    <div class="kpi-c" style="background:#eff6ff;border-color:#bfdbfe">
-        <div class="kpi-v" style="color:#1e40af">{{ number_format($empruntsData['total_emprunte'], 0, ',', ' ') }}</div>
-        <div class="kpi-l">Ressources emprunt&eacute;es (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">{{ $empruntsData['nb_emprunts'] }} emprunt{{ $empruntsData['nb_emprunts'] > 1 ? 's' : '' }} &mdash; {{ $empruntsData['nb_en_cours'] }} en cours</div>
-        @if($empruntsData['solde_du'] > 0)
-        <div class="kpi-sub kpi-ko" style="margin-top:2px">Reste d&ucirc; : {{ number_format($empruntsData['solde_du'], 0, ',', ' ') }} F</div>
-        @else
-        <div class="kpi-sub kpi-ok" style="margin-top:2px">Enti&egrave;rement rembours&eacute;</div>
-        @endif
-    </div>
-    @endif
-    @if(($remboursementsPeriode ?? 0) > 0)
-    <div class="kpi-c">
-        <div class="kpi-v" style="color:#b45309">{{ number_format($remboursementsPeriode, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Remboursements (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Sommes rembours&eacute;es sur la p&eacute;riode</div>
-    </div>
-    @endif
-    @if(($pointageTotal ?? 0) > 0)
-    <div class="kpi-c">
-        <div class="kpi-v" style="color:var(--accent)">{{ number_format($pointageTotal, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Pointage cumul&eacute; (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Contribution infractions / radars</div>
-    </div>
-    @endif
-    @if(($pretsData['nb_prets'] ?? 0) > 0)
-    <div class="kpi-c" style="background:#fef3c7;border-color:#fde68a">
-        <div class="kpi-v" style="color:#92400e">{{ number_format($pretsData['total_prete'], 0, ',', ' ') }}</div>
-        <div class="kpi-l">Pr&ecirc;ts accord&eacute;s (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">{{ $pretsData['nb_prets'] }} pr&ecirc;t{{ $pretsData['nb_prets'] > 1 ? 's' : '' }} &mdash; Cr&eacute;ances : {{ number_format($pretsData['creances'], 0, ',', ' ') }} F</div>
-    </div>
-    @endif
-    @if(($autresRessourcesTotal ?? 0) > 0)
-    <div class="kpi-c" style="background:#ecfdf5;border-color:#a7f3d0">
-        <div class="kpi-v" style="color:#059669">{{ number_format($autresRessourcesTotal, 0, ',', ' ') }}</div>
-        <div class="kpi-l">Autres ressources (FCFA)</div>
-        <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Dons, ventes, remboursements fournisseurs</div>
-    </div>
-    @endif
+<div class="periode-bandeau">
+    <span>{!! $ico('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>') !!}</span>
+    <span>Période analysée : <strong>{{ $libellePeriode }}</strong></span>
+    <span style="color:#475569">Comparée à : {{ $libellePrec }}</span>
+    @if($filtreNom)<span style="color:#475569">Filtre : <strong>{{ $filtreNom }}</strong></span>@endif
+    @if($gestionnaires->isNotEmpty())<span style="margin-left:auto;color:#475569">Gestionnaire(s) : {{ $gestionnaires->join(', ') }}</span>@endif
 </div>
 
-{{-- ═══ DÉTAIL JOUR PAR JOUR (si filtre actif) ═══ --}}
-@if($detailJour->isNotEmpty())
-<div class="rp-section" style="border-left:4px solid var(--accent)">
-    <h3>{!! $ico('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>') !!} Détail jour par jour — {{ $filtreNom }}</h3>
-    @php
-        $dtRec = $detailJour->sum('recette');
-        $dtObj = $detailJour->sum('objectif');
-        $dtTaux = $dtObj > 0 ? round(($dtRec / $dtObj) * 100) : 0;
-        $dtAbsences = $detailJour->whereNotNull('motif_absence')->count();
-    @endphp
-    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;font-size:13px">
-        <span><strong>{{ $detailJour->count() }}</strong> jours enregistrés</span>
-        <span>Recettes : <strong>{{ number_format($dtRec, 0, ',', ' ') }}</strong> FCFA</span>
-        <span>Objectif : <strong>{{ number_format($dtObj, 0, ',', ' ') }}</strong> FCFA</span>
-        <span>Taux : <strong style="color:{{ $dtTaux >= 100 ? 'var(--ok)' : ($dtTaux >= 80 ? '#b45309' : 'var(--ko)') }}">{{ $dtTaux }}%</strong></span>
-        @if($dtAbsences > 0)<span style="color:var(--ko)">{{ $dtAbsences }} absence{{ $dtAbsences > 1 ? 's' : '' }} justifiée{{ $dtAbsences > 1 ? 's' : '' }}</span> @endif
+{{-- ═══ 1. L'ESSENTIEL ═══ --}}
+<div class="rp-titre">1. L'essentiel de la période</div>
+<div class="essentiel">
+    <div class="ess">
+        <div class="lbl">Recettes encaissées</div>
+        <div class="val">{{ $F($kpi['recettes']) }} <small>F</small></div>
+        <div class="aide">{{ $kpi['taux'] }} % de l'objectif ({{ $F($kpi['objectif']) }} F)</div>
+        <div class="gauge"><div class="{{ $classeTaux($kpi['objectif'] ? $kpi['taux'] : null) }}" style="width:{{ min(100, $kpi['taux']) }}%"></div></div>
+        @if($kpi['recouvrement'] > 0)<div class="aide">dont {{ $F($kpi['recouvrement']) }} F de recouvrements</div>@endif
+        {!! $variation($kpi['recettes'], $kpiPrec['recettes']) !!}
     </div>
-    <div style="overflow-x:auto">
-    <table class="rp-tbl">
-    <thead><tr><th>Date</th><th>Jour</th><th>Véhicule</th><th>Chauffeur</th><th>Recette</th><th>Objectif</th><th>Écart</th><th>Mode</th><th>Motif</th></tr></thead>
-    <tbody>
-    @foreach($detailJour as $dj)
-    @php
-        $ecDj = $dj->recette - $dj->objectif;
-        $tjL = match($dj->type_jour ?? 'ouvrable') { 'ferie' => 'Férié', 'dimanche' => 'Dim.', default => 'Ouv.' };
-    @endphp
-    <tr>
-        <td>{{ $dj->date->format('d/m/Y') }}</td>
-        <td>{{ $tjL }}</td>
-        <td>{{ $dj->vehicule->immatriculation ?? '?' }}</td>
-        <td>{{ $dj->chauffeur ?? '—' }}</td>
-        <td class="num" style="font-weight:600">{{ number_format($dj->recette, 0, ',', ' ') }}</td>
-        <td class="num">{{ number_format($dj->objectif, 0, ',', ' ') }}</td>
-        <td class="num {{ $ecDj >= 0 ? 'pos' : 'neg' }}">{{ ($ecDj >= 0 ? '+' : '') . number_format($ecDj, 0, ',', ' ') }}</td>
-        <td>{{ $dj->mode_remise ? ucfirst(str_replace('_', ' ', $dj->mode_remise)) : '—' }}</td>
-        <td>@if($dj->motif_absence)<span style="color:var(--ko);font-weight:600">{{ $dj->motif_absence }}</span>@else — @endif</td>
-    </tr>
-    @endforeach
-    </tbody>
-    <tfoot>
-    <tr style="font-weight:700;background:#f8fafc">
-        <td colspan="4">TOTAL</td>
-        <td class="num">{{ number_format($dtRec, 0, ',', ' ') }}</td>
-        <td class="num">{{ number_format($dtObj, 0, ',', ' ') }}</td>
-        @php $ecTot = $dtRec - $dtObj; @endphp
-        <td class="num {{ $ecTot >= 0 ? 'pos' : 'neg' }}">{{ ($ecTot >= 0 ? '+' : '') . number_format($ecTot, 0, ',', ' ') }}</td>
-        <td colspan="2"></td>
-    </tr>
-    </tfoot>
-    </table>
+    <div class="ess">
+        <div class="lbl">Charges</div>
+        <div class="val" style="color:var(--ko)">{{ $F($kpi['charges']) }} <small>F</small></div>
+        <div class="mini"><span>Pannes ({{ $kpi['nb_pannes'] }})</span><strong>{{ $F($kpi['pannes']) }}</strong></div>
+        <div class="mini"><span>Maintenance</span><strong>{{ $F($kpi['maintenance']) }}</strong></div>
+        <div class="mini"><span>Pénalités ({{ $kpi['nb_penalites'] }})</span><strong>{{ $F($kpi['penalites']) }}</strong></div>
+        <div class="mini"><span>Autres dépenses</span><strong>{{ $F($kpi['autres_depenses']) }}</strong></div>
+        {!! $variation($kpi['charges'], $kpiPrec['charges'], false) !!}
     </div>
-</div>
-@endif
-
-{{-- ═══ COURBE RECETTES + DONUT ATTEINTE ═══ --}}
-@if($recettesJour->isNotEmpty())
-@php
-    $jours = $recettesJour->values();
-    $nbPts = $jours->count();
-    $depBurMax = ($depensesJour ?? collect())->isNotEmpty() ? ($depensesJour ?? collect())->max() : 0;
-    $depVehMax = ($depVehJour ?? collect())->isNotEmpty() ? ($depVehJour ?? collect())->max() : 0;
-    $maxR = max($jours->max('total'), $jours->max('obj'), $depBurMax, $depVehMax, 1);
-    $svgW = 700; $svgH = 240; $padL = 55; $padR = 15; $padT = 25; $padB = 40;
-    $chartW = $svgW - $padL - $padR;
-    $chartH = $svgH - $padT - $padB;
-    $stepX = $nbPts > 1 ? $chartW / ($nbPts - 1) : $chartW;
-    $ptsRec = []; $ptsObj = []; $ptsBur = []; $ptsVeh = []; $labels = [];
-    $nbOk = 0; $nbWarn = 0; $nbKo = 0;
-    foreach ($jours as $idx => $jr) {
-        $x = round($padL + $idx * $stepX, 1);
-        $yR = round($padT + $chartH - ($jr['total'] / $maxR) * $chartH, 1);
-        $yO = round($padT + $chartH - ($jr['obj'] / $maxR) * $chartH, 1);
-        $burJ = (int) (($depensesJour ?? collect())[$jr['jour']] ?? 0);
-        $vehJ = (int) (($depVehJour ?? collect())[$jr['jour']] ?? 0);
-        $yB = round($padT + $chartH - ($burJ / $maxR) * $chartH, 1);
-        $yV = round($padT + $chartH - ($vehJ / $maxR) * $chartH, 1);
-        $ptsRec[] = "$x,$yR"; $ptsObj[] = "$x,$yO"; $ptsBur[] = "$x,$yB"; $ptsVeh[] = "$x,$yV";
-        $tauxJ = $jr['obj'] > 0 ? ($jr['total'] / $jr['obj']) * 100 : 0;
-        if ($tauxJ >= 100) $nbOk++; elseif ($tauxJ >= 80) $nbWarn++; else $nbKo++;
-        $labels[] = ['x' => $x, 'jour' => \Carbon\Carbon::parse($jr['jour'])->format('d/m'), 'rec' => $jr['total'], 'obj' => $jr['obj'], 'bur' => $burJ, 'veh' => $vehJ];
-    }
-    $lineRec = implode(' ', $ptsRec);
-    $lineObj = implode(' ', $ptsObj);
-    $lineBur = implode(' ', $ptsBur);
-    $lineVeh = implode(' ', $ptsVeh);
-    $hasBur = collect($labels)->sum('bur') > 0;
-    $hasVeh = collect($labels)->sum('veh') > 0;
-    $gradY = [];
-    $step = ceil($maxR / 5 / 1000) * 1000;
-    if ($step < 1) $step = 1;
-    for ($v = 0; $v <= $maxR; $v += $step) { $gradY[] = $v; }
-    if (end($gradY) < $maxR) $gradY[] = ceil($maxR / $step) * $step;
-    $maxR = max(end($gradY), $maxR);
-    // Donut
-    $pOk = $nbPts > 0 ? round($nbOk / $nbPts * 100) : 0;
-    $pWarn = $nbPts > 0 ? round($nbWarn / $nbPts * 100) : 0;
-    $pKo = 100 - $pOk - $pWarn;
-@endphp
-<div class="rp-grid2">
-    <div class="rp-section">
-        <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Évolution entrées / sorties</h3>
-        <div style="overflow-x:auto">
-            <svg viewBox="0 0 {{ $svgW }} {{ $svgH }}" width="100%" style="max-width:{{ $svgW }}px;font-family:inherit">
-                {{-- Axe Y label --}}
-                <text x="12" y="{{ $padT + $chartH / 2 }}" fill="#94a3b8" font-size="10" text-anchor="middle" transform="rotate(-90,12,{{ $padT + $chartH / 2 }})">Montant (FCFA)</text>
-                {{-- Axe X label --}}
-                <text x="{{ $padL + $chartW / 2 }}" y="{{ $svgH - 2 }}" fill="#94a3b8" font-size="10" text-anchor="middle">Jours</text>
-                {{-- Grille horizontale + labels Y --}}
-                @foreach($gradY as $gv)
-                    @php $gy = round($padT + $chartH - ($gv / $maxR) * $chartH, 1); @endphp
-                    <line x1="{{ $padL }}" y1="{{ $gy }}" x2="{{ $svgW - $padR }}" y2="{{ $gy }}" stroke="#e2e8f0" stroke-width="1"/>
-                    <text x="{{ $padL - 6 }}" y="{{ $gy + 3.5 }}" fill="#94a3b8" font-size="10" text-anchor="end">{{ number_format($gv / 1000, 0) }}k</text>
-                @endforeach
-                <polyline points="{{ $lineObj }}" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4"/>
-                <polyline points="{{ $lineRec }}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-                @if($hasVeh)<polyline points="{{ $lineVeh }}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>@endif
-                @if($hasBur)<polyline points="{{ $lineBur }}" fill="none" stroke="var(--ko)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>@endif
-                @foreach($labels as $lb)
-                    @php
-                        $yPt = round($padT + $chartH - ($lb['rec'] / $maxR) * $chartH, 1);
-                        $cPt = $lb['rec'] >= $lb['obj'] ? 'var(--ok)' : ($lb['rec'] >= $lb['obj'] * 0.8 ? 'var(--warn)' : 'var(--ko)');
-                        $yBp = round($padT + $chartH - (($lb['bur'] ?? 0) / $maxR) * $chartH, 1);
-                        $yVp = round($padT + $chartH - (($lb['veh'] ?? 0) / $maxR) * $chartH, 1);
-                    @endphp
-                    <circle cx="{{ $lb['x'] }}" cy="{{ $yPt }}" r="3.5" fill="{{ $cPt }}" stroke="#fff" stroke-width="1.5"/>
-                    @if(($lb['veh'] ?? 0) > 0)<circle cx="{{ $lb['x'] }}" cy="{{ $yVp }}" r="3" fill="#f59e0b" stroke="#fff" stroke-width="1.5"/>@endif
-                    @if(($lb['bur'] ?? 0) > 0)<circle cx="{{ $lb['x'] }}" cy="{{ $yBp }}" r="3" fill="var(--ko)" stroke="#fff" stroke-width="1.5"/>@endif
-                    <text x="{{ $lb['x'] }}" y="{{ $svgH - $padB + 14 }}" fill="#64748b" font-size="9" text-anchor="middle">{{ $lb['jour'] }}</text>
-                @endforeach
-            </svg>
-        </div>
-        <div style="display:flex;gap:14px;font-size:11px;color:var(--gris);margin-top:4px;flex-wrap:wrap">
-            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--accent);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Recettes</span>
-            <span><span style="display:inline-block;width:14px;height:2.5px;background:#f59e0b;vertical-align:middle;margin-right:4px;border-radius:2px"></span>Coûts véhicules</span>
-            <span><span style="display:inline-block;width:14px;height:2.5px;background:var(--ko);vertical-align:middle;margin-right:4px;border-radius:2px"></span>Dépenses bureau</span>
-            <span><span style="display:inline-block;width:14px;height:0;border-top:1.5px dashed #94a3b8;vertical-align:middle;margin-right:4px"></span>Objectif</span>
-        </div>
+    <div class="ess {{ $kpi['resultat'] >= 0 ? 'ok' : 'ko' }}">
+        <div class="lbl">Résultat net</div>
+        <div class="val">{{ $signe($kpi['resultat']) }} <small>F</small></div>
+        <div class="aide">Recettes − charges @if($kpi['marge'] !== null) · marge {{ $kpi['marge'] }} %@endif</div>
+        {!! $variation($kpi['resultat'], $kpiPrec['resultat'], true, true) !!}
     </div>
-    <div class="rp-section">
-        <h3>{!! $ico('<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>') !!} Taux d'atteinte des objectifs</h3>
-        <div class="donut-wrap">
-            <div class="donut" style="background:conic-gradient(var(--ok) 0% {{ $pOk }}%, var(--warn) {{ $pOk }}% {{ $pOk + $pWarn }}%, var(--ko) {{ $pOk + $pWarn }}% 100%)">
-                <div class="donut-center">{{ $pOk }}%</div>
-            </div>
-            <div class="donut-legend">
-                <div><span style="background:var(--ok)"></span> &ge; 100% — {{ $nbOk }} jour(s)</div>
-                <div><span style="background:var(--warn)"></span> 80-99% — {{ $nbWarn }} jour(s)</div>
-                <div><span style="background:var(--ko)"></span> &lt; 80% — {{ $nbKo }} jour(s)</div>
-            </div>
-        </div>
-        <div style="margin-top:16px;text-align:center;font-size:13px;color:var(--bleu);font-weight:600">
-            {{ $nbPts }} jour(s) analysé(s)
-        </div>
-    </div>
-</div>
-@else
-<div class="rp-section">
-    <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Évolution des recettes journalières</h3>
-    <p style="color:var(--gris);font-size:13px">Aucune recette sur cette période.</p>
-</div>
-@endif
-
-<div class="rp-grid2">
-    {{-- ═══ PANNES PAR URGENCE ═══ --}}
-    <div class="rp-section">
-        <h3>{!! $ico('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>') !!} Pannes par niveau d'urgence</h3>
+    <div class="ess">
+        <div class="lbl">Régularité des recettes</div>
+        @php $pctJours = $kpi['jours'] ? (int) round($kpi['jours_atteints'] / $kpi['jours'] * 100) : 0; @endphp
+        <div class="val">{{ $kpi['jours_atteints'] }} <small>/ {{ $kpi['jours'] }} jours</small></div>
+        <div class="aide">journées-chauffeur où l'objectif a été atteint ({{ $pctJours }} %)</div>
+        <div class="gauge"><div class="{{ $classeTaux($kpi['jours'] ? $pctJours : null) }}" style="width:{{ $pctJours }}%"></div></div>
         @php
-            $urgLabels = ['critique' => 'Critique', 'haute' => 'Haute', 'moyenne' => 'Moyenne', 'faible' => 'Faible'];
-            $urgColors = ['critique' => '#dc2626', 'haute' => '#f59e0b', 'moyenne' => '#2E74B5', 'faible' => '#16a34a'];
-            $maxU = max($pannesUrgence->max() ?? 1, 1);
+            $nbDeficit = $parVehicule->where('verdict', 'deficit')->count();
+            $nbRentables = $parVehicule->where('verdict', 'rentable')->count();
         @endphp
-        @foreach($urgLabels as $code => $label)
-            @php $nb = $pannesUrgence[$code] ?? 0; @endphp
-            <div class="bar-wrap">
-                <div class="bar-label">{{ $label }}</div>
-                <div class="bar-track"><div class="bar-fill" style="width:{{ round(($nb/$maxU)*100) }}%;background:{{ $urgColors[$code] }}"></div></div>
-                <div class="bar-val">{{ $nb }}</div>
-            </div>
-        @endforeach
-    </div>
-
-    {{-- ═══ PÉNALITÉS PAR TYPE ═══ --}}
-    <div class="rp-section">
-        <h3>{!! $ico('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>') !!} Pénalités par type</h3>
-        @if($penalitesType->isEmpty())
-            <p style="color:var(--gris);font-size:13px">Aucune pénalité sur cette période.</p>
-        @else
-            @php $maxPT = max($penalitesType->max('montant'), 1); @endphp
-            @foreach($penalitesType as $pt)
-                <div class="bar-wrap">
-                    <div class="bar-label" title="{{ $pt['type'] }}">{{ $pt['type'] }}</div>
-                    <div class="bar-track"><div class="bar-fill" style="width:{{ round(($pt['montant']/$maxPT)*100) }}%;background:#f59e0b"></div></div>
-                    <div class="bar-val">{{ number_format($pt['montant'],0,',',' ') }}</div>
-                </div>
-            @endforeach
-        @endif
+        <div class="aide" style="margin-top:2px"><strong style="color:var(--ok)">{{ $nbRentables }}</strong> véhicule(s) rentable(s) · <strong style="color:{{ $nbDeficit ? 'var(--ko)' : 'var(--gris)' }}">{{ $nbDeficit }}</strong> en déficit</div>
     </div>
 </div>
 
-{{-- ═══ PÉNALITÉS PAR STATUT ═══ --}}
-@if($penalitesStatut->count() > 0)
-<div class="rp-section">
-    <h3>{!! $ico('<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>') !!} R&eacute;partition p&eacute;nalit&eacute;s par statut</h3>
-    @php
-        $statutColors = ['payee' => '#16a34a', 'non_payee' => '#dc2626', 'contestee' => '#f59e0b', 'annulee' => '#94a3b8'];
-        $statutLabels = ['payee' => 'Payée', 'non_payee' => 'Non payée', 'contestee' => 'Contestée', 'annulee' => 'Annulée'];
-        $totalPenS = max((int) $penalitesStatut->sum(), 1);
-        $gradParts = []; $cumulPS = 0;
-        foreach($penalitesStatut as $st => $mont) {
-            $pctPS = round(((int) $mont / $totalPenS) * 360);
-            $color = $statutColors[$st] ?? '#94a3b8';
-            $gradParts[] = "$color {$cumulPS}deg " . ($cumulPS + $pctPS) . "deg";
-            $cumulPS += $pctPS;
-        }
-    @endphp
-    <div class="donut-wrap">
-        <div class="donut" style="background:conic-gradient({{ implode(', ', $gradParts) }})">
-            <div class="donut-center">{{ number_format($totalPenS,0,',',' ') }}</div>
-        </div>
-        <div class="donut-legend">
-            @foreach($penalitesStatut as $st => $mont)
-                <div><span style="background:{{ $statutColors[$st] ?? '#94a3b8' }}"></span>{{ $statutLabels[$st] ?? ucfirst(str_replace('_', ' ', $st)) }} : {{ number_format((int) $mont,0,',',' ') }} FCFA</div>
-            @endforeach
-        </div>
-    </div>
-</div>
-@endif
-
-{{-- ═══ MAINTENANCE PAR TYPE ═══ --}}
-<div class="rp-section">
-    <h3>{!! $ico('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>') !!} État des maintenances par type</h3>
-    @if($maintenanceType->isEmpty())
-        <p style="color:var(--gris);font-size:13px">Aucune échéance de maintenance enregistrée.</p>
-    @else
-        {{-- Barres empilées --}}
-        <div style="margin-bottom:14px">
-            @foreach($maintenanceType as $mt)
-                @php $okM = max($mt['nb'] - $mt['retard'] - $mt['proche'], 0); @endphp
-                <div class="bar-wrap">
-                    <div class="bar-label" title="{{ $mt['type'] }}">{{ $mt['type'] }}</div>
-                    <div class="bar-track" style="display:flex;overflow:hidden">
-                        @if($mt['retard'] > 0)<div style="width:{{ round(($mt['retard']/$mt['nb'])*100) }}%;height:100%;background:#dc2626" title="Retard: {{ $mt['retard'] }}"></div>@endif
-                        @if($mt['proche'] > 0)<div style="width:{{ round(($mt['proche']/$mt['nb'])*100) }}%;height:100%;background:#f59e0b" title="À venir: {{ $mt['proche'] }}"></div>@endif
-                        @if($okM > 0)<div style="width:{{ round(($okM/$mt['nb'])*100) }}%;height:100%;background:#16a34a" title="OK: {{ $okM }}"></div>@endif
-                    </div>
-                    <div class="bar-val">{{ $mt['nb'] }}</div>
-                </div>
-            @endforeach
-            <div style="display:flex;gap:14px;font-size:11px;color:var(--gris);margin-top:6px">
-                <span><span style="display:inline-block;width:10px;height:10px;background:#dc2626;border-radius:2px;vertical-align:middle;margin-right:4px"></span>En retard</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:2px;vertical-align:middle;margin-right:4px"></span>À venir (15j)</span>
-                <span><span style="display:inline-block;width:10px;height:10px;background:#16a34a;border-radius:2px;vertical-align:middle;margin-right:4px"></span>OK</span>
-            </div>
-        </div>
-    @endif
-</div>
-
-{{-- ═══ TABLEAU RECETTES PAR VÉHICULE ═══ --}}
-<div class="rp-section">
-    <h3>{!! $ico('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/>') !!} Recettes par véhicule</h3>
-    @if($recettesVehicule->isEmpty())
-        <p style="color:var(--gris);font-size:13px">Aucune recette enregistrée.</p>
-    @else
-        <table class="rp-tbl" data-collapse-table="8">
-            <thead><tr>
-                <th>Véhicule</th><th>Cat.</th><th class="num">Jours</th>
-                <th class="num">Recette</th><th class="num">Recouv.</th><th class="num">Objectif</th>
-                <th class="num">Écart</th><th class="num">Taux</th><th class="num">Moy/jour</th>
-            </tr></thead>
-            <tbody>
-            @foreach($recettesVehicule as $rv)
-                <tr>
-                    <td><strong>{{ $rv['immat'] }}</strong></td>
-                    <td>{{ $rv['categorie'] }}</td>
-                    <td class="num">{{ $rv['nb_jours'] }}</td>
-                    <td class="num">{{ number_format($rv['recette_totale'] ?? $rv['recette'],0,',',' ') }}</td>
-                    <td class="num" style="color:#059669">{{ ($rv['recouvrement'] ?? 0) > 0 ? '+'.number_format($rv['recouvrement'],0,',',' ') : '—' }}</td>
-                    <td class="num">{{ number_format($rv['objectif'],0,',',' ') }}</td>
-                    <td class="num {{ $rv['ecart'] >= 0 ? 'pos' : 'neg' }}">{{ $rv['ecart'] >= 0 ? '+' : '' }}{{ number_format($rv['ecart'],0,',',' ') }}</td>
-                    <td class="num"><span style="font-weight:700;color:{{ $rv['taux']>=100?'var(--ok)':($rv['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $rv['taux'] }}%</span></td>
-                    <td class="num">{{ number_format($rv['moyenne'],0,',',' ') }}</td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-    @endif
-</div>
-
-{{-- ═══ PANNES PAR VÉHICULE ═══ --}}
-<div class="rp-section">
-    <h3>{!! $ico('<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>') !!} Pannes par véhicule</h3>
-    @if($pannesVehicule->isEmpty())
-        <p style="color:var(--gris);font-size:13px">Aucune panne sur cette période.</p>
-    @else
-        @php $maxPVCout = max($pannesVehicule->max('cout'), 1); @endphp
-        @foreach($pannesVehicule as $pv)
-            <div class="bar-wrap">
-                <div class="bar-label" title="{{ $pv['immat'] }}">{{ $pv['immat'] }}</div>
-                <div class="bar-track"><div class="bar-fill" style="width:{{ round(($pv['cout']/$maxPVCout)*100) }}%;background:#dc2626"></div></div>
-                <div class="bar-val">{{ number_format($pv['cout'],0,',',' ') }} <span style="font-size:10px;color:var(--gris)">&middot; {{ $pv['nb'] }}x &middot; {{ $pv['delai'] }}j</span></div>
-            </div>
-        @endforeach
-        <div style="font-size:11px;color:var(--gris);margin-top:6px">Coût total &mdash; nombre de pannes &mdash; délai moyen résolution</div>
-    @endif
-</div>
-
-{{-- ═══ CLASSEMENT GLOBAL ═══ --}}
-<div class="rp-section">
-    <h3>{!! $ico('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>') !!} Classement des véhicules (résultat net)</h3>
-    @if($classement->isEmpty())
-        <p style="color:var(--gris);font-size:13px">Aucun véhicule en service.</p>
-    @else
-        <p style="font-size:12px;color:var(--gris);margin-bottom:10px">Résultat = Recettes (+ recouvrements) − Coût pannes − Pénalités</p>
-        <table class="rp-tbl" data-collapse-table="10">
-            <thead><tr>
-                <th>#</th><th>Véhicule</th><th>Cat.</th>
-                <th class="num">Recette</th><th class="num">Recouv.</th><th class="num">Taux obj.</th>
-                <th class="num">Pannes</th><th class="num">Coût pannes</th>
-                <th class="num">Pénalités</th><th class="num">Maint. retard</th>
-                <th class="num">Résultat</th>
-            </tr></thead>
-            <tbody>
-            @foreach($classement as $i => $cl)
-                <tr>
-                    <td><strong>{{ $i + 1 }}</strong></td>
-                    <td><strong>{{ $cl['immat'] }}</strong></td>
-                    <td>{{ $cl['categorie'] }}</td>
-                    <td class="num">{{ number_format($cl['recette_totale'] ?? $cl['recette'],0,',',' ') }}</td>
-                    <td class="num" style="color:#059669">{{ ($cl['recouvrement'] ?? 0) > 0 ? '+'.number_format($cl['recouvrement'],0,',',' ') : '—' }}</td>
-                    <td class="num"><span style="font-weight:700;color:{{ $cl['taux']>=100?'var(--ok)':($cl['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $cl['taux'] }}%</span></td>
-                    <td class="num">{{ $cl['nb_pannes'] }}</td>
-                    <td class="num neg">{{ number_format($cl['cout_pannes'],0,',',' ') }}</td>
-                    <td class="num neg">{{ number_format($cl['penalites'],0,',',' ') }}</td>
-                    <td class="num {{ $cl['maint_retard'] > 0 ? 'neg' : '' }}">{{ $cl['maint_retard'] }}</td>
-                    <td class="num {{ $cl['resultat'] >= 0 ? 'pos' : 'neg' }}"><strong>{{ $cl['resultat'] >= 0 ? '+' : '' }}{{ number_format($cl['resultat'],0,',',' ') }}</strong></td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-    @endif
-</div>
-
-{{-- ═══ GESTIONNAIRES PARC ═══ --}}
-@if($gestionnairesActuels->isNotEmpty())
-<div class="rp-section" style="margin-bottom:18px">
-    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!} Gestionnaire(s) parc en fonction</h3>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
-        @foreach($gestionnairesActuels as $gn)
-        <span style="background:var(--accent);color:#fff;padding:5px 14px;border-radius:8px;font-size:13px;font-weight:600">{{ $gn }}</span>
-        @endforeach
-    </div>
-    @if($historiqueGestionnaires->isNotEmpty())
-    <details style="margin-top:8px">
-        <summary style="cursor:pointer;font-size:12px;color:var(--gris);font-weight:600">Historique des changements</summary>
-        <div style="margin-top:6px;font-size:12px;max-height:200px;overflow-y:auto">
-            @foreach($historiqueGestionnaires as $hg)
-            <div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--bord)">
-                <span style="color:var(--gris);min-width:100px">{{ $hg->created_at?->format('d/m/Y H:i') }}</span>
-                <span style="font-weight:600">{{ $hg->user_name }}</span>
-                <span style="color:#666">{{ $hg->details }}</span>
-            </div>
-            @endforeach
-        </div>
-    </details>
-    @endif
-</div>
-@endif
-
-{{-- ═══ PERFORMANCE OKR ═══ --}}
-@if($okrGestionnaire || $okrChauffeurs->isNotEmpty())
-<div class="rp-section" style="margin-bottom:18px">
-    <h3>{!! $ico('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>') !!} Performance OKR — {{ \Carbon\Carbon::parse($periodeOkr.'-01')->translatedFormat('F Y') }}</h3>
-
-    @if($okrGestionnaire)
-    <div class="rp-kpi" style="margin-bottom:14px">
-        <div class="kpi-c"><div class="kpi-v" style="color:{{ $okrGestionnaire['score']>=80?'var(--ok)':($okrGestionnaire['score']>=50?'var(--warn)':'var(--ko)') }}">{{ $okrGestionnaire['score'] }}%</div><div class="kpi-l">Mon score OKR</div></div>
-        <div class="kpi-c"><div class="kpi-v">{{ $okrGestionnaire['total'] }}</div><div class="kpi-l">Objectifs</div></div>
-        <div class="kpi-c"><div class="kpi-v" style="color:var(--ok)">{{ $okrGestionnaire['atteints'] }}</div><div class="kpi-l">Atteints</div></div>
-        <div class="kpi-c"><div class="kpi-v" style="color:var(--warn)">{{ $okrGestionnaire['partiels'] }}</div><div class="kpi-l">Partiels</div></div>
-        <div class="kpi-c"><div class="kpi-v" style="color:var(--gris)">{{ $okrGestionnaire['en_cours'] }}</div><div class="kpi-l">En cours</div></div>
-    </div>
-    @endif
-
-    @if($okrChauffeurs->isNotEmpty())
-    <h4 style="font-size:12.5px;color:var(--bleu);margin:10px 0 6px">OKR Chauffeurs</h4>
-    <table class="rp-tbl">
-        <thead><tr><th>Chauffeur</th><th class="num">Score</th><th class="num">Objectifs</th><th class="num">Atteints</th></tr></thead>
-        <tbody>
-        @foreach($okrChauffeurs as $oc)
-        <tr>
-            <td style="font-weight:600">{{ $oc['nom'] }}</td>
-            <td class="num" style="font-weight:700;color:{{ $oc['score']>=80?'var(--ok)':($oc['score']>=50?'var(--warn)':'var(--ko)') }}">{{ $oc['score'] }}%</td>
-            <td class="num">{{ $oc['total'] }}</td>
-            <td class="num" style="color:var(--ok)">{{ $oc['atteints'] }}</td>
-        </tr>
-        @endforeach
-        </tbody>
-    </table>
-    @elseif($okrGestionnaire)
-    <p style="color:var(--gris);font-size:12px;margin-top:8px">Aucun chauffeur n'a d'objectifs OKR pour cette p&eacute;riode.</p>
-    @endif
-</div>
-@endif
-
-{{-- ═══ PERFORMANCE CHAUFFEURS ═══ --}}
-<div class="rp-section">
-    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/><line x1="20" y1="8" x2="20" y2="14"/>') !!} Performance des chauffeurs</h3>
-    @if($performanceChauffeurs->isEmpty())
-        <p style="color:var(--gris);font-size:13px">Aucun chauffeur actif avec v&eacute;hicule affect&eacute;.</p>
-    @else
-        {{-- Graphique comparaison recettes --}}
-        @php $maxChR = max($performanceChauffeurs->max('recette_totale'), 1); @endphp
-        <div style="margin-bottom:16px">
-            @foreach($performanceChauffeurs as $ch)
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                    <div style="width:90px;font-size:11.5px;font-weight:600;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none" title="{{ $ch['nom'] }}">{{ $ch['nom'] }}</div>
-                    <div style="flex:1;display:flex;align-items:center;gap:6px">
-                        <div style="height:16px;width:{{ round(($ch['recette_totale']/$maxChR)*100) }}%;background:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};border-radius:4px;min-width:2px"></div>
-                        <span style="font-size:10.5px;font-weight:700;color:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }};white-space:nowrap">{{ $ch['taux'] }}%</span>
-                    </div>
-                    <div style="width:80px;font-size:12px;font-weight:700;text-align:right;flex:none;color:{{ $ch['resultat']>=0?'var(--ok)':'var(--ko)' }}">{{ $ch['resultat']>=0?'+':'' }}{{ number_format($ch['resultat'],0,',',' ') }}</div>
-                </div>
-            @endforeach
-        </div>
-
-        {{-- Tableau détaillé avec jauges --}}
-        <table class="rp-tbl" data-collapse-table="8">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Chauffeur</th>
-                    <th>V&eacute;hicule(s)</th>
-                    <th class="num">Recettes</th>
-                    <th class="num">Recouv.</th>
-                    <th class="num">Objectif</th>
-                    <th style="min-width:90px">Taux</th>
-                    <th class="num">Pointage</th>
-                    <th class="num">P&eacute;nalit&eacute;s</th>
-                    <th class="num">Pannes</th>
-                    <th class="num">R&eacute;sultat net</th>
-                </tr>
-            </thead>
-            <tbody>
-            @foreach($performanceChauffeurs as $i => $ch)
-                @php $resCl = $ch['resultat'] >= 0 ? 'pos' : 'neg'; @endphp
-                <tr>
-                    <td style="font-weight:700;color:var(--gris)">{{ $i + 1 }}</td>
-                    <td style="font-weight:600">{{ $ch['nom'] }}</td>
-                    <td style="font-size:11px;color:var(--gris)">{{ $ch['vehicules'] }}</td>
-                    <td class="num">{{ number_format($ch['recette'],0,',',' ') }}</td>
-                    <td class="num" style="color:#059669">{{ ($ch['recouvrement'] ?? 0) > 0 ? '+'.number_format($ch['recouvrement'],0,',',' ') : '—' }}</td>
-                    <td class="num">{{ number_format($ch['objectif'],0,',',' ') }}</td>
-                    <td class="num"><span style="font-weight:700;color:{{ $ch['taux']>=100?'var(--ok)':($ch['taux']>=80?'var(--warn)':'var(--ko)') }}">{{ $ch['taux'] }}%</span></td>
-                    <td class="num" style="color:var(--accent)">{{ number_format($ch['pointage'] ?? 0, 0, ',', ' ') }}</td>
-                    <td class="num" style="color:var(--warn)">{{ $ch['nb_penalites'] }} <span style="font-size:10px">({{ number_format($ch['montant_penalites'],0,',',' ') }})</span></td>
-                    <td class="num">{{ $ch['nb_pannes'] }} <span style="font-size:10px;color:var(--ko)">({{ number_format($ch['cout_pannes'],0,',',' ') }})</span></td>
-                    <td class="num {{ $resCl }}"><strong>{{ $ch['resultat']>=0?'+':'' }}{{ number_format($ch['resultat'],0,',',' ') }}</strong></td>
-                </tr>
-            @endforeach
-            </tbody>
-        </table>
-    @endif
-</div>
-
-{{-- ═══ ANALYSE DES SORTIES D'ARGENT ═══ --}}
-<div class="rp-section">
-    <h3>{!! $ico('<path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/>') !!} Analyse des sorties d'argent</h3>
-    @php
-        $coutVeh = ($coutPannes ?? 0) + ($montantPenalites ?? 0);
-        $totalSort = $coutVeh + ($depensesTotal ?? 0);
-        $pctVeh = $totalSort > 0 ? round(($coutVeh / $totalSort) * 100) : 0;
-        $pctAutre = 100 - $pctVeh;
-    @endphp
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-    {{-- Comparaison coûts véhicules vs autres dépenses --}}
-    <div>
-        <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">Coûts véhicules vs Autres dépenses</h4>
-        @if($totalSort > 0)
-        <div class="donut-wrap" style="padding:8px 0">
-            <div class="donut" style="width:130px;height:130px;background:conic-gradient(#f59e0b 0% {{ $pctVeh }}%, var(--ko) {{ $pctVeh }}% 100%)">
-                <div class="donut-center" style="inset:26px;font-size:14px">{{ number_format($totalSort,0,',',' ') }}</div>
-            </div>
-            <div class="donut-legend" style="font-size:12px;line-height:2.4">
-                <div><span style="background:#f59e0b"></span>Véhicules : {{ number_format($coutVeh,0,',',' ') }} F ({{ $pctVeh }}%)</div>
-                <div style="font-size:11px;color:var(--gris);padding-left:18px">Pannes : {{ number_format($coutPannes,0,',',' ') }} F</div>
-                <div style="font-size:11px;color:var(--gris);padding-left:18px">Pénalités : {{ number_format($montantPenalites,0,',',' ') }} F</div>
-                <div><span style="background:var(--ko)"></span>Autres : {{ number_format($depensesTotal,0,',',' ') }} F ({{ $pctAutre }}%)</div>
-            </div>
-        </div>
-        @if($coutVeh > $depensesTotal)
-        <div style="padding:8px 12px;background:#fef3c7;border-radius:8px;font-size:12px;color:#92400e;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:6px">
-            {!! $ico('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>') !!}
-            Les coûts véhicules dépassent les autres dépenses
-        </div>
-        @endif
-        @else
-        <p style="font-size:12px;color:var(--gris)">Aucune sortie sur la période</p>
-        @endif
-    </div>
-
-    {{-- Répartition par type de dépense --}}
-    <div>
-        <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">Détail autres dépenses</h4>
-        @if(($depensesType ?? collect())->isNotEmpty())
-        @php $maxDep = ($depensesType ?? collect())->max('total') ?: 1; @endphp
-        @foreach($depensesType ?? [] as $dt)
-        @php $pctDep = round(($dt->total / $maxDep) * 100); @endphp
-        <div style="margin-bottom:8px">
-            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
-                <span style="font-weight:600">{{ $typesDepenseLabels[$dt->type_depense] ?? ucfirst(str_replace('_', ' ', $dt->type_depense)) }}</span>
-                <span style="color:var(--ko);font-weight:600">{{ number_format($dt->total, 0, ',', ' ') }} F</span>
-            </div>
-            <div style="height:8px;background:#fee2e2;border-radius:4px;overflow:hidden">
-                <div style="height:100%;width:{{ $pctDep }}%;background:var(--ko);border-radius:4px"></div>
-            </div>
-        </div>
-        @endforeach
-        @else
-        <p style="font-size:12px;color:var(--gris)">Aucune dépense sur la période</p>
-        @endif
-    </div>
-    </div>
-</div>
-
-{{-- ═══ RENTABILITÉ DYNAMIQUE PAR VÉHICULE ═══ --}}
-@if(($rentaVehicules ?? collect())->isNotEmpty())
-<div class="rp-section">
-    <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Rentabilit&eacute; dynamique par v&eacute;hicule</h3>
-
-    <div class="rp-kpi" style="margin-bottom:18px">
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:var(--ok)">{{ $nbRentables ?? 0 }}</div>
-            <div class="kpi-l">V&eacute;hicules rentables</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:var(--ko)">{{ $nbDeficit ?? 0 }}</div>
-            <div class="kpi-l">V&eacute;hicules en d&eacute;ficit</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:{{ ($profitTotal ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ ($profitTotal ?? 0) >= 0 ? '+' : '' }}{{ number_format($profitTotal ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Profit net global</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:{{ ($detteNetteTotale ?? 0) > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ number_format($detteNetteTotale ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Dette nette emprunts</div>
-        </div>
-    </div>
-
-    <div style="overflow-x:auto">
-    <table class="rp-tbl">
-        <thead><tr>
-            <th>V&eacute;hicule</th><th>Cat.</th>
-            <th class="num">Recettes</th><th class="num">Recouv.</th><th class="num">Pannes</th><th class="num">P&eacute;nal.</th>
-            <th class="num">Maint.</th><th class="num">Autres d&eacute;p.</th><th class="num">Total d&eacute;p.</th>
-            <th class="num">Profit</th><th class="num">ROI</th>
-            <th class="num">Emprunt</th><th>Verdict</th>
-        </tr></thead>
-        <tbody>
-        @foreach($rentaVehicules as $rv)
-        <tr>
-            <td style="font-weight:600">{{ $rv['immat'] }}</td>
-            <td style="font-size:11px">{{ $rv['categorie'] }}</td>
-            <td class="num" style="color:var(--ok);font-weight:600">{{ number_format($rv['recette'],0,',',' ') }}</td>
-            <td class="num" style="color:var(--ok)">{{ ($rv['recouvrement'] ?? 0) > 0 ? number_format($rv['recouvrement'],0,',',' ') : '—' }}</td>
-            <td class="num neg">{{ $rv['pannes'] > 0 ? number_format($rv['pannes'],0,',',' ') : '—' }}</td>
-            <td class="num neg">{{ $rv['penalites'] > 0 ? number_format($rv['penalites'],0,',',' ') : '—' }}</td>
-            <td class="num neg">{{ $rv['maintenance'] > 0 ? number_format($rv['maintenance'],0,',',' ') : '—' }}</td>
-            <td class="num neg">{{ $rv['depenses'] > 0 ? number_format($rv['depenses'],0,',',' ') : '—' }}</td>
-            <td class="num" style="font-weight:700;color:var(--ko)">{{ number_format($rv['total_depenses'],0,',',' ') }}</td>
-            <td class="num" style="font-weight:700;color:{{ $rv['profit'] >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rv['profit'] >= 0 ? '+' : '' }}{{ number_format($rv['profit'],0,',',' ') }}</td>
-            <td class="num" style="font-weight:600;color:{{ $rv['roi'] >= 100 ? 'var(--ok)' : 'var(--ko)' }}">{{ $rv['roi'] }}%</td>
-            <td class="num" style="color:var(--warn)">{{ $rv['dette_nette'] > 0 ? number_format($rv['dette_nette'],0,',',' ') : '—' }}</td>
-            <td><span class="pill {{ $rv['verdict'] === 'rentable' ? 'p-ok' : ($rv['verdict'] === 'equilibre' ? 'p-warn' : 'p-ko') }}">{{ $rv['verdict'] === 'rentable' ? 'Rentable' : ($rv['verdict'] === 'equilibre' ? 'Equilibre' : 'Deficit') }}</span></td>
-        </tr>
-        @endforeach
-        @if($rentaVehicules->count() > 1)
-        <tr style="background:#f0f4f8;font-weight:700;border-top:2px solid var(--bord)">
-            <td colspan="2">TOTAL</td>
-            <td class="num" style="color:var(--ok)">{{ number_format($rentaVehicules->sum('recette'),0,',',' ') }}</td>
-            <td class="num" style="color:var(--ok)">{{ $rentaVehicules->sum('recouvrement') > 0 ? number_format($rentaVehicules->sum('recouvrement'),0,',',' ') : '—' }}</td>
-            <td class="num neg">{{ number_format($rentaVehicules->sum('pannes'),0,',',' ') }}</td>
-            <td class="num neg">{{ number_format($rentaVehicules->sum('penalites'),0,',',' ') }}</td>
-            <td class="num neg">{{ number_format($rentaVehicules->sum('maintenance'),0,',',' ') }}</td>
-            <td class="num neg">{{ number_format($rentaVehicules->sum('depenses'),0,',',' ') }}</td>
-            <td class="num" style="color:var(--ko)">{{ number_format($depTotalVeh,0,',',' ') }}</td>
-            <td class="num" style="color:{{ $profitTotal >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ $profitTotal >= 0 ? '+' : '' }}{{ number_format($profitTotal,0,',',' ') }}</td>
-            <td class="num">{{ $depTotalVeh > 0 ? round(($rentaVehicules->sum('recette_totale') / $depTotalVeh) * 100) : 0 }}%</td>
-            <td class="num" style="color:var(--warn)">{{ $detteNetteTotale > 0 ? number_format($detteNetteTotale,0,',',' ') : '—' }}</td>
-            <td></td>
-        </tr>
-        @endif
-        </tbody>
-    </table>
-    </div>
-
-    {{-- Aide à la décision --}}
-    @php
-        $pire = $rentaVehicules->where('verdict', 'deficit')->sortBy('profit')->first();
-        $meilleur = $rentaVehicules->where('verdict', 'rentable')->sortByDesc('profit')->first();
-    @endphp
-    @if($pire || $meilleur)
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:14px">
-        @if($meilleur)
-        <div style="padding:12px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px">
-            <div style="font-size:12px;font-weight:700;color:var(--ok);margin-bottom:4px">{!! $ico('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>') !!} Meilleur v&eacute;hicule</div>
-            <div style="font-weight:700;font-size:15px">{{ $meilleur['immat'] }}</div>
-            <div style="font-size:12px;color:var(--gris)">Profit : +{{ number_format($meilleur['profit'],0,',',' ') }} F &mdash; ROI {{ $meilleur['roi'] }}%</div>
-        </div>
-        @endif
-        @if($pire)
-        <div style="padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px">
-            <div style="font-size:12px;font-weight:700;color:var(--ko);margin-bottom:4px">{!! $ico('<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>') !!} V&eacute;hicule le plus co&ucirc;teux</div>
-            <div style="font-weight:700;font-size:15px">{{ $pire['immat'] }}</div>
-            <div style="font-size:12px;color:var(--gris)">D&eacute;ficit : {{ number_format($pire['profit'],0,',',' ') }} F &mdash; D&eacute;penses : {{ number_format($pire['total_depenses'],0,',',' ') }} F</div>
-        </div>
-        @endif
-    </div>
-    @endif
-</div>
-@endif
-
-{{-- ═══ FONDS PROPRES vs EMPRUNTS ═══ --}}
-@if(($empruntsData['total_emprunte'] ?? 0) > 0 || ($totalFP ?? 0) > 0 || ($totalEmp ?? 0) > 0)
-<div class="rp-section">
-    <h3>{!! $ico('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Fonds propres vs Ressources emprunt&eacute;es</h3>
-    <p style="font-size:12px;color:var(--gris);margin:-6px 0 14px">Emprunt = ressource d'urgence remboursable. Ce n'est pas une d&eacute;pense.</p>
-
-    <div class="rp-kpi" style="margin-bottom:18px">
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:var(--ok)">{{ number_format($totalFP ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Charges fonds propres</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:#6366f1">{{ number_format($totalEmp ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Charges couvertes par emprunt</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:#b45309">{{ number_format($remboursementsPeriode ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Rembours&eacute; (sorti de caisse)</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:{{ ($detteGlobale ?? 0) > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ number_format($detteGlobale ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Dette restante (tous emprunts)</div>
-        </div>
-    </div>
-
-    @php
-        $totalDepFP = ($totalFP ?? 0) + ($totalEmp ?? 0);
-        $pctFP = $totalDepFP > 0 ? round(($totalFP / $totalDepFP) * 100) : 0;
-        $pctEmp = 100 - $pctFP;
-    @endphp
-
-    <div class="rp-grid2">
-        {{-- Donut --}}
+{{-- ═══ 2. À TRAITER ═══ --}}
+<div class="rp-titre">2. À traiter en priorité</div>
+@if(empty($aTraiter))
+<div class="todo-ok">Aucun point bloquant : pas de déficit, de retard de maintenance, de panne ouverte ni d'impayé.</div>
+@else
+<div class="todo">
+    @foreach($aTraiter as $pt)
+    <div class="todo-item {{ $pt['niveau'] }}">
         <div>
-            <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">R&eacute;partition du financement</h4>
-            @if($totalDepFP > 0)
-            <div class="donut-wrap">
-                <div class="donut" style="background:conic-gradient(var(--ok) 0deg {{ $pctFP * 3.6 }}deg, var(--ko) {{ $pctFP * 3.6 }}deg 360deg)">
-                    <div class="donut-center">{{ $pctFP }}%</div>
-                </div>
-                <div class="donut-legend">
-                    <div><span style="background:var(--ok)"></span>Fonds propres : {{ number_format($totalFP,0,',',' ') }} F ({{ $pctFP }}%)</div>
-                    <div><span style="background:var(--ko)"></span>Couvert par emprunt : {{ number_format($totalEmp,0,',',' ') }} F ({{ $pctEmp }}%)</div>
-                </div>
-            </div>
-            @if($pctEmp > 50)
-            <div style="padding:8px 12px;background:#fef3c7;border-radius:8px;font-size:12px;color:#92400e;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:6px">
-                {!! $ico('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>') !!}
-                L'entreprise finance plus de la moiti&eacute; de ses charges par emprunt
-            </div>
-            @endif
-            @else
-            <p style="font-size:12px;color:var(--gris)">Aucune charge sur la p&eacute;riode</p>
-            @endif
+            <div class="tt">{{ $pt['titre'] }}</div>
+            @if($pt['detail'])<div class="dd">{{ $pt['detail'] }}</div>@endif
         </div>
-
-        {{-- D&eacute;tail par cat&eacute;gorie --}}
-        <div>
-            <h4 style="font-size:13px;color:var(--bleu);margin:0 0 10px">D&eacute;tail par cat&eacute;gorie</h4>
-            <table class="rp-tbl">
-                <thead><tr><th>Cat&eacute;gorie</th><th class="num">Fonds propres</th><th class="num">Couvert par emprunt</th><th class="num">Total</th></tr></thead>
-                <tbody>
-                    <tr>
-                        <td style="font-weight:600">Pannes</td>
-                        <td class="num pos">{{ number_format($fondsData['pannes_fp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num" style="color:#6366f1">{{ number_format($fondsData['pannes_emp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num" style="font-weight:700">{{ number_format(($fondsData['pannes_fp'] ?? 0)+($fondsData['pannes_emp'] ?? 0),0,',',' ') }}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight:600">P&eacute;nalit&eacute;s</td>
-                        <td class="num pos">{{ number_format($fondsData['penalites_fp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num" style="color:#6366f1">{{ number_format($fondsData['penalites_emp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num" style="font-weight:700">{{ number_format(($fondsData['penalites_fp'] ?? 0)+($fondsData['penalites_emp'] ?? 0),0,',',' ') }}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight:600">Maintenance</td>
-                        <td class="num pos">{{ number_format($fondsData['maint_fp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num" style="color:#6366f1">{{ number_format($fondsData['maint_emp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num" style="font-weight:700">{{ number_format(($fondsData['maint_fp'] ?? 0)+($fondsData['maint_emp'] ?? 0),0,',',' ') }}</td>
-                    </tr>
-                    <tr>
-                        <td style="font-weight:600">D&eacute;penses bureau</td>
-                        <td class="num pos">{{ number_format($fondsData['depenses_fp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num" style="color:#6366f1">{{ number_format($fondsData['depenses_emp'] ?? 0,0,',',' ') }}</td>
-                        <td class="num" style="font-weight:700">{{ number_format(($fondsData['depenses_fp'] ?? 0)+($fondsData['depenses_emp'] ?? 0),0,',',' ') }}</td>
-                    </tr>
-                    <tr style="background:#f8fafc;font-weight:700;border-top:2px solid var(--bord)">
-                        <td>TOTAL</td>
-                        <td class="num pos">{{ number_format($totalFP,0,',',' ') }}</td>
-                        <td class="num" style="color:#6366f1">{{ number_format($totalEmp,0,',',' ') }}</td>
-                        <td class="num" style="color:var(--bleu)">{{ number_format($totalDepFP,0,',',' ') }}</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            @if(($empruntsData['nb_emprunts'] ?? 0) > 0 || ($remboursementsPeriode ?? 0) > 0)
-            <div style="margin-top:12px;padding:10px 14px;background:#f8fafc;border-radius:8px;font-size:12px">
-                @if(($empruntsData['nb_emprunts'] ?? 0) > 0)
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                    <span>Emprunts contract&eacute;s (p&eacute;riode)</span><span style="font-weight:700">{{ $empruntsData['nb_emprunts'] }}</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                    <span>Encore en cours</span><span style="font-weight:700;color:var(--warn)">{{ $empruntsData['nb_en_cours'] }}</span>
-                </div>
-                @endif
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                    <span>Remboursements pay&eacute;s (p&eacute;riode)</span><span style="font-weight:700;color:#b45309">{{ number_format($remboursementsPeriode ?? 0,0,',',' ') }} F</span>
-                </div>
-                <div style="display:flex;justify-content:space-between">
-                    <span>Dette totale restante</span><span style="font-weight:700;color:{{ ($detteGlobale ?? 0) > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($detteGlobale ?? 0,0,',',' ') }} F</span>
-                </div>
-            </div>
-            @endif
-        </div>
+        <a href="{{ route('parc.index', ['tab' => $pt['onglet']]) }}">Voir →</a>
     </div>
-
-    {{-- Jauge autonomie financière --}}
-    <div style="margin-top:16px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px">
-            <span>Autonomie financi&egrave;re</span>
-            <span style="color:{{ $pctFP >= 70 ? 'var(--ok)' : ($pctFP >= 50 ? 'var(--warn)' : 'var(--ko)') }}">{{ $pctFP }}%</span>
-        </div>
-        <div class="gauge">
-            <div class="gauge-fill" style="width:{{ $pctFP }}%;background:{{ $pctFP >= 70 ? 'var(--ok)' : ($pctFP >= 50 ? 'var(--warn)' : 'var(--ko)') }}"></div>
-            <div class="gauge-txt">{{ $pctFP >= 70 ? 'Bonne autonomie' : ($pctFP >= 50 ? 'Autonomie moyenne' : 'Dépendance aux emprunts') }}</div>
-        </div>
-    </div>
-</div>
-@endif
-
-{{-- ═══ TRÉSORERIE FORMALISÉE ═══ --}}
-<div class="rp-section" style="border-left:4px solid var(--bleu)">
-    <h3>{!! $ico('<rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20"/><path d="M12 9v12"/>') !!} Tr&eacute;sorerie</h3>
-    <div class="rp-grid2" style="margin-bottom:16px">
-        <div>
-            <h4 style="font-size:13px;color:var(--ok);margin:0 0 10px">Entr&eacute;es</h4>
-            <table class="rp-tbl">
-                <tbody>
-                    <tr><td>Recettes</td><td class="num pos">{{ number_format($recetteTotal ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Pointages</td><td class="num pos">{{ number_format($pointageTotal ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Recouvrements per&ccedil;us</td><td class="num pos">{{ number_format($recouvrementPercu ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Autres ressources</td><td class="num pos">{{ number_format($autresRessourcesTotal ?? 0,0,',',' ') }}</td></tr>
-                    <tr style="font-weight:700;border-top:2px solid var(--bord)"><td>Total entr&eacute;es</td><td class="num pos">{{ number_format($tresoEntrees ?? 0,0,',',' ') }}</td></tr>
-                </tbody>
-            </table>
-        </div>
-        <div>
-            <h4 style="font-size:13px;color:var(--ko);margin:0 0 10px">Sorties (fonds propres)</h4>
-            <table class="rp-tbl">
-                <tbody>
-                    <tr><td>D&eacute;penses bureau</td><td class="num neg">{{ number_format($fondsData['depenses_fp'] ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Maintenance</td><td class="num neg">{{ number_format($fondsData['maint_fp'] ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Pannes</td><td class="num neg">{{ number_format($fondsData['pannes_fp'] ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>P&eacute;nalit&eacute;s pay&eacute;es</td><td class="num neg">{{ number_format($penalitesPayeesFP ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Pr&ecirc;ts accord&eacute;s</td><td class="num neg">{{ number_format($pretsData['total_prete'] ?? 0,0,',',' ') }}</td></tr>
-                    <tr><td>Remboursements emprunts</td><td class="num neg">{{ number_format($remboursementsPeriode ?? 0,0,',',' ') }}</td></tr>
-                    <tr style="font-weight:700;border-top:2px solid var(--bord)"><td>Total sorties</td><td class="num neg">{{ number_format($tresoSorties ?? 0,0,',',' ') }}</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <div class="rp-kpi">
-        <div class="kpi-c" style="background:{{ ($soldeBrut ?? 0) >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ ($soldeBrut ?? 0) >= 0 ? '#86efac' : '#fca5a5' }}">
-            <div class="kpi-v" style="color:{{ ($soldeBrut ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ ($soldeBrut ?? 0) >= 0 ? '+' : '' }}{{ number_format($soldeBrut ?? 0,0,',',' ') }}</div>
-            <div class="kpi-l">Solde brut (entr&eacute;es - sorties)</div>
-        </div>
-        <div class="kpi-c" style="background:{{ ($soldeApresEngagements ?? 0) >= 0 ? '#f0fdf4' : '#fef2f2' }};border-color:{{ ($soldeApresEngagements ?? 0) >= 0 ? '#86efac' : '#fca5a5' }}">
-            <div class="kpi-v" style="color:{{ ($soldeApresEngagements ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ ($soldeApresEngagements ?? 0) >= 0 ? '+' : '' }}{{ number_format($soldeApresEngagements ?? 0,0,',',' ') }}</div>
-            <div class="kpi-l">Solde apr&egrave;s engagements</div>
-            <div class="kpi-sub" style="font-size:10px;color:var(--gris)">Brut - dette emprunts ({{ number_format($detteGlobale ?? 0,0,',',' ') }} F) - cr&eacute;ances pr&ecirc;ts ({{ number_format($pretsData['creances'] ?? 0,0,',',' ') }} F)</div>
-        </div>
-    </div>
-</div>
-
-{{-- ═══ 2 CAISSES : Bureau + Pointage ═══ --}}
-<div class="rp-section">
-    <h3>{!! $ico('<path d="M21 4H3a2 2 0 00-2 2v12a2 2 0 002 2h18a2 2 0 002-2V6a2 2 0 00-2-2z"/><path d="M1 10h22"/>') !!} Solde par caisse</h3>
-    <div class="rp-kpi" style="margin-bottom:14px">
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:{{ ($caisseBureauSolde ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ number_format($caisseBureauSolde ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Caisse Bureau</div>
-            <div class="kpi-sub" style="font-size:10px;color:var(--gris)">+{{ number_format($caisseBureauEntrees ?? 0,0,',',' ') }} / -{{ number_format($caisseBureauSorties ?? 0,0,',',' ') }}</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:{{ ($caissePointageSolde ?? 0) >= 0 ? 'var(--ok)' : 'var(--ko)' }}">{{ number_format($caissePointageSolde ?? 0,0,',',' ') }} F</div>
-            <div class="kpi-l">Pointage</div>
-            <div class="kpi-sub" style="font-size:10px;color:var(--gris)">+{{ number_format($caissePointageEntrees ?? 0,0,',',' ') }}</div>
-        </div>
-    </div>
-</div>
-
-{{-- ═══ PRÊTS ACCORDÉS ═══ --}}
-@if(($pretsData['nb_prets'] ?? 0) > 0 || ($pretsData['nb_en_cours'] ?? 0) > 0)
-<div class="rp-section">
-    <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Pr&ecirc;ts accord&eacute;s</h3>
-    <div class="rp-kpi" style="margin-bottom:14px">
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:#92400e">{{ number_format($pretsData['total_prete'],0,',',' ') }} F</div>
-            <div class="kpi-l">Total pr&ecirc;t&eacute;</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:var(--ok)">{{ number_format($pretsData['total_rembourse'],0,',',' ') }} F</div>
-            <div class="kpi-l">Rembours&eacute;</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:{{ $pretsData['creances'] > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($pretsData['creances'],0,',',' ') }} F</div>
-            <div class="kpi-l">Cr&eacute;ances restantes</div>
-        </div>
-        <div class="kpi-c">
-            <div class="kpi-v" style="color:var(--warn)">{{ $pretsData['nb_en_cours'] }}</div>
-            <div class="kpi-l">Pr&ecirc;ts en cours</div>
-        </div>
-    </div>
-    @if($pretsData['total_prete'] > 0)
-    <div class="gauge" style="margin-top:8px">
-        @php $pctRembPret = $pretsData['total_prete'] > 0 ? round(($pretsData['total_rembourse'] / $pretsData['total_prete']) * 100) : 0; @endphp
-        <div class="gauge-fill" style="width:{{ $pctRembPret }}%;background:{{ $pctRembPret >= 80 ? 'var(--ok)' : ($pctRembPret >= 50 ? 'var(--warn)' : 'var(--ko)') }}"></div>
-        <div class="gauge-txt">Recouvrement pr&ecirc;ts : {{ $pctRembPret }}%</div>
-    </div>
-    @endif
-</div>
-@endif
-
-{{-- ═══ AUTRES RESSOURCES ═══ --}}
-@if(($autresRessourcesTotal ?? 0) > 0)
-<div class="rp-section">
-    <h3>{!! $ico('<path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/>') !!} Autres ressources</h3>
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
-        <div style="font-size:22px;font-weight:700;color:var(--ok)">{{ number_format($autresRessourcesTotal,0,',',' ') }} F</div>
-        <div style="font-size:12px;color:var(--gris)">Total des ressources additionnelles sur la p&eacute;riode</div>
-    </div>
-    @if(($autresRessourcesType ?? collect())->isNotEmpty())
-    @php
-        $maxAR = $autresRessourcesType->max('total') ?: 1;
-        $arColors = ['don' => '#16a34a', 'vente' => '#2E74B5', 'remboursement_fournisseur' => '#f59e0b', 'subvention' => '#8b5cf6', 'autre' => '#64748b'];
-    @endphp
-    @foreach($autresRessourcesType as $ar)
-        @php $arType = $ar->type_ressource; @endphp
-        <div class="bar-wrap">
-            <div class="bar-label" title="{{ ucfirst(str_replace('_', ' ', $arType)) }}">{{ ucfirst(str_replace('_', ' ', $arType)) }}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:{{ round(($ar->total / $maxAR) * 100) }}%;background:{{ $arColors[$arType] ?? '#64748b' }}"></div></div>
-            <div class="bar-val">{{ number_format($ar->total,0,',',' ') }} F <span style="font-size:10px;color:var(--gris)">({{ $ar->nb }}x)</span></div>
-        </div>
     @endforeach
-    @endif
 </div>
 @endif
 
-@endsection
+{{-- ═══ 3. RENTABILITÉ PAR VÉHICULE ═══ --}}
+<div class="rp-titre">3. Rentabilité par véhicule</div>
+<div class="rp-section">
+    <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Quels véhicules rapportent, lesquels coûtent ?</h3>
+    <div class="intro">Classés du moins rentable au plus rentable. Résultat = recettes (y compris recouvrements) − pannes − maintenance − pénalités − dépenses du véhicule.</div>
+    @if($parVehicule->isEmpty())
+    <p style="color:var(--gris);font-size:13px">Aucun véhicule dans ce périmètre.</p>
+    @else
+    <div class="rp-scroll">
+    <table class="rp-tbl">
+        <thead><tr><th>Véhicule</th><th class="num">Jours</th><th class="num">Recettes</th><th>Atteinte objectif</th><th class="num">Charges</th><th class="num">Résultat</th><th>Verdict</th></tr></thead>
+        <tbody>
+        @foreach($parVehicule as $v)
+        <tr>
+            <td><strong>{{ $v['immat'] }}</strong><span class="sous">{{ $v['categorie'] }}@if($v['statut'] !== 'en_service') · {{ $v['statut_label'] }}@endif</span></td>
+            <td class="num">{{ $v['jours'] }}</td>
+            <td class="num">{{ $F($v['recettes']) }}<span class="sous">obj. {{ $F($v['objectif']) }}</span></td>
+            <td class="taux-cell">
+                @if($v['taux'] === null)<span style="color:var(--gris);font-size:12px">—</span>
+                @else
+                <span class="t" style="color:{{ $couleurTaux($v['taux']) }}">{{ $v['taux'] }} %</span>
+                <div class="gauge"><div class="{{ $classeTaux($v['taux']) }}" style="width:{{ min(100, $v['taux']) }}%"></div></div>
+                @endif
+            </td>
+            <td class="num">{{ $F($v['charges']) }}
+                @if($v['charges'] > 0)<span class="sous">@if($v['pannes'])pannes {{ $F($v['pannes']) }} @endif @if($v['maintenance'])· maint. {{ $F($v['maintenance']) }} @endif @if($v['penalites'])· pén. {{ $F($v['penalites']) }} @endif @if($v['autres'])· dép. {{ $F($v['autres']) }}@endif</span>@endif
+            </td>
+            <td class="num {{ $v['resultat'] >= 0 ? 'pos' : 'neg' }}">{{ $signe($v['resultat']) }}</td>
+            <td><span class="verdict v-{{ $v['verdict'] }}">{{ ['rentable' => 'Rentable', 'deficit' => 'Déficit', 'equilibre' => 'Équilibre'][$v['verdict']] }}</span></td>
+        </tr>
+        @endforeach
+        </tbody>
+        <tfoot><tr>
+            <td>Total ({{ $parVehicule->count() }})</td>
+            <td class="num">{{ $parVehicule->sum('jours') }}</td>
+            <td class="num">{{ $F($parVehicule->sum('recettes')) }}</td>
+            @php $tauxTot = $parVehicule->sum('objectif') > 0 ? (int) round($parVehicule->sum('recettes') / $parVehicule->sum('objectif') * 100) : null; @endphp
+            <td style="color:{{ $couleurTaux($tauxTot) }}">{{ $tauxTot !== null ? $tauxTot . ' %' : '—' }}</td>
+            <td class="num">{{ $F($parVehicule->sum('charges')) }}</td>
+            <td class="num {{ $parVehicule->sum('resultat') >= 0 ? 'pos' : 'neg' }}">{{ $signe($parVehicule->sum('resultat')) }}</td>
+            <td></td>
+        </tr></tfoot>
+    </table>
+    </div>
+    @php $horsTableau = $kpi['charges'] - $parVehicule->sum('charges'); @endphp
+    @if($horsTableau > 0)
+    <div class="intro" style="margin:8px 0 0">{{ $F($horsTableau) }} F de charges ne sont rattachées à aucun véhicule de ce tableau (dépenses de bureau, maintenance sans véhicule, véhicule réformé…). Elles sont comptées dans le résultat net de la section 1, pas ici.</div>
+    @endif
+    @endif
+</div>
 
-@push('scripts')
+{{-- ═══ 4. CHAUFFEURS ═══ --}}
+<div class="rp-titre">4. Performance des chauffeurs</div>
+<div class="rp-section">
+    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!} Qui atteint ses objectifs ?</h3>
+    <div class="intro">Classés du taux d'atteinte le plus faible au plus élevé. « Reste dû » = créances de recouvrement encore actives.</div>
+    @if($chauffeurs->isEmpty())
+    <p style="color:var(--gris);font-size:13px">Aucune recette chauffeur sur cette période.</p>
+    @else
+    <div class="rp-scroll">
+    <table class="rp-tbl">
+        <thead><tr><th>Chauffeur</th><th class="num">Jours</th><th class="num">Recettes</th><th>Atteinte objectif</th><th class="num">Écart</th><th class="num">Moy. / jour</th><th class="num">Pénalités</th><th class="num">Reste dû</th></tr></thead>
+        <tbody>
+        @foreach($chauffeurs as $c)
+        <tr>
+            <td><strong>{{ $c['nom'] }}</strong>@if($c['nb_vehicules'] > 1)<span class="sous">{{ $c['nb_vehicules'] }} véhicules</span>@endif</td>
+            <td class="num">{{ $c['jours'] }}<span class="sous">{{ $c['jours_atteints'] }} atteint(s)@if($c['absences']) · {{ $c['absences'] }} abs.@endif</span></td>
+            <td class="num">{{ $F($c['recettes']) }}<span class="sous">obj. {{ $F($c['objectif']) }}</span></td>
+            <td class="taux-cell">
+                @if($c['taux'] === null)<span style="color:var(--gris)">—</span>
+                @else
+                <span class="t" style="color:{{ $couleurTaux($c['taux']) }}">{{ $c['taux'] }} %</span>
+                <div class="gauge"><div class="{{ $classeTaux($c['taux']) }}" style="width:{{ min(100, $c['taux']) }}%"></div></div>
+                @endif
+            </td>
+            <td class="num {{ $c['ecart'] >= 0 ? 'pos' : 'neg' }}">{{ $signe($c['ecart']) }}</td>
+            <td class="num">{{ $F($c['moyenne']) }}</td>
+            <td class="num" style="{{ $c['penalites'] ? 'color:var(--ko)' : '' }}">{{ $c['penalites'] ? $F($c['penalites']) : '—' }}@if($c['nb_penalites'])<span class="sous">{{ $c['nb_penalites'] }} infraction(s)</span>@endif</td>
+            <td class="num" style="{{ $c['dette'] ? 'color:var(--ko);font-weight:700' : '' }}">{{ $c['dette'] ? $F($c['dette']) : '—' }}</td>
+        </tr>
+        @endforeach
+        </tbody>
+    </table>
+    </div>
+    @endif
+</div>
+
+{{-- ═══ 5. ÉVOLUTION : RECETTES FACE AUX DÉPENSES ═══ --}}
+<div class="rp-titre">5. Évolution des recettes et des dépenses</div>
+<div class="rp-section">
+    <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Recettes {{ $evolution['par_semaine'] ? 'hebdomadaires' : 'journalières' }} face à l'objectif et aux dépenses</h3>
+    @php $pts = collect($evolution['points']); @endphp
+    @if($pts->isEmpty() || ($pts->sum('recette') + $pts->sum('objectif') + $pts->sum('bureau') + $pts->sum('vehicule')) === 0)
+    <p style="color:var(--gris);font-size:13px">Aucune recette ni dépense sur cette période.</p>
+    @else
+    @php
+        $n = $pts->count();
+        $vmax = max($pts->max('recette'), $pts->max('objectif'), $pts->max('bureau'), $pts->max('vehicule'), 1);
+        // Graduation « ronde » : 1, 2 ou 5 × 10^k
+        $brut = $vmax / 5; $p10 = 10 ** floor(log10($brut)); $pas = (int) (collect([1, 2, 5, 10])->first(fn($m) => $m * $p10 >= $brut) * $p10);
+        $vmax = (int) (ceil($vmax / $pas) * $pas);
+        $W = 960; $H = 300; $L = 58; $R = 14; $T = 16; $B = 36;
+        $cw = $W - $L - $R; $chH = $H - $T - $B; $base = $T + $chH;
+        $col = $cw / $n;
+        $xOf = fn($i) => round($L + ($i + 0.5) * $col, 1);
+        $yOf = fn($v) => round($base - ($v / $vmax) * $chH, 1);
+        $bw = round(min(26, $col * 0.62), 1);
+        $kfmt = fn($v) => $v >= 1000000 ? rtrim(rtrim(number_format($v / 1000000, 1, ',', ' '), '0'), ',') . ' M' : ($v >= 1000 ? number_format($v / 1000, 0, ',', ' ') . ' k' : (string) $v);
+        // Courbe lissée (Catmull-Rom → Bézier), bornée entre le haut du graphe et l'axe
+        // $vals : [index => valeur] ; les index absents ne sont pas tracés (la courbe les enjambe)
+        $courbe = function (array $vals) use ($xOf, $yOf, $T, $base) {
+            $p = array_map(fn($v, $i) => [$xOf($i), $yOf($v)], $vals, array_keys($vals));
+            if (count($p) === 1) return 'M' . $p[0][0] . ',' . $p[0][1];
+            $d = 'M' . $p[0][0] . ',' . $p[0][1];
+            $cl = fn($y) => round(max($T, min($base, $y)), 1);
+            for ($i = 0; $i < count($p) - 1; $i++) {
+                $p0 = $p[max($i - 1, 0)]; $p1 = $p[$i]; $p2 = $p[$i + 1]; $p3 = $p[min($i + 2, count($p) - 1)];
+                $c1 = [round($p1[0] + ($p2[0] - $p0[0]) / 6, 1), $cl($p1[1] + ($p2[1] - $p0[1]) / 6)];
+                $c2 = [round($p2[0] - ($p3[0] - $p1[0]) / 6, 1), $cl($p2[1] - ($p3[1] - $p1[1]) / 6)];
+                $d .= " C{$c1[0]},{$c1[1]} {$c2[0]},{$c2[1]} {$p2[0]},{$p2[1]}";
+            }
+            return $d;
+        };
+        $aire = fn(string $d, array $vals) => $d . ' L' . $xOf(array_key_last($vals)) . ',' . $base . ' L' . $xOf(array_key_first($vals)) . ',' . $base . ' Z';
+        $series = [
+            // Objectif : uniquement les jours travaillés (un jour sans saisie n'a pas d'objectif, pas « 0 »)
+            'objectif' => ['Objectif recette', '#94a3b8', $pts->pluck('objectif')->filter(fn($v) => $v > 0)->all()],
+            'vehicule' => ['Dépenses véhicules', '#f59e0b', $pts->pluck('vehicule')->all()],
+            'bureau'   => ['Dépenses bureau', '#dc2626', $pts->pluck('bureau')->all()],
+        ];
+        $tous = max(1, (int) ceil($n / 15));
+        $fmtDate = fn($d) => \Carbon\Carbon::parse($d)->format('d/m');
+        $totaux = ['recette' => $pts->sum('recette'), 'objectif' => $pts->sum('objectif'), 'vehicule' => $pts->sum('vehicule'), 'bureau' => $pts->sum('bureau')];
+        $infos = $pts->map(fn($p) => [
+            'd' => $evolution['par_semaine'] ? 'Semaine du ' . \Carbon\Carbon::parse($p['date'])->translatedFormat('d M Y') : ucfirst(\Carbon\Carbon::parse($p['date'])->translatedFormat('l d M Y')),
+            'r' => $p['recette'], 'o' => $p['objectif'], 'v' => $p['vehicule'], 'b' => $p['bureau'], 's' => $p['saisi'],
+        ])->values();
+    @endphp
+
+    <div class="evo-totaux">
+        <div class="evo-tot" style="--c:var(--accent)"><span>Recettes</span><strong>{{ $F($totaux['recette']) }} F</strong></div>
+        <div class="evo-tot" style="--c:#94a3b8"><span>Objectif</span><strong>{{ $F($totaux['objectif']) }} F</strong></div>
+        <div class="evo-tot" style="--c:#f59e0b"><span>Dépenses véhicules</span><strong>{{ $F($totaux['vehicule']) }} F</strong><em>pannes + maintenance + pénalités</em></div>
+        <div class="evo-tot" style="--c:#dc2626"><span>Dépenses bureau</span><strong>{{ $F($totaux['bureau']) }} F</strong></div>
+    </div>
+
+    <div class="evo-legende" id="evo-legende">
+        <button type="button" data-serie="recette" class="on"><i style="background:var(--accent);height:10px;border-radius:2px"></i>Recettes</button>
+        @foreach($series as $cle => [$lib, $coul])
+        <button type="button" data-serie="{{ $cle }}" class="on"><i style="background:{{ $coul }}{{ $cle === 'objectif' ? ';height:0;border-top:2px dashed ' . $coul . ';background:none' : '' }}"></i>{{ $lib }}</button>
+        @endforeach
+        <span class="evo-aide">Cliquez sur une légende pour masquer ou afficher la série.</span>
+    </div>
+
+    <div class="rp-scroll evo-zone">
+        <svg id="evo-svg" viewBox="0 0 {{ $W }} {{ $H }}" width="100%" style="min-width:600px;font-family:inherit;display:block" role="img" aria-label="Évolution des recettes et des dépenses">
+            <defs>
+                @foreach($series as $cle => [$lib, $coul])
+                <linearGradient id="evo-g-{{ $cle }}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="{{ $coul }}" stop-opacity="{{ $cle === 'objectif' ? 0 : .18 }}"/>
+                    <stop offset="1" stop-color="{{ $coul }}" stop-opacity="0"/>
+                </linearGradient>
+                @endforeach
+            </defs>
+            @for($g = 0; $g <= $vmax; $g += $pas)
+                <line x1="{{ $L }}" y1="{{ $yOf($g) }}" x2="{{ $W - $R }}" y2="{{ $yOf($g) }}" stroke="{{ $g === 0 ? '#cbd5e1' : '#eef2f7' }}"/>
+                <text x="{{ $L - 8 }}" y="{{ $yOf($g) + 3.5 }}" fill="#94a3b8" font-size="10.5" text-anchor="end">{{ $kfmt($g) }}</text>
+            @endfor
+
+            <g data-serie="recette">
+            @foreach($pts as $i => $p)
+                @if($p['recette'] > 0)
+                <rect x="{{ round($xOf($i) - $bw / 2, 1) }}" y="{{ $yOf($p['recette']) }}" width="{{ $bw }}" height="{{ round($base - $yOf($p['recette']), 1) }}" rx="3"
+                      fill="var(--accent)" opacity="{{ $p['objectif'] > 0 && $p['recette'] < $p['objectif'] ? .45 : .85 }}"/>
+                @endif
+            @endforeach
+            </g>
+
+            @foreach($series as $cle => [$lib, $coul, $vals])
+            @if(array_sum($vals) > 0)
+            @php $d = $courbe($vals); @endphp
+            <g data-serie="{{ $cle }}">
+                @if($cle !== 'objectif')<path d="{{ $aire($d, $vals) }}" fill="url(#evo-g-{{ $cle }})" stroke="none"/>@endif
+                <path d="{{ $d }}" fill="none" stroke="{{ $coul }}" stroke-width="{{ $cle === 'objectif' ? 1.6 : 2.2 }}" stroke-linecap="round" stroke-linejoin="round" @if($cle === 'objectif') stroke-dasharray="6,5" @endif/>
+                @foreach($vals as $i => $v)
+                    @if($cle === 'objectif')<circle cx="{{ $xOf($i) }}" cy="{{ $yOf($v) }}" r="2.2" fill="{{ $coul }}"/>
+                    @elseif($v > 0)<circle cx="{{ $xOf($i) }}" cy="{{ $yOf($v) }}" r="3.2" fill="#fff" stroke="{{ $coul }}" stroke-width="2"/>@endif
+                @endforeach
+            </g>
+            @endif
+            @endforeach
+
+            @foreach($pts as $i => $p)
+                @if($i % $tous === 0)
+                <text x="{{ $xOf($i) }}" y="{{ $H - $B + 16 }}" fill="#64748b" font-size="10" text-anchor="middle">{{ $fmtDate($p['date']) }}</text>
+                @endif
+            @endforeach
+
+            <line id="evo-curseur" x1="0" y1="{{ $T }}" x2="0" y2="{{ $base }}" stroke="#334155" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
+            @foreach($pts as $i => $p)
+                <rect class="evo-zone-survol" data-i="{{ $i }}" x="{{ round($L + $i * $col, 1) }}" y="{{ $T }}" width="{{ round($col, 1) }}" height="{{ $chH }}" fill="transparent"/>
+            @endforeach
+        </svg>
+        <div class="evo-bulle" id="evo-bulle"></div>
+    </div>
+    <div class="intro" style="margin:6px 0 0">Barres pâles : {{ $evolution['par_semaine'] ? 'semaines' : 'jours' }} sous l'objectif. Les dépenses sont rattachées à leur date : déclaration de la panne, date de la dépense ou de l'infraction.</div>
+    <script>
+    (function(){
+        var infos = @json($infos), svg = document.getElementById('evo-svg'), bulle = document.getElementById('evo-bulle'), curseur = document.getElementById('evo-curseur');
+        var fmt = function(v){ return Math.round(v).toLocaleString('fr-FR') + ' F'; };
+        var ligne = function(c, l, v){ return '<div><i style="background:'+c+'"></i>'+l+'<b>'+fmt(v)+'</b></div>'; };
+        svg.querySelectorAll('.evo-zone-survol').forEach(function(z){
+            z.addEventListener('mouseenter', function(){
+                var p = infos[+z.dataset.i], x = +z.getAttribute('x') + (+z.getAttribute('width')) / 2;
+                curseur.setAttribute('x1', x); curseur.setAttribute('x2', x); curseur.setAttribute('opacity', .5);
+                var taux = p.o > 0 ? ' <span style="color:'+(p.r >= p.o ? '#16a34a' : '#dc2626')+'">('+Math.round(p.r / p.o * 100)+' %)</span>' : '';
+                bulle.innerHTML = '<strong>'+p.d+'</strong>'
+                    + (p.s ? ligne('var(--accent)', 'Recettes', p.r).replace('</b>', '</b>'+taux) : '<div style="color:#94a3b8">Aucune recette saisie</div>')
+                    + (p.o ? ligne('#94a3b8', 'Objectif', p.o) : '')
+                    + ligne('#f59e0b', 'Dépenses véhicules', p.v) + ligne('#dc2626', 'Dépenses bureau', p.b);
+                var r = svg.getBoundingClientRect(), px = x / {{ $W }} * r.width;
+                bulle.style.left = Math.min(Math.max(px - 110, 0), r.width - 230) + 'px';
+                bulle.classList.add('on');
+            });
+        });
+        svg.addEventListener('mouseleave', function(){ bulle.classList.remove('on'); curseur.setAttribute('opacity', 0); });
+        document.querySelectorAll('#evo-legende button').forEach(function(b){
+            b.addEventListener('click', function(){
+                b.classList.toggle('on');
+                svg.querySelectorAll('g[data-serie="'+b.dataset.serie+'"]').forEach(function(g){ g.style.display = b.classList.contains('on') ? '' : 'none'; });
+            });
+        });
+    })();
+    </script>
+    @endif
+</div>
+
+{{-- ═══ 6. OÙ PASSE L'ARGENT ═══ --}}
+<div class="rp-titre">6. Où passe l'argent ?</div>
+<div class="rp-grid2">
+    <div class="rp-section">
+        <h3>{!! $ico('<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>') !!} Répartition des charges</h3>
+        @php
+            $postes = collect([
+                ['Pannes', $kpi['pannes'], '#dc2626'],
+                ['Maintenance', $kpi['maintenance'], '#f59e0b'],
+                ['Pénalités', $kpi['penalites'], '#a855f7'],
+            ])->merge($depensesParType->map(fn($d) => [$d['type'], $d['total'], '#64748b']))
+              ->filter(fn($p) => $p[1] > 0)->sortByDesc(fn($p) => $p[1])->values();
+            $totPostes = max($postes->sum(fn($p) => $p[1]), 1);
+        @endphp
+        @if($postes->isEmpty())
+        <p style="color:var(--gris);font-size:13px">Aucune charge sur cette période.</p>
+        @else
+        <div class="intro">Part de chaque poste dans le total des charges ({{ $F($kpi['charges']) }} F).</div>
+        @foreach($postes as [$lib, $mt, $coul])
+        <div class="bar-wrap">
+            <div class="bar-label" title="{{ $lib }}">{{ $lib }}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:{{ round($mt / $totPostes * 100) }}%;background:{{ $coul }}"></div></div>
+            <div class="bar-val">{{ $F($mt) }} F · {{ round($mt / $totPostes * 100) }} %</div>
+        </div>
+        @endforeach
+        @endif
+    </div>
+    <div class="rp-section">
+        <h3>{!! $ico('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>') !!} Incidents de la période</h3>
+        <table class="rp-tbl">
+            <thead><tr><th>Pannes par urgence</th><th class="num">Nombre</th><th class="num">Coût</th></tr></thead>
+            <tbody>
+            @php $urg = ['critique' => 'Critique', 'haute' => 'Haute', 'moyenne' => 'Moyenne', 'faible' => 'Faible']; @endphp
+            @forelse(collect($urg)->filter(fn($l, $k) => isset($pannesUrgence[$k])) as $k => $lib)
+            <tr><td>{{ $lib }}</td><td class="num">{{ $pannesUrgence[$k]->nb }}</td><td class="num">{{ $F($pannesUrgence[$k]->cout) }}</td></tr>
+            @empty
+            <tr><td colspan="3" style="color:var(--gris)">Aucune panne déclarée.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+        <table class="rp-tbl" style="margin-top:12px">
+            <thead><tr><th>Pénalités par type</th><th class="num">Nombre</th><th class="num">Montant</th></tr></thead>
+            <tbody>
+            @forelse($penalitesType as $p)
+            <tr><td>{{ $p['type'] }}</td><td class="num">{{ $p['nb'] }}</td><td class="num">{{ $F($p['montant']) }}</td></tr>
+            @empty
+            <tr><td colspan="3" style="color:var(--gris)">Aucune pénalité.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{-- ═══ DÉTAIL JOUR PAR JOUR (filtre véhicule ou chauffeur) ═══ --}}
+@if($detailJour->isNotEmpty())
+<div class="rp-titre">Détail jour par jour — {{ $filtreNom }}</div>
+<div class="rp-section">
+    @php
+        $dtRec = $detailJour->sum('recette'); $dtObj = $detailJour->sum('objectif');
+    @endphp
+    <div class="rp-scroll">
+    <table class="rp-tbl">
+        <thead><tr><th>Date</th><th>Véhicule</th><th>Chauffeur</th><th class="num">Recette</th><th class="num">Objectif</th><th class="num">Écart</th><th>Mode</th><th>Motif</th></tr></thead>
+        <tbody>
+        @foreach($detailJour as $dj)
+        @php $ec = $dj->recette - $dj->objectif; @endphp
+        <tr>
+            <td>{{ $dj->date->translatedFormat('D d/m/Y') }}</td>
+            <td>{{ $dj->vehicule->immatriculation ?? '?' }}</td>
+            <td>{{ $dj->chauffeur ?? '—' }}</td>
+            <td class="num" style="font-weight:600">{{ $F($dj->recette) }}</td>
+            <td class="num">{{ $F($dj->objectif) }}</td>
+            <td class="num {{ $ec >= 0 ? 'pos' : 'neg' }}">{{ $signe($ec) }}</td>
+            <td>{{ $dj->mode_remise ? ucfirst(str_replace('_', ' ', $dj->mode_remise)) : '—' }}</td>
+            <td>@if($dj->motif_absence)<span style="color:var(--ko);font-weight:600">{{ $dj->motif_absence }}</span>@else — @endif</td>
+        </tr>
+        @endforeach
+        </tbody>
+        <tfoot><tr>
+            <td colspan="3">Total ({{ $detailJour->count() }} jours)</td>
+            <td class="num">{{ $F($dtRec) }}</td><td class="num">{{ $F($dtObj) }}</td>
+            <td class="num {{ $dtRec - $dtObj >= 0 ? 'pos' : 'neg' }}">{{ $signe($dtRec - $dtObj) }}</td><td colspan="2"></td>
+        </tr></tfoot>
+    </table>
+    </div>
+</div>
+@endif
+
+{{-- ═══ OKR ═══ --}}
+@if($okrGestionnaire || $okrChauffeurs->isNotEmpty())
+<div class="rp-titre">Objectifs OKR — exercice {{ \App\Services\ExerciceParc::nom($periodeOkr) }}</div>
+<div class="rp-section">
+    <table class="rp-tbl">
+        <thead><tr><th>Personne</th><th class="num">Objectifs</th><th class="num">Atteints</th><th>Score</th></tr></thead>
+        <tbody>
+        @if($okrGestionnaire)
+        <tr><td><strong>Vous (gestionnaire)</strong></td><td class="num">{{ $okrGestionnaire['total'] }}</td><td class="num">{{ $okrGestionnaire['atteints'] }}</td>
+            <td class="taux-cell"><span class="t" style="color:{{ $couleurTaux($okrGestionnaire['score']) }}">{{ $okrGestionnaire['score'] }} %</span><div class="gauge"><div class="{{ $classeTaux($okrGestionnaire['score']) }}" style="width:{{ min(100, $okrGestionnaire['score']) }}%"></div></div></td></tr>
+        @endif
+        @foreach($okrChauffeurs as $o)
+        <tr><td>{{ $o['nom'] }}</td><td class="num">{{ $o['total'] }}</td><td class="num">{{ $o['atteints'] }}</td>
+            <td class="taux-cell"><span class="t" style="color:{{ $couleurTaux($o['score']) }}">{{ $o['score'] }} %</span><div class="gauge"><div class="{{ $classeTaux($o['score']) }}" style="width:{{ min(100, $o['score']) }}%"></div></div></td></tr>
+        @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+
 <script>
-function toggleDates(){
-    var v=document.getElementById('sel-periode').value;
-    document.getElementById('dates-custom').classList.toggle('show',v==='personnalise');
+function majPeriode(){
+    var p = document.getElementById('sel-periode').value;
+    document.getElementById('dates-custom').classList.toggle('show', p === 'personnalise');
+    document.getElementById('bloc-exercice').classList.toggle('hide', p === 'personnalise');
+    document.getElementById('lbl-exercice').textContent = p === 'trois_exercices' ? "Jusqu'à l'exercice" : 'Exercice';
 }
 </script>
-@endpush
+@endsection

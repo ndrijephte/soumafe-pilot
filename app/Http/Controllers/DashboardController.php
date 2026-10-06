@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{ArbitrageT3, Chauffeur, ConfirmationTache, Evenement, MaintenancePreventive, Objectif, Panne, Penalite, Pointage, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
 use App\Services\AlerteParcService;
+use App\Services\ExerciceParc;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -259,8 +260,7 @@ class DashboardController extends Controller
         // ─── Parc automobile (résumé DG) ───
         $parc = null;
         if (Schema::hasTable('vehicules')) {
-            $moisDebut = today()->startOfMonth();
-            $moisFin = today()->endOfMonth();
+            [$moisDebut, $moisFin] = ExerciceParc::courant();
 
             $vehiculesTotal = Vehicule::count();
             $vehiculesActifs = Vehicule::where('statut', 'en_service')->count();
@@ -339,7 +339,7 @@ class DashboardController extends Controller
                 'montantPenalitesMois', 'penalitesNonPayees',
                 'maintenancesRetard', 'topVehicules', 'resultatNet',
                 'topChauffeurs', 'gestionnaire'
-            );
+            ) + ['exercice' => ExerciceParc::libelle(ExerciceParc::cle())];
         }
 
         // Pointage : stats du jour pour DG

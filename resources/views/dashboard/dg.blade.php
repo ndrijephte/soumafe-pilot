@@ -236,7 +236,7 @@
 <div class="panneau" style="margin-bottom:20px">
     <h3>
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="22" height="12" rx="3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M5 10h14"/></svg>
-        Parc automobile &mdash; Mois en cours
+        Parc automobile &mdash; Exercice {{ $parc['exercice'] }}
         <a href="{{ route('reporting.parc') }}" class="lien" style="margin-left:auto">Reporting d&eacute;taill&eacute; &rarr;</a>
     </h3>
     <div class="kpis" style="margin-bottom:14px">

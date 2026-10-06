@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{AuditLog, AutreRessource, Caisse, Chauffeur, Depense, Emprunt, JourFerie, LigneInterventionPanne, MaintenancePreventive, MouvementCaisse, Panne, PaiementPenalite, ParametreParc, Penalite, PretAccorde, Recouvrement, RecetteVehicule, RemboursementEmprunt, RemboursementPret, TypeParc, User, Vehicule, VersementRecouvrement};
 use App\Services\AlerteParcService;
+use App\Services\ExerciceParc;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Schema};
 
@@ -88,7 +89,7 @@ class ParcController extends Controller
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
             'depenses', 'typesDepense', 'emprunts',
             'pretsAccordes', 'autresRessources', 'typesRessource', 'caisses'
-        ));
+        ) + ['exercicesParc' => ExerciceParc::liste(18), 'exerciceCourant' => ExerciceParc::cle()]);
     }
 
     /* ─── Construire la grille du jour (chauffeur-centric) ─── */
@@ -1437,8 +1438,7 @@ class ParcController extends Controller
         $this->autoriser($r);
         $vehicule->load(['chauffeurs', 'pannes', 'recettes', 'maintenances', 'penalites']);
 
-        $moisDebut = today()->startOfMonth();
-        $moisFin = today()->endOfMonth();
+        [$moisDebut, $moisFin] = ExerciceParc::courant();
 
         // KPIs mois en cours
         $recetteMois = (int) $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->sum('recette');
@@ -1583,8 +1583,7 @@ class ParcController extends Controller
     public function ficheChauffeur(Request $r, Chauffeur $chauffeur)
     {
         $this->autoriser($r);
-        $moisDebut = today()->startOfMonth();
-        $moisFin   = today()->endOfMonth();
+        [$moisDebut, $moisFin] = ExerciceParc::courant();
         $nomComplet = $chauffeur->nomComplet();
 
         // Véhicules affectés (actifs)
@@ -1723,8 +1722,7 @@ class ParcController extends Controller
         $actifs = $vehicules->where('statut', 'en_service')->count();
         $taxis = $vehicules->where('categorie', 'taxi')->count();
         $vtcs = $vehicules->where('categorie', 'vtc')->count();
-        $moisDebut = today()->startOfMonth();
-        $moisFin = today()->endOfMonth();
+        [$moisDebut, $moisFin] = ExerciceParc::courant();
 
         $pannesMois = Panne::whereBetween('date_declaration', [$moisDebut, $moisFin])->count();
         $pannesOuvertes = Panne::whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count();

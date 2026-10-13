@@ -2,7 +2,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
 
 class Observation extends Model
 {
@@ -25,6 +25,25 @@ class Observation extends Model
     public function suiveur(): BelongsTo     { return $this->belongsTo(User::class, 'suivi_par'); }
     public function declarant(): BelongsTo   { return $this->belongsTo(User::class, 'declare_par'); }
     public function resoluteur(): BelongsTo  { return $this->belongsTo(User::class, 'resolu_par'); }
+    public function historiques(): HasMany   { return $this->hasMany(ObservationHistorique::class)->orderBy('created_at')->orderBy('id'); }
+
+    /** Trace une action dans l'historique de l'observation (résumé des actions). */
+    public function journaliser(string $action, ?string $details = null): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('observation_historiques')) return;
+        $this->historiques()->create(['user_id' => auth()->id(), 'action' => $action, 'details' => $details ? mb_substr($details, 0, 1000) : null, 'created_at' => now()]);
+    }
+
+    /** Collaborateur désigné : celui à qui au moins un suivi a été délégué. */
+    public static function estCollaborateurDesigne(?User $u): bool
+    {
+        return $u !== null && static::where('suivi_par', $u->id)->exists();
+    }
+
+    public static function peutDeclarer(?User $u): bool
+    {
+        return $u !== null && ($u->estPilote() || static::estCollaborateurDesigne($u));
+    }
 
     /* --- Helpers --- */
     public function statutLibelle(): string

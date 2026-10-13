@@ -45,12 +45,14 @@ class ParcController extends Controller
 
         $pannes = $borne(Panne::with(['vehicule', 'emprunt', 'lignes']), 'date_declaration')->orderByDesc('date_declaration')->get();
         $recettes = $borne(RecetteVehicule::with('vehicule'), 'date')->orderByDesc('date')->limit(2000)->get();
-        // Maintenance : réalisée → date de réalisation ; planifiée → date d'échéance
-        $maintenances = MaintenancePreventive::with('vehicule')
+        // Maintenance : les échéances planifiées sont toujours affichées (c'est le plan à suivre) ;
+        // les maintenances réalisées le sont dans l'exercice de leur date de réalisation
+        $maintenances = MaintenancePreventive::with(['vehicule', 'lignes'])
             ->when($exDebut, fn($q) => $q->where(fn($w) => $w
-                ->where(fn($a) => $a->where('statut', 'realisee')->whereBetween('date_realisation', [$exDebut, $exFin]))
-                ->orWhere(fn($b) => $b->where(fn($s) => $s->whereNull('statut')->orWhere('statut', '!=', 'realisee'))->whereBetween('prochaine_echeance', [$exDebut, $exFin]))))
-            ->orderBy('prochaine_echeance')->get();
+                ->where(fn($s) => $s->whereNull('statut')->orWhere('statut', '!=', 'realisee'))
+                ->orWhere(fn($a) => $a->where('statut', 'realisee')->whereBetween('date_realisation', [$exDebut, $exFin]))))
+            ->orderByRaw("CASE WHEN statut = 'realisee' THEN 1 ELSE 0 END")->orderBy('prochaine_echeance')->orderByDesc('date_realisation')->get();
+        $echeancier = $this->echeancierMaintenance($vehicules);
         $penalites = $borne(Penalite::with(['vehicule', 'paiements']), 'date_infraction')->orderByDesc('date_infraction')->get();
 
         $kpi = $this->calculerKpi($vehicules, $exDebut, $exFin);
@@ -103,7 +105,7 @@ class ParcController extends Controller
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
             'depenses', 'typesDepense', 'emprunts',
             'pretsAccordes', 'autresRessources', 'typesRessource', 'caisses',
-            'exercicesParc', 'exerciceCourant', 'exercice', 'reports'
+            'exercicesParc', 'exerciceCourant', 'exercice', 'reports', 'echeancier'
         ));
     }
 
@@ -432,6 +434,7 @@ class ParcController extends Controller
                 'cree_par' => auth()->user()->name,
             ]);
             $p->update(['emprunt_id' => $emp->id]);
+            $this->entreeEmprunt($emp);
         }
 
         AuditLog::log('creation', 'panne', $p->vehicule?->immatriculation);
@@ -453,6 +456,16 @@ class ParcController extends Controller
             'cout_reel' => 'nullable|integer|min:0',
             'statut' => 'required|in:declaree,en_diagnostic,en_intervention,cloturee',
         ]);
+        if ($r->source_financement === 'emprunt' && !$panne->emprunt_id) {
+            $r->validate([
+                'preteur' => 'required|string|max:150',
+                'date_echeance_emprunt' => 'required|date',
+                'modalites_emprunt' => 'nullable|string|max:500',
+            ], [
+                'preteur.required' => 'Financement par emprunt : le prêteur est obligatoire.',
+                'date_echeance_emprunt.required' => 'Financement par emprunt : la date de remboursement prévue est obligatoire.',
+            ]);
+        }
 
         if (!empty($data['date_declaration']) && !empty($data['date_cloture'])) {
             $data['delai_resolution'] = \Carbon\Carbon::parse($data['date_declaration'])->diffInDays(\Carbon\Carbon::parse($data['date_cloture']));
@@ -465,7 +478,9 @@ class ParcController extends Controller
             $emp = Emprunt::create([
                 'montant' => $data['cout_reel'],
                 'date_emprunt' => $data['date_cloture'] ?? now()->toDateString(),
-                'preteur' => $r->preteur ?? 'Non précisé',
+                'preteur' => $r->preteur,
+                'date_echeance' => $r->date_echeance_emprunt,
+                'modalites' => $r->modalites_emprunt,
                 'motif' => 'Réparation panne — ' . ($panne->vehicule?->immatriculation ?? ''),
                 'source_type' => 'panne',
                 'source_id' => $panne->id,
@@ -473,6 +488,13 @@ class ParcController extends Controller
                 'cree_par' => auth()->user()->name,
             ]);
             $panne->update(['emprunt_id' => $emp->id]);
+            $this->entreeEmprunt($emp);
+        } elseif ($panne->emprunt_id && ($emp = Emprunt::find($panne->emprunt_id)) && (int) $panne->cout_reel !== (int) $emp->montant) {
+            // L'emprunt finance l'intervention : son montant suit la facture (jamais sous ce qui est déjà remboursé)
+            $emp->montant = max((int) $panne->cout_reel, (int) $emp->montant_rembourse);
+            $emp->statut = $emp->montant_rembourse >= $emp->montant ? 'rembourse' : 'en_cours';
+            $emp->save();
+            $this->entreeEmprunt($emp);
         }
 
         AuditLog::log('modification', 'panne', $panne->vehicule?->immatriculation);
@@ -1124,11 +1146,32 @@ class ParcController extends Controller
         $this->autoriser($r);
         $r->validate([
             'date_realisation' => 'required|date',
-            'cout'             => 'required|integer|min:1',
             'prestataire'      => 'required|string|max:150',
             'prochaine_echeance_suivante' => 'nullable|date|after:date_realisation',
             'observations'     => 'nullable|string|max:500',
+            'lignes'           => 'required|array|min:1',
+            'lignes.*.designation'   => 'required|string|max:200',
+            'lignes.*.quantite'      => 'required|integer|min:1',
+            'lignes.*.prix_unitaire' => 'required|integer|min:1',
+            'source_financement' => 'required|in:entreprise,emprunt',
+            'preteur'          => 'required_if:source_financement,emprunt|nullable|string|max:150',
+            'date_echeance_emprunt' => 'required_if:source_financement,emprunt|nullable|date',
+            'modalites_emprunt' => 'nullable|string|max:500',
+        ], [
+            'preteur.required_if' => 'Financement par emprunt : le prêteur est obligatoire.',
+            'date_echeance_emprunt.required_if' => 'Financement par emprunt : la date de remboursement prévue est obligatoire.',
+            'lignes.required' => 'Ajoutez au moins une ligne à la facture de maintenance.',
         ]);
+        if ($r->source_financement === 'emprunt') {
+            $r->validate(['date_echeance_emprunt' => 'after_or_equal:date_realisation'], ['date_echeance_emprunt.after_or_equal' => 'La date de remboursement doit suivre la date de réalisation.']);
+        }
+
+        // Le coût est celui de la facture : somme des lignes
+        $lignes = collect($r->lignes)->map(fn($l) => [
+            'designation' => trim($l['designation']), 'quantite' => (int) $l['quantite'], 'prix_unitaire' => (int) $l['prix_unitaire'],
+            'montant' => (int) $l['quantite'] * (int) $l['prix_unitaire'],
+        ]);
+        $r->merge(['cout' => $lignes->sum('montant')]);
 
         $maintenance->statut = 'realisee';
         $maintenance->date_realisation = $r->date_realisation;
@@ -1153,7 +1196,9 @@ class ParcController extends Controller
                 $emp = Emprunt::create([
                     'montant' => $r->cout,
                     'date_emprunt' => $r->date_realisation,
-                    'preteur' => $r->preteur ?? 'Non précisé',
+                    'preteur' => $r->preteur,
+                    'date_echeance' => $r->date_echeance_emprunt,
+                    'modalites' => $r->modalites_emprunt,
                     'motif' => 'Maintenance ' . $maintenance->typeLabel() . ' — ' . ($maintenance->vehicule->immatriculation ?? ''),
                     'source_type' => 'maintenance',
                     'source_id' => $maintenance->id,
@@ -1161,6 +1206,7 @@ class ParcController extends Controller
                     'cree_par' => auth()->user()->name,
                 ]);
                 $depData['emprunt_id'] = $emp->id;
+                $this->entreeEmprunt($emp);
             }
 
             $dep = Depense::create($depData);
@@ -1168,6 +1214,8 @@ class ParcController extends Controller
         }
 
         $maintenance->save();
+        $maintenance->lignes()->delete();
+        foreach ($lignes as $l) $maintenance->lignes()->create($l);
         AuditLog::log('realisation', 'maintenance', "Maintenance #{$maintenance->id}", "Coût: {$maintenance->cout} F, Véhicule: " . ($maintenance->vehicule->immatriculation ?? ''));
 
         // Auto-créer la prochaine échéance
@@ -1204,7 +1252,7 @@ class ParcController extends Controller
         abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}, Motif: " . $r->motif_suppression);
-        if ($maintenance->depense_id) Depense::where('id', $maintenance->depense_id)->delete();
+        if ($maintenance->depense_id) Depense::find($maintenance->depense_id)?->delete();
         $maintenance->delete();
         return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance supprimée.');
     }
@@ -1476,7 +1524,7 @@ class ParcController extends Controller
         $pointageMois = (int) $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->sum('pointage');
         $nbJoursSaisis = $vehicule->recettes->whereBetween('date', [$moisDebut, $moisFin])->count();
         $pannesOuvertes = $vehicule->pannes->whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count();
-        $echeancesRetard = $vehicule->maintenances->filter(fn($m) => $m->prochaine_echeance && $m->prochaine_echeance < today())->count();
+        $echeancesRetard = $vehicule->maintenances->filter(fn($m) => !$m->estRealisee() && $m->prochaine_echeance && $m->prochaine_echeance < today())->count();
         $penalitesImpayees = $vehicule->penalites->where('statut', 'non_payee')->count();
         $penalitesMontant = (int) $vehicule->penalites->where('statut', 'non_payee')->sum('montant');
 
@@ -1541,7 +1589,7 @@ class ParcController extends Controller
         $maintenances = $vehicule->maintenances->sortByDesc('prochaine_echeance')->map(fn($m) => [
             'type' => $m->type_echeance,
             'echeance' => $m->prochaine_echeance?->format('d/m/Y') ?? '—',
-            'retard' => $m->prochaine_echeance && $m->prochaine_echeance < today(),
+            'retard' => !$m->estRealisee() && $m->prochaine_echeance && $m->prochaine_echeance < today(),
             'derniere_realisation' => $m->derniere_realisation?->format('d/m/Y') ?? '—',
             'date_realisation' => $m->date_realisation?->format('d/m/Y') ?? null,
             'statut' => $m->statut ?? 'planifiee',
@@ -1750,13 +1798,47 @@ class ParcController extends Controller
     }
 
     /* ===== KPI ===== */
+    /**
+     * Échéancier : pour chaque véhicule et type de maintenance, dernière réalisation et prochaine échéance.
+     * Les véhicules en service sans aucune maintenance planifiée sont signalés.
+     */
+    private function echeancierMaintenance($vehicules): array
+    {
+        $toutes = MaintenancePreventive::all()->groupBy(fn($m) => $m->vehicule_id . '|' . $m->type_echeance);
+        $libelles = TypeParc::maintenances()->pluck('libelle', 'code');
+        $lignes = [];
+        foreach ($vehicules as $v) {
+            $types = $toutes->keys()->filter(fn($k) => str_starts_with($k, $v->id . '|'));
+            if ($types->isEmpty()) {
+                if ($v->statut === 'en_service') $lignes[] = ['vehicule' => $v, 'type' => null, 'type_label' => null, 'derniere' => null, 'prochaine' => null, 'prochaine_id' => null, 'jours' => null, 'alerte' => 'aucune'];
+                continue;
+            }
+            foreach ($types as $k) {
+                $groupe = $toutes[$k];
+                $code = explode('|', $k, 2)[1];
+                $derniere = $groupe->where('statut', 'realisee')->map(fn($m) => $m->date_realisation ?? $m->derniere_realisation)->filter()->max()
+                    ?? $groupe->pluck('derniere_realisation')->filter()->max();
+                $prochaine = $groupe->filter(fn($m) => !$m->estRealisee() && $m->prochaine_echeance)->sortBy('prochaine_echeance')->first();
+                $jours = $prochaine ? (int) today()->diffInDays($prochaine->prochaine_echeance, false) : null;
+                $lignes[] = [
+                    'vehicule' => $v, 'type' => $code, 'type_label' => $libelles[$code] ?? ucfirst(str_replace('_', ' ', $code)),
+                    'derniere' => $derniere, 'prochaine' => $prochaine?->prochaine_echeance, 'prochaine_id' => $prochaine?->id,
+                    'jours' => $jours,
+                    'alerte' => $prochaine === null ? 'non_planifiee' : ($jours < 0 ? 'en_retard' : ($jours <= 15 ? 'proche' : 'ok')),
+                ];
+            }
+        }
+        $ordre = ['en_retard' => 0, 'non_planifiee' => 1, 'aucune' => 2, 'proche' => 3, 'ok' => 4];
+        usort($lignes, fn($a, $b) => [$ordre[$a['alerte']], $a['jours'] ?? 99999] <=> [$ordre[$b['alerte']], $b['jours'] ?? 99999]);
+        return $lignes;
+    }
+
     /** Éléments d'exercices antérieurs encore ouverts, signalés dans les onglets. */
     private function reportsAnterieurs(\Carbon\Carbon $debut): array
     {
         $avant = fn($q, string $col) => $q->where($col, '<', $debut);
         $res = [
             'pannes' => ['nb' => $avant(Panne::query(), 'date_declaration')->whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count(), 'libelle' => 'panne(s) non clôturée(s)'],
-            'maint' => ['nb' => MaintenancePreventive::where(fn($s) => $s->whereNull('statut')->orWhere('statut', '!=', 'realisee'))->where('prochaine_echeance', '<', $debut)->count(), 'libelle' => 'maintenance(s) en retard'],
         ];
         if (Schema::hasTable('penalites')) {
             $q = $avant(Penalite::query(), 'date_infraction')->where('statut', '!=', 'payee');
@@ -1806,8 +1888,8 @@ class ParcController extends Controller
         $recetteTotale = $recetteMois + $recouvMois;
         $tauxRecette = $objectifMois > 0 ? round(($recetteTotale / $objectifMois) * 100) : 0;
 
-        $echeancesRetard = MaintenancePreventive::whereNotNull('prochaine_echeance')
-            ->whereDate('prochaine_echeance', '<', today())->count();
+        $echeancesRetard = MaintenancePreventive::where(fn($s) => $s->whereNull('statut')->orWhere('statut', '!=', 'realisee'))
+            ->whereNotNull('prochaine_echeance')->whereDate('prochaine_echeance', '<', today())->count();
 
         $penalitesMois = 0;
         $penalitesNonPayees = 0;
@@ -1942,18 +2024,6 @@ class ParcController extends Controller
         $v['vehicule_id'] = null; // charge de l'entreprise, non imputée à un véhicule
         $dep = Depense::create($v);
 
-        // Mouvement caisse sortie
-        if (Schema::hasTable('mouvements_caisse')) {
-            MouvementCaisse::create([
-                'caisse_code' => $dep->caisse_source ?? 'generale',
-                'sens' => 'sortie', 'montant' => $dep->montant,
-                'date_mouvement' => $dep->date_depense,
-                'source_type' => 'depense', 'source_id' => $dep->id,
-                'libelle' => 'Dépense — ' . $dep->typeLibelle(),
-                'cree_par' => auth()->user()->name,
-            ]);
-        }
-
         AuditLog::log('creation', 'depense', "Dépense #{$dep->id}", "Type: {$dep->type_depense}, Montant: {$dep->montant} F");
         return redirect()->route('parc.index', ['tab' => 'depenses'])->with('succes', 'Dépense enregistrée.');
     }
@@ -1989,24 +2059,15 @@ class ParcController extends Controller
 
     /* ═══════════════════════════ EMPRUNTS ═══════════════════════════ */
 
-    public function storeEmprunt(Request $r)
+    /** L'argent emprunté entre en caisse générale (puis sort pour payer l'intervention qu'il finance). */
+    private function entreeEmprunt(Emprunt $emp): void
     {
-        $this->autoriser($r);
-        abort_if($r->user()->aRole('direction'), 403, 'La direction ne peut pas saisir d\'emprunts.');
-        $data = $r->validate([
-            'montant'      => 'required|integer|min:1',
-            'date_emprunt' => 'required|date',
-            'preteur'      => 'required|string|max:150',
-            'motif'        => 'nullable|string|max:500',
-            'source_type'  => 'nullable|in:panne,penalite,maintenance,autre',
-            'vehicule_id'  => 'nullable|exists:vehicules,id',
-        ]);
-        $data['source_type'] = $data['source_type'] ?? 'autre';
-        $data['cree_par'] = auth()->user()->name;
-
-        $emp = Emprunt::create($data);
-        AuditLog::log('creation', 'emprunt', "Emprunt #{$emp->id}", "Montant: {$emp->montant} F, Prêteur: {$emp->preteur}");
-        return redirect()->route('parc.index', ['tab' => 'emprunts'])->with('succes', 'Emprunt enregistré.');
+        if (!Schema::hasTable('mouvements_caisse')) return;
+        MouvementCaisse::updateOrCreate(
+            ['source_type' => 'emprunt', 'source_id' => $emp->id],
+            ['caisse_code' => 'generale', 'sens' => 'entree', 'montant' => $emp->montant, 'date_mouvement' => $emp->date_emprunt,
+             'libelle' => "Emprunt reçu — {$emp->preteur}", 'reference' => $emp->reference, 'cree_par' => auth()->user()?->name]
+        );
     }
 
     public function storeRemboursement(Request $r, Emprunt $emprunt)
@@ -2019,7 +2080,7 @@ class ParcController extends Controller
             'observations'        => 'nullable|string|max:500',
         ]);
 
-        RemboursementEmprunt::create([
+        $rb = RemboursementEmprunt::create([
             'emprunt_id'         => $emprunt->id,
             'montant'            => $r->montant,
             'date_remboursement' => $r->date_remboursement,
@@ -2029,6 +2090,17 @@ class ParcController extends Controller
         ]);
 
         $emprunt->recalculerRemboursement();
+
+        // Rembourser le prêteur fait sortir l'argent de la caisse
+        if (Schema::hasTable('mouvements_caisse')) {
+            MouvementCaisse::create([
+                'caisse_code' => 'generale', 'sens' => 'sortie', 'montant' => $rb->montant,
+                'date_mouvement' => $rb->date_remboursement,
+                'source_type' => 'remboursement_emprunt', 'source_id' => $rb->id,
+                'libelle' => "Remboursement emprunt — {$emprunt->preteur}",
+                'reference' => $emprunt->reference, 'cree_par' => auth()->user()->name,
+            ]);
+        }
         AuditLog::log('creation', 'remboursement_emprunt', "Emprunt #{$emprunt->id}", "Versement: {$r->montant} F, Solde: {$emprunt->soldeRestant()} F");
         return redirect()->route('parc.index', ['tab' => 'emprunts'])->with('succes', 'Remboursement enregistré. Solde : ' . number_format($emprunt->soldeRestant(), 0, ',', ' ') . ' F');
     }
@@ -2039,6 +2111,10 @@ class ParcController extends Controller
         abort_unless($r->user()->estAdmin(), 403, 'Seuls l\'administrateur et le chargé des opérations peuvent supprimer.');
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'emprunt', "Emprunt #{$emprunt->id}", "Prêteur: {$emprunt->preteur}, Montant: {$emprunt->montant} F, Motif: " . $r->motif_suppression);
+        if (Schema::hasTable('mouvements_caisse')) {
+            MouvementCaisse::where('source_type', 'emprunt')->where('source_id', $emprunt->id)->delete();
+            MouvementCaisse::where('source_type', 'remboursement_emprunt')->whereIn('source_id', $emprunt->remboursements()->pluck('id'))->delete();
+        }
         $emprunt->delete();
         return redirect()->route('parc.index', ['tab' => 'emprunts'])->with('succes', 'Emprunt supprimé.');
     }
@@ -2130,6 +2206,10 @@ class ParcController extends Controller
         abort_unless($r->user()->estAdmin(), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression', 'pret_accorde', "Prêt #{$pret->id}", "Bénéficiaire: {$pret->beneficiaire}, Montant: {$pret->montant} F, Motif: " . $r->motif_suppression);
+        if (Schema::hasTable('mouvements_caisse')) {
+            MouvementCaisse::where('source_type', 'pret_accorde')->where('source_id', $pret->id)->delete();
+            MouvementCaisse::where('source_type', 'remboursement_pret')->whereIn('source_id', $pret->remboursements()->pluck('id'))->delete();
+        }
         $pret->delete();
         return redirect()->route('parc.index', ['tab' => 'prets'])->with('succes', 'Prêt supprimé.');
     }

@@ -688,11 +688,51 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB MAINTENANCE ==================== --}}
 <div class="tab-panel" id="tab-maint">
-    @include('parc._reports', ['onglet' => 'maint'])
     <div class="panel-head">
         <h3>{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }} en retard</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-maint').showModal()">{!! $icPlus !!} Échéance</button>@endif
     </div>
+    <div class="dlg-section" style="margin:4px 0 8px">Échéancier par véhicule : dernière réalisation et prochaine échéance</div>
+    <div class="panneau" style="overflow-x:auto;margin-bottom:16px">
+    <table>
+    <thead><tr><th>Véhicule</th><th>Type</th><th>Dernière réalisation</th><th>Prochaine échéance</th><th>Jours restants</th><th>État</th><th></th></tr></thead>
+    <tbody>
+    @forelse($echeancier as $ech)
+    <tr>
+        <td><strong>{{ $ech['vehicule']->immatriculation }}</strong></td>
+        <td>{{ $ech['type_label'] ?? '—' }}</td>
+        <td>{{ $ech['derniere'] ? $ech['derniere']->format('d/m/Y') : 'Jamais réalisée' }}</td>
+        <td style="font-weight:600">{{ $ech['prochaine'] ? $ech['prochaine']->format('d/m/Y') : '—' }}</td>
+        <td style="font-weight:600;color:{{ $ech['alerte'] === 'en_retard' ? 'var(--ko)' : ($ech['alerte'] === 'proche' ? 'var(--warn)' : 'var(--ok)') }}">
+            @if($ech['jours'] === null) — @elseif($ech['jours'] < 0) {{ abs($ech['jours']) }} j de retard @else {{ $ech['jours'] }} j @endif
+        </td>
+        <td>
+            @switch($ech['alerte'])
+                @case('en_retard')<span class="pill p-ko">En retard</span>@break
+                @case('proche')<span class="pill p-warn">Dans moins de 15 j</span>@break
+                @case('ok')<span class="pill p-ok">À jour</span>@break
+                @case('non_planifiee')<span class="pill p-ko">Aucune prochaine échéance</span>@break
+                @default<span class="pill p-gris">Aucune maintenance planifiée</span>
+            @endswitch
+        </td>
+        <td>
+            @if(!$estDG)
+                @if($ech['prochaine_id'])
+                <button class="btn sm" onclick="realiserMaint({{ $ech['prochaine_id'] }})" style="background:var(--ok)">Réaliser</button>
+                @else
+                <button class="btn sm sec" onclick="planifierMaint({{ $ech['vehicule']->id }}, '{{ $ech['type'] }}', '{{ $ech['derniere']?->format('Y-m-d') }}')">Planifier</button>
+                @endif
+            @endif
+        </td>
+    </tr>
+    @empty
+    <tr><td colspan="7" class="empty-msg">Aucun véhicule en service.</td></tr>
+    @endforelse
+    </tbody>
+    </table>
+    </div>
+
+    <div class="dlg-section" style="margin:4px 0 8px">Échéances planifiées et maintenances réalisées</div>
     @php $coutTotalMaint = $maintenances->sum('cout'); @endphp
     @if($coutTotalMaint > 0)
     <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12.5px">
@@ -707,15 +747,16 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         'recherche' => 'Observations, prestataire…']])
     <div class="panneau" style="overflow-x:auto">
     <table id="tbl-maint">
-    <thead><tr><th>Véhicule</th><th>Type</th><th>Statut</th><th>Dernière réal.</th><th>Prochaine</th><th>Jours</th><th>Alerte</th><th>Coût</th><th>Observations</th><th></th></tr></thead>
+    <thead><tr><th>Véhicule</th><th>Type</th><th>Statut</th><th>Dernière réalisation</th><th>Échéance prévue</th><th>Jours</th><th>Alerte</th><th>Coût</th><th>Observations</th><th></th></tr></thead>
     <tbody>
     @forelse($maintenances as $m)
     @php $al = $m->alerte(); $jr = $m->joursRestants(); $estReal = $m->estRealisee(); @endphp
-    <tr data-ligne data-date="{{ $m->prochaine_echeance?->format('Y-m-d') }}" data-vehicule="{{ $m->vehicule_id }}" data-type="{{ $m->type_echeance }}" data-statut="{{ $estReal ? 'fait' : $al }}" data-montant="{{ (int) $m->cout }}">
+    <tr data-ligne data-date="{{ ($estReal ? $m->date_realisation : $m->prochaine_echeance)?->format('Y-m-d') }}" data-vehicule="{{ $m->vehicule_id }}" data-type="{{ $m->type_echeance }}" data-statut="{{ $estReal ? 'fait' : $al }}" data-montant="{{ (int) $m->cout }}">
         <td><strong>{{ $m->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $m->typeLabel() }}</td>
         <td><span class="pill {{ $estReal ? 'p-ok' : 'p-warn' }}">{{ $m->statutLabel() }}</span></td>
-        <td>{{ $m->derniere_realisation ? $m->derniere_realisation->format('d/m/Y') : '—' }}</td>
+        {{-- Réalisée : date effective ; planifiée : date de la réalisation précédente --}}
+        <td>{{ ($estReal ? ($m->date_realisation ?? $m->derniere_realisation) : $m->derniere_realisation)?->format('d/m/Y') ?? '—' }}@if($estReal)<span style="display:block;font-size:10.5px;color:var(--ok)">réalisée</span>@endif</td>
         <td>{{ $m->prochaine_echeance ? $m->prochaine_echeance->format('d/m/Y') : '—' }}</td>
         <td style="font-weight:600;color:{{ $estReal ? 'var(--ok)' : ($al === 'en_retard' ? 'var(--ko)' : ($al === 'proche' ? 'var(--warn)' : 'var(--ok)')) }}">{{ $estReal ? '—' : ($jr !== null ? $jr.'j' : '—') }}</td>
         <td>@if($estReal)<span class="pill p-ok">Fait</span>@else<span class="pill {{ $al === 'en_retard' ? 'p-ko' : ($al === 'proche' ? 'p-warn' : 'p-ok') }}">{{ $al === 'en_retard' ? 'En retard' : ($al === 'proche' ? 'Proche' : 'OK') }}</span>@endif</td>
@@ -723,8 +764,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td style="max-width:150px">{{ Str::limit($m->observations, 40) }}</td>
         <td>
             <div class="act-row">
-                @if($m->observations || $m->prestataire)
-                <button class="act-btn info" title="Détails" onclick="toggleDetail('maint-{{ $m->id }}')">{!! $icEye !!}</button>
+                @if($m->observations || $m->prestataire || $m->lignes->count())
+                <button class="act-btn info" title="Détails / facture" onclick="toggleDetail('maint-{{ $m->id }}')">{!! $icEye !!}</button>
                 @endif
                 @if(!$estReal && !$estDG)
                 <button class="act-btn" title="Réaliser" onclick="realiserMaint({{ $m->id }})" style="color:var(--ok)">{!! $icWrench !!}</button>
@@ -741,11 +782,24 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
-    @if($m->observations || $m->prestataire)
-    <tr class="detail-row" id="maint-{{ $m->id }}" style="display:none"><td colspan="9"><div class="detail-content">
+    @if($m->observations || $m->prestataire || $m->lignes->count())
+    <tr class="detail-row" id="maint-{{ $m->id }}" style="display:none"><td colspan="10"><div class="detail-content">
         @if($m->observations)<strong>Observations :</strong> {{ $m->observations }}<br>@endif
         @if($m->prestataire)<strong>Prestataire :</strong> {{ $m->prestataire }}<br>@endif
-        @if($m->cout)<strong>Coût :</strong> {{ number_format($m->cout, 0, ',', ' ') }} F @endif
+        @if($m->lignes->count())
+        <div style="margin-top:8px">
+            <strong>Facture de maintenance :</strong>
+            <table style="width:100%;max-width:520px;border-collapse:collapse;font-size:12px;margin-top:4px">
+                <thead><tr style="background:var(--fond)"><th style="text-align:left;padding:3px 6px">Désignation</th><th style="text-align:center;padding:3px 4px">Qté</th><th style="text-align:right;padding:3px 4px">P.U.</th><th style="text-align:right;padding:3px 4px">Montant</th></tr></thead>
+                <tbody>
+                @foreach($m->lignes as $li)
+                <tr style="border-bottom:1px solid var(--bord)"><td style="padding:3px 6px">{{ $li->designation }}</td><td style="text-align:center;padding:3px 4px">{{ $li->quantite }}</td><td style="text-align:right;padding:3px 4px">{{ number_format($li->prix_unitaire, 0, ',', ' ') }}</td><td style="text-align:right;padding:3px 4px">{{ number_format($li->montant, 0, ',', ' ') }}</td></tr>
+                @endforeach
+                </tbody>
+                <tfoot><tr style="border-top:2px solid var(--accent)"><td colspan="3" style="text-align:right;padding:3px 6px;font-weight:700">Total</td><td style="text-align:right;padding:3px 4px;font-weight:700">{{ number_format($m->lignes->sum('montant'), 0, ',', ' ') }} F</td></tr></tfoot>
+            </table>
+        </div>
+        @elseif($m->cout)<strong>Coût :</strong> {{ number_format($m->cout, 0, ',', ' ') }} F (saisi sans facture détaillée)@endif
     </div></td></tr>
     @endif
     @empty
@@ -1361,14 +1415,22 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div><label>Debut intervention</label><input type="date" name="date_debut_intervention" id="s-ddi"></div>
         <div><label>Date cloture</label><input type="date" name="date_cloture" id="s-dcl"></div>
     </div>
-    <div class="form-row">
+    <div id="s-financement-info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 12px;font-size:12px;color:#1e40af;margin-bottom:8px">Cette intervention est financée par un emprunt : son montant suit le total de la facture.</div>
+    <div class="form-row" id="s-financement">
         <div><label>Financement</label>
             <select name="source_financement" onchange="toggleEmpruntFields(this)">
                 <option value="entreprise">Fonds propres</option>
                 <option value="emprunt">Emprunt</option>
             </select>
         </div>
-        <div class="emprunt-fields" style="display:none"><label>Prêteur</label><input type="text" name="preteur" maxlength="150" placeholder="Nom du prêteur"></div>
+        <div class="emprunt-fields" style="display:none"><label>Prêteur <span class="req">*</span></label><input type="text" name="preteur" maxlength="150" placeholder="Nom du prêteur" data-requis-emprunt></div>
+    </div>
+    <div class="form-row emprunt-fields" style="display:none">
+        <div><label>Remboursement prévu le <span class="req">*</span></label><input type="date" name="date_echeance_emprunt" data-requis-emprunt></div>
+        <div><label>Modalités de remboursement</label><input type="text" name="modalites_emprunt" maxlength="500" placeholder="Ex. : 3 versements mensuels"></div>
+    </div>
+    <div class="emprunt-fields" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 12px;font-size:12px;color:#1e40af;margin-top:6px">
+        L'emprunt est créé pour le montant de la facture et devra être remboursé (onglet Emprunts).
     </div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
@@ -1484,7 +1546,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- Dialog Réaliser maintenance --}}
 <dialog id="dlg-realiser-maint">
 <h3>{!! $icCalCheck !!} Réaliser la maintenance</h3>
-<form id="form-realiser-maint" method="POST" action="">
+<form id="form-realiser-maint" method="POST" action="" onsubmit="return validerRealisationMaint()">
     @csrf <input type="hidden" name="_method" value="PUT">
     <div class="dlg-section" style="margin-top:0">Échéance planifiée</div>
     <div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
@@ -1495,8 +1557,29 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="form-row3">
         <div><label>Date réalisation <span class="req">*</span></label><input type="date" name="date_realisation" id="rm-date" value="{{ date('Y-m-d') }}" required onchange="calcProchaineEcheanceRealisation(document.getElementById('rm-type-code').value, this.value)"></div>
         <input type="hidden" id="rm-type-code" value="">
-        <div><label>Coût (F) <span class="req">*</span></label><input type="number" name="cout" id="rm-cout" min="1" required placeholder="Montant obligatoire"></div>
         <div><label>Prestataire <span class="req">*</span></label><input type="text" name="prestataire" id="rm-prest" maxlength="150" placeholder="Nom du prestataire" required></div>
+        <div><label>Coût (F)</label><input type="number" id="rm-cout" readonly style="background:#f0f0f0;cursor:not-allowed" title="Calculé depuis la facture"></div>
+    </div>
+    <div class="dlg-section">Facture de maintenance <span class="req">*</span></div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <thead><tr style="background:var(--fond);border-bottom:2px solid var(--bord)">
+            <th style="text-align:left;padding:6px 8px">Désignation</th>
+            <th style="text-align:center;padding:6px 4px;width:60px">Qté</th>
+            <th style="text-align:right;padding:6px 4px;width:90px">P.U. (F)</th>
+            <th style="text-align:right;padding:6px 4px;width:90px">Montant</th>
+            <th style="width:36px"></th>
+        </tr></thead>
+        <tbody id="rm-lignes-body"></tbody>
+        <tfoot><tr style="border-top:2px solid var(--accent)">
+            <td colspan="3" style="text-align:right;padding:6px 8px;font-weight:700">Total</td>
+            <td style="text-align:right;padding:6px 4px;font-weight:700" id="rm-lignes-total">0</td><td></td>
+        </tr></tfoot>
+    </table>
+    <div style="margin:8px 0 12px;display:flex;gap:6px;align-items:flex-end">
+        <input type="text" id="rml-desig" placeholder="Désignation (pièce, main d'œuvre…)" style="flex:2;padding:6px 8px;border:1px solid var(--bord);border-radius:6px;font-size:12.5px">
+        <input type="number" id="rml-qte" placeholder="Qté" value="1" min="1" style="width:55px;padding:6px 4px;border:1px solid var(--bord);border-radius:6px;font-size:12.5px;text-align:center">
+        <input type="number" id="rml-pu" placeholder="P.U." min="1" style="width:80px;padding:6px 4px;border:1px solid var(--bord);border-radius:6px;font-size:12.5px;text-align:right">
+        <button type="button" class="btn sm" onclick="ajouterLigneMaint()" style="white-space:nowrap">+ Ajouter</button>
     </div>
     <div><label>Observations</label><textarea name="observations" id="rm-obs" rows="2" placeholder="Détails de l'intervention"></textarea></div>
     <div class="dlg-section">Prochaine échéance</div>
@@ -1505,13 +1588,20 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     <div class="dlg-section">Financement</div>
     <div class="form-row">
-        <div><label>Financement</label>
+        <div><label>Financement <span class="req">*</span></label>
             <select name="source_financement" onchange="toggleEmpruntFields(this)">
                 <option value="entreprise">Fonds propres</option>
                 <option value="emprunt">Emprunt</option>
             </select>
         </div>
-        <div class="emprunt-fields" style="display:none"><label>Prêteur</label><input type="text" name="preteur" maxlength="150" placeholder="Nom du prêteur"></div>
+        <div class="emprunt-fields" style="display:none"><label>Prêteur <span class="req">*</span></label><input type="text" name="preteur" maxlength="150" placeholder="Nom du prêteur" data-requis-emprunt></div>
+    </div>
+    <div class="form-row emprunt-fields" style="display:none">
+        <div><label>Remboursement prévu le <span class="req">*</span></label><input type="date" name="date_echeance_emprunt" data-requis-emprunt></div>
+        <div><label>Modalités de remboursement</label><input type="text" name="modalites_emprunt" maxlength="500" placeholder="Ex. : 3 versements mensuels"></div>
+    </div>
+    <div class="emprunt-fields" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 12px;font-size:12px;color:#1e40af;margin-top:6px">
+        L'emprunt est créé pour le montant de la facture et devra être remboursé (onglet Emprunts).
     </div>
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
@@ -1744,9 +1834,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @include('parc._reports', ['onglet' => 'emprunts'])
 <div class="panel-head">
     <h3><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Emprunts <span class="pill p-cours">{{ ($emprunts ?? collect())->count() }}</span></h3>
-    @if(!$estDG)
-    <button class="btn sm" onclick="document.getElementById('dlg-emprunt').showModal()">{!! $icPlus !!} Emprunt</button>
-    @endif
+</div>
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:12.5px;color:#1e40af">
+    Un emprunt finance toujours une intervention : il se crée depuis la panne (« Statuer ») ou la maintenance (« Réaliser ») en choisissant le financement « Emprunt », puis doit être remboursé ici.
 </div>
 
 @php
@@ -1771,11 +1861,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <thead><tr>
     <th style="width:90px">Date</th>
     <th>Prêteur</th>
-    <th>Source</th>
+    <th>Intervention financée</th>
     <th>Véhicule</th>
     <th style="text-align:right;width:100px">Montant</th>
     <th style="text-align:right;width:100px">Remboursé</th>
     <th style="text-align:right;width:100px">Solde</th>
+    <th>À rembourser le</th>
     <th>Statut</th>
     @if(!$estDG)<th style="width:130px">Actions</th> @endif
 </tr></thead>
@@ -1785,11 +1876,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <tr data-ligne data-date="{{ $emp->date_emprunt->format('Y-m-d') }}" data-vehicule="{{ $emp->vehicule_id }}" data-statut="{{ $emp->statut === 'rembourse' ? 'rembourse' : 'en_cours' }}" data-montant="{{ (int) $emp->montant }}">
     <td>{{ $emp->date_emprunt->format('d/m/Y') }}</td>
     <td style="font-weight:600">{{ $emp->preteur }}</td>
-    <td><span class="pill p-cours" style="font-size:11px">{{ $emp->sourceLabel() }}</span></td>
+    <td><span class="pill p-cours" style="font-size:11px">{{ $emp->sourceLabel() }}</span>@if(!$emp->source_id && $emp->source_type === 'autre')<span style="display:block;font-size:10.5px;color:var(--ko)">non rattaché à une intervention</span>@endif</td>
     <td style="font-size:12px">{{ $emp->vehicule?->immatriculation ?? '—' }}</td>
     <td style="text-align:right;font-weight:600;color:var(--ko)">{{ number_format($emp->montant, 0, ',', ' ') }} F</td>
     <td style="text-align:right;color:var(--ok)">{{ number_format($emp->montant_rembourse, 0, ',', ' ') }} F</td>
     <td style="text-align:right;font-weight:700;color:{{ $soldeEmp > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ number_format($soldeEmp, 0, ',', ' ') }} F</td>
+    @php $empRetard = $emp->statut !== 'rembourse' && $emp->date_echeance && $emp->date_echeance->lt(today()); @endphp
+    <td>{{ $emp->date_echeance?->format('d/m/Y') ?? 'Non définie' }}@if($empRetard)<span class="pill p-ko" style="display:inline-block;margin-left:4px;font-size:10px">En retard</span>@endif</td>
     <td><span class="pill {{ $emp->statut === 'rembourse' ? 'p-ok' : 'p-ko' }}">{{ $emp->statutLabel() }}</span></td>
     @if(!$estDG)
     <td>
@@ -1808,7 +1901,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @endif
 </tr>
 @if($emp->motif)
-<tr class="detail-row" id="emp-{{ $emp->id }}" style="display:none"><td colspan="{{ $estDG ? 8 : 9 }}"><div class="detail-content"><strong>Motif :</strong> {{ $emp->motif }}
+<tr class="detail-row" id="emp-{{ $emp->id }}" style="display:none"><td colspan="{{ $estDG ? 9 : 10 }}"><div class="detail-content"><strong>Motif :</strong> {{ $emp->motif }}@if($emp->modalites)<br><strong>Modalités :</strong> {{ $emp->modalites }}@endif
 @if($emp->remboursements->count() > 0)
 <div style="margin-top:8px"><strong>Historique remboursements :</strong>
 <table style="width:100%;font-size:12px;margin-top:4px"><thead><tr><th>Date</th><th>Montant</th><th>Mode</th><th>Observations</th></tr></thead><tbody>
@@ -1820,7 +1913,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div></td></tr>
 @endif
 @empty
-<tr><td colspan="{{ $estDG ? 8 : 9 }}" style="text-align:center;color:var(--gris);padding:20px">Aucun emprunt enregistré</td></tr>
+<tr><td colspan="{{ $estDG ? 9 : 10 }}" style="text-align:center;color:var(--gris);padding:20px">Aucun emprunt enregistré</td></tr>
 @endforelse
 </tbody>
 </table>
@@ -1977,28 +2070,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 
 {{-- Dialog Emprunt --}}
-<dialog id="dlg-emprunt" style="width:90vw;max-width:480px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-    <h3 style="font-size:15px;font-weight:700;color:var(--bleu);margin:0"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> Nouvel emprunt</h3>
-    <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
-</div>
-<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
-    Enregistrez un emprunt contracté pour couvrir les charges d'exploitation.
-</div>
-<form method="POST" action="{{ route('parc.emprunts.store') }}">
-    @csrf
-    <div style="display:grid;gap:12px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label>Montant (F) <span class="req">*</span></label><input type="number" name="montant" min="1" required placeholder="0"></div>
-            <div><label>Date emprunt <span class="req">*</span></label><input type="date" name="date_emprunt" value="{{ date('Y-m-d') }}" required></div>
-        </div>
-        <div><label>Prêteur <span class="req">*</span></label><input type="text" name="preteur" required maxlength="150" placeholder="Nom du prêteur"></div>
-        <div><label>Motif <span class="req">*</span></label><textarea name="motif" rows="2" maxlength="500" required placeholder="Raison de l'emprunt"></textarea></div>
-        <button type="submit" class="btn" style="justify-content:center">Enregistrer</button>
-    </div>
-</form>
-</dialog>
-
 {{-- Dialog Remboursement emprunt --}}
 <dialog id="dlg-remb-emprunt" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
@@ -2193,6 +2264,7 @@ $_pData = [];
 foreach($pannes as $_p) {
     $_pData[$_p->id] = [
         'vehicule_id' => $_p->vehicule_id,
+        'emprunt_id' => $_p->emprunt_id,
         'date_declaration' => $_p->date_declaration ? $_p->date_declaration->format('Y-m-d') : '',
         'description' => $_p->description,
         'urgence' => $_p->urgence,
@@ -2453,6 +2525,11 @@ function statuerPanne(id){
     var d=pannesData[id]; if(!d)return;
     var vLabel=''; document.querySelectorAll('#p-vehic option').forEach(function(o){if(o.value==d.vehicule_id)vLabel=o.textContent});
     document.getElementById('form-statuer').action='{{ url("parc/pannes") }}/'+id;
+    // Une panne déjà financée par emprunt ne peut pas en ouvrir un second (l'emprunt suit la facture)
+    var fin=document.querySelector('#s-financement select[name="source_financement"]');
+    fin.value='entreprise'; toggleEmpruntFields(fin);
+    document.getElementById('s-financement').style.display=d.emprunt_id?'none':'';
+    document.getElementById('s-financement-info').style.display=d.emprunt_id?'':'none';
     document.getElementById('s-vehic').value=d.vehicule_id;
     document.getElementById('s-date').value=d.date_declaration||'';
     document.getElementById('s-desc').value=d.description;
@@ -2850,8 +2927,52 @@ function ouvrirRemboursement(empId, preteur, solde){
 }
 
 function toggleEmpruntFields(selectEl){
-    var wrap=selectEl.closest('form').querySelector('.emprunt-fields');
-    if(wrap) wrap.style.display=selectEl.value==='emprunt'?'block':'none';
+    var form=selectEl.closest('form'), emp=selectEl.value==='emprunt';
+    form.querySelectorAll('.emprunt-fields').forEach(function(w){ w.style.display=emp?'':'none'; });
+    form.querySelectorAll('[data-requis-emprunt]').forEach(function(i){ i.required=emp; });
+}
+
+/* Facture de maintenance : lignes saisies dans le formulaire, coût = total */
+var _mLignes=[];
+function rendreLignesMaint(){
+    var tb=document.getElementById('rm-lignes-body'); tb.innerHTML='';
+    var total=0;
+    _mLignes.forEach(function(l,i){
+        var mt=l.q*l.p; total+=mt;
+        var tr=document.createElement('tr'); tr.style.borderBottom='1px solid var(--bord)';
+        tr.innerHTML='<td style="padding:5px 8px">'+escH(l.d)+'<input type="hidden" name="lignes['+i+'][designation]"><input type="hidden" name="lignes['+i+'][quantite]" value="'+l.q+'"><input type="hidden" name="lignes['+i+'][prix_unitaire]" value="'+l.p+'"></td>'
+            +'<td style="text-align:center;padding:5px 4px">'+l.q+'</td><td style="text-align:right;padding:5px 4px">'+formatN(l.p)+'</td>'
+            +'<td style="text-align:right;padding:5px 4px">'+formatN(mt)+'</td>'
+            +'<td style="text-align:center"><button type="button" class="btn sm ko" onclick="_mLignes.splice('+i+',1);rendreLignesMaint()" style="padding:2px 6px;font-size:11px">X</button></td>';
+        tr.querySelector('input[name$="[designation]"]').value=l.d;
+        tb.appendChild(tr);
+    });
+    document.getElementById('rm-lignes-total').textContent=formatN(total);
+    document.getElementById('rm-cout').value=total||'';
+}
+function ajouterLigneMaint(){
+    var d=document.getElementById('rml-desig').value.trim(), q=parseInt(document.getElementById('rml-qte').value)||1, p=parseInt(document.getElementById('rml-pu').value)||0;
+    if(!d){ alert('Désignation obligatoire'); return; }
+    if(p<=0){ alert('Prix unitaire obligatoire'); return; }
+    _mLignes.push({d:d,q:q,p:p}); rendreLignesMaint();
+    document.getElementById('rml-desig').value=''; document.getElementById('rml-qte').value='1'; document.getElementById('rml-pu').value='';
+    document.getElementById('rml-desig').focus();
+}
+function validerRealisationMaint(){
+    if(!_mLignes.length){ alert('Ajoutez au moins une ligne à la facture de maintenance.'); return false; }
+    return true;
+}
+/* Planifier une échéance depuis l'échéancier (véhicule et type pré-remplis) */
+function planifierMaint(vehiculeId, type, derniere){
+    var f=document.getElementById('form-maint'); f.reset();
+    document.getElementById('maint-method').innerHTML='';
+    f.action='{{ route("parc.maintenances.store") }}';
+    document.getElementById('m-vehic').value=vehiculeId;
+    if(type) document.getElementById('m-type').value=type;
+    document.getElementById('m-dr').value=derniere||'';
+    document.getElementById('m-pe')._manuallySet=false;
+    calcProchaineEcheanceCreation();
+    document.getElementById('dlg-maint').showModal();
 }
 
 function ouvrirVersement(recId, chauffeur, solde){
@@ -3150,7 +3271,8 @@ function realiserMaint(id){
     document.getElementById('rm-type-code').value=d.type_echeance;
     var today=new Date().toISOString().slice(0,10);
     document.getElementById('rm-date').value=today;
-    document.getElementById('rm-cout').value='';
+    _mLignes=[]; rendreLignesMaint();
+    var fin=document.querySelector('#form-realiser-maint select[name="source_financement"]'); fin.value='entreprise'; toggleEmpruntFields(fin);
     document.getElementById('rm-prest').value='';
     document.getElementById('rm-obs').value='';
     // Auto-suggérer prochaine échéance depuis date_realisation + intervalle du type

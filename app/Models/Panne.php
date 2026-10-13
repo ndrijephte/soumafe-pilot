@@ -23,6 +23,29 @@ class Panne extends Model
     public function emprunt(): BelongsTo { return $this->belongsTo(Emprunt::class); }
     public function lignes(): HasMany { return $this->hasMany(LigneInterventionPanne::class); }
 
+    protected static function booted(): void
+    {
+        static::saved(fn(Panne $p) => $p->synchroniserCaisse());
+        static::deleted(fn(Panne $p) => MouvementCaisse::where('source_type', 'panne')->where('source_id', $p->id)->delete());
+    }
+
+    /** Le paiement de l'intervention (total de la facture) sort de la caisse générale ; rien tant que le coût est nul. */
+    public function synchroniserCaisse(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('mouvements_caisse')) return;
+        if ((int) $this->cout_reel <= 0) {
+            MouvementCaisse::where('source_type', 'panne')->where('source_id', $this->id)->delete();
+            return;
+        }
+        MouvementCaisse::updateOrCreate(
+            ['source_type' => 'panne', 'source_id' => $this->id],
+            ['caisse_code' => 'generale', 'sens' => 'sortie', 'montant' => (int) $this->cout_reel,
+             'date_mouvement' => $this->date_cloture ?? $this->date_debut_intervention ?? $this->date_declaration ?? today(),
+             'libelle' => 'Intervention panne — ' . ($this->vehicule?->immatriculation ?? ''),
+             'cree_par' => auth()->user()?->name]
+        );
+    }
+
     /** Recalculer le coût réel depuis les lignes d'intervention */
     public function recalculerCout(): void
     {

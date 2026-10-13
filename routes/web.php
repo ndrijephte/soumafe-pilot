@@ -164,7 +164,6 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parc/depenses', [ParcController::class, 'storeDepense'])->name('parc.depenses.store');
     Route::put('/parc/depenses/{depense}', [ParcController::class, 'updateDepense'])->name('parc.depenses.update');
     Route::delete('/parc/depenses/{depense}', [ParcController::class, 'destroyDepense'])->name('parc.depenses.destroy');
-    Route::post('/parc/emprunts', [ParcController::class, 'storeEmprunt'])->name('parc.emprunts.store');
     Route::post('/parc/emprunts/{emprunt}/remboursement', [ParcController::class, 'storeRemboursement'])->name('parc.emprunts.remboursement');
     Route::delete('/parc/emprunts/{emprunt}', [ParcController::class, 'destroyEmprunt'])->name('parc.emprunts.destroy');
 
@@ -192,6 +191,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/observations/{observation}/deleguer-suivi', [ObservationController::class, 'deleguerSuivi'])->name('observations.deleguer-suivi');
     Route::get('/observations/stats-collaborateur', [ObservationController::class, 'statsCollaborateur'])->name('observations.stats-collaborateur');
     Route::get('/observations/fiche-collaborateur', [ObservationController::class, 'ficheCollaborateur'])->name('observations.fiche-collaborateur');
+    Route::get('/observations/{observation}/resume', [ObservationController::class, 'resume'])->name('observations.resume');
 
     // Planning Réunions
     Route::get('/planning', [PlanningReunionController::class, 'index'])->name('planning.index');

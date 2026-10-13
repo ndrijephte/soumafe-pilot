@@ -22,6 +22,7 @@ class MaintenancePreventive extends Model
 
     public function vehicule(): BelongsTo { return $this->belongsTo(Vehicule::class); }
     public function depense(): BelongsTo { return $this->belongsTo(Depense::class); }
+    public function lignes(): \Illuminate\Database\Eloquent\Relations\HasMany { return $this->hasMany(LigneInterventionMaintenance::class, 'maintenance_id'); }
 
     public function estRealisee(): bool { return $this->statut === 'realisee'; }
 

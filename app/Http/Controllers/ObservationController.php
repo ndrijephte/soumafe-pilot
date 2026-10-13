@@ -24,7 +24,7 @@ class ObservationController extends Controller
         // Collaborateur non-pilote : uniquement ses observations déléguées
         $u = auth()->user();
         if ($u && !$u->estPilote()) {
-            $query->where('suivi_par', $u->id);
+            $query->where(fn($q) => $q->where('suivi_par', $u->id)->orWhere('declare_par', $u->id));
         }
 
         if ($r->filled('statut'))       $query->where('statut', $r->statut);
@@ -51,12 +51,15 @@ class ObservationController extends Controller
 
         $projets = Projet::orderBy('libelle')->get();
 
-        return view('observations.index', compact('observations', 'stats', 'responsables', 'projets'));
+        $peutDeclarer = Observation::peutDeclarer($u);
+
+        return view('observations.index', compact('observations', 'stats', 'responsables', 'projets', 'peutDeclarer'));
     }
 
     /** Phase 1 — Déclaration */
     public function store(Request $r)
     {
+        abort_unless(Observation::peutDeclarer($r->user()), 403, "Seuls les pilotes et les collaborateurs désignés au suivi peuvent déclarer.");
         $v = $r->validate([
             'projet_id'        => 'nullable|exists:projets,id',
             'description'      => 'required|string|max:2000',
@@ -79,7 +82,11 @@ class ObservationController extends Controller
             'commentaires'    => trim($v['commentaires'] ?? '') ?: null,
             'statut'          => 'nouveau',
             'declare_par'     => auth()->id(),
+            // Déclaré par un collaborateur désigné : il en assure le suivi
+            'suivi_par'       => $r->user()->estPilote() ? null : auth()->id(),
         ]);
+        $obs->journaliser('declaration', trim($obs->type_difficulte . ' — priorité ' . $obs->prioriteLibelle() . ' — ' . $obs->origine)
+            . ($obs->responsable_id ? ' — responsable : ' . ($obs->responsable?->nomComplet() ?? '') : ''));
 
         // Notification au responsable désigné
         $this->notifierResponsable($obs, $r->responsable_id);
@@ -115,6 +122,8 @@ class ObservationController extends Controller
         ]);
 
         $ancienResp = $observation->responsable_id;
+        $ancienStatut = $observation->statut;
+        $ancienCommentaire = $observation->commentaire_resolution;
 
         $observation->statut                 = $v['statut'];
         $observation->mode_execution         = $v['mode_execution'] ?? null;
@@ -139,6 +148,19 @@ class ObservationController extends Controller
 
         $observation->save();
 
+        if ($ancienStatut !== $observation->statut) {
+            $observation->journaliser(in_array($observation->statut, ['resolu', 'rejete']) ? 'resolution' : 'statut',
+                Observation::make(['statut' => $ancienStatut])->statutLibelle() . ' → ' . $observation->statutLibelle()
+                . ($observation->mode_execution ? ' — mode : ' . $observation->mode_execution : '')
+                . ($observation->date_livraison ? ' — livraison : ' . $observation->date_livraison->format('d/m/Y') : ''));
+        }
+        if ((int) $ancienResp !== (int) $observation->responsable_id && $observation->responsable_id) {
+            $observation->journaliser('responsable', $observation->fresh('responsable')->responsable?->nomComplet());
+        }
+        if ($observation->commentaire_resolution && $observation->commentaire_resolution !== $ancienCommentaire) {
+            $observation->journaliser('commentaire', $observation->commentaire_resolution);
+        }
+
         // Notification si responsable changé
         if ($r->filled('responsable_id') && (int) $r->responsable_id !== (int) $ancienResp) {
             $this->notifierResponsable($observation, $r->responsable_id);
@@ -159,6 +181,7 @@ class ObservationController extends Controller
 
         $observation->suivi_par = $r->suivi_par;
         $observation->save();
+        $observation->journaliser('delegation', User::find($r->suivi_par)?->nomComplet());
 
         // Notifier le collaborateur
         $collab = User::find($r->suivi_par);
@@ -177,6 +200,45 @@ class ObservationController extends Controller
 
         return redirect()->route('observations.index')
             ->with('succes', 'Suivi délégué à ' . ($collab?->nomComplet() ?? '—'));
+    }
+
+    /** Résumé des actions d'une observation (JSON pour la fenêtre « Résumé ») */
+    public function resume(Request $r, Observation $observation)
+    {
+        $u = $r->user();
+        abort_unless($u->estPilote() || in_array($u->id, [(int) $observation->suivi_par, (int) $observation->declare_par], true), 403);
+        $observation->load(['projet', 'responsable', 'suiveur', 'declarant', 'resoluteur', 'historiques.user']);
+
+        $etapes = $observation->historiques->map(fn($h) => [
+            'date' => $h->created_at->format('d/m/Y H:i'), 'action' => $h->actionLibelle(),
+            'par' => $h->user?->nomComplet() ?? '—', 'details' => $h->details,
+        ]);
+        // Observations antérieures à l'historique : reconstitution depuis le journal d'audit
+        if ($etapes->isEmpty() && Schema::hasTable('audit_logs')) {
+            $libelles = ['declarer_observation' => 'Déclaration', 'traiter_observation' => 'Traitement', 'deleguer_suivi_observation' => 'Suivi délégué'];
+            $etapes = \App\Models\AuditLog::where('module', 'observations')->where('cible', 'like', $observation->code . '%')->orderBy('created_at')->get()
+                ->map(fn($l) => ['date' => $l->created_at->format('d/m/Y H:i'), 'action' => $libelles[$l->action] ?? $l->action,
+                    'par' => $l->user_name ?? '—', 'details' => trim(preg_replace('/^' . preg_quote($observation->code, '/') . '\s*(—|→)?\s*/u', '', $l->cible))]);
+            if ($observation->declarant && !$etapes->contains('action', 'Déclaration')) {
+                $etapes->prepend(['date' => $observation->created_at?->format('d/m/Y H:i') ?? $observation->date_reception->format('d/m/Y'),
+                    'action' => 'Déclaration', 'par' => $observation->declarant->nomComplet(), 'details' => null]);
+            }
+        }
+
+        $fin = $observation->resolu_le ?? now();
+        return response()->json([
+            'code' => $observation->code, 'statut' => $observation->statutLibelle(), 'priorite' => $observation->prioriteLibelle(),
+            'description' => $observation->description, 'type' => $observation->type_difficulte, 'origine' => $observation->origine,
+            'projet' => $observation->projet?->libelle, 'commentaires' => $observation->commentaires,
+            'declarant' => $observation->declarant?->nomComplet(), 'responsable' => $observation->responsable?->nomComplet(),
+            'suiveur' => $observation->suiveur?->nomComplet(), 'resolu_par' => $observation->resoluteur?->nomComplet(),
+            'date_reception' => $observation->date_reception->format('d/m/Y'),
+            'date_livraison' => $observation->date_livraison?->format('d/m/Y'),
+            'resolu_le' => $observation->resolu_le?->format('d/m/Y H:i'),
+            'duree' => (($j = (int) floor($observation->date_reception->diffInDays($fin))) === 0 ? "Moins d'un jour" : "{$j} jour(s)") . ($observation->resolu_le ? '' : ' (en cours)'),
+            'mode_execution' => $observation->mode_execution, 'commentaire_resolution' => $observation->commentaire_resolution,
+            'etapes' => $etapes->values(),
+        ]);
     }
 
     /** Suppression */

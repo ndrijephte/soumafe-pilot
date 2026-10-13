@@ -285,8 +285,8 @@ class DashboardController extends Controller
                 $penalitesNonPayees = Penalite::where('statut', 'non_payee')->count();
             }
 
-            $maintenancesRetard = MaintenancePreventive::whereNotNull('prochaine_echeance')
-                ->whereDate('prochaine_echeance', '<', today())->count();
+            $maintenancesRetard = MaintenancePreventive::where(fn($s) => $s->whereNull('statut')->orWhere('statut', '!=', 'realisee'))
+                ->whereNotNull('prochaine_echeance')->whereDate('prochaine_echeance', '<', today())->count();
 
             // Top 5 véhicules par recette du mois
             $topVehicules = RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])

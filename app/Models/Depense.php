@@ -14,6 +14,24 @@ class Depense extends Model
 
     protected $casts = ['date_depense' => 'date', 'montant' => 'integer'];
 
+    protected static function booted(): void
+    {
+        static::saved(fn(Depense $d) => $d->synchroniserCaisse());
+        static::deleted(fn(Depense $d) => MouvementCaisse::where('source_type', 'depense')->where('source_id', $d->id)->delete());
+    }
+
+    /** La dépense sort de sa caisse (générale par défaut) : un seul mouvement, tenu à jour. */
+    public function synchroniserCaisse(): void
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('mouvements_caisse')) return;
+        MouvementCaisse::updateOrCreate(
+            ['source_type' => 'depense', 'source_id' => $this->id],
+            ['caisse_code' => $this->caisse_source ?: 'generale', 'sens' => 'sortie', 'montant' => $this->montant,
+             'date_mouvement' => $this->date_depense, 'libelle' => 'Dépense — ' . $this->typeLibelle(),
+             'cree_par' => auth()->user()?->name ?? $this->cree_par]
+        );
+    }
+
     public function vehicule(): BelongsTo { return $this->belongsTo(Vehicule::class); }
     public function emprunt(): BelongsTo { return $this->belongsTo(Emprunt::class); }
 

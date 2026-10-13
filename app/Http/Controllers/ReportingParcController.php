@@ -449,6 +449,19 @@ class ReportingParcController extends Controller
             }
         }
 
+        if (!$nomChauffeur && Schema::hasTable('emprunts')) {
+            $emprunts = \App\Models\Emprunt::where('statut', 'en_cours')->get();
+            if ($emprunts->isNotEmpty()) {
+                $retard = $emprunts->filter(fn($e) => $e->date_echeance && $e->date_echeance->lt(today()));
+                $sansDate = $emprunts->whereNull('date_echeance')->count();
+                $points[] = ['niveau' => $retard->isNotEmpty() ? 'ko' : 'warn', 'onglet' => 'emprunts',
+                    'titre' => $f($emprunts->sum(fn($e) => $e->soldeRestant())) . " d'emprunts restant à rembourser",
+                    'detail' => trim($emprunts->count() . ' emprunt(s) en cours.'
+                        . ($retard->isNotEmpty() ? ' ' . $retard->count() . ' en retard de remboursement (' . $f($retard->sum(fn($e) => $e->soldeRestant())) . ').' : '')
+                        . ($sansDate ? " {$sansDate} sans date de remboursement prévue." : ''))];
+            }
+        }
+
         $immobilises = Vehicule::whereIn('id', $vehiculeIds)->where('statut', 'immobilise')->pluck('immatriculation');
         if (!$nomChauffeur && $immobilises->isNotEmpty()) {
             $points[] = ['niveau' => 'info', 'onglet' => 'vehicules',

@@ -95,7 +95,7 @@ dialog textarea{resize:vertical}
 
 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
     <h2>Suivi Production</h2>
-    @if($isPilote)
+    @if($peutDeclarer)
     <button class="btn" onclick="document.getElementById('dlg-declaration').showModal()">
         {!! $icPlus !!} Déclarer une observation
     </button>
@@ -168,7 +168,7 @@ dialog textarea{resize:vertical}
             <th>Responsable</th>
             <th>Suivi par</th>
             <th>Statut</th>
-            @if($isPilote || $observations->contains(fn($o) => $isSuiveur($o)))<th style="width:110px">Actions</th> @endif
+            <th style="width:130px">Actions</th>
         </tr>
         </thead>
         <tbody>
@@ -187,9 +187,9 @@ dialog textarea{resize:vertical}
                 @else — @endif
             </td>
             <td><span class="badge {{ $badgeCls($obs->statut) }}">{{ $obs->statutLibelle() }}</span></td>
-            @if($isPilote || $observations->contains(fn($o) => $isSuiveur($o)))
             <td>
                 <div class="act-row">
+                    <button class="act-btn" title="Résumé des actions" onclick="ouvrirResume({{ $obs->id }})" style="color:var(--bleu)">{!! $ic('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>') !!}</button>
                     @if($peutAgir($obs))
                     <button class="act-btn" title="Détail / Résoudre" onclick="ouvrirResolution({{ $obs->id }})">
                         {!! $icEdit !!}
@@ -204,7 +204,6 @@ dialog textarea{resize:vertical}
                     @endif
                 </div>
             </td>
-            @endif
         </tr>
         @endforeach
         </tbody>
@@ -215,7 +214,7 @@ dialog textarea{resize:vertical}
 {{-- ============================================ --}}
 {{-- Dialog Phase 1 — Déclaration --}}
 {{-- ============================================ --}}
-@if($isPilote)
+@if($peutDeclarer)
 <dialog id="dlg-declaration">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <h3 style="color:var(--bleu);margin:0">Déclarer une observation <span class="phase-tag ph1">Phase 1</span></h3>
@@ -381,6 +380,24 @@ dialog textarea{resize:vertical}
 </dialog>
 
 {{-- Dialog Délégation suivi --}}
+<dialog id="dlg-resume" style="width:94vw;max-width:720px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="color:var(--bleu);margin:0">Résumé des actions <span id="rs-code" class="code-obs" style="margin-left:6px"></span></h3>
+        <button type="button" onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--gris)">&times;</button>
+    </div>
+    <div id="rs-contenu" style="font-size:13px">Chargement…</div>
+</dialog>
+<style>
+.rs-grille{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px;margin:10px 0 14px}
+.rs-grille div{font-size:12.5px}.rs-grille span{display:block;font-size:11px;color:var(--gris);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.rs-desc{background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 12px;font-size:13px;white-space:pre-line}
+.rs-ligne{position:relative;padding:0 0 14px 22px;border-left:2px solid #dbe5f0;margin-left:6px}
+.rs-ligne:last-child{border-left-color:transparent}
+.rs-ligne::before{content:'';position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff;border:3px solid var(--accent)}
+.rs-ligne .t{font-weight:700;color:var(--bleu)}.rs-ligne .m{font-size:11.5px;color:var(--gris)}.rs-ligne .d{font-size:12.5px;margin-top:2px;white-space:pre-line}
+@media(max-width:600px){.rs-grille{grid-template-columns:1fr}}
+</style>
+
 @if($isAdmin)
 <dialog id="dlg-delegation">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -415,6 +432,38 @@ function filtrerObs(){
     document.querySelectorAll('#tableObs tbody tr').forEach(tr=>{
         tr.style.display=!txt||tr.dataset.search.includes(txt)?'':'none';
     });
+}
+
+function ouvrirResume(id){
+    const dlg = document.getElementById('dlg-resume'), box = document.getElementById('rs-contenu');
+    box.innerHTML = 'Chargement…';
+    document.getElementById('rs-code').textContent = '';
+    dlg.showModal();
+    fetch('{{ url("observations") }}/'+id+'/resume', {headers:{'Accept':'application/json'}})
+        .then(r => { if(!r.ok) throw new Error(); return r.json(); })
+        .then(d => {
+            const e = v => escHtml(v || '—');
+            document.getElementById('rs-code').textContent = d.code;
+            let h = '<div class="rs-desc">'+e(d.description)+'</div>';
+            h += '<div class="rs-grille">'
+               + '<div><span>Statut</span>'+e(d.statut)+'</div><div><span>Priorité</span>'+e(d.priorite)+'</div>'
+               + '<div><span>Type</span>'+e(d.type)+'</div><div><span>Origine</span>'+e(d.origine)+'</div>'
+               + '<div><span>Projet</span>'+e(d.projet)+'</div><div><span>Reçue le</span>'+e(d.date_reception)+'</div>'
+               + '<div><span>Déclarée par</span>'+e(d.declarant)+'</div><div><span>Responsable</span>'+e(d.responsable)+'</div>'
+               + '<div><span>Suivi par</span>'+e(d.suiveur)+'</div><div><span>Durée de traitement</span>'+e(d.duree)+'</div>'
+               + (d.resolu_le ? '<div><span>Résolue le</span>'+e(d.resolu_le)+'</div><div><span>Résolue par</span>'+e(d.resolu_par)+'</div>' : '')
+               + (d.mode_execution ? '<div><span>Mode d\'exécution</span>'+e(d.mode_execution)+'</div>' : '')
+               + (d.date_livraison ? '<div><span>Livraison prévue</span>'+e(d.date_livraison)+'</div>' : '')
+               + '</div>';
+            h += '<h4 style="font-size:13px;color:var(--bleu);margin:4px 0 10px">Chronologie des actions</h4>';
+            if(!d.etapes.length) h += '<p style="color:var(--gris)">Aucune action enregistrée.</p>';
+            d.etapes.forEach(s => {
+                h += '<div class="rs-ligne"><div class="t">'+e(s.action)+'</div><div class="m">'+e(s.date)+' · '+e(s.par)+'</div>'
+                   + (s.details ? '<div class="d">'+escHtml(s.details)+'</div>' : '')+'</div>';
+            });
+            box.innerHTML = h;
+        })
+        .catch(() => { box.innerHTML = '<p style="color:var(--ko)">Impossible de charger le résumé.</p>'; });
 }
 
 @if($isPilote || $observations->contains(fn($o) => $isSuiveur($o)))

@@ -264,7 +264,7 @@
 <div class="rp-titre">3. Rentabilité par véhicule</div>
 <div class="rp-section">
     <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Quels véhicules rapportent, lesquels coûtent ?</h3>
-    <div class="intro">Classés du moins rentable au plus rentable. Résultat = recettes (y compris recouvrements) − pannes − maintenance − pénalités du véhicule. Les autres dépenses (bureau) ne sont imputées à aucun véhicule.</div>
+    <div class="intro">Cliquez sur une immatriculation pour ouvrir sa fiche rapport détaillée. Classés du moins rentable au plus rentable. Résultat = recettes (y compris recouvrements) − pannes − maintenance − pénalités du véhicule. Les autres dépenses (bureau) ne sont imputées à aucun véhicule.</div>
     @if($parVehicule->isEmpty())
     <p style="color:var(--gris);font-size:13px">Aucun véhicule dans ce périmètre.</p>
     @else
@@ -274,7 +274,7 @@
         <tbody>
         @foreach($parVehicule as $v)
         <tr>
-            <td><strong>{{ $v['immat'] }}</strong><span class="sous">{{ $v['categorie'] }}@if($v['statut'] !== 'en_service') · {{ $v['statut_label'] }}@endif</span></td>
+            <td><a href="{{ route('reporting.parc.vehicule', ['vehicule' => $v['id']] + request()->only(['periode', 'exercice', 'date_debut', 'date_fin'])) }}" title="Ouvrir la fiche rapport du véhicule" style="color:var(--accent);text-decoration:none"><strong>{{ $v['immat'] }}</strong> ↗</a><span class="sous">{{ $v['categorie'] }}@if($v['statut'] !== 'en_service') · {{ $v['statut_label'] }}@endif</span></td>
             <td class="num">{{ $v['jours'] }}</td>
             <td class="num">{{ $F($v['recettes']) }}<span class="sous">obj. {{ $F($v['objectif']) }}</span></td>
             <td class="taux-cell">

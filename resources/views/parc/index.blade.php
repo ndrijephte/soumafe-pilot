@@ -53,6 +53,10 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .form-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .req{color:var(--ko)}
 .filtre-bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.maint-alertes{display:grid;gap:6px;margin:2px 0 14px}
+.maint-alerte{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 6px 6px 12px;border:1px solid var(--bord);border-left:4px solid var(--gris);border-radius:8px;font-size:12.5px;background:#fff}
+.maint-alerte em{color:var(--gris);font-style:normal}
+.maint-alerte.ko{border-left-color:var(--ko);background:#fffafa}.maint-alerte.warn{border-left-color:#f59e0b;background:#fffdf5}
 .filtre-resultat{margin-left:auto;font-size:12px;color:var(--mute);white-space:nowrap}
 .filtre-bar select,.filtre-bar input[type="month"],.filtre-bar input[type="text"],.filtre-bar input[type="search"]{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 #form-saisie-recette select,#form-saisie-recette input[type="number"],#form-saisie-recette input[type="date"],#form-saisie-recette textarea{width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:#fff;color:#1e293b;transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none}
@@ -195,25 +199,25 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <div class="scroll-wrap tab-scroll-wrap">
 <button type="button" class="scroll-arrow left" id="tab-arrow-l" onclick="document.getElementById('tab-bar').scrollBy({left:-200,behavior:'smooth'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
 <div class="tab-bar" id="tab-bar">
-    <button class="tab-btn actif" onclick="changerOnglet('vehicules')">{!! $icCar !!} Véhicules <span class="pill p-cours">{{ $vehicules->count() }}</span></button>
-    <button class="tab-btn" onclick="changerOnglet('pannes')">{!! $icWrench !!} Pannes @if($kpi['pannes_ouvertes']>0)<span class="pill p-ko">{{ $kpi['pannes_ouvertes'] }}</span>@endif</button>
-    <button class="tab-btn" onclick="changerOnglet('recettes')">{!! $icWallet !!} Recettes</button>
-    <button class="tab-btn" onclick="changerOnglet('maint')">{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }}</span>@endif</button>
-    <button class="tab-btn" onclick="changerOnglet('penal')">{!! $icAlert !!} Pénalités @if($kpi['penalites_non_payees']>0)<span class="pill p-ko">{{ $kpi['penalites_non_payees'] }}</span>@endif</button>
-    <button class="tab-btn" onclick="changerOnglet('recouv')">
+    <button class="tab-btn actif" data-onglet="vehicules" onclick="changerOnglet('vehicules')">{!! $icCar !!} Véhicules <span class="pill p-cours">{{ $vehicules->count() }}</span></button>
+    <button class="tab-btn" data-onglet="chauffeurs" onclick="changerOnglet('chauffeurs')">{!! $icUser !!} Chauffeurs <span class="pill p-cours">{{ $chauffeurs->count() }}</span></button>
+    <button class="tab-btn" data-onglet="recettes" onclick="changerOnglet('recettes')">{!! $icWallet !!} Recettes</button>
+    <button class="tab-btn" data-onglet="maint" onclick="changerOnglet('maint')">{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }}</span>@endif</button>
+    <button class="tab-btn" data-onglet="pannes" onclick="changerOnglet('pannes')">{!! $icWrench !!} Pannes @if($kpi['pannes_ouvertes']>0)<span class="pill p-ko">{{ $kpi['pannes_ouvertes'] }}</span>@endif</button>
+    <button class="tab-btn" data-onglet="recouv" onclick="changerOnglet('recouv')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12h2"/></svg>
         Recouvrements @if(($recouvrements ?? collect())->where('statut','actif')->count()>0)<span class="pill p-ko">{{ ($recouvrements ?? collect())->where('statut','actif')->count() }}</span>@endif</button>
-    <button class="tab-btn" onclick="changerOnglet('chauffeurs')">{!! $icUser !!} Chauffeurs <span class="pill p-cours">{{ $chauffeurs->count() }}</span></button>
-    <button class="tab-btn" onclick="changerOnglet('depenses')">
+    <button class="tab-btn" data-onglet="depenses" onclick="changerOnglet('depenses')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/></svg>
-        Dépenses <span class="pill p-cours">{{ ($depenses ?? collect())->count() }}</span></button>
-    <button class="tab-btn" onclick="changerOnglet('emprunts')">
+        Dépenses bureau <span class="pill p-cours">{{ ($depenses ?? collect())->count() }}</span></button>
+    <button class="tab-btn" data-onglet="penal" onclick="changerOnglet('penal')">{!! $icAlert !!} Pénalités @if($kpi['penalites_non_payees']>0)<span class="pill p-ko">{{ $kpi['penalites_non_payees'] }}</span>@endif</button>
+    <button class="tab-btn" data-onglet="emprunts" onclick="changerOnglet('emprunts')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
         Emprunts @if(($emprunts ?? collect())->where('statut','en_cours')->count()>0)<span class="pill p-ko">{{ ($emprunts ?? collect())->where('statut','en_cours')->count() }}</span> @endif</button>
-    <button class="tab-btn" onclick="changerOnglet('prets')">
+    <button class="tab-btn" data-onglet="prets" onclick="changerOnglet('prets')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         Prêts @if(($pretsAccordes ?? collect())->where('statut','en_cours')->count()>0)<span class="pill p-ko">{{ ($pretsAccordes ?? collect())->where('statut','en_cours')->count() }}</span> @endif</button>
-    <button class="tab-btn" onclick="changerOnglet('ressources')">
+    <button class="tab-btn" data-onglet="ressources" onclick="changerOnglet('ressources')">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
         Ressources <span class="pill p-cours">{{ ($autresRessources ?? collect())->count() }}</span></button>
 </div>
@@ -692,47 +696,30 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <h3>{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }} en retard</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-maint').showModal()">{!! $icPlus !!} Échéance</button>@endif
     </div>
-    <div class="dlg-section" style="margin:4px 0 8px">Échéancier par véhicule : dernière réalisation et prochaine échéance</div>
-    <div class="panneau" style="overflow-x:auto;margin-bottom:16px">
-    <table>
-    <thead><tr><th>Véhicule</th><th>Type</th><th>Dernière réalisation</th><th>Prochaine échéance</th><th>Jours restants</th><th>État</th><th></th></tr></thead>
-    <tbody>
-    @forelse($echeancier as $ech)
-    <tr>
-        <td><strong>{{ $ech['vehicule']->immatriculation }}</strong></td>
-        <td>{{ $ech['type_label'] ?? '—' }}</td>
-        <td>{{ $ech['derniere'] ? $ech['derniere']->format('d/m/Y') : 'Jamais réalisée' }}</td>
-        <td style="font-weight:600">{{ $ech['prochaine'] ? $ech['prochaine']->format('d/m/Y') : '—' }}</td>
-        <td style="font-weight:600;color:{{ $ech['alerte'] === 'en_retard' ? 'var(--ko)' : ($ech['alerte'] === 'proche' ? 'var(--warn)' : 'var(--ok)') }}">
-            @if($ech['jours'] === null) — @elseif($ech['jours'] < 0) {{ abs($ech['jours']) }} j de retard @else {{ $ech['jours'] }} j @endif
-        </td>
-        <td>
-            @switch($ech['alerte'])
-                @case('en_retard')<span class="pill p-ko">En retard</span>@break
-                @case('proche')<span class="pill p-warn">Dans moins de 15 j</span>@break
-                @case('ok')<span class="pill p-ok">À jour</span>@break
-                @case('non_planifiee')<span class="pill p-ko">Aucune prochaine échéance</span>@break
-                @default<span class="pill p-gris">Aucune maintenance planifiée</span>
-            @endswitch
-        </td>
-        <td>
+    @php $aSuivre = collect($echeancier)->where('alerte', '!=', 'ok'); @endphp
+    @if($aSuivre->isNotEmpty())
+    <div class="maint-alertes">
+        @foreach($aSuivre as $ech)
+        @php
+            $cls = ['en_retard' => 'ko', 'non_planifiee' => 'ko', 'aucune' => 'gris', 'proche' => 'warn'][$ech['alerte']];
+            $txt = match($ech['alerte']) {
+                'en_retard' => 'en retard de ' . abs($ech['jours']) . ' j (prévue le ' . $ech['prochaine']->format('d/m') . ')',
+                'proche' => 'prévue le ' . $ech['prochaine']->format('d/m') . ' (dans ' . $ech['jours'] . ' j)',
+                'non_planifiee' => 'aucune prochaine échéance',
+                default => 'aucune maintenance planifiée',
+            };
+        @endphp
+        <div class="maint-alerte {{ $cls }}">
+            <span><strong>{{ $ech['vehicule']->immatriculation }}</strong>@if($ech['type_label']) · {{ $ech['type_label'] }}@endif : {{ $txt }}@if($ech['derniere']) <em>— dernière réalisation le {{ $ech['derniere']->format('d/m/Y') }}</em>@endif</span>
             @if(!$estDG)
-                @if($ech['prochaine_id'])
-                <button class="btn sm" onclick="realiserMaint({{ $ech['prochaine_id'] }})" style="background:var(--ok)">Réaliser</button>
-                @else
-                <button class="btn sm sec" onclick="planifierMaint({{ $ech['vehicule']->id }}, '{{ $ech['type'] }}', '{{ $ech['derniere']?->format('Y-m-d') }}')">Planifier</button>
-                @endif
+                @if($ech['prochaine_id'])<button class="btn sm" onclick="realiserMaint({{ $ech['prochaine_id'] }})" style="background:var(--ok)">Réaliser</button>
+                @else<button class="btn sm sec" onclick="planifierMaint({{ $ech['vehicule']->id }}, '{{ $ech['type'] }}', '{{ $ech['derniere']?->format('Y-m-d') }}')">Planifier</button>@endif
             @endif
-        </td>
-    </tr>
-    @empty
-    <tr><td colspan="7" class="empty-msg">Aucun véhicule en service.</td></tr>
-    @endforelse
-    </tbody>
-    </table>
+        </div>
+        @endforeach
     </div>
+    @endif
 
-    <div class="dlg-section" style="margin:4px 0 8px">Échéances planifiées et maintenances réalisées</div>
     @php $coutTotalMaint = $maintenances->sum('cout'); @endphp
     @if($coutTotalMaint > 0)
     <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12.5px">
@@ -2387,10 +2374,8 @@ function changerOnglet(nom){
     document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('actif')});
     document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('actif')});
     document.getElementById('tab-'+nom).classList.add('actif');
-    var btns=document.querySelectorAll('.tab-btn');
-    var noms=['vehicules','pannes','recettes','maint','penal','recouv','chauffeurs','depenses','emprunts','prets','ressources'];
-    var idx=noms.indexOf(nom);
-    if(idx>=0 && btns[idx]) btns[idx].classList.add('actif');
+    var btn=document.querySelector('.tab-btn[data-onglet="'+nom+'"]');
+    if(btn) btn.classList.add('actif');
 }
 // Auto-activation onglet via ?tab=
 (function(){

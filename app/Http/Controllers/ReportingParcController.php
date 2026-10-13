@@ -16,18 +16,8 @@ class ReportingParcController extends Controller
     {
         abort_unless($r->user()->peutGererParc(), 403);
 
-        // ═══════ PÉRIODE (exercices du 05 au 04) ═══════
-        $periode = match ($r->get('periode', 'exercice')) {
-            'trois_exercices', 'trimestre' => 'trois_exercices',
-            'personnalise' => 'personnalise',
-            default => 'exercice',
-        };
-        $exercices = ExerciceParc::liste(18);
-        $exercice = $r->get('exercice');
-        if ($r->get('periode') === 'mois_precedent') $exercice = ExerciceParc::decaler(ExerciceParc::cle(), -1);
-        if (!isset($exercices[$exercice])) $exercice = ExerciceParc::cle();
-
-        [$debut, $fin, $libellePeriode, $debutPrec, $finPrec, $libellePrec] = $this->bornes($periode, $exercice, $r->get('date_debut'), $r->get('date_fin'));
+        // ═══════ PÉRIODE (exercices) ═══════
+        [$periode, $exercices, $exercice, $debut, $fin, $libellePeriode, $debutPrec, $finPrec, $libellePrec] = $this->periode($r);
 
         // ═══════ PÉRIMÈTRE ═══════
         $categorie = in_array($r->get('categorie'), ['taxi', 'vtc'], true) ? $r->get('categorie') : 'tous';
@@ -111,6 +101,81 @@ class ReportingParcController extends Controller
             'depensesParType', 'pannesUrgence', 'penalitesType', 'aTraiter',
             'detailJour', 'filtreNom', 'okrGestionnaire', 'okrChauffeurs', 'periodeOkr', 'gestionnaires'
         ));
+    }
+
+    /** Période demandée (exercice, 3 exercices ou dates) et période de comparaison. */
+    private function periode(Request $r): array
+    {
+        $periode = match ($r->get('periode', 'exercice')) {
+            'trois_exercices', 'trimestre' => 'trois_exercices',
+            'personnalise' => 'personnalise',
+            default => 'exercice',
+        };
+        $exercices = ExerciceParc::liste(18);
+        $exercice = $r->get('exercice');
+        if ($r->get('periode') === 'mois_precedent') $exercice = ExerciceParc::decaler(ExerciceParc::cle(), -1);
+        if (!isset($exercices[$exercice])) $exercice = ExerciceParc::cle();
+        return [$periode, $exercices, $exercice, ...$this->bornes($periode, $exercice, $r->get('date_debut'), $r->get('date_fin'))];
+    }
+
+    /* ═══════ FICHE RAPPORT D'UN VÉHICULE ═══════ */
+    public function vehicule(Request $r, Vehicule $vehicule)
+    {
+        abort_unless($r->user()->peutGererParc(), 403);
+        [$periode, $exercices, $exercice, $debut, $fin, $libellePeriode, $debutPrec, $finPrec, $libellePrec] = $this->periode($r);
+        $ids = collect([$vehicule->id]);
+        $vehicule->load(['chauffeurs' => fn($q) => $q->wherePivot('actif', true)]);
+
+        $kpi = $this->indicateurs($ids, false, $debut, $fin, null);
+        $kpiPrec = $this->indicateurs($ids, false, $debutPrec, $finPrec, null);
+
+        // Rang dans la flotte en service (par résultat)
+        $flotte = $this->rentabiliteVehicules(Vehicule::orderBy('immatriculation')->get(), $debut, $fin, null)->sortByDesc('resultat')->values();
+        $rang = $flotte->search(fn($v) => $v['id'] === $vehicule->id);
+        $rang = $rang === false ? null : $rang + 1;
+
+        // Recettes par chauffeur sur ce véhicule
+        $parChauffeur = RecetteVehicule::where('vehicule_id', $vehicule->id)->whereBetween('date', [$debut, $fin])
+            ->selectRaw("COALESCE(NULLIF(chauffeur, ''), 'Sans chauffeur') as nom, COUNT(*) as jours, SUM(recette) as recette, SUM(objectif) as objectif,
+                SUM(CASE WHEN recette >= objectif THEN 1 ELSE 0 END) as atteints")
+            ->groupBy('nom')->orderByDesc('recette')->get()
+            ->map(fn($c) => ['nom' => $c->nom, 'jours' => (int) $c->jours, 'atteints' => (int) $c->atteints, 'recette' => (int) $c->recette,
+                'objectif' => (int) $c->objectif, 'taux' => $c->objectif > 0 ? round($c->recette / $c->objectif * 100, 2) : null]);
+
+        $evolution = $this->evolution($ids, false, $debut, $fin, null);
+
+        $pannes = Panne::with('lignes')->where('vehicule_id', $vehicule->id)->whereBetween('date_declaration', [$debut, $fin])->orderBy('date_declaration')->get();
+        $maintenances = MaintenancePreventive::with('lignes')->where('vehicule_id', $vehicule->id)->where('statut', 'realisee')
+            ->whereBetween('date_realisation', [$debut, $fin])->orderBy('date_realisation')->get();
+        $prochaines = MaintenancePreventive::where('vehicule_id', $vehicule->id)->where(fn($s) => $s->whereNull('statut')->orWhere('statut', '!=', 'realisee'))
+            ->whereNotNull('prochaine_echeance')->orderBy('prochaine_echeance')->get();
+        $penalites = Schema::hasTable('penalites')
+            ? Penalite::where('vehicule_id', $vehicule->id)->whereBetween('date_infraction', [$debut, $fin])->orderBy('date_infraction')->get() : collect();
+        $recouvrements = Schema::hasTable('recouvrements')
+            ? Recouvrement::where('vehicule_id', $vehicule->id)->where('statut', 'actif')->orderBy('date_recette')->get() : collect();
+        $emprunts = Schema::hasTable('emprunts')
+            ? \App\Models\Emprunt::where('vehicule_id', $vehicule->id)->where('statut', 'en_cours')->orderBy('date_emprunt')->get() : collect();
+
+        // Constats et recommandations
+        $constats = [];
+        if ($kpi['jours'] === 0) $constats[] = ['ko', 'Aucune recette saisie sur la période.'];
+        elseif ($kpi['taux'] < 80) $constats[] = ['ko', 'Objectif atteint à ' . number_format($kpi['taux'], 2, ',', ' ') . ' % seulement : analyser les jours sous l\'objectif et l\'affectation du chauffeur.'];
+        elseif ($kpi['taux'] < 100) $constats[] = ['warn', 'Objectif presque atteint (' . number_format($kpi['taux'], 2, ',', ' ') . ' %).'];
+        else $constats[] = ['ok', 'Objectif de recette atteint (' . number_format($kpi['taux'], 2, ',', ' ') . ' %).'];
+        if ($kpi['resultat'] < 0) $constats[] = ['ko', 'Résultat négatif : les charges dépassent les recettes de ' . number_format(-$kpi['resultat'], 0, ',', ' ') . ' F.'];
+        if ($kpi['recettes'] > 0 && $kpi['pannes'] > 0.3 * $kpi['recettes']) $constats[] = ['warn', 'Les pannes représentent ' . number_format($kpi['pannes'] / $kpi['recettes'] * 100, 2, ',', ' ') . ' % des recettes : envisager une révision complète.'];
+        $retard = $prochaines->filter(fn($m) => $m->prochaine_echeance->lt(today()));
+        if ($retard->isNotEmpty()) $constats[] = ['ko', $retard->count() . ' maintenance(s) en retard depuis le ' . $retard->first()->prochaine_echeance->format('d/m/Y') . '.'];
+        elseif ($prochaines->isEmpty()) $constats[] = ['warn', 'Aucune maintenance planifiée pour ce véhicule.'];
+        if ($pannes->whereIn('statut', self::PANNES_OUVERTES)->isNotEmpty()) $constats[] = ['warn', $pannes->whereIn('statut', self::PANNES_OUVERTES)->count() . ' panne(s) non clôturée(s).'];
+        if ($recouvrements->sum('solde') > 0) $constats[] = ['warn', number_format($recouvrements->sum('solde'), 0, ',', ' ') . ' F à recouvrer auprès des chauffeurs de ce véhicule.'];
+        if ($emprunts->isNotEmpty()) $constats[] = ['warn', number_format($emprunts->sum(fn($e) => $e->soldeRestant()), 0, ',', ' ') . ' F d\'emprunt(s) à rembourser pour ses interventions.'];
+
+        return view('reporting.parc-vehicule', compact(
+            'vehicule', 'periode', 'exercices', 'exercice', 'debut', 'fin', 'libellePeriode', 'libellePrec',
+            'kpi', 'kpiPrec', 'rang', 'flotte', 'parChauffeur', 'evolution', 'pannes', 'maintenances', 'prochaines',
+            'penalites', 'recouvrements', 'emprunts', 'constats'
+        ) + ['vehicules' => Vehicule::orderBy('immatriculation')->get()]);
     }
 
     /** @return array{0: Carbon, 1: Carbon, 2: string, 3: Carbon, 4: Carbon, 5: string} */

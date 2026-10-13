@@ -182,6 +182,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/parc/recettes/{recette}/invalider-motif', [ParcController::class, 'invaliderMotif'])->name('parc.recettes.invaliderMotif');
 
     Route::get('/parc/reporting', [ReportingParcController::class, 'index'])->name('reporting.parc');
+    Route::get('/parc/reporting/vehicules/{vehicule}', [ReportingParcController::class, 'vehicule'])->name('reporting.parc.vehicule');
 
     // Pointage & Présence
     Route::get('/observations', [ObservationController::class, 'index'])->name('observations.index');

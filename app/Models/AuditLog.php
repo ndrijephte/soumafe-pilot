@@ -22,12 +22,17 @@ class AuditLog extends Model
     {
         if (!Schema::hasTable('audit_logs')) return;
 
+        // Colonnes limitées (action 30, module 50, cible 100) : un texte long est coupé et conservé en entier dans « details »
+        if ($cible !== null && mb_strlen($cible) > 100) {
+            $details = trim($cible . ($details ? "\n" . $details : ''));
+            $cible = mb_substr($cible, 0, 99) . '…';
+        }
         $user = auth()->user();
         static::create([
             'user_id'    => $user?->id,
-            'user_name'  => $user?->name ?? 'Système',
-            'action'     => $action,
-            'module'     => $module,
+            'user_name'  => mb_substr($user?->name ?? 'Système', 0, 100),
+            'action'     => mb_substr($action, 0, 30),
+            'module'     => mb_substr($module, 0, 50),
             'cible'      => $cible,
             'details'    => $details,
             'ip_address' => request()->ip(),

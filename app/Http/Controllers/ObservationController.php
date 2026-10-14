@@ -91,7 +91,7 @@ class ObservationController extends Controller
         // Notification au responsable désigné
         $this->notifierResponsable($obs, $r->responsable_id);
 
-        $this->auditer('declarer_observation', $obs->code . ' — ' . $r->description);
+        $this->auditer('declarer_observation', $obs->code, $obs->description);
 
         return redirect()->route('observations.index')
             ->with('succes', 'Observation déclarée avec succès.');
@@ -206,10 +206,11 @@ class ObservationController extends Controller
     public function resume(Request $r, Observation $observation)
     {
         $u = $r->user();
-        abort_unless($u->estPilote() || in_array($u->id, [(int) $observation->suivi_par, (int) $observation->declare_par], true), 403);
-        $observation->load(['projet', 'responsable', 'suiveur', 'declarant', 'resoluteur', 'historiques.user']);
+        abort_unless($u->estPilote() || in_array((int) $u->id, [(int) $observation->suivi_par, (int) $observation->declare_par], true), 403);
+        $observation->load(['projet', 'responsable', 'suiveur', 'declarant', 'resoluteur']);
+        $historiques = Schema::hasTable('observation_historiques') ? $observation->historiques()->with('user')->get() : collect();
 
-        $etapes = $observation->historiques->map(fn($h) => [
+        $etapes = $historiques->map(fn($h) => [
             'date' => $h->created_at->format('d/m/Y H:i'), 'action' => $h->actionLibelle(),
             'par' => $h->user?->nomComplet() ?? '—', 'details' => $h->details,
         ]);
@@ -218,7 +219,7 @@ class ObservationController extends Controller
             $libelles = ['declarer_observation' => 'Déclaration', 'traiter_observation' => 'Traitement', 'deleguer_suivi_observation' => 'Suivi délégué'];
             $etapes = \App\Models\AuditLog::where('module', 'observations')->where('cible', 'like', $observation->code . '%')->orderBy('created_at')->get()
                 ->map(fn($l) => ['date' => $l->created_at->format('d/m/Y H:i'), 'action' => $libelles[$l->action] ?? $l->action,
-                    'par' => $l->user_name ?? '—', 'details' => trim(preg_replace('/^' . preg_quote($observation->code, '/') . '\s*(—|→)?\s*/u', '', $l->cible))]);
+                    'par' => $l->user_name ?? '—', 'details' => trim(preg_replace('/^' . preg_quote($observation->code, '/') . '\s*(—|→)?\s*/u', '', rtrim($l->cible, '…'))) ?: $l->details]);
             if ($observation->declarant && !$etapes->contains('action', 'Déclaration')) {
                 $etapes->prepend(['date' => $observation->created_at?->format('d/m/Y H:i') ?? $observation->date_reception->format('d/m/Y'),
                     'action' => 'Déclaration', 'par' => $observation->declarant->nomComplet(), 'details' => null]);
@@ -247,7 +248,7 @@ class ObservationController extends Controller
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         $code = $observation->code;
         $observation->delete();
-        $this->auditer('supprimer_observation', $code . ' — Motif: ' . $r->motif_suppression);
+        $this->auditer('supprimer_observation', $code, 'Motif : ' . $r->motif_suppression);
 
         return redirect()->route('observations.index')
             ->with('succes', 'Observation supprimée.');
@@ -528,10 +529,10 @@ class ObservationController extends Controller
         ]);
     }
 
-    private function auditer(string $action, string $cible): void
+    private function auditer(string $action, string $cible, ?string $details = null): void
     {
         if (Schema::hasTable('audit_logs') && class_exists(\App\Models\AuditLog::class)) {
-            \App\Models\AuditLog::log($action, 'observations', $cible);
+            \App\Models\AuditLog::log($action, 'observations', $cible, $details);
         }
     }
 }

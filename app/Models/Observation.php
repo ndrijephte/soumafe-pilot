@@ -31,7 +31,12 @@ class Observation extends Model
     public function journaliser(string $action, ?string $details = null): void
     {
         if (!\Illuminate\Support\Facades\Schema::hasTable('observation_historiques')) return;
-        $this->historiques()->create(['user_id' => auth()->id(), 'action' => $action, 'details' => $details ? mb_substr($details, 0, 1000) : null, 'created_at' => now()]);
+        try {
+            $this->historiques()->create(['user_id' => auth()->id(), 'action' => $action, 'details' => $details ? mb_substr($details, 0, 1000) : null, 'created_at' => now()]);
+        } catch (\Throwable $e) {
+            // L'historique ne doit jamais empêcher l'enregistrement de l'observation elle-même
+            report($e);
+        }
     }
 
     /** Collaborateur désigné : celui à qui au moins un suivi a été délégué. */

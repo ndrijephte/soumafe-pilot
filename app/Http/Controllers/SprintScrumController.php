@@ -59,11 +59,8 @@ class SprintScrumController extends Controller
         $sprint->load(['dailyScrums' => fn($q) => $q->withCount(['entrees', 'entrees as defis_count' => fn($e) => $e->whereNotNull('defis')->where('defis', '!=', '')])]);
         $membres = ScrumService::membres($sprint);
         $config = $sprint->projet->configDaily();
-        // Hors équipe du projet, seuls les rapports publiés sont visibles
-        $voitTout = $sprint->projet->estVisiblePour($r->user());
-
         // Jours programmés du sprint et Daily correspondant (calendrier)
-        $parDate = $sprint->dailyScrums->filter(fn($d) => $voitTout || $d->visiblePour($r->user()))->keyBy(fn($d) => $d->date_reunion->toDateString());
+        $parDate = $sprint->dailyScrums->filter(fn($d) => $d->visiblePour($r->user()))->keyBy(fn($d) => $d->date_reunion->toDateString());
         $jours = ScrumService::joursProgrammes($sprint)->values()->map(fn($j, $i) => ['date' => $j, 'numero' => $i + 1, 'daily' => $parDate[$j->toDateString()] ?? null])->all();
         // Daily tenus un jour qui n'est plus programmé (programmation modifiée en cours de sprint)
         $horsProgramme = $parDate->reject(fn($d) => collect($jours)->contains(fn($j) => $j['daily']?->id === $d->id))->values();
@@ -92,11 +89,9 @@ class SprintScrumController extends Controller
             ->when($r->type === 'hors_sprint', fn($q) => $q->whereNull('sprint_id'))
             ->when($r->du, fn($q) => $q->whereDate('date_reunion', '>=', $r->du))
             ->when($r->au, fn($q) => $q->whereDate('date_reunion', '<=', $r->au))
-            ->when(!$r->user()->estPilote(), fn($q) => $q->where(fn($v) => $v->whereNotNull('publie_le')
-                ->orWhere('cree_par', $r->user()->id)
-                ->orWhereHas('entrees', fn($e) => $e->where('user_id', $r->user()->id))
-                ->orWhereHas('projet', fn($p) => $p->where('responsable_projet_id', $r->user()->id)
-                    ->orWhereHas('collaborateurs', fn($c) => $c->where('user_id', $r->user()->id)->where('actif', true)))))
+            // Brouillons : visibles du scribe du jour et des pilotes uniquement
+            ->when(!$r->user()->estAdmin(), fn($q) => $q->where(fn($v) => $v->whereNotNull('publie_le')
+                ->orWhere('roles->scribe', $r->user()->id)))
             ->orderByDesc('date_reunion')->orderByDesc('id');
         $dailies = $q->paginate(25)->withQueryString();
         $ids = $dailies->getCollection()->map(fn($d) => $d->roleUserId('scribe'))->filter()->unique();
@@ -108,13 +103,14 @@ class SprintScrumController extends Controller
             'collaborateurs' => User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->orderBy('name')->get(),
             'equipes' => \App\Models\ProjetCollaborateur::where('actif', true)->get(['projet_id', 'user_id'])->groupBy('projet_id')->map(fn($c) => $c->pluck('user_id')->values()),
             'heureDefaut' => (new \App\Models\Projet())->configDaily(),
+            'peutCreer' => $r->user()->estAdmin(),
         ]);
     }
 
+    /** Création d'un Daily : pilote uniquement (administrateur ou chargé des opérations). */
     private function peutCreerDaily(Request $r, Sprint $sprint): bool
     {
-        return $this->gerer($r, $sprint) || $sprint->projet->equipe()->whereKey($r->user()->id)->exists()
-            || ScrumService::membres($sprint)->contains('id', $r->user()->id);
+        return $r->user()->estAdmin();
     }
 
     public function storeDaily(Request $r, Sprint $sprint)
@@ -164,9 +160,6 @@ class SprintScrumController extends Controller
             'tousUsers' => User::where('actif', true)->orderBy('name')->get(),
             'edition' => $this->editionDaily($r, $daily),
             'peutGerer' => $daily->gerablePar($r->user()),
-            // Liste de présence : statut du Pointage du jour pour chaque participant
-            'pointages' => \App\Models\Pointage::whereDate('date', $daily->date_reunion)->whereIn('user_id', $daily->entrees->pluck('user_id'))->get()->keyBy('user_id'),
-            'absences' => ScrumService::absences($daily->date_reunion, $daily->entrees->pluck('user_id')),
             'config' => ($daily->projet ?? new \App\Models\Projet())->configDaily(),
         ]);
     }
@@ -187,8 +180,7 @@ class SprintScrumController extends Controller
             'heure_fin' => 'nullable|date_format:H:i|after:heure_debut',
         ], ['participants.required' => 'Choisissez au moins un participant.']);
         $projet = !empty($v['projet_id']) ? \App\Models\Projet::find($v['projet_id']) : null;
-        // Projet : gestionnaire ou membre ; Daily transversal : tout collaborateur (publication soumise à un pilote)
-        abort_if($projet && !$r->user()->peutGererProjet($projet->id) && !$projet->estVisiblePour($r->user()), 403);
+        abort_unless($r->user()->estAdmin(), 403);
         $date = Carbon::parse($v['date_reunion'])->startOfDay();
         if (DailyScrum::whereNull('sprint_id')->where('projet_id', $projet?->id)->whereDate('date_reunion', $date)->exists()) {
             return back()->withInput()->with('erreur', 'Un Daily hors sprint existe déjà à cette date' . ($projet ? ' pour ce projet.' : ' (transversal).'));
@@ -200,14 +192,12 @@ class SprintScrumController extends Controller
         return redirect($daily->url())->with('succes', 'Daily hors sprint créé et pré-rempli.');
     }
 
-    /** « tout » : gestionnaire, scribe, facilitateur ou créateur ; « ligne » : un participant pour sa propre ligne. */
+    /** « tout » : un pilote, ou le scribe du jour tant que le rapport n'est pas publié. */
     private function editionDaily(Request $r, DailyScrum $daily): ?string
     {
         $u = $r->user();
-        // Rapport soumis ou publié : modifiable uniquement par un pilote (administrateur ou chargé des opérations)
-        if ($daily->estPublie() || $daily->estSoumis()) return $u->estAdmin() ? 'tout' : null;
-        if ($daily->gerablePar($u) || in_array($u->id, [$daily->roleUserId('scribe'), $daily->roleUserId('facilitateur'), (int) $daily->cree_par], true)) return 'tout';
-        return $daily->entrees->contains('user_id', $u->id) ? 'ligne' : null;
+        if ($u->estAdmin()) return 'tout';
+        return !$daily->estPublie() && $daily->roleUserId('scribe') === (int) $u->id ? 'tout' : null;
     }
 
     public function updateDaily(Request $r, DailyScrum $daily)
@@ -276,27 +266,17 @@ class SprintScrumController extends Controller
     }
 
     /**
-     * Publication du rapport : le scribe (ou l'équipe de rédaction) le soumet ; il n'est diffusé
-     * qu'après l'aval d'un pilote (administrateur ou chargé des opérations), qui peut publier directement.
+     * Publication du rapport par le scribe du jour ou un pilote (administrateur ou chargé des opérations).
+     * Avant publication, le rapport (brouillon) n'est visible que d'eux.
      */
     public function publierDaily(Request $r, DailyScrum $daily)
     {
-        $daily->load('entrees');
         abort_if($daily->estPublie(), 403);
+        abort_unless($this->editionDaily($r, $daily) === 'tout', 403);
         $cible = $daily->contexte();
-        if ($r->user()->estAdmin()) {
-            $daily->update(['publie_le' => now(), 'publie_par' => $r->user()->id, 'soumis_le' => $daily->soumis_le ?? now(), 'soumis_par' => $daily->soumis_par ?? $r->user()->id]);
-            AuditLog::log('publication_daily', 'daily', $cible, $daily->libelle());
-            if ($daily->soumis_par && $daily->soumis_par !== $r->user()->id) $this->notifierMembre($daily->soumis_par, "Le rapport {$daily->libelle()} ({$cible}) a été publié.", $daily->url());
-            return back()->with('succes', 'Rapport publié.');
-        }
-        abort_unless(!$daily->estSoumis() && $this->editionDaily($r, $daily) === 'tout', 403);
-        $daily->update(['soumis_le' => now(), 'soumis_par' => $r->user()->id]);
-        AuditLog::log('soumission_daily', 'daily', $cible, $daily->libelle());
-        foreach (User::where('actif', true)->whereIn('role', ['administrateur', 'charge_operations'])->pluck('id') as $pid) {
-            $this->notifierMembre($pid, "{$r->user()->nomComplet()} soumet le rapport {$daily->libelle()} ({$cible}) pour publication.", $daily->url());
-        }
-        return back()->with('succes', 'Rapport soumis : publication après validation d\'un pilote.');
+        $daily->update(['publie_le' => now(), 'publie_par' => $r->user()->id, 'soumis_le' => $daily->soumis_le ?? now(), 'soumis_par' => $daily->soumis_par ?? $r->user()->id]);
+        AuditLog::log('publication_daily', 'daily', $cible, $daily->libelle());
+        return back()->with('succes', 'Rapport publié : il est maintenant visible de tous les collaborateurs.');
     }
 
     /** Remet un Daily publié en brouillon (pilote uniquement). */
@@ -331,7 +311,7 @@ class SprintScrumController extends Controller
 
     public function destroyDaily(Request $r, DailyScrum $daily)
     {
-        abort_unless($daily->gerablePar($r->user()) && (!($daily->estPublie() || $daily->estSoumis()) || $r->user()->estAdmin()), 403);
+        abort_unless($daily->gerablePar($r->user()), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression_daily', 'daily', $daily->contexte(), $daily->libelle() . ' - Motif : ' . $r->motif_suppression);
         $sprintId = $daily->sprint_id;

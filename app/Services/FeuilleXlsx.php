@@ -67,6 +67,8 @@ class FeuilleXlsx
     public function xml(): string
     {
         $x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
+        // Impression ajustée à la largeur de la page ; quadrillage d'Excel masqué (seules les bordures des tableaux restent)
+        $x .= '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><sheetFormatPr defaultRowHeight="16"/>';
         if ($this->largeurs) {
             $x .= '<cols>';
             foreach ($this->largeurs as $i => $l) $x .= '<col min="' . ($i + 1) . '" max="' . ($i + 1) . '" width="' . (float) $l . '" customWidth="1"/>';
@@ -99,6 +101,8 @@ class FeuilleXlsx
             foreach ($this->fusions as $f) $x .= "<mergeCell ref=\"{$f}\"/>";
             $x .= '</mergeCells>';
         }
+        $x .= '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>';
+        $x .= '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>';
         return $x . '</worksheet>';
     }
 
@@ -107,7 +111,7 @@ class FeuilleXlsx
         $x = '';
         foreach (TexteRiche::segments($html) as [$t, $b, $i, $u]) {
             $t = htmlspecialchars(self::propre($t), ENT_XML1 | ENT_QUOTES, 'UTF-8');
-            $x .= '<r><rPr>' . ($b ? '<b/>' : '') . ($i ? '<i/>' : '') . ($u ? '<u/>' : '') . '<sz val="11"/><rFont val="Calibri"/></rPr>'
+            $x .= '<r><rPr>' . ($b ? '<b/>' : '') . ($i ? '<i/>' : '') . ($u ? '<u/>' : '') . '<sz val="11"/><color rgb="FF334155"/><rFont val="Calibri"/></rPr>'
                 . "<t xml:space=\"preserve\">{$t}</t></r>";
         }
         return $x ?: '<t></t>';

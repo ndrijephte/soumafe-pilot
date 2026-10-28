@@ -32,17 +32,16 @@ class DailyScrum extends Model
         return route('scrum.d.' . $action, [$this, ...$params]);
     }
 
-    /** Gestionnaire : gestionnaire du projet ; pour un Daily transversal, pilote ou créateur. */
+    /** Gestionnaire (création, suppression) : pilote uniquement (administrateur ou chargé des opérations). */
     public function gerablePar(User $u): bool
     {
-        if ($this->projet_id) return $u->peutGererProjet($this->projet_id);
-        return $u->estPilote() || (int) $this->cree_par === (int) $u->id;
+        return $u->estAdmin();
     }
     public function entrees(): HasMany { return $this->hasMany(DailyScrumEntree::class); }
     public function createur(): BelongsTo { return $this->belongsTo(User::class, 'cree_par'); }
     public function publiePar(): BelongsTo { return $this->belongsTo(User::class, 'publie_par'); }
     public function soumisPar(): BelongsTo { return $this->belongsTo(User::class, 'soumis_par'); }
-    /** Rapport publié (approuvé par un pilote) : visible de tous, modifiable par un pilote uniquement. */
+    /** Rapport publié (par le scribe ou un pilote) : visible de tous, modifiable par un pilote uniquement. */
     public function estPublie(): bool { return $this->publie_le !== null; }
     /** Soumis à l'approbation d'un pilote : figé, pas encore diffusé. */
     public function estSoumis(): bool { return !$this->estPublie() && $this->soumis_le !== null; }
@@ -51,14 +50,10 @@ class DailyScrum extends Model
         return $this->estPublie() ? ['Publié', 'p-ok'] : ($this->estSoumis() ? ['En attente de validation', 'p-cours'] : ['Brouillon', 'p-warn']);
     }
 
-    /** Hors publication, le rapport n'est visible que de l'équipe du projet, des pilotes et des acteurs du Daily. */
+    /** Brouillon : visible uniquement du scribe du jour et des pilotes (administrateur, chargé des opérations). */
     public function visiblePour(User $u): bool
     {
-        if ($this->estPublie() || $u->estPilote() || (int) $this->cree_par === (int) $u->id) return true;
-        $this->loadMissing('projet');
-        return ($this->projet && $this->projet->estVisiblePour($u))
-            || in_array($u->id, array_map('intval', array_values($this->roles ?? [])), true)
-            || $this->entrees()->where('user_id', $u->id)->exists();
+        return $this->estPublie() || $u->estAdmin() || $this->roleUserId('scribe') === (int) $u->id;
     }
 
     public function roleUserId(string $role): ?int

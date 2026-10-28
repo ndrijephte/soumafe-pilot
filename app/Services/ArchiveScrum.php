@@ -1,7 +1,7 @@
 <?php
 namespace App\Services;
 
-use App\Models\{CompteRendu, DailyScrum, Pointage, Projet, Sprint, User, UserStory};
+use App\Models\{CompteRendu, DailyScrum, Projet, Sprint, User, UserStory};
 use App\Services\ClasseurXlsx as X;
 
 /**
@@ -21,7 +21,8 @@ class ArchiveScrum
         $a->productBacklog($sprint->projet);
         $a->sprintBacklog($sprint);
         $a->planning($sprint, false);
-        foreach ($sprint->dailyScrums as $d) $a->daily($sprint, $d);
+        // Brouillons exclus, sauf pour le scribe du jour et les pilotes
+        foreach ($sprint->dailyScrums as $d) if (!auth()->user() || $d->visiblePour(auth()->user())) $a->daily($sprint, $d);
         $a->planning($sprint, true);
         $a->retrospective($sprint);
         return $a->c;
@@ -234,33 +235,26 @@ class ArchiveScrum
 
     private function daily(Sprint $sprint, DailyScrum $d): void
     {
-        $f = $this->c->feuille($d->libelle())->largeurs([3, 3, 26, 16, 40, 40, 16, 38]);
+        $f = $this->c->feuille($d->libelle())->largeurs([3, 3, 28, 48, 48, 44]);
         $users = User::whereIn('id', array_filter($d->roles ?? []))->get()->keyBy('id');
         $nom = fn($role) => ($id = $d->roleUserId($role)) && isset($users[$id]) ? $users[$id]->nomComplet() : '';
-        // Liste de présence : statut du Pointage du jour
-        $pointages = Pointage::whereDate('date', $d->date_reunion)->whereIn('user_id', $d->entrees->pluck('user_id'))->get()->keyBy('user_id');
-        $absences = ScrumService::absences($d->date_reunion, $d->entrees->pluck('user_id'));
         [$statut] = $d->statutPublication();
 
-        $f->ligne(['', '', 'OBJET', mb_strtoupper($sprint->projet->libelle)], [2 => X::LIBELLE])->fusionner(3, 7)->vide();
-        $f->ligne(['', '', 'OBJECTIF', $sprint->objectif], [2 => X::LIBELLE])->fusionner(3, 7)->vide();
-        $f->ligne(['', '', 'DAILY SCRUM - JOUR ' . $d->numero_jour], [2 => X::SOUS_TITRE])->vide();
-        $f->ligne(['', '', 'Facilitateur :', $nom('facilitateur'), '', '', 'Date :', $d->date_reunion->format('d/m/Y')], [2 => X::LIBELLE, 6 => X::LIBELLE])->fusionner(3, 4);
-        $f->ligne(['', '', 'Scribe (rédacteur) :', $nom('scribe'), '', '', 'Heure début :', $d->heure_debut ? substr($d->heure_debut, 0, 5) : ''], [2 => X::LIBELLE, 6 => X::LIBELLE])->fusionner(3, 4);
-        $f->ligne(['', '', 'Gardien du temps :', $nom('gardien_temps'), '', '', 'Heure fin :', $d->heure_fin ? substr($d->heure_fin, 0, 5) : ''], [2 => X::LIBELLE, 6 => X::LIBELLE])->fusionner(3, 4);
-        $f->ligne(['', '', 'Observateur :', $nom('observateur'), '', '', 'Statut :', $statut . ($d->estPublie() ? ' le ' . $d->publie_le->format('d/m/Y') : '')], [2 => X::LIBELLE, 6 => X::LIBELLE])->fusionner(3, 4)->vide();
-        $f->ligne(['', '', 'Nom', 'Présence', 'Tâches réalisées précédemment / hier', 'Détail tâches à faire ce jour', 'Durée restante (jrs/h)', 'Défis ou observations'], [2 => X::ENTETE, 3 => X::ENTETE, 4 => X::ENTETE, 5 => X::ENTETE, 6 => X::ENTETE, 7 => X::ENTETE]);
-        foreach ($d->entrees->sortBy(fn($e) => $e->user?->name) as $e) {
-            $p = $pointages[$e->user_id] ?? null;
-            $abs = $absences[$e->user_id] ?? null;
-            $presence = $p ? $p->statutLibelle() . ($p->heure_arrivee ? "\n" . substr($p->heure_arrivee, 0, 5) : '') : ($abs ? 'Absent (' . mb_strtolower($abs->labelType()) . ')' : 'Non pointé');
-            $style = match ($p?->statut ?? ($abs ? 'absent' : null)) { 'present', 'sorti_tot' => X::OK, 'absent' => X::ALERTE, default => X::CENTRE };
-            $f->ligne(['', '', $e->user?->nomComplet(), ['v' => $presence, 's' => $style], $e->taches_hier, $e->taches_jour, $e->duree_restante, $e->defis], [2 => X::STORY, 4 => X::CELLULE, 5 => X::CELLULE, 6 => X::CENTRE, 7 => X::CELLULE]);
+        $f->ligne(['', '', 'DAILY SCRUM - JOUR ' . $d->numero_jour], [2 => X::TITRE])->fusionner(2, 5)->hauteur(24)->vide();
+        $f->ligne(['', '', 'Objet', mb_strtoupper($sprint->projet->libelle)], [2 => X::FICHE_LIB, 3 => X::PROJET])->fusionner(3, 5)->hauteur(20);
+        $f->ligne(['', '', 'Objectif du sprint', $sprint->objectif], [2 => X::FICHE_LIB, 3 => X::FICHE_VAL])->fusionner(3, 5)->hauteur(self::hauteurTexte((string) $sprint->objectif, 140))->vide();
+        $f->ligne(['', '', 'Date', $d->date_reunion->translatedFormat('l d F Y'), 'Facilitateur', $nom('facilitateur')], [2 => X::FICHE_LIB, 3 => X::FICHE_VAL, 4 => X::FICHE_LIB, 5 => X::FICHE_VAL]);
+        $f->ligne(['', '', 'Horaire', ($d->heure_debut ? substr($d->heure_debut, 0, 5) : '') . ($d->heure_fin ? ' → ' . substr($d->heure_fin, 0, 5) : ''), 'Scribe (rédacteur)', $nom('scribe')], [2 => X::FICHE_LIB, 3 => X::FICHE_VAL, 4 => X::FICHE_LIB, 5 => X::FICHE_VAL]);
+        $f->ligne(['', '', 'Statut', $statut . ($d->estPublie() ? ' le ' . $d->publie_le->format('d/m/Y') : ''), 'Gardien du temps', $nom('gardien_temps')], [2 => X::FICHE_LIB, 3 => X::FICHE_VAL, 4 => X::FICHE_LIB, 5 => X::FICHE_VAL]);
+        $f->ligne(['', '', '', '', 'Observateur', $nom('observateur')], [2 => X::FICHE_LIB, 3 => X::FICHE_VAL, 4 => X::FICHE_LIB, 5 => X::FICHE_VAL])->vide();
+        $f->ligne(['', '', 'Participant', 'Réalisé (tâches précédentes / hier)', 'À faire (détail des tâches de ce jour)', 'Défis (blocages ou observations)'], [2 => X::ENTETE, 3 => X::ENTETE, 4 => X::ENTETE, 5 => X::ENTETE])->hauteur(26);
+        foreach ($d->entrees->sortBy(fn($e) => $e->user?->name)->values() as $i => $e) {
+            $s = $i % 2 ? X::CELLULE_ALT : X::CELLULE;
+            $f->ligne(['', '', $e->user?->nomComplet(), $e->taches_hier, $e->taches_jour, $e->defis], [2 => X::STORY, 3 => $s, 4 => $s, 5 => $s]);
         }
         $f->vide();
-        $f->ligne(['', '', '', 'Commentaire général / Informations du jour'], [3 => X::LIBELLE])->fusionner(3, 7);
-        $f->ligne(['', '', '', $d->commentaire_general])->fusionner(3, 7)->vide();
-        $f->ligne(['', '', '', 'Observation :', $d->observation], [3 => X::LIBELLE])->fusionner(4, 7);
+        $f->ligne(['', '', 'Commentaire général', $d->commentaire_general], [2 => X::FICHE_LIB, 3 => X::FICHE_VAL])->fusionner(3, 5)->hauteur(self::hauteurTexte((string) $d->commentaire_general, 140));
+        $f->ligne(['', '', 'Observation', $d->observation], [2 => X::FICHE_LIB, 3 => X::FICHE_VAL])->fusionner(3, 5)->hauteur(self::hauteurTexte((string) $d->observation, 140));
     }
 
     private function retrospective(Sprint $sprint): void

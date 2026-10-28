@@ -26,7 +26,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
         <h2>Rapports Daily Scrum</h2>
         <div class="crumb" style="margin-bottom:12px">Daily de sprint et hors sprint, tous projets confondus.</div>
     </div>
-    <button type="button" class="btn" onclick="document.getElementById('dlg-hs').showModal()">+ Daily hors sprint</button>
+    @if($peutCreer)<button type="button" class="btn" onclick="document.getElementById('dlg-hs').showModal()">+ Daily hors sprint</button>@endif
 </div>
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
@@ -112,6 +112,6 @@ function preselection(projet) {
     const ids = (equipes[projet] || []).map(String);
     document.querySelectorAll('.parts input').forEach(c => { c.checked = ids.includes(c.value); });
 }
-@if($errors->any() || session('erreur'))document.getElementById('dlg-hs').showModal();@endif
+@if($peutCreer && ($errors->any() || session('erreur')))document.getElementById('dlg-hs').showModal();@endif
 </script>
 @endpush

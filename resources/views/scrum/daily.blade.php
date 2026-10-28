@@ -9,11 +9,21 @@
 .dl-info .lib{font-weight:700;color:var(--bleu);font-size:12px;text-transform:uppercase}
 .dl-nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .dl-titre{font-size:13px;font-weight:700;color:var(--bleu)}
-.col-nom{width:14%}.col-pres{width:10%}.col-hier{width:20%}.col-jour{width:20%}.col-duree{width:9%}.col-defis{width:21%}.col-x{width:52px}
-.pres-h{display:block;font-size:10.5px;color:var(--gris);margin-top:3px}
+.col-nom{width:16%}.col-hier{width:28%}.col-jour{width:28%}.col-defis{width:28%}.col-x{width:52px}
 .sc-tbl td.nom small{display:block;font-weight:500;color:var(--gris);font-size:11px}
-.duree-retard{color:var(--ko);font-weight:700}
-.moi td{background:#fffbeb}
+/* Tableau du Daily : quadrillage gris sobre, en-tête raffiné */
+.dl-tbl{border-collapse:separate;border-spacing:0;border:1px solid #d1d5db;border-radius:10px;overflow:hidden}
+.dl-tbl th,.dl-tbl td{border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb}
+.dl-tbl th:last-child,.dl-tbl td:last-child{border-right:none}
+.dl-tbl tbody tr:last-child td{border-bottom:none}
+.dl-tbl thead th{background:linear-gradient(#f8fafc,#eef2f7);color:#334155;font-size:10.5px;font-weight:600;letter-spacing:.6px;padding:11px 12px;border-bottom:2px solid #cbd5e1}
+.dl-tbl thead th .tt{display:flex;align-items:center;gap:9px}
+.dl-tbl thead th .tt svg{flex:none;width:15px;height:15px;padding:6px;box-sizing:content-box;border-radius:8px;background:#eaf2fb;color:#2e74b5}
+.dl-tbl thead th .tt b{display:block;color:#2e74b5;font-weight:700}
+.dl-tbl thead th .sous{display:block;text-transform:none;letter-spacing:0;font-weight:400;font-size:10.5px;color:#64748b;margin-top:2px}
+.dl-tbl td{padding:10px 12px;vertical-align:top}
+.dl-tbl td.nom{background:#fafbfc}
+.dl-projet{display:inline-block;background:#eef4fb;color:#2e74b5;border:1px solid #bfdbfe;border-radius:7px;padding:3px 11px;font-weight:700;letter-spacing:.4px}
 .ajout-part{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0 0;font-size:12.5px}
 .ajout-part select{padding:5px 9px;border:1px solid var(--bord);border-radius:7px;font-size:12.5px;min-width:240px}
 @media(max-width:900px){.dl-tete{grid-template-columns:1fr}.dl-info{grid-template-columns:120px minmax(0,1fr)}}
@@ -38,20 +48,10 @@
 @endif
 @php
     $tout = $edition === 'tout';
-    $moi = auth()->id();
     $nomUser = fn($id) => $tousUsers->firstWhere('id', $id)?->nomComplet() ?? $membres->firstWhere('id', $id)?->nomComplet() ?? '—';
     $entrees = $daily->entrees->sortBy(fn($e) => $e->user?->name)->values();
     $autres = $tousUsers->whereNotIn('id', $membres->pluck('id'));
     $ajoutables = $tousUsers->whereNotIn('id', $entrees->pluck('user_id'));
-    // Liste de présence : référence au Pointage du jour
-    $presence = function ($uid) use ($pointages, $absences) {
-        $p = $pointages[$uid] ?? null;
-        // Sans pointage : absence déclarée dans la saisie quotidienne
-        if (!$p && ($a = $absences[$uid] ?? null)) return ['Absent (' . mb_strtolower($a->labelType()) . ')', 'b-ko', $a->motif, 'absent'];
-        $statut = $p?->statut ?? 'non_pointe';
-        return [$p ? $p->statutLibelle() : 'Non pointé', match ($statut) { 'present' => 'b-ok', 'retard' => 'b-warn', 'sorti_tot' => 'b-tot', 'absent' => 'b-ko', default => 'b-gris' },
-            $p && $p->heure_arrivee ? 'Arrivée ' . \Carbon\Carbon::parse($p->heure_arrivee)->format('H:i') : null, $statut];
-    };
     [$libStatut, $clsStatut] = $daily->statutPublication();
 @endphp
 
@@ -72,7 +72,7 @@
 </div>
 @elseif($daily->estSoumis())
 <div class="alerte info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <span><strong>En attente de validation</strong> : soumis le {{ $daily->soumis_le->format('d/m/Y à H:i') }} par {{ $daily->soumisPar?->nomComplet() ?? '—' }}. Publication après validation d'un pilote.</span>
+    <span><strong>En attente de publication</strong> : soumis le {{ $daily->soumis_le->format('d/m/Y à H:i') }} par {{ $daily->soumisPar?->nomComplet() ?? '—' }}.</span>
     @if(auth()->user()->estAdmin())
     <span style="margin-left:auto;display:flex;gap:6px">
         <button type="submit" form="f-publier" class="btn sm vert">Approuver et publier</button>
@@ -81,7 +81,6 @@
     @endif
 </div>
 @endif
-@if($edition === 'ligne')<div class="alerte info">Complétez votre ligne (surlignée).</div>@endif
 
 <form method="POST" action="{{ $daily->url('update') }}" id="f-daily">@csrf @method('PUT')
 <div class="carte" style="margin-bottom:14px">
@@ -91,9 +90,9 @@
             @if($daily->estHorsSprint() && $edition === 'tout')
             <span class="champ"><input name="objet" value="{{ $daily->objet }}" maxlength="150" placeholder="{{ $daily->contexte() }}"></span>
             @else
-            <span>{{ mb_strtoupper($daily->objet ?: ($daily->projet?->libelle ?? 'Transversal')) }}</span>
+            <span><span class="dl-projet">{{ mb_strtoupper($daily->objet ?: ($daily->projet?->libelle ?? 'Transversal')) }}</span></span>
             @endif
-            @if($daily->estHorsSprint())<span class="lib">Contexte</span><span>{{ $daily->contexte() }}</span>@endif
+            @if($daily->estHorsSprint())<span class="lib">Contexte</span><span>@if($daily->projet)<span class="dl-projet">{{ mb_strtoupper($daily->projet->libelle) }}</span>@else{{ $daily->contexte() }}@endif</span>@endif
             <span class="lib">Réunion</span><span class="dl-titre">DAILY SCRUM - JOUR {{ $daily->numero_jour }}</span>
             <span class="lib">Date</span><span>{{ ucfirst($daily->date_reunion->translatedFormat('l d F Y')) }} <span class="pill {{ $clsStatut }}" style="margin-left:6px">{{ $libStatut }}</span></span>
             @if($config['lieu'])<span class="lib">Lieu</span><span>{{ $config['lieu'] }}</span>@endif
@@ -125,29 +124,29 @@
 </div>
 
 <div class="panneau">
-<table class="sc-tbl">
+<table class="sc-tbl dl-tbl">
     <thead><tr>
-        <th class="col-nom">Nom</th><th class="col-pres">Présence</th><th class="col-hier">Tâches réalisées précédemment / hier</th><th class="col-jour">Détail tâches à faire ce jour</th>
-        <th class="col-duree ctr">Durée restante (jrs/h)</th><th class="col-defis">Défis ou observations</th>@if($tout)<th class="col-x"></th>@endif
+        @php $svg = fn($d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $d . '</svg>'; @endphp
+        <th class="col-nom"><span class="tt">{!! $svg('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>') !!}<span><b>Participant</b><span class="sous">Rôle du jour</span></span></span></th>
+        <th class="col-hier"><span class="tt">{!! $svg('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>') !!}<span><b>Réalisé</b><span class="sous">Tâches précédentes / hier</span></span></span></th>
+        <th class="col-jour"><span class="tt">{!! $svg('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>') !!}<span><b>À faire</b><span class="sous">Détail des tâches de ce jour</span></span></span></th>
+        <th class="col-defis"><span class="tt">{!! $svg('<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>') !!}<span><b>Défis</b><span class="sous">Blocages ou observations</span></span></span></th>@if($tout)<th class="col-x"></th>@endif
     </tr></thead>
     <tbody>
     @forelse($entrees as $e)
-        @php $ed = $tout || ($edition === 'ligne' && $e->user_id === $moi); @endphp
-        <tr class="{{ $e->user_id === $moi ? 'moi' : '' }}">
+        @php $ed = $tout; @endphp
+        <tr>
             <td class="nom">{{ $e->user?->nomComplet() ?? '—' }}
                 @foreach(\App\Models\DailyScrum::ROLES as $code => $lib)@if($daily->roleUserId($code) === $e->user_id)<small>{{ $lib }}</small>@endif @endforeach
             </td>
-            @php [$pLib, $pCls, $pHeure] = $presence($e->user_id); @endphp
-            <td><span class="badge {{ $pCls }}">{{ $pLib }}</span>@if($pHeure)<span class="pres-h">{{ $pHeure }}</span>@endif</td>
             @foreach(['taches_hier', 'taches_jour'] as $champ)
             <td>@if($ed)<x-redaction compact name="entrees[{{ $e->id }}][{{ $champ }}]" :value="$e->$champ" />@else<x-redaction lecture :value="$e->$champ" />@endif</td>
             @endforeach
-            <td class="ctr">@if($ed)<input name="entrees[{{ $e->id }}][duree_restante]" value="{{ $e->duree_restante }}" maxlength="20" style="text-align:center">@else<span class="{{ str_starts_with((string) $e->duree_restante, 'Retard') ? 'duree-retard' : '' }}">{{ $e->duree_restante ?: '—' }}</span>@endif</td>
             <td>@if($ed)<x-redaction compact name="entrees[{{ $e->id }}][defis]" :value="$e->defis" />@else<x-redaction lecture :value="$e->defis" />@endif</td>
             @if($tout)<td class="ctr"><button type="submit" form="f-retirer-{{ $e->id }}" class="btn sm ko" title="Retirer la ligne (absent)">✕</button></td>@endif
         </tr>
     @empty
-        <tr><td colspan="7" style="text-align:center;color:var(--gris);padding:24px">Aucune ligne : ajoutez des participants ou « Recalculer ».</td></tr>
+        <tr><td colspan="5" style="text-align:center;color:var(--gris);padding:24px">Aucune ligne : ajoutez des participants ou « Recalculer ».</td></tr>
     @endforelse
     </tbody>
 </table>
@@ -176,16 +175,12 @@
 <div class="barre-actions">
     @if($edition)<button class="btn">Enregistrer</button>@endif
     @if($tout && !$daily->estPublie() && !$daily->estSoumis())
-    @if(auth()->user()->estAdmin())
     <button type="submit" form="f-publier" class="btn vert" title="Diffuse le rapport à tous les collaborateurs">Publier le rapport</button>
-    @else
-    <button type="submit" form="f-publier" class="btn vert" title="Le rapport sera diffusé après validation d'un pilote">Soumettre pour publication</button>
-    @endif
     @endif
     @if($tout)
     <button type="submit" form="f-recalc" class="btn sec" title="Recharge hier / ce jour / durée restante depuis la planification. Les défis saisis sont conservés.">Recalculer depuis la planification</button>
     @endif
-    @if($peutGerer && (!($daily->estPublie() || $daily->estSoumis()) || auth()->user()->estAdmin()))
+    @if($peutGerer)
     <button type="submit" form="f-suppr" class="btn ko" style="margin-left:auto">Supprimer ce Daily</button>
     @endif
 </div>
@@ -201,10 +196,10 @@
 <form method="POST" action="{{ $daily->url('entree.retirer', $e) }}" id="f-retirer-{{ $e->id }}" onsubmit="return confirm('Retirer {{ addslashes($e->user?->nomComplet()) }} de ce Daily ?')">@csrf @method('DELETE')</form>
 @endforeach
 @endif
-@if(($tout || auth()->user()->estAdmin()) && !$daily->estPublie())
-<form method="POST" action="{{ $daily->url('publier') }}" id="f-publier" onsubmit="return confirm(@js(auth()->user()->estAdmin() ? 'Publier ce rapport ? Il sera visible de tous les collaborateurs.' : 'Soumettre ce rapport pour publication ? Enregistrez vos saisies avant : il ne sera plus modifiable, sauf par un pilote.'))">@csrf</form>
+@if($tout && !$daily->estPublie())
+<form method="POST" action="{{ $daily->url('publier') }}" id="f-publier" onsubmit="return confirm(@js(auth()->user()->estAdmin() ? 'Publier ce rapport ? Il sera visible de tous les collaborateurs.' : 'Publier ce rapport ? Enregistrez vos saisies avant : il sera visible de tous les collaborateurs et ne sera plus modifiable, sauf par un pilote.'))">@csrf</form>
 @endif
-@if($peutGerer && (!($daily->estPublie() || $daily->estSoumis()) || auth()->user()->estAdmin()))
+@if($peutGerer)
 <form method="POST" action="{{ $daily->url('destroy') }}" id="f-suppr" onsubmit="return demanderMotifSuppression(this,'ce Daily')">@csrf @method('DELETE')
     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
 </form>

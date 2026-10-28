@@ -14,8 +14,8 @@ class ClasseurXlsx
 {
     // Index des styles (cellXfs)
     public const NORMAL = 0;
-    public const TITRE = 1;      // gras 14, bleu foncé
-    public const ENTETE = 2;     // blanc sur bleu, bordé
+    public const TITRE = 1;      // gras 16, bleu foncé
+    public const ENTETE = 2;     // bleu sur bleu clair, souligné
     public const CELLULE = 3;    // bordée, retour à la ligne
     public const MODULE = 4;     // ligne de regroupement (bleu clair)
     public const LIBELLE = 5;    // gras
@@ -24,6 +24,10 @@ class ClasseurXlsx
     public const SOUS_TITRE = 8; // gras 12, bleu
     public const ALERTE = 9;     // bordée, rouge (retard)
     public const OK = 10;        // bordée, vert (réalisé)
+    public const FICHE_LIB = 11; // libellé de fiche (bleu, fond très clair)
+    public const FICHE_VAL = 12; // valeur de fiche (gris)
+    public const PROJET = 13;    // nom du projet mis en évidence
+    public const CELLULE_ALT = 14; // cellule de ligne alternée
 
     /** @var array<int, array{nom:string, lignes:array, fusions:array, largeurs:array}> */
     private array $feuilles = [];
@@ -90,37 +94,60 @@ class ClasseurXlsx
 
     private function styles(): string
     {
-        $bord = '<left style="thin"><color rgb="FF9CA3AF"/></left><right style="thin"><color rgb="FF9CA3AF"/></right><top style="thin"><color rgb="FF9CA3AF"/></top><bottom style="thin"><color rgb="FF9CA3AF"/></bottom><diagonal/>';
-        $haut = '<alignment vertical="top" wrapText="1"/>';
+        // Quadrillage gris sobre ; en-tête bleu clair souligné d'un trait bleu
+        $gris = fn($c = 'FFD1D5DB') => "<color rgb=\"{$c}\"/>";
+        $bord = '<left style="thin">' . $gris() . '</left><right style="thin">' . $gris() . '</right><top style="thin">' . $gris() . '</top><bottom style="thin">' . $gris() . '</bottom><diagonal/>';
+        $bordEntete = '<left style="thin">' . $gris() . '</left><right style="thin">' . $gris() . '</right><top style="thin">' . $gris() . '</top><bottom style="medium">' . $gris('FF2E74B5') . '</bottom><diagonal/>';
+        $haut = '<alignment horizontal="left" vertical="top" wrapText="1" indent="1"/>';
         $centre = '<alignment horizontal="center" vertical="center" wrapText="1"/>';
+        $milieu = '<alignment horizontal="left" vertical="center" wrapText="1" indent="1"/>';
+        $police = fn(string $attr, string $taille, string $couleur) => "<font>{$attr}<sz val=\"{$taille}\"/><color rgb=\"{$couleur}\"/><name val=\"Calibri\"/></font>";
+        $fond = fn(string $c) => "<fill><patternFill patternType=\"solid\"><fgColor rgb=\"{$c}\"/><bgColor indexed=\"64\"/></patternFill></fill>";
+        $xf = fn(int $font, int $fill, int $border, string $align = '') => "<xf numFmtId=\"0\" fontId=\"{$font}\" fillId=\"{$fill}\" borderId=\"{$border}\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\">{$align}</xf>";
+
+        $fonts = [
+            $police('', '11', 'FF334155'),          // 0 texte
+            $police('<b/>', '11', 'FF1F2937'),      // 1 gras
+            $police('<b/>', '16', 'FF1F4E79'),      // 2 titre
+            $police('<b/>', '11', 'FF2E74B5'),      // 3 en-tête
+            $police('<b/>', '12', 'FF2E74B5'),      // 4 sous-titre
+            $police('<b/>', '11', 'FF991B1B'),      // 5 alerte
+            $police('<b/>', '11', 'FF166534'),      // 6 réalisé
+            $police('<b/>', '10', 'FF2E74B5'),      // 7 libellé de fiche
+            $police('', '11', 'FF64748B'),          // 8 valeur de fiche (gris)
+            $police('<b/>', '12', 'FF1F4E79'),      // 9 nom du projet
+        ];
+        $fills = [
+            '<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>',
+            $fond('FFBFDBFE'), // 2 en-tête
+            $fond('FFEAF1FB'), // 3 regroupement
+            $fond('FFF3F4F6'), // 4 ligne user story / participant
+            $fond('FFF8FBFF'), // 5 libellé de fiche
+            $fond('FFDBEAFE'), // 6 projet
+            $fond('FFF9FAFB'), // 7 ligne alternée
+        ];
+        $xfs = [
+            '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>', // NORMAL
+            $xf(2, 0, 0, '<alignment vertical="center"/>'), // TITRE
+            $xf(3, 2, 2, $centre),   // ENTETE
+            $xf(0, 0, 1, $haut),     // CELLULE
+            $xf(1, 3, 1, $milieu),   // MODULE
+            $xf(1, 0, 0, '<alignment vertical="top" wrapText="1"/>'), // LIBELLE
+            $xf(1, 4, 1, $haut),     // STORY
+            $xf(0, 0, 1, $centre),   // CENTRE
+            $xf(4, 0, 0, '<alignment vertical="center"/>'), // SOUS_TITRE
+            $xf(5, 0, 1, $centre),   // ALERTE
+            $xf(6, 0, 1, $centre),   // OK
+            $xf(7, 5, 1, $milieu),   // FICHE_LIB
+            $xf(8, 0, 1, $haut),     // FICHE_VAL
+            $xf(9, 6, 1, $milieu),   // PROJET
+            $xf(0, 7, 1, $haut),     // CELLULE_ALT
+        ];
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-            . '<fonts count="7">'
-            . '<font><sz val="11"/><name val="Calibri"/></font>'
-            . '<font><b/><sz val="11"/><name val="Calibri"/></font>'
-            . '<font><b/><sz val="14"/><color rgb="FF1F4E79"/><name val="Calibri"/></font>'
-            . '<font><b/><sz val="11"/><color rgb="FF2E74B5"/><name val="Calibri"/></font>'
-            . '<font><b/><sz val="12"/><color rgb="FF2E74B5"/><name val="Calibri"/></font>'
-            . '<font><b/><sz val="11"/><color rgb="FF991B1B"/><name val="Calibri"/></font>'
-            . '<font><b/><sz val="11"/><color rgb="FF166534"/><name val="Calibri"/></font>'
-            . '</fonts>'
-            . '<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
-            . '<fill><patternFill patternType="solid"><fgColor rgb="FFBFDBFE"/><bgColor indexed="64"/></patternFill></fill>'
-            . '<fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill>'
-            . '<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill></fills>'
-            . '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border>' . $bord . '</border></borders>'
+            . '<fonts count="' . count($fonts) . '">' . implode('', $fonts) . '</fonts>'
+            . '<fills count="' . count($fills) . '">' . implode('', $fills) . '</fills>'
+            . '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border>' . $bord . '</border><border>' . $bordEntete . '</border></borders>'
             . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="11">'
-            . '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">' . $haut . '</xf>'
-            . '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-            . '<xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' . $centre . '</xf>'
-            . '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1">' . $haut . '</xf>'
-            . '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'
-            . '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">' . $haut . '</xf>'
-            . '<xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' . $haut . '</xf>'
-            . '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1">' . $centre . '</xf>'
-            . '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-            . '<xf numFmtId="0" fontId="5" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">' . $centre . '</xf>'
-            . '<xf numFmtId="0" fontId="6" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">' . $centre . '</xf>'
-            . '</cellXfs></styleSheet>';
+            . '<cellXfs count="' . count($xfs) . '">' . implode('', $xfs) . '</cellXfs></styleSheet>';
     }
 }

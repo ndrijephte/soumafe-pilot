@@ -57,7 +57,7 @@ class BlocageController extends Controller
             NotificationApp::create([
                 'user_id' => $r->intervenant_id,
                 'type'    => 'blocage',
-                'contenu' => 'Vous êtes sollicité pour un blocage (' . $typeLabel . ') sur « ' . Str::limit($tache->intitule, 35) . ' » — ' . $r->user()->nomComplet(),
+                'contenu' => 'Vous êtes sollicité pour un blocage (' . $typeLabel . ') sur « ' . Str::limit($tache->intitule, 35) . ' » - ' . $r->user()->nomComplet(),
                 'lu'      => false,
             ]);
         }
@@ -71,7 +71,7 @@ class BlocageController extends Controller
             route('taches.show', $tache)
         );
 
-        return back()->with('succes', 'Blocage signalé — la tâche passe en « Bloqué ».');
+        return back()->with('succes', 'Blocage signalé - la tâche passe en « Bloqué ».');
     }
 
     /** Lever un blocage. */

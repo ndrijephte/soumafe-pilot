@@ -74,7 +74,7 @@
             <dt>Rédacteur</dt><dd>{{ $cr->redacteur?->nomComplet() ?? '—' }}</dd>
             <dt>Désigné par</dt><dd>{{ $cr->designePar?->nomComplet() ?? '—' }}</dd>
             @if($cr->sprint)
-            <dt>Sprint</dt><dd>Sprint {{ $cr->sprint->numero }} — {{ $cr->sprint->projet?->libelle ?? '' }}</dd>
+            <dt>Sprint</dt><dd>Sprint {{ $cr->sprint->numero }} - {{ $cr->sprint->projet?->libelle ?? '' }}</dd>
             @endif
         </dl>
     </div>
@@ -204,8 +204,8 @@
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:10px 16px;background:#EFF4FB;border-radius:10px">
                 <div style="font-size:.85rem;color:#64748b">
                     Sprint : <strong style="color:var(--bleu)">{{ $d['sprint'] ?? '---' }}</strong>
-                    &mdash; Projet : <strong style="color:var(--bleu)">{{ $d['projet'] ?? '---' }}</strong>
-                    &mdash; Score : <strong style="color:var(--bleu)">{{ $d['score_pourcent'] ?? 0 }}%</strong>
+                    - Projet : <strong style="color:var(--bleu)">{{ $d['projet'] ?? '---' }}</strong>
+                    - Score : <strong style="color:var(--bleu)">{{ $d['score_pourcent'] ?? 0 }}%</strong>
                 </div>
             </div>
 
@@ -359,7 +359,7 @@
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             Version PDF
         </a>
-        @if(auth()->user()->estPilote())
+        @if($cr->estConfirme() ? auth()->user()->estAdmin() : auth()->user()->estPilote())
         <form method="POST" action="{{ route('comptes-rendus.destroy', $cr) }}" style="margin:0" onsubmit="return demanderMotifSuppression(this,'ce compte rendu')">
             @csrf @method('DELETE')
             <input type="hidden" name="motif_suppression" class="motif-suppr-input">

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('sousTitre', 'Administration')
-@section('titre', 'Administration — Pôles')
+@section('titre', 'Administration - Pôles')
 @push('styles')
 <style>
 .admin-tbl{width:100%;border-collapse:collapse;font-size:13px}

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('sousTitre', 'Vue pilotage')
-@section('titre', 'Tableau de bord — Pilotage')
+@section('titre', 'Tableau de bord - Pilotage')
 @push('styles')
 <style>
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
@@ -40,7 +40,7 @@
 @endpush
 @section('contenu')
 <h2>Bonjour, {{ auth()->user()->prenom ?? auth()->user()->name }}</h2>
-<div class="crumb">{{ now()->translatedFormat('l j F Y') }} &mdash; Pilotage des op&eacute;rations</div>
+<div class="crumb">{{ now()->translatedFormat('l j F Y') }} - Pilotage des op&eacute;rations</div>
 
 {{-- Bannière pointage (masquée les jours non ouvrés) --}}
 @if(($pointageActif ?? true) && isset($monPointage))
@@ -56,7 +56,7 @@
             @elseif(!$dejaParti)
                 <strong style="color:var(--ok);display:block">En poste depuis {{ \Carbon\Carbon::parse($monPointage->heure_arrivee)->format('H:i') }}</strong>Bonne journée !
             @else
-                <strong style="color:var(--bleu);display:block">Journée terminée</strong>{{ \Carbon\Carbon::parse($monPointage->heure_arrivee)->format('H:i') }} — {{ \Carbon\Carbon::parse($monPointage->heure_depart)->format('H:i') }} ({{ $monPointage->dureeFormatee() }})
+                <strong style="color:var(--bleu);display:block">Journée terminée</strong>{{ \Carbon\Carbon::parse($monPointage->heure_arrivee)->format('H:i') }} - {{ \Carbon\Carbon::parse($monPointage->heure_depart)->format('H:i') }} ({{ $monPointage->dureeFormatee() }})
             @endif
         </div>
     </div>
@@ -198,7 +198,7 @@
         @forelse($sprintsEnCours as $s)
         <div class="sprint-item">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-                <span style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} &mdash; {{ $s->projet->libelle ?? '' }}</span>
+                <span style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} - {{ $s->projet->libelle ?? '' }}</span>
                 @if($s->jours_restants !== null)
                 <span class="badge {{ $s->jours_restants <= 3 ? 'b-ko' : 'b-ok' }}">{{ $s->jours_restants }}j</span>
                 @endif

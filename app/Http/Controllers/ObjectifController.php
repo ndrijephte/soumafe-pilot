@@ -51,7 +51,7 @@ class ObjectifController extends Controller
                 ->whereNotIn('role', ['invite', 'direction'])
                 ->orderBy('name')->get();
 
-            // Tous les objectifs (individuel + projet) — vue unifiée par collaborateur
+            // Tous les objectifs (individuel + projet) - vue unifiée par collaborateur
             $q = Objectif::with($eagerLoad)->where('periode', $periode);
             if ($filtreUser) $q->where('user_id', $filtreUser);
             if ($filtreProjet) $q->where('projet_id', $filtreProjet);
@@ -82,7 +82,7 @@ class ObjectifController extends Controller
             ));
         }
 
-        // Collaborateur — vue unifiée (individuel + projet)
+        // Collaborateur - vue unifiée (individuel + projet)
         $mesObjectifs = Objectif::with($eagerLoad)
             ->where('user_id', $user->id)
             ->where('periode', $periode)
@@ -146,7 +146,7 @@ class ObjectifController extends Controller
         try {
             Objectif::create($data);
         } catch (\Illuminate\Database\QueryException $e) {
-            return back()->with('erreur', 'Erreur base de données — exécutez "php artisan migrate" puis réessayez. Détail : ' . $e->getMessage())->withInput();
+            return back()->with('erreur', 'Erreur base de données - exécutez "php artisan migrate" puis réessayez. Détail : ' . $e->getMessage())->withInput();
         }
 
         return back()->with('succes', 'Objectif ajouté.');
@@ -225,7 +225,7 @@ class ObjectifController extends Controller
         try {
             $objectif->update($data);
         } catch (\Illuminate\Database\QueryException $e) {
-            return back()->with('erreur', 'Erreur base de données — exécutez "php artisan migrate". Détail : ' . $e->getMessage())->withInput();
+            return back()->with('erreur', 'Erreur base de données - exécutez "php artisan migrate". Détail : ' . $e->getMessage())->withInput();
         }
 
         // Snapshot historique si avancement a changé
@@ -240,7 +240,7 @@ class ObjectifController extends Controller
     {
         abort_unless($r->user()->estPilote(), 403);
         if (!Schema::hasColumn('objectifs', 'evaluation')) {
-            return back()->with('erreur', 'Colonne evaluation absente — exécutez php artisan migrate.');
+            return back()->with('erreur', 'Colonne evaluation absente - exécutez php artisan migrate.');
         }
         $r->validate(['periode' => 'required|string|max:20']);
 
@@ -375,7 +375,7 @@ class ObjectifController extends Controller
                 Objectif::create($dataImport);
                 $importees++;
             } catch (\Illuminate\Database\QueryException $e) {
-                $erreurs[] = "Ligne {$numLigne} : erreur base de données — " . $e->getMessage();
+                $erreurs[] = "Ligne {$numLigne} : erreur base de données - " . $e->getMessage();
                 $ignores++;
             }
         }
@@ -414,7 +414,7 @@ class ObjectifController extends Controller
                 'ordre' => $ordre,
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
-            return back()->with('erreur', 'Erreur — exécutez php artisan migrate. ' . $e->getMessage());
+            return back()->with('erreur', 'Erreur - exécutez php artisan migrate. ' . $e->getMessage());
         }
 
         return back()->with('succes', 'Résultat clé ajouté.');

@@ -8,14 +8,14 @@ use Illuminate\Support\Facades\{DB, Schema};
 class ControleSaisie extends Command
 {
     protected $signature = 'soumafe:controle-saisie {--date= : Date à contrôler (défaut : hier)}';
-    protected $description = 'Contrôle d\'assiduité quotidienne — vérifie si les tâches planifiées ont été confirmées';
+    protected $description = 'Contrôle d\'assiduité quotidienne - vérifie si les tâches planifiées ont été confirmées';
 
     public function handle(): int
     {
         $date = $this->option('date') ? \Carbon\Carbon::parse($this->option('date')) : today()->subDay();
 
-        if ($date->isWeekend()) { $this->info("$date est un week-end — pas de contrôle."); return 0; }
-        if (JourFerie::whereDate('date', $date)->exists()) { $this->info("$date est un jour férié — pas de contrôle."); return 0; }
+        if ($date->isWeekend()) { $this->info("$date est un week-end - pas de contrôle."); return 0; }
+        if (JourFerie::whereDate('date', $date)->exists()) { $this->info("$date est un jour férié - pas de contrôle."); return 0; }
 
         $users = User::where('actif', true)
             ->whereNotIn('role', ['direction', 'invite'])

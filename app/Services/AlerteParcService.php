@@ -30,7 +30,7 @@ class AlerteParcService
 
         if ($maintRetard->count() > 0) {
             $details = $maintRetard->take(3)->map(fn($m) =>
-                ($m->vehicule->immatriculation ?? '?') . ' — ' . $m->typeLabel()
+                ($m->vehicule->immatriculation ?? '?') . ' - ' . $m->typeLabel()
             )->join(', ');
 
             $contenu = $maintRetard->count() . ' maintenance(s) en retard : ' . $details;
@@ -48,7 +48,7 @@ class AlerteParcService
 
         if ($maintProche->count() > 0) {
             $details = $maintProche->take(3)->map(fn($m) =>
-                ($m->vehicule->immatriculation ?? '?') . ' — ' . $m->typeLabel() .
+                ($m->vehicule->immatriculation ?? '?') . ' - ' . $m->typeLabel() .
                 ' (' . $m->prochaine_echeance->format('d/m') . ')'
             )->join(', ');
 
@@ -86,7 +86,7 @@ class AlerteParcService
 
             if ($penImpayees->count() > 0) {
                 $totalMontant = $penImpayees->sum('montant');
-                $contenu = $penImpayees->count() . ' pénalité(s) impayée(s) — total : ' .
+                $contenu = $penImpayees->count() . ' pénalité(s) impayée(s) - total : ' .
                     number_format($totalMontant, 0, ',', ' ') . ' FCFA';
 
                 self::creerSiAbsent($destinataires, 'alerte_penalite_impayee', $contenu, $aujourdhui);
@@ -101,7 +101,7 @@ class AlerteParcService
 
         if ($pannesAgees->count() > 0) {
             $details = $pannesAgees->take(3)->map(fn($p) =>
-                ($p->vehicule->immatriculation ?? '?') . ' — ' .
+                ($p->vehicule->immatriculation ?? '?') . ' - ' .
                 $p->date_declaration->diffInDays(today()) . 'j'
             )->join(', ');
 

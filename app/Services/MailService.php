@@ -30,7 +30,7 @@ class MailService
 
             return true;
         } catch (\Throwable $e) {
-            Log::warning('MailService::notifier échoué — ' . $e->getMessage());
+            Log::warning('MailService::notifier échoué - ' . $e->getMessage());
             return false;
         }
     }

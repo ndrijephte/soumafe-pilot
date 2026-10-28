@@ -149,7 +149,7 @@
         <label id="lbl-exercice">{{ $periode === 'trois_exercices' ? 'Jusqu\'à l\'exercice' : 'Exercice' }}</label>
         <select name="exercice">
             @foreach($exercices as $cle => $ex)
-            <option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $loop->first ? ' — en cours' : '' }}</option>
+            <option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $loop->first ? ' - en cours' : '' }}</option>
             @endforeach
         </select>
     </div>
@@ -552,7 +552,7 @@
 
 {{-- ═══ DÉTAIL JOUR PAR JOUR (filtre véhicule ou chauffeur) ═══ --}}
 @if($detailJour->isNotEmpty())
-<div class="rp-titre">Détail jour par jour — {{ $filtreNom }}</div>
+<div class="rp-titre">Détail jour par jour - {{ $filtreNom }}</div>
 <div class="rp-section">
     @php
         $dtRec = $detailJour->sum('recette'); $dtObj = $detailJour->sum('objectif');
@@ -571,7 +571,7 @@
             <td class="num">{{ $F($dj->objectif) }}</td>
             <td class="num {{ $ec >= 0 ? 'pos' : 'neg' }}">{{ $signe($ec) }}</td>
             <td>{{ $dj->mode_remise ? ucfirst(str_replace('_', ' ', $dj->mode_remise)) : '—' }}</td>
-            <td>@if($dj->motif_absence)<span style="color:var(--ko);font-weight:600">{{ \App\Models\TypeParc::libelleMotif($dj->motif_absence) }}</span>@else — @endif</td>
+            <td>@if($dj->motif_absence)<span style="color:var(--ko);font-weight:600">{{ \App\Models\TypeParc::libelleMotif($dj->motif_absence) }}</span>@else - @endif</td>
         </tr>
         @endforeach
         </tbody>
@@ -587,7 +587,7 @@
 
 {{-- ═══ OKR ═══ --}}
 @if($okrGestionnaire || $okrChauffeurs->isNotEmpty())
-<div class="rp-titre">Objectifs OKR — exercice {{ \App\Services\ExerciceParc::nom($periodeOkr) }}</div>
+<div class="rp-titre">Objectifs OKR - exercice {{ \App\Services\ExerciceParc::nom($periodeOkr) }}</div>
 <div class="rp-section">
     <table class="rp-tbl">
         <thead><tr><th>Personne</th><th class="num">Objectifs</th><th class="num">Atteints</th><th>Score</th></tr></thead>

@@ -60,6 +60,8 @@
         <option value="reunion_ordinaire" @selected(request('type')==='reunion_ordinaire')>Réunion ordinaire</option>
         <option value="reunion_extraordinaire" @selected(request('type')==='reunion_extraordinaire')>Réunion extraordinaire</option>
         <option value="demo_sprint" @selected(request('type')==='demo_sprint')>Démonstration sprint</option>
+        <option value="review_sprint" @selected(request('type')==='review_sprint')>Review de sprint</option>
+        <option value="retrospective" @selected(request('type')==='retrospective')>Rétrospective</option>
     </select>
     <span class="sep"></span>
     <label>Rédacteur</label>
@@ -98,12 +100,17 @@
             </div>
         </div>
         <div class="cr-actions">
+            @if($cr->estScrum())
+            <a href="{{ $cr->lienScrum() }}" class="btn-voir">Consulter</a>
+            <a href="{{ route('scrum.archive', $cr->sprint_id) }}" class="btn-dl" title="Archive Scrum du sprint">Excel</a>
+            @else
             <a href="{{ route('comptes-rendus.show', $cr) }}" class="btn-voir">Consulter</a>
-            @if($cr->estBrouillon() && ($user->estPilote() || $cr->redacteur_id === $user->id))
-            <a href="{{ route('comptes-rendus.edit', $cr) }}" class="btn-voir" style="background:#fff7ed;color:#c2410c">Éditer</a>
+            @if($cr->estBrouillon() ? ($user->estPilote() || $cr->redacteur_id === $user->id) : $user->estAdmin())
+            <a href="{{ route('comptes-rendus.edit', $cr) }}" class="btn-voir" style="background:#fff7ed;color:#c2410c" @if($cr->estConfirme()) title="Compte rendu publié : modification réservée aux pilotes (administrateur, chargé des opérations)" @endif>Éditer</a>
             @endif
             @if($cr->estConfirme())
             <a href="{{ route('comptes-rendus.telecharger', $cr) }}" class="btn-dl">DOCX</a>
+            @endif
             @endif
         </div>
     </div>

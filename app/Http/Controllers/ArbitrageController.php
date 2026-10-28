@@ -69,8 +69,8 @@ class ArbitrageController extends Controller
         ]);
 
         $msg = $r->decision === 'accorde'
-            ? 'Arbitrage T3 accordé — l\'impact sprint est neutralisé.'
-            : 'Arbitrage T3 refusé — la tâche reste à la charge du collaborateur.';
+            ? 'Arbitrage T3 accordé - l\'impact sprint est neutralisé.'
+            : 'Arbitrage T3 refusé - la tâche reste à la charge du collaborateur.';
 
         NotificationApp::create([
             'user_id' => $arbitrage->demandeur_id,

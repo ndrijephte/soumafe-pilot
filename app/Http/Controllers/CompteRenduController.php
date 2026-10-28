@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{CompteRendu, NotificationApp, Projet, Sprint, Tache, User, Blocage, Evenement};
+use App\Models\{AuditLog, CompteRendu, NotificationApp, Projet, Sprint, Tache, User, Blocage, Evenement};
 use App\Services\MailService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -17,6 +17,9 @@ class CompteRenduController extends Controller
 
         if (!$user->estPilote() && !$user->aRole('direction')) {
             $query->where(fn($q) => $q->where('redacteur_id', $user->id)->orWhere('statut', 'confirme'));
+            $query->where(fn($q) => $q->whereNotIn('type', ['review_sprint', 'retrospective'])
+                ->orWhereHas('sprint.projet', fn($p) => $p->where('responsable_projet_id', $user->id)
+                    ->orWhereHas('collaborateurs', fn($c) => $c->where('user_id', $user->id)->where('actif', true))));
         }
         if ($type = $r->get('type')) $query->where('type', $type);
         if ($redacteur = $r->get('redacteur_id')) $query->where('redacteur_id', $redacteur);
@@ -41,7 +44,16 @@ class CompteRenduController extends Controller
         $sprints = Sprint::with('projet')->orderByDesc('date_debut')->get();
         $projets = Projet::where('statut', 'actif')->orderBy('libelle')->get();
 
-        return view('comptes-rendus.create', compact('type', 'collaborateurs', 'tousUsers', 'sprints', 'projets', 'sprintId', 'user'));
+        $scribe = \App\Services\RedacteurDuJour::id(today());
+        return view('comptes-rendus.create', compact('type', 'collaborateurs', 'tousUsers', 'sprints', 'projets', 'sprintId', 'user', 'scribe'));
+    }
+
+    /** Scribe du jour au planning des réunions : rédacteur proposé pour les rapports de cette date. */
+    public function scribe(Request $r)
+    {
+        $r->validate(['date' => 'required|date']);
+        $u = \App\Services\RedacteurDuJour::user($r->date);
+        return response()->json(['id' => $u?->id, 'nom' => $u?->nomComplet()]);
     }
 
     public function designer(Request $r)
@@ -82,11 +94,12 @@ class CompteRenduController extends Controller
             $cr->save();
 
             // Notification rédacteur
-            if (Schema::hasTable('notification_apps')) {
+            if (Schema::hasTable('notifications_app')) {
                 NotificationApp::create([
                     'user_id' => $v['redacteur_id'],
                     'type'    => 'designation_cr',
-                    'message' => "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
+                    'lu' => false, 'canal' => 'in_app',
+                    'contenu' => "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
                     'lien'    => route('comptes-rendus.edit', $cr),
                 ]);
             }
@@ -111,6 +124,7 @@ class CompteRenduController extends Controller
     /* ===== ÉDITION ===== */
     public function edit(Request $r, CompteRendu $cr)
     {
+        if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         $user = $r->user();
         if ($cr->estConfirme()) {
             abort_unless($user->estAdmin(), 403);
@@ -139,6 +153,7 @@ class CompteRenduController extends Controller
 
     public function update(Request $r, CompteRendu $cr)
     {
+        if ($cr->estScrum()) return redirect($cr->lienScrum() ?? route('comptes-rendus.index'));
         $user = $r->user();
         // Brouillon : pilote ou rédacteur. Confirmé : admin uniquement.
         if ($cr->estConfirme()) {
@@ -226,8 +241,8 @@ class CompteRenduController extends Controller
 
         if ((int) $cr->redacteur_id !== (int) $ancienRedacteur && ($redacteur = User::find($cr->redacteur_id))) {
             $msg = "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y');
-            if (Schema::hasTable('notification_apps')) {
-                NotificationApp::create(['user_id' => $redacteur->id, 'type' => 'designation_cr', 'message' => $msg, 'lien' => route('comptes-rendus.edit', $cr)]);
+            if (Schema::hasTable('notifications_app')) {
+                NotificationApp::create(['user_id' => $redacteur->id, 'type' => 'designation_cr', 'contenu' => $msg, 'lu' => false, 'canal' => 'in_app', 'lien' => route('comptes-rendus.edit', $cr)]);
             }
             MailService::notifier($redacteur, 'Désignation rédacteur', $msg . " par " . $user->nomComplet() . ".\nMerci de compléter le compte rendu dans l'application.", route('comptes-rendus.edit', $cr));
         }
@@ -244,6 +259,7 @@ class CompteRenduController extends Controller
     /* ===== CONFIRMATION ===== */
     public function confirmer(Request $r, CompteRendu $cr)
     {
+        if ($cr->estScrum()) return redirect($cr->lienScrum() ?? route('comptes-rendus.index'));
         $user = $r->user();
         abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
 
@@ -253,13 +269,14 @@ class CompteRenduController extends Controller
             $cr->save();
             $this->genererDocx($cr);
 
-            if (Schema::hasTable('notification_apps')) {
+            if (Schema::hasTable('notifications_app')) {
                 // Notifier le désignateur
                 if ((int)$cr->designe_par !== (int)$user->id) {
                     NotificationApp::create([
                         'user_id' => $cr->designe_par,
                         'type'    => 'cr_confirme',
-                        'message' => "{$user->nomComplet()} a confirmé le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
+                        'lu' => false, 'canal' => 'in_app',
+                        'contenu' => "{$user->nomComplet()} a confirmé le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
                         'lien'    => route('comptes-rendus.show', $cr),
                     ]);
                 }
@@ -282,7 +299,8 @@ class CompteRenduController extends Controller
                             NotificationApp::create([
                                 'user_id' => $target->id,
                                 'type'    => 'cr_action',
-                                'message' => "Une action vous concerne dans le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
+                                'lu' => false, 'canal' => 'in_app',
+                                'contenu' => "Une action vous concerne dans le {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y'),
                                 'lien'    => route('comptes-rendus.show', $cr),
                             ]);
                             // E-mail
@@ -306,7 +324,7 @@ class CompteRenduController extends Controller
     /* ===== SUPPRESSION ===== */
     public function destroy(Request $r, CompteRendu $cr)
     {
-        abort_unless($r->user()->estPilote(), 403);
+        abort_unless($cr->estConfirme() ? $r->user()->estAdmin() : $r->user()->estPilote(), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5']);
 
         // Supprimer le fichier DOCX associé
@@ -315,6 +333,7 @@ class CompteRenduController extends Controller
         }
 
         $titre = $cr->titre;
+        AuditLog::log('suppression_cr', 'comptes_rendus', $titre, $cr->typeCourt() . ' du ' . $cr->date_reunion?->format('d/m/Y') . ' - Motif : ' . $r->motif_suppression);
         $cr->delete();
         return redirect()->route('comptes-rendus.index')->with('ok', "Compte rendu « {$titre} » supprimé.");
     }
@@ -322,6 +341,7 @@ class CompteRenduController extends Controller
     /* ===== CONSULTATION ===== */
     public function show(Request $r, CompteRendu $cr)
     {
+        if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         $user = $r->user();
         $donnees = $cr->getDonnees();
         $cr->load(['redacteur', 'designePar', 'president', 'sprint']);
@@ -331,6 +351,7 @@ class CompteRenduController extends Controller
     /* ===== TÉLÉCHARGEMENT ===== */
     public function telecharger(CompteRendu $cr)
     {
+        if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         if (!$cr->fichier_path || !file_exists(storage_path('app/' . $cr->fichier_path))) {
             $this->genererDocx($cr);
         }
@@ -342,6 +363,7 @@ class CompteRenduController extends Controller
     /* ===== IMPRESSION PDF (via navigateur) ===== */
     public function imprimer(CompteRendu $cr)
     {
+        if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         $cr->load(['redacteur', 'designePar', 'president', 'sprint.projet']);
         return view('comptes-rendus.pdf', compact('cr'));
     }
@@ -470,7 +492,7 @@ class CompteRenduController extends Controller
     }
 
     /* ===================================================================
-     *  GÉNÉRATION DOCX — Times New Roman 12pt, interligne 1,5, logo
+     *  GÉNÉRATION DOCX - Times New Roman 12pt, interligne 1,5, logo
      * =================================================================== */
 
     private function genererDocx(CompteRendu $cr): void
@@ -504,7 +526,7 @@ class CompteRenduController extends Controller
         $redTitre = $redacteur?->titre_poste ?? '';
         $projetNom = $cr->sprint?->projet?->libelle ?? 'SOUMAFÊ';
         $typeLabel = $cr->type === 'reunion_ordinaire' ? 'Réunion ordinaire' : 'Réunion extraordinaire';
-        $headerLine = "SOUMAFÊ — {$projetNom} | Compte-rendu de {$typeLabel}";
+        $headerLine = "SOUMAFÊ - {$projetNom} | Compte-rendu de {$typeLabel}";
 
         $xml = $this->docxHeader();
 
@@ -518,7 +540,7 @@ class CompteRenduController extends Controller
 
         // Encadré rédacteur
         $redLigne = "Rédigé par : {$redNom}";
-        if ($redTitre) $redLigne .= " — {$redTitre}, SOUMAFÊ";
+        if ($redTitre) $redLigne .= " - {$redTitre}, SOUMAFÊ";
         $xml .= $this->encadre($redLigne);
         $xml .= $this->p('');
 
@@ -622,7 +644,7 @@ class CompteRenduController extends Controller
         $redTitre = $redacteur?->titre_poste ?? '';
         $projetNom = $cr->sprint?->projet?->libelle ?? $d['projet'] ?? 'SOUMAFÊ';
         $sprintLabel = $d['sprint'] ?? 'Sprint';
-        $headerLine = "SOUMAFÊ — {$projetNom} | Compte-rendu de démonstration — {$sprintLabel}";
+        $headerLine = "SOUMAFÊ - {$projetNom} | Compte-rendu de démonstration - {$sprintLabel}";
 
         $xml = $this->docxHeader();
 
@@ -635,7 +657,7 @@ class CompteRenduController extends Controller
 
         // Encadré rédacteur
         $redLigne = "Rédigé par : {$redNom}";
-        if ($redTitre) $redLigne .= " — {$redTitre}, SOUMAFÊ";
+        if ($redTitre) $redLigne .= " - {$redTitre}, SOUMAFÊ";
         $xml .= $this->encadre($redLigne);
         $xml .= $this->p('');
 
@@ -718,7 +740,7 @@ class CompteRenduController extends Controller
                         $appreciation = $scorePct >= 90 ? 'Excellent' : ($scorePct >= 75 ? 'Bon' : ($scorePct >= 50 ? 'Acceptable' : 'Insuffisant'));
                         $xml .= $this->bilanBloc(
                             'Résultat global',
-                            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) — {$appreciation}",
+                            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) - {$appreciation}",
                             $scorePct >= 75 ? 'F0F7ED' : ($scorePct >= 50 ? 'FFF8E1' : 'FEECEC'),
                             $scorePct >= 75 ? '2E8B57' : ($scorePct >= 50 ? 'E6A817' : 'CC3333')
                         );
@@ -819,7 +841,7 @@ class CompteRenduController extends Controller
             );
             $devPct = $devTotal > 0 ? round($devRealise / $devTotal * 100) : 0;
             $xml .= $this->bilanBloc(
-                "Bilan — {$devNom}",
+                "Bilan - {$devNom}",
                 "Score : {$devRealise}/{$devTotal} pts ({$devPct}%)",
                 $devPct >= 80 ? 'F0F7ED' : ($devPct >= 50 ? 'FFF8E1' : 'FEECEC'),
                 $devPct >= 80 ? '2E8B57' : ($devPct >= 50 ? 'E6A817' : 'CC3333')
@@ -835,7 +857,7 @@ class CompteRenduController extends Controller
         $appreciation = $scorePct >= 90 ? 'Excellent' : ($scorePct >= 75 ? 'Bon' : ($scorePct >= 50 ? 'Acceptable' : 'Insuffisant'));
         $xml .= $this->bilanBloc(
             'Résultat global',
-            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) — Appréciation : {$appreciation}",
+            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) - Appréciation : {$appreciation}",
             $scorePct >= 75 ? 'F0F7ED' : ($scorePct >= 50 ? 'FFF8E1' : 'FEECEC'),
             $scorePct >= 75 ? '2E8B57' : ($scorePct >= 50 ? 'E6A817' : 'CC3333')
         );
@@ -901,7 +923,7 @@ class CompteRenduController extends Controller
     }
 
     /* ===================================================================
-     *  HELPERS DOCX — Times New Roman 12pt, interligne 1,5
+     *  HELPERS DOCX - Times New Roman 12pt, interligne 1,5
      * =================================================================== */
 
     private function docxHeader(): string
@@ -1042,7 +1064,7 @@ class CompteRenduController extends Controller
             . '</w:drawing></w:r></w:p>';
     }
 
-    /** Titre de section numéroté — bleu SOUMAFÊ */
+    /** Titre de section numéroté - bleu SOUMAFÊ */
     private function titreSection(string $num, string $text): string
     {
         $escaped = htmlspecialchars("{$num}. " . mb_strtoupper($text, 'UTF-8'), ENT_XML1, 'UTF-8');
@@ -1075,7 +1097,7 @@ class CompteRenduController extends Controller
             . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
     }
 
-    /** Encadré — bloc avec fond coloré et bordure gauche épaisse */
+    /** Encadré - bloc avec fond coloré et bordure gauche épaisse */
     private function encadre(string $text, string $bgColor = 'E8EEF4', string $borderColor = '1F4E79'): string
     {
         $escaped = htmlspecialchars($text, ENT_XML1, 'UTF-8');
@@ -1279,7 +1301,7 @@ class CompteRenduController extends Controller
     }
 
     /** Générer le XML du footer (pied de page avec numéro) */
-    private function genDocxFooterXml(string $line = 'Confidentiel — Usage interne'): string
+    private function genDocxFooterXml(string $line = 'Confidentiel - Usage interne'): string
     {
         $escaped = htmlspecialchars($line, ENT_XML1, 'UTF-8');
         $rpr = '<w:rPr>'
@@ -1293,7 +1315,7 @@ class CompteRenduController extends Controller
             . '<w:pBdr><w:top w:val="single" w:sz="4" w:space="1" w:color="1F4E79"/></w:pBdr>'
             . '<w:jc w:val="center"/>'
             . '</w:pPr>'
-            . "<w:r>{$rpr}<w:t xml:space=\"preserve\">{$escaped} — Page </w:t></w:r>"
+            . "<w:r>{$rpr}<w:t xml:space=\"preserve\">{$escaped} - Page </w:t></w:r>"
             . "<w:r>{$rpr}<w:fldChar w:fldCharType=\"begin\"/></w:r>"
             . "<w:r>{$rpr}<w:instrText xml:space=\"preserve\"> PAGE </w:instrText></w:r>"
             . "<w:r>{$rpr}<w:fldChar w:fldCharType=\"end\"/></w:r>"
@@ -1581,7 +1603,7 @@ class CompteRenduController extends Controller
         return $segments;
     }
 
-    private function ecrireDocx(string $path, string $documentXml, ?string $logoPath = null, string $headerLine = '', string $footerLine = 'Confidentiel — Usage interne'): void
+    private function ecrireDocx(string $path, string $documentXml, ?string $logoPath = null, string $headerLine = '', string $footerLine = 'Confidentiel - Usage interne'): void
     {
         if (file_exists($path)) unlink($path);
         $zip = new \ZipArchive();
@@ -1628,7 +1650,7 @@ class CompteRenduController extends Controller
             . $imgRel
             . '</Relationships>');
 
-        // styles.xml — Normal : Times New Roman 12pt, justifié, interligne 1.5
+        // styles.xml - Normal : Times New Roman 12pt, justifié, interligne 1.5
         $zip->addFromString('word/styles.xml',
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'

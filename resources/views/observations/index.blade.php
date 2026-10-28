@@ -121,7 +121,7 @@ dialog textarea{resize:vertical}
         <select name="projet" onchange="this.form.submit()">
             <option value="">Tous projets</option>
             @foreach($projets as $p)
-            <option value="{{ $p->id }}" {{ request('projet') == $p->id ? 'selected' : '' }}>{{ $p->code }} — {{ $p->libelle }}</option>
+            <option value="{{ $p->id }}" {{ request('projet') == $p->id ? 'selected' : '' }}>{{ $p->code }} - {{ $p->libelle }}</option>
             @endforeach
         </select>
         <select name="statut" onchange="this.form.submit()">
@@ -184,7 +184,7 @@ dialog textarea{resize:vertical}
             <td style="font-size:11.5px">
                 @if($obs->suivi_par)
                     <span class="badge b-info">{{ $obs->suiveur?->prenom ?? $obs->suiveur?->name ?? '—' }}</span>
-                @else — @endif
+                @else - @endif
             </td>
             <td><span class="badge {{ $badgeCls($obs->statut) }}">{{ $obs->statutLibelle() }}</span></td>
             <td>
@@ -212,7 +212,7 @@ dialog textarea{resize:vertical}
 </div>
 
 {{-- ============================================ --}}
-{{-- Dialog Phase 1 — Déclaration --}}
+{{-- Dialog Phase 1 - Déclaration --}}
 {{-- ============================================ --}}
 @if($peutDeclarer)
 <dialog id="dlg-declaration">
@@ -226,7 +226,7 @@ dialog textarea{resize:vertical}
         <select name="projet_id" required>
             <option value="">— Sélectionner le projet —</option>
             @foreach($projets as $p)
-            <option value="{{ $p->id }}">{{ $p->code }} — {{ $p->libelle }}</option>
+            <option value="{{ $p->id }}">{{ $p->code }} - {{ $p->libelle }}</option>
             @endforeach
         </select>
 
@@ -281,7 +281,7 @@ dialog textarea{resize:vertical}
 @endif
 
 {{-- ============================================ --}}
-{{-- Dialog Phase 2 — Résolution --}}
+{{-- Dialog Phase 2 - Résolution --}}
 {{-- ============================================ --}}
 @if($isPilote || $observations->contains(fn($o) => $isSuiveur($o)))
 <dialog id="dlg-resolution">
@@ -471,7 +471,7 @@ function ouvrirResume(id){
 $obsJson = $observations->map(fn($o) => [
     'id'              => $o->id,
     'code'            => $o->code,
-    'projet'          => $o->projet ? $o->projet->code . ' — ' . $o->projet->libelle : null,
+    'projet'          => $o->projet ? $o->projet->code . ' - ' . $o->projet->libelle : null,
     'description'     => $o->description,
     'type_difficulte' => $o->type_difficulte,
     'priorite'        => $o->priorite,

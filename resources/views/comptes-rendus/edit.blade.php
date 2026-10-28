@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('sousTitre', 'Comptes rendus')
-@section('titre', 'Rédiger — ' . $cr->titre)
+@section('titre', 'Rédiger - ' . $cr->titre)
 @section('contenu')
 <style>
 .cr-edit{max-width:920px;margin:0 auto}
@@ -151,7 +151,7 @@
 
 <div class="cr-edit">
     <h2>{{ $cr->titre }}</h2>
-    <div class="sub">{{ $cr->typeCourt() }} — {{ $cr->date_reunion->format('d/m/Y') }} — Rédacteur : {{ $cr->redacteur?->nomComplet() }}</div>
+    <div class="sub">{{ $cr->typeCourt() }} - {{ $cr->date_reunion->format('d/m/Y') }} - Rédacteur : {{ $cr->redacteur?->nomComplet() }}</div>
 
     @if(session('ok'))
     <div style="background:#d1fae5;color:#065f46;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:.85rem">{{ session('ok') }}</div>
@@ -234,7 +234,7 @@
                 <div class="fg"><div class="row2">
                 @foreach($champsMef as $cle => [$libelle, $aide])
                     <div>
-                        <label>{{ $libelle }} <span style="font-weight:400;color:#94a3b8;font-size:.78rem">— {{ $aide }}</span></label>
+                        <label>{{ $libelle }} <span style="font-weight:400;color:#94a3b8;font-size:.78rem">- {{ $aide }}</span></label>
                         <select name="mise_en_forme[{{ $cle }}]">
                             <option value="">Par défaut</option>
                             @foreach($taillesMef as $pt)
@@ -425,14 +425,14 @@
             </div>
 
         @else
-            {{-- ===== DEMO SPRINT — ÉDITEUR BLOC WYSIWYG ===== --}}
+            {{-- ===== DEMO SPRINT - ÉDITEUR BLOC WYSIWYG ===== --}}
             <input type="hidden" name="bloc_data" id="bloc-data-input">
 
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:10px 16px;background:#EFF4FB;border-radius:10px">
                 <div style="font-size:.85rem;color:#64748b">
                     Sprint : <strong style="color:var(--bleu)">{{ $donnees['sprint'] ?? '—' }}</strong>
-                    &mdash; Projet : <strong style="color:var(--bleu)">{{ $donnees['projet'] ?? '—' }}</strong>
-                    &mdash; Score : <strong style="color:var(--bleu)" id="be-score-header">{{ $donnees['score_pourcent'] ?? 0 }}%</strong>
+                    - Projet : <strong style="color:var(--bleu)">{{ $donnees['projet'] ?? '—' }}</strong>
+                    - Score : <strong style="color:var(--bleu)" id="be-score-header">{{ $donnees['score_pourcent'] ?? 0 }}%</strong>
                 </div>
             </div>
 
@@ -709,7 +709,7 @@ function ajouterDecision(){
 function renumDec(){ document.querySelectorAll('#decisions-body tr').forEach((tr,i) => { const td = tr.querySelector('.num-col'); if(td) td.textContent = i+1; }); }
 
 /* ======================================================================
- *  BLOC EDITOR — Éditeur WYSIWYG hiérarchique pour CR Demo
+ *  BLOC EDITOR - Éditeur WYSIWYG hiérarchique pour CR Demo
  * ====================================================================== */
 if(!estReunion){
 
@@ -823,7 +823,7 @@ function renderBloc(bloc, secEl){
             <input type="number" min="0" class="be-score-pts" value="${pts}" oninput="beScoreManuel(this)"> /
             <input type="number" min="0" class="be-score-tot" value="${tot}" oninput="beScoreManuel(this)"> points
             (<span class="be-score-pct">${pct}</span>%)</div>
-            <div class="be-score-sub">Score global du sprint — calculé selon les tâches cochées, modifiable manuellement</div></div>`;
+            <div class="be-score-sub">Score global du sprint - calculé selon les tâches cochées, modifiable manuellement</div></div>`;
     }
     else if(bloc.type === 'actions'){
         const items = bloc.items || [];

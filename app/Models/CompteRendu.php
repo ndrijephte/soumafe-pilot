@@ -32,6 +32,13 @@ class CompteRendu extends Model
 
     public function estBrouillon(): bool { return $this->statut === 'brouillon'; }
     public function estConfirme(): bool { return $this->statut === 'confirme'; }
+    /** Review / Rétrospective : saisies dans le module Scrum du sprint. */
+    public function estScrum(): bool { return in_array($this->type, ['review_sprint', 'retrospective']); }
+    public function lienScrum(): ?string
+    {
+        if (!$this->estScrum() || !$this->sprint_id) return null;
+        return route($this->type === 'review_sprint' ? 'scrum.review' : 'scrum.retro', $this->sprint_id);
+    }
     public function estReunion(): bool { return in_array($this->type, ['reunion_ordinaire', 'reunion_extraordinaire']); }
 
     public function typeLibelle(): string
@@ -40,6 +47,8 @@ class CompteRendu extends Model
             'reunion_ordinaire'      => 'Réunion ordinaire (hebdomadaire)',
             'reunion_extraordinaire' => 'Réunion extraordinaire (stratégique)',
             'demo_sprint'            => 'Démonstration sprint',
+            'review_sprint'          => 'Review de sprint',
+            'retrospective'          => 'Rétrospective de sprint',
             default                  => ucfirst(str_replace('_', ' ', $this->type)),
         };
     }
@@ -50,6 +59,8 @@ class CompteRendu extends Model
             'reunion_ordinaire'      => 'Réunion ordinaire',
             'reunion_extraordinaire' => 'Réunion extraordinaire',
             'demo_sprint'            => 'Démo sprint',
+            'review_sprint'          => 'Review sprint',
+            'retrospective'          => 'Rétrospective',
             default                  => ucfirst(str_replace('_', ' ', $this->type)),
         };
     }

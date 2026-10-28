@@ -1,16 +1,16 @@
 <?php
 use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController, ObservationController, PlanningReunionController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController, TitrePosteController};
-use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ReportingController, ReportingParcController};
+use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ProjetScrumController, ReportingController, ReportingParcController, SprintScrumController};
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('dashboard'));
 
 Route::middleware(['auth'])->group(function () {
-    // M1 — Tableau de bord (US-16/17/18 — aiguillage par rôle)
+    // M1 - Tableau de bord (US-16/17/18 - aiguillage par rôle)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // M2 — Activités (US-06, US-07, US-08)
+    // M2 - Activités (US-06, US-07, US-08)
     Route::get('/taches', [TacheController::class, 'index'])->name('taches.index');
     Route::get('/taches/pilote', [TacheController::class, 'pilote'])->name('taches.pilote');
     Route::post('/taches', [TacheController::class, 'store'])->name('taches.store');
@@ -44,6 +44,48 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sprints/importer', [SprintController::class, 'importerTaches'])->name('sprints.importer');
     Route::post('/sprints/{sprint}/toggle-visibilite', [SprintController::class, 'toggleVisibilite'])->name('sprints.toggle-visibilite');
     Route::post('/sprints/{sprint}/update-exclusions', [SprintController::class, 'updateExclusions'])->name('sprints.update-exclusions');
+    // Sprint Planning (Scrum) : user stories du sprint, tâche testée
+    Route::post('/sprints/{sprint}/user-stories', [SprintController::class, 'attacherUserStories'])->name('sprints.user-stories.attacher');
+    Route::patch('/sprints/{sprint}/user-stories/{userStory}', [SprintController::class, 'statutUserStory'])->name('sprints.user-stories.statut');
+    Route::patch('/sprints/{sprint}/user-stories/{userStory}/planification', [SprintController::class, 'planifierUserStory'])->name('sprints.user-stories.planifier');
+    Route::delete('/sprints/{sprint}/user-stories/{userStory}', [SprintController::class, 'detacherUserStory'])->name('sprints.user-stories.detacher');
+    Route::patch('/sprints/{sprint}/taches/{tache}/teste', [SprintController::class, 'basculerTeste'])->name('sprints.taches.teste');
+
+    // Espace projet (Scrum) : équipe, Product Backlog
+    Route::get('/projets/{projet}/espace', [ProjetScrumController::class, 'show'])->name('projets.espace');
+    Route::post('/projets/{projet}/collaborateurs', [ProjetScrumController::class, 'ajouterCollaborateur'])->name('projets.collaborateurs.store');
+    Route::put('/projets/{projet}/collaborateurs/{collaborateur}', [ProjetScrumController::class, 'modifierCollaborateur'])->name('projets.collaborateurs.update');
+    Route::patch('/projets/{projet}/collaborateurs/{collaborateur}/retirer', [ProjetScrumController::class, 'retirerCollaborateur'])->name('projets.collaborateurs.retirer');
+    Route::post('/projets/{projet}/user-stories', [ProjetScrumController::class, 'storeUserStory'])->name('projets.user-stories.store');
+    Route::put('/user-stories/{userStory}', [ProjetScrumController::class, 'updateUserStory'])->name('user-stories.update');
+    Route::delete('/user-stories/{userStory}', [ProjetScrumController::class, 'destroyUserStory'])->name('user-stories.destroy');
+    Route::post('/projets/{projet}/user-stories/import', [ProjetScrumController::class, 'importerBacklog'])->name('projets.backlog.import');
+    Route::get('/projets/{projet}/user-stories/modele', [ProjetScrumController::class, 'modeleImport'])->name('projets.backlog.modele');
+    Route::get('/projets/{projet}/user-stories/export', [ProjetScrumController::class, 'exporterBacklog'])->name('projets.backlog.export');
+    // Cérémonies Scrum du sprint
+    Route::get('/daily-scrum', [SprintScrumController::class, 'rapportsDaily'])->name('scrum.rapports');
+    Route::get('/sprints/{sprint}/daily', [SprintScrumController::class, 'dailies'])->name('scrum.dailies');
+    Route::put('/sprints/{sprint}/daily/programmation', [SprintScrumController::class, 'programmationDaily'])->name('scrum.daily.programmation');
+    Route::post('/sprints/{sprint}/daily', [SprintScrumController::class, 'storeDaily'])->name('scrum.daily.store');
+    Route::get('/sprints/{sprint}/daily/{daily}', [SprintScrumController::class, 'daily'])->name('scrum.daily');
+    Route::put('/sprints/{sprint}/daily/{daily}', [SprintScrumController::class, 'updateDaily'])->name('scrum.daily.update');
+    Route::post('/sprints/{sprint}/daily/{daily}/recalculer', [SprintScrumController::class, 'recalculerDaily'])->name('scrum.daily.recalculer');
+    Route::post('/sprints/{sprint}/daily/{daily}/entrees', [SprintScrumController::class, 'ajouterEntree'])->name('scrum.daily.entree.ajouter');
+    Route::post('/sprints/{sprint}/daily/{daily}/publier', [SprintScrumController::class, 'publierDaily'])->name('scrum.daily.publier');
+    Route::post('/sprints/{sprint}/daily/{daily}/depublier', [SprintScrumController::class, 'depublierDaily'])->name('scrum.daily.depublier');
+    Route::delete('/sprints/{sprint}/daily/{daily}/entrees/{entree}', [SprintScrumController::class, 'retirerEntree'])->name('scrum.daily.entree.retirer');
+    Route::delete('/sprints/{sprint}/daily/{daily}', [SprintScrumController::class, 'destroyDaily'])->name('scrum.daily.destroy');
+    Route::get('/sprints/{sprint}/review', [SprintScrumController::class, 'review'])->name('scrum.review');
+    Route::put('/sprints/{sprint}/review', [SprintScrumController::class, 'updateReview'])->name('scrum.review.update');
+    Route::post('/sprints/{sprint}/review/valider', [SprintScrumController::class, 'validerReview'])->name('scrum.review.valider');
+    Route::get('/sprints/{sprint}/retrospective', [SprintScrumController::class, 'retro'])->name('scrum.retro');
+    Route::put('/sprints/{sprint}/retrospective', [SprintScrumController::class, 'updateRetro'])->name('scrum.retro.update');
+    Route::post('/sprints/{sprint}/compte-rendu/{type}/rouvrir', [SprintScrumController::class, 'rouvrir'])->name('scrum.rouvrir');
+    Route::get('/sprints/{sprint}/archive-scrum', [SprintScrumController::class, 'archive'])->name('scrum.archive');
+    // Équipe du sprint (ajouts / retraits propres au sprint)
+    Route::post('/sprints/{sprint}/equipe', [SprintScrumController::class, 'ajouterMembre'])->name('scrum.equipe.ajouter');
+    Route::delete('/sprints/{sprint}/equipe/{user}', [SprintScrumController::class, 'retirerMembre'])->name('scrum.equipe.retirer');
+    Route::patch('/sprints/{sprint}/equipe/{user}', [SprintScrumController::class, 'reintegrerMembre'])->name('scrum.equipe.reintegrer');
 
     // US-12 : Arbitrages T3
     Route::post('/taches/{tache}/arbitrage', [ArbitrageController::class, 'demander'])->name('arbitrages.demander');
@@ -107,6 +149,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/comptes-rendus', [CompteRenduController::class, 'index'])->name('comptes-rendus.index');
     Route::get('/comptes-rendus/creer', [CompteRenduController::class, 'create'])->name('comptes-rendus.create');
     Route::post('/comptes-rendus/designer', [CompteRenduController::class, 'designer'])->name('comptes-rendus.designer');
+    Route::get('/comptes-rendus/scribe-du-jour', [CompteRenduController::class, 'scribe'])->name('comptes-rendus.scribe');
     Route::get('/comptes-rendus/{cr}', [CompteRenduController::class, 'show'])->name('comptes-rendus.show');
     Route::get('/comptes-rendus/{cr}/editer', [CompteRenduController::class, 'edit'])->name('comptes-rendus.edit');
     Route::put('/comptes-rendus/{cr}', [CompteRenduController::class, 'update'])->name('comptes-rendus.update');
@@ -217,7 +260,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/pointage/jour-special', [PointageController::class, 'ajouterJourSpecial'])->name('pointage.jour-special.ajouter');
     Route::post('/pointage/jour-special/{jour}/retirer', [PointageController::class, 'retirerJourSpecial'])->name('pointage.jour-special.retirer');
 
-    // M8 — Administration (US-01→05)
+    // M8 - Administration (US-01→05)
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/utilisateurs', [UtilisateurController::class, 'index'])->name('utilisateurs.index');
         Route::get('/utilisateurs/creer', [UtilisateurController::class, 'create'])->name('utilisateurs.create');

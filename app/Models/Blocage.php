@@ -13,7 +13,7 @@ class Blocage extends Model
     public function tacheLiee(): BelongsTo { return $this->belongsTo(Tache::class, 'tache_liee_id'); }
     public function intervenant(): BelongsTo { return $this->belongsTo(User::class, 'intervenant_id'); }
 
-    /** Délai de levée en heures — KPI « délai de levée de blocage ». */
+    /** Délai de levée en heures - KPI « délai de levée de blocage ». */
     public function delaiHeures(): ?float
     {
         return $this->date_levee ? $this->date_blocage->diffInHours($this->date_levee) : null;

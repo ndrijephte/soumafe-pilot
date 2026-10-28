@@ -74,7 +74,7 @@
         @forelse($sprintsEnCours as $s)
         <div class="sprint-item">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                <div style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} &mdash; {{ $s->projet->libelle ?? '' }}</div>
+                <div style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} - {{ $s->projet->libelle ?? '' }}</div>
                 @if($s->jours_restants !== null)
                 <span class="badge {{ $s->jours_restants <= 3 ? 'b-ko' : 'b-ok' }}">{{ $s->jours_restants }}j</span>
                 @endif

@@ -115,13 +115,13 @@
             <div class="filtre-item"><label>Projet</label>
                 <select name="projet_id" id="selProjet" onchange="filtrerSprints()">
                     <option value="">Tous</option>
-                    @foreach($projets as $p)<option value="{{ $p->id }}">{{ $p->code }} — {{ $p->libelle }}</option>@endforeach
+                    @foreach($projets as $p)<option value="{{ $p->id }}">{{ $p->code }} - {{ $p->libelle }}</option>@endforeach
                 </select>
             </div>
             <div class="filtre-item"><label>Sprint</label>
                 <select name="sprint_id" id="selSprint">
                     <option value="">Tous</option>
-                    @foreach($sprints as $s)<option value="{{ $s->id }}" data-projet="{{ $s->projet_id }}">S{{ $s->numero }} — {{ $s->projet?->code }}</option>@endforeach
+                    @foreach($sprints as $s)<option value="{{ $s->id }}" data-projet="{{ $s->projet_id }}">S{{ $s->numero }} - {{ $s->projet?->code }}</option>@endforeach
                 </select>
             </div>
             <div class="filtre-item"><label>Collaborateur</label>
@@ -161,7 +161,7 @@
             <div class="filtre-item"><label>Projet</label>
                 <select id="selProjet2" onchange="filtrerSprintArchive()">
                     <option value="">— Choisir —</option>
-                    @foreach($projets as $p)<option value="{{ $p->id }}">{{ $p->code }} — {{ $p->libelle }}</option>@endforeach
+                    @foreach($projets as $p)<option value="{{ $p->id }}">{{ $p->code }} - {{ $p->libelle }}</option>@endforeach
                 </select>
             </div>
             <div class="filtre-item"><label>Sprint</label>

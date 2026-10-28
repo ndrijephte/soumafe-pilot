@@ -176,7 +176,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <label for="sel-exercice" style="font-weight:600">Exercice affiché</label>
     <select name="exercice" id="sel-exercice" onchange="changerExercice()" style="padding:6px 10px;border:1px solid #93c5fd;border-radius:8px;font-size:13px;font-weight:600;color:#1e3a8a;background:#fff">
         @foreach($exercicesParc as $cle => $ex)
-        <option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $cle === $exerciceCourant ? ' — en cours' : '' }}</option>
+        <option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $cle === $exerciceCourant ? ' - en cours' : '' }}</option>
         @endforeach
         <option value="tous" @selected($exercice === 'tous')>Toutes les périodes</option>
     </select>
@@ -426,15 +426,15 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div style="margin-bottom:10px;padding:8px 14px;background:{{ $estHier ? '#eff6ff' : '#fef3c7' }};border:1px solid {{ $estHier ? '#bfdbfe' : '#fcd34d' }};border-radius:8px;font-size:12.5px;color:{{ $estHier ? '#1e40af' : '#92400e' }}">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="{{ $estHier ? '#2563eb' : '#d97706' }}" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Recettes du <strong>{{ $dateJourCarbon->translatedFormat('l d F Y') }}</strong>
-        @if($estHier) (veille — par défaut) @endif
+        @if($estHier) (veille - par défaut) @endif
         @if(!$estHier)
-        — <a href="{{ route('parc.index', ['tab' => 'recettes']) }}" style="color:#1e40af;text-decoration:underline;margin-left:4px">Revenir à hier</a>
+        - <a href="{{ route('parc.index', ['tab' => 'recettes']) }}" style="color:#1e40af;text-decoration:underline;margin-left:4px">Revenir à hier</a>
         @endif
     </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
         <span style="font-size:14px;font-weight:700;color:var(--bleu);text-transform:capitalize">{{ $jourLabel }}</span>
         @if($typeJourGrille === 'dimanche')
-        <span class="pill p-warn">Dimanche — VTC repos / Taxi 5 000 F</span>
+        <span class="pill p-warn">Dimanche - VTC repos / Taxi 5 000 F</span>
         @endif
         <span class="pill {{ $tousValides ? 'p-ok' : ($nbSaisis > 0 ? 'p-cours' : 'p-ko') }}">{{ $nbSaisis }}/{{ $nbTotal }} saisi(s)</span>
     </div>
@@ -544,7 +544,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div style="text-align:center;padding:20px 16px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #86efac;border-radius:12px;margin-bottom:14px">
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#16a34a" stroke-width="2" style="margin-bottom:4px"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         <div style="font-size:16px;font-weight:700;color:#166534;margin-top:2px">Journee complete</div>
-        <div style="font-size:12px;color:#15803d;margin-top:2px">{{ $nbTotal }} recette(s) enregistree(s) — Total : {{ number_format($totalRecJour, 0, ',', ' ') }} F</div>
+        <div style="font-size:12px;color:#15803d;margin-top:2px">{{ $nbTotal }} recette(s) enregistree(s) - Total : {{ number_format($totalRecJour, 0, ',', ' ') }} F</div>
     </div>
     @else
     <div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--bord);background:var(--carte)">
@@ -710,7 +710,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             };
         @endphp
         <div class="maint-alerte {{ $cls }}">
-            <span><strong>{{ $ech['vehicule']->immatriculation }}</strong>@if($ech['type_label']) · {{ $ech['type_label'] }}@endif : {{ $txt }}@if($ech['derniere']) <em>— dernière réalisation le {{ $ech['derniere']->format('d/m/Y') }}</em>@endif</span>
+            <span><strong>{{ $ech['vehicule']->immatriculation }}</strong>@if($ech['type_label']) · {{ $ech['type_label'] }}@endif : {{ $txt }}@if($ech['derniere']) <em>- dernière réalisation le {{ $ech['derniere']->format('d/m/Y') }}</em>@endif</span>
             @if(!$estDG)
                 @if($ech['prochaine_id'])<button class="btn sm" onclick="realiserMaint({{ $ech['prochaine_id'] }})" style="background:var(--ok)">Réaliser</button>
                 @else<button class="btn sm sec" onclick="planifierMaint({{ $ech['vehicule']->id }}, '{{ $ech['type'] }}', '{{ $ech['derniere']?->format('Y-m-d') }}')">Planifier</button>@endif
@@ -852,7 +852,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div style="background:#f0fdf4;padding:6px 16px;font-size:11.5px">
             <strong style="color:var(--ok)">Paiements :</strong>
             @foreach($pen->paiements as $pp)
-            <span style="margin-left:8px">{{ $pp->date_paiement->format('d/m') }} — {{ number_format($pp->montant, 0, ',', ' ') }} F ({{ $pp->mode_paiement ? ucfirst(str_replace('_',' ',$pp->mode_paiement)) : '—' }})@if($pp->source_paiement && $pp->source_paiement !== 'chauffeur') <span class="pill {{ $pp->source_paiement === 'pointage' ? 'p-cours' : 'p-gris' }}" style="font-size:9px">{{ ucfirst($pp->source_paiement) }}</span> @endif{{ $pp->recu_par ? ' par '.$pp->recu_par : '' }}</span>{{ !$loop->last ? ' |' : '' }}
+            <span style="margin-left:8px">{{ $pp->date_paiement->format('d/m') }} - {{ number_format($pp->montant, 0, ',', ' ') }} F ({{ $pp->mode_paiement ? ucfirst(str_replace('_',' ',$pp->mode_paiement)) : '—' }})@if($pp->source_paiement && $pp->source_paiement !== 'chauffeur') <span class="pill {{ $pp->source_paiement === 'pointage' ? 'p-cours' : 'p-gris' }}" style="font-size:9px">{{ ucfirst($pp->source_paiement) }}</span> @endif{{ $pp->recu_par ? ' par '.$pp->recu_par : '' }}</span>{{ !$loop->last ? ' |' : '' }}
             @endforeach
         </div>
     </td></tr>
@@ -931,7 +931,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div style="background:#f0fdf4;padding:6px 16px;font-size:11.5px">
             <strong style="color:var(--ok)">Versements :</strong>
             @foreach($rc->versements as $vs)
-            <span style="margin-left:8px">{{ $vs->date_versement->format('d/m') }} — {{ number_format($vs->montant, 0, ',', ' ') }} F ({{ $vs->mode_paiement ? ucfirst(str_replace('_',' ',$vs->mode_paiement)) : '—' }})@if(($vs->source_paiement ?? 'chauffeur') === 'entreprise') <span class="pill p-cours" style="font-size:9px">Entreprise</span>@endif</span>{{ !$loop->last ? ' |' : '' }}
+            <span style="margin-left:8px">{{ $vs->date_versement->format('d/m') }} - {{ number_format($vs->montant, 0, ',', ' ') }} F ({{ $vs->mode_paiement ? ucfirst(str_replace('_',' ',$vs->mode_paiement)) : '—' }})@if(($vs->source_paiement ?? 'chauffeur') === 'entreprise') <span class="pill p-cours" style="font-size:9px">Entreprise</span>@endif</span>{{ !$loop->last ? ' |' : '' }}
             @endforeach
         </div>
     </td></tr>
@@ -1070,7 +1070,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><strong>{{ $ch->nomComplet() }}</strong></td>
         <td>{{ $ch->numero_permis ?? '—' }}</td>
         <td>{{ $ch->telephone ?? '—' }}</td>
-        <td>@if($affectations->isEmpty()) — @else @foreach($affectations as $aff)<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px">{{ $aff->immatriculation }}@if(!auth()->user()->aRole('direction'))<form method="POST" action="{{ route('parc.chauffeurs.detacher', [$aff, $ch]) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce détachement')">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="act-btn del" title="Détacher" style="padding:1px 3px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></form>@endif</span>@endforeach @endif</td>
+        <td>@if($affectations->isEmpty()) - @else @foreach($affectations as $aff)<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px">{{ $aff->immatriculation }}@if(!auth()->user()->aRole('direction'))<form method="POST" action="{{ route('parc.chauffeurs.detacher', [$aff, $ch]) }}" style="display:inline" onsubmit="return demanderMotifSuppression(this,'ce détachement')">@csrf @method('DELETE')<input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="act-btn del" title="Détacher" style="padding:1px 3px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></form>@endif</span>@endforeach @endif</td>
         <td>{{ $affectations->map(fn($v) => ucfirst($v->pivot->role))->join(', ') ?: '—' }}</td>
         <td><span class="pill {{ $ch->statut === 'actif' ? 'p-ok' : 'p-gris' }}">{{ ucfirst($ch->statut) }}</span></td>
         <td>
@@ -1126,7 +1126,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>{{ number_format($rec->objectif, 0, ',', ' ') }}</td>
         <td style="color:{{ $rec->ecart >= 0 ? 'var(--ok)' : 'var(--ko)' }};font-weight:600">{{ ($rec->ecart >= 0 ? '+' : '') . number_format($rec->ecart, 0, ',', ' ') }}</td>
         <td>{{ $rec->mode_remise ? ucfirst(str_replace('_', ' ', $rec->mode_remise)) : '—' }}</td>
-        <td>@if($rec->motif_absence)<span class="pill p-warn">{{ \App\Models\TypeParc::libelleMotif($rec->motif_absence) }}</span>@else — @endif</td>
+        <td>@if($rec->motif_absence)<span class="pill p-warn">{{ \App\Models\TypeParc::libelleMotif($rec->motif_absence) }}</span>@else - @endif</td>
         <td>
             <div class="act-row">
                 @if(auth()->user()->estAdmin())
@@ -1353,7 +1353,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <input type="hidden" name="urgence" id="s-urg">
     <div class="dlg-section" style="margin-top:0">Informations de la panne</div>
     <div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
-        <strong id="s-info-vehic"></strong> — <span id="s-info-date"></span><br>
+        <strong id="s-info-vehic"></strong> - <span id="s-info-date"></span><br>
         <span id="s-info-desc" style="color:var(--gris)"></span>
     </div>
     <div class="dlg-section">Diagnostic & Intervention</div>
@@ -1537,7 +1537,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @csrf <input type="hidden" name="_method" value="PUT">
     <div class="dlg-section" style="margin-top:0">Échéance planifiée</div>
     <div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
-        <strong id="rm-info-vehic"></strong> — <span id="rm-info-type"></span><br>
+        <strong id="rm-info-vehic"></strong> - <span id="rm-info-type"></span><br>
         <span id="rm-info-echeance" style="color:var(--gris)"></span>
     </div>
     <div class="dlg-section">Réalisation</div>
@@ -1653,7 +1653,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <input type="hidden" name="description" id="sp-desc">
     <input type="hidden" name="montant" id="sp-mont">
     <div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
-        <strong id="sp-info-vehic"></strong> — <span id="sp-info-date"></span> — <span id="sp-info-type"></span><br>
+        <strong id="sp-info-vehic"></strong> - <span id="sp-info-date"></span> - <span id="sp-info-type"></span><br>
         <span style="color:var(--gris)" id="sp-info-desc"></span><br>
         Montant : <strong id="sp-info-mont"></strong> FCFA
     </div>
@@ -2890,7 +2890,7 @@ function toggleFinancementPenal(val){
     if(e && val!=='entreprise') e.style.display='none';
 }
 function ouvrirPaiementPenal(penId, chauffeur, solde){
-    document.getElementById('dlg-pp-titre').textContent='Paiement — '+chauffeur;
+    document.getElementById('dlg-pp-titre').textContent='Paiement - '+chauffeur;
     document.getElementById('form-paie-penal').action='{{ url("parc/penalites") }}/'+penId+'/paiement';
     document.getElementById('pp-montant').max=solde;
     document.getElementById('pp-montant').value='';
@@ -2902,7 +2902,7 @@ function ouvrirPaiementPenal(penId, chauffeur, solde){
 }
 
 function ouvrirRemboursement(empId, preteur, solde){
-    document.getElementById('dlg-re-titre').textContent='Remboursement — '+preteur;
+    document.getElementById('dlg-re-titre').textContent='Remboursement - '+preteur;
     document.getElementById('form-remb-emprunt').action='{{ url("parc/emprunts") }}/'+empId+'/remboursement';
     document.getElementById('re-montant').max=solde;
     document.getElementById('re-montant').value='';
@@ -2961,7 +2961,7 @@ function planifierMaint(vehiculeId, type, derniere){
 }
 
 function ouvrirVersement(recId, chauffeur, solde){
-    document.getElementById('dlg-vers-titre').textContent='Versement — '+chauffeur;
+    document.getElementById('dlg-vers-titre').textContent='Versement - '+chauffeur;
     document.getElementById('form-versement').action='{{ url("parc/recouvrements") }}/'+recId+'/versement';
     document.getElementById('vs-montant').max=solde;
     document.getElementById('vs-montant').value='';
@@ -3207,7 +3207,7 @@ function validerFormSaisie(){
 @if(session('resume_recette'))
 document.addEventListener('DOMContentLoaded',function(){
     var d=@json(session('resume_recette'));
-    document.getElementById('res-header-sub').textContent=d.chauffeur+' — '+d.vehicule;
+    document.getElementById('res-header-sub').textContent=d.chauffeur+' - '+d.vehicule;
     document.getElementById('res-chauffeur').textContent=d.chauffeur;
     document.getElementById('res-vehicule').textContent=d.vehicule;
     document.getElementById('res-date').textContent=d.date;
@@ -3221,7 +3221,7 @@ document.addEventListener('DOMContentLoaded',function(){
     if(ecart>=0){
         resStatut.innerHTML='<span class="pill p-ok">Objectif atteint</span>';
     } else {
-        resStatut.innerHTML='<span class="pill p-ko" style="font-size:11px">Deficit — motif requis</span>';
+        resStatut.innerHTML='<span class="pill p-ko" style="font-size:11px">Deficit - motif requis</span>';
     }
     // Afficher boutons valider/invalider si deficit
     var actions=document.getElementById('res-motif-actions');
@@ -3404,7 +3404,7 @@ function ficheVehicule(vehiculeId){
             if(d.chauffeurs_actifs && d.chauffeurs_actifs.length>0){
                 html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
                 d.chauffeurs_actifs.forEach(function(c){
-                    html+='<li>'+c.nom+' <span style="color:var(--gris)">('+c.role+(c.telephone?' — '+c.telephone:'')+')</span></li>';
+                    html+='<li>'+c.nom+' <span style="color:var(--gris)">('+c.role+(c.telephone?' - '+c.telephone:'')+')</span></li>';
                 });
                 html+='</ul>';
             } else { html+='<p style="color:var(--gris);font-size:12px">Aucun chauffeur affecté</p>'; }
@@ -3530,13 +3530,13 @@ function ficheChauffeur(chauffeurId){
             html+='<div class="dlg-section">Véhicules actuels</div>';
             if(d.vehicules_actifs && d.vehicules_actifs.length>0){
                 html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
-                d.vehicules_actifs.forEach(function(v){html+='<li>'+v.immatriculation+' <span style="color:var(--gris)">('+v.categorie+' — '+v.role+')</span></li>'});
+                d.vehicules_actifs.forEach(function(v){html+='<li>'+v.immatriculation+' <span style="color:var(--gris)">('+v.categorie+' - '+v.role+')</span></li>'});
                 html+='</ul>';
             } else { html+='<p style="color:var(--gris);font-size:12px">Aucun véhicule affecté actuellement</p>'; }
             if(d.vehicules_passes && d.vehicules_passes.length>0){
                 html+='<div class="dlg-section" style="margin-top:10px">Véhicules passés</div>';
                 html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
-                d.vehicules_passes.forEach(function(v){html+='<li style="color:var(--gris)">'+v.immatriculation+' ('+v.categorie+' — '+v.role+')</li>'});
+                d.vehicules_passes.forEach(function(v){html+='<li style="color:var(--gris)">'+v.immatriculation+' ('+v.categorie+' - '+v.role+')</li>'});
                 html+='</ul>';
             }
             html+='</div>';
@@ -3701,7 +3701,7 @@ function editerDepense(id){
 // === Planning ===
 // === Prêts ===
 function ouvrirRembPret(pretId, beneficiaire, solde){
-    document.getElementById('dlg-rp-titre').textContent = 'Remboursement — ' + beneficiaire;
+    document.getElementById('dlg-rp-titre').textContent = 'Remboursement - ' + beneficiaire;
     document.getElementById('form-remb-pret').action = '/parc/prets/' + pretId + '/remboursement';
     document.getElementById('rp-montant').max = solde;
     document.getElementById('rp-montant').placeholder = 'Max ' + solde.toLocaleString('fr-FR') + ' F';

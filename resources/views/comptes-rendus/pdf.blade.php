@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>{{ $cr->titre }} — SOUMAFÊ</title>
+<title>{{ $cr->titre }} - SOUMAFÊ</title>
 <style>
 @page{size:A4;margin:20mm 18mm 22mm 18mm}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -104,7 +104,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
         @if(file_exists($logoPath))
         <div class="logo-cercle"><img src="data:image/png;base64,{{ base64_encode(file_get_contents($logoPath)) }}" alt="SOUMAFÊ"></div>
         @endif
-        <div class="societe">SOUMAFÊ — Pilotage des opérations</div>
+        <div class="societe">SOUMAFÊ - Pilotage des opérations</div>
         @if($cr->estReunion())
         <h1>Compte rendu de {{ $cr->type === 'reunion_ordinaire' ? 'réunion ordinaire' : 'réunion extraordinaire' }}</h1>
         @else
@@ -116,7 +116,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
     {{-- INFORMATIONS --}}
     <table class="info-tbl">
         <tr><td>Date</td><td>{{ $cr->date_reunion->format('d/m/Y') }}</td></tr>
-        <tr><td>Horaires</td><td>{{ $cr->heure_debut ?? '—' }} — {{ $cr->heure_fin ?? '—' }}</td></tr>
+        <tr><td>Horaires</td><td>{{ $cr->heure_debut ?? '—' }} - {{ $cr->heure_fin ?? '—' }}</td></tr>
         <tr><td>Lieu</td><td>{{ $cr->lieu ?? '—' }}</td></tr>
         @if($cr->estReunion() && $cr->president)
         <tr><td>Président</td><td>{{ $cr->president->nomComplet() }}</td></tr>
@@ -124,7 +124,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
         <tr><td>Rédacteur</td><td>{{ $cr->redacteur?->nomComplet() ?? '—' }}</td></tr>
         <tr><td>Désigné par</td><td>{{ $cr->designePar?->nomComplet() ?? '—' }}</td></tr>
         @if($cr->sprint)
-        <tr><td>Sprint</td><td>Sprint {{ $cr->sprint->numero }} — {{ $cr->sprint->projet?->libelle ?? '' }}</td></tr>
+        <tr><td>Sprint</td><td>Sprint {{ $cr->sprint->numero }} - {{ $cr->sprint->projet?->libelle ?? '' }}</td></tr>
         @endif
     </table>
 
@@ -208,7 +208,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
         @endif
 
     @elseif(($d['format'] ?? '') === 'blocs_v1' && !empty($d['modules']))
-        {{-- ===== DEMO SPRINT — FORMAT BLOCS ===== --}}
+        {{-- ===== DEMO SPRINT - FORMAT BLOCS ===== --}}
         @php
         $refStyles = [
             'rappel' => ['Rappel', '#E8F5E9', '#00897B'], 'fondamental' => ['Fondamental', '#FFF8E1', '#F9A825'],
@@ -252,7 +252,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
                     @elseif($bloc['type'] === 'score')
                     <div class="score-box">
                         <div class="val">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }}</div>
-                        <div class="lab">Score global — {{ $d['score_pourcent'] ?? 0 }}%</div>
+                        <div class="lab">Score global - {{ $d['score_pourcent'] ?? 0 }}%</div>
                     </div>
                     @elseif($bloc['type'] === 'actions' && !empty($bloc['items']))
                     <table class="tbl">
@@ -307,7 +307,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
             <h2>2. Évaluation du sprint</h2>
             <div class="score-box">
                 <div class="val">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }}</div>
-                <div class="lab">Score global — {{ $d['score_pourcent'] ?? 0 }}%</div>
+                <div class="lab">Score global - {{ $d['score_pourcent'] ?? 0 }}%</div>
             </div>
             @if(!empty($d['par_dev']))
             <h3>Score par développeur</h3>
@@ -357,7 +357,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
 
     {{-- PIED DE PAGE --}}
     <div class="footer">
-        <span>SOUMAFÊ — Document généré le {{ now()->format('d/m/Y à H:i') }}</span>
+        <span>SOUMAFÊ - Document généré le {{ now()->format('d/m/Y à H:i') }}</span>
         <span>{{ $cr->estConfirme() ? 'Document confirmé' : 'Brouillon' }}</span>
     </div>
 </div>

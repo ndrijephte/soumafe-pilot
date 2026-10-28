@@ -332,7 +332,7 @@
     </div>
 
     <div class="fiche-pied">
-        <span>SOUMAFÊ — Parc automobile · Fiche véhicule {{ $vehicule->immatriculation }}</span>
+        <span>SOUMAFÊ - Parc automobile · Fiche véhicule {{ $vehicule->immatriculation }}</span>
         <span>Éditée le {{ now()->format('d/m/Y à H:i') }} par {{ auth()->user()->nomComplet() }}</span>
     </div>
 </div>

@@ -116,7 +116,7 @@ class PlanningReunionController extends Controller
         $fin = \Carbon\Carbon::parse($r->date_fin);
         $ponctuel = $type->recurrence !== 'quotidien' && $debut->equalTo($fin);
 
-        // Supprimer les affectations existantes (sauf ponctuel — permet plusieurs le même jour)
+        // Supprimer les affectations existantes (sauf ponctuel - permet plusieurs le même jour)
         if (!$ponctuel) {
             AffectationReunion::where('type_reunion_id', $type->id)
                 ->whereBetween('date_reunion', [$debut, $fin])
@@ -285,7 +285,7 @@ class PlanningReunionController extends Controller
         ]);
 
         $type->update($r->only('libelle', 'heure'));
-        AuditLog::log('modification', 'planning', $type->libelle, 'Type modifié' . ($r->heure ? " — Heure: {$r->heure}" : ''));
+        AuditLog::log('modification', 'planning', $type->libelle, 'Type modifié' . ($r->heure ? " - Heure: {$r->heure}" : ''));
         return redirect()->route('planning.index', ['type' => $type->id])->with('succes', 'Type de réunion modifié.');
     }
 

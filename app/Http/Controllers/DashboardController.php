@@ -23,7 +23,7 @@ class DashboardController extends Controller
         return $this->dashboardCollab($user);
     }
 
-    /* ─── Dashboard collaborateur (US-16) — enrichi si responsable projet ─── */
+    /* ─── Dashboard collaborateur (US-16) - enrichi si responsable projet ─── */
     private function dashboardCollab(User $user)
     {
         $userId = $user->id;
@@ -57,7 +57,7 @@ class DashboardController extends Controller
             $objUser = Objectif::where('user_id', $userId)->where('avancement', '<', 100)->get();
             foreach ($objUser as $obj) {
                 foreach ($obj->alertes() as $al) {
-                    $alertes[] = ['type' => $al['type'] === 'retard' ? 'ko' : 'warn', 'msg' => "[Obj] {$al['msg']} — {$obj->libelle}"];
+                    $alertes[] = ['type' => $al['type'] === 'retard' ? 'ko' : 'warn', 'msg' => "[Obj] {$al['msg']} - {$obj->libelle}"];
                 }
             }
         }
@@ -142,7 +142,7 @@ class DashboardController extends Controller
             $projetData = compact('mesProjets', 'sprintsEnCours', 'membres', 'topBloquees');
         }
 
-        // Pointage du jour — masqué si jour non ouvré
+        // Pointage du jour - masqué si jour non ouvré
         $monPointage = null;
         $pointageActif = $estJourOuvre;
         if (Schema::hasTable('pointages') && $pointageActif) {
@@ -522,7 +522,7 @@ class DashboardController extends Controller
             return $s;
         })->sortByDesc('date_fin')->take(6)->values();
 
-        // Pointage du jour (pilote) — masqué si jour non ouvré
+        // Pointage du jour (pilote) - masqué si jour non ouvré
         $monPointage = null;
         $estJourOuvreP = (!today()->isWeekend() || (Schema::hasTable('jours_ouvrables_speciaux') && \App\Models\JourOuvrableSpecial::where('date', today()->toDateString())->exists())) && !JourFerie::whereDate('date', today())->exists();
         $pointageActif = $estJourOuvreP;
@@ -579,7 +579,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Recherche globale (JSON) — tâches, projets, sprints, collaborateurs
+     * Recherche globale (JSON) - tâches, projets, sprints, collaborateurs
      */
     public function recherche(Request $r)
     {
@@ -624,7 +624,7 @@ class DashboardController extends Controller
             foreach ($sprints as $s) {
                 $results[] = [
                     'type'  => 'sprint',
-                    'label' => "Sprint {$s->numero} — " . ($s->projet?->libelle ?? ''),
+                    'label' => "Sprint {$s->numero} - " . ($s->projet?->libelle ?? ''),
                     'sub'   => ucfirst(str_replace('_', ' ', $s->statut)),
                     'url'   => route('sprints.show', $s),
                 ];

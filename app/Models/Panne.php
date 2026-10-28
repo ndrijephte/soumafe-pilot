@@ -41,7 +41,7 @@ class Panne extends Model
             ['source_type' => 'panne', 'source_id' => $this->id],
             ['caisse_code' => 'generale', 'sens' => 'sortie', 'montant' => (int) $this->cout_reel,
              'date_mouvement' => $this->date_cloture ?? $this->date_debut_intervention ?? $this->date_declaration ?? today(),
-             'libelle' => 'Intervention panne — ' . ($this->vehicule?->immatriculation ?? ''),
+             'libelle' => 'Intervention panne - ' . ($this->vehicule?->immatriculation ?? ''),
              'cree_par' => auth()->user()?->name]
         );
     }

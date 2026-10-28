@@ -89,7 +89,7 @@ class TacheController extends Controller
         return view('taches.show', compact('tache', 'blocagesActifs', 'typesBlocage', 'utilisateurs', 'projets'));
     }
 
-    /** US-06 : création rapide — valeurs par défaut intelligentes. */
+    /** US-06 : création rapide - valeurs par défaut intelligentes. */
     public function store(TacheRequest $r)
     {
         $r->user()->taches()->create($r->validated());
@@ -135,7 +135,7 @@ class TacheController extends Controller
         if ($r->statut === 'termine') {
             $this->cloture->cloturer($tache);
             $msg = match ($tache->qualification) {
-                'a_temps'   => 'Tâche terminée à temps — bravo.',
+                'a_temps'   => 'Tâche terminée à temps - bravo.',
                 'anticipee' => 'Terminée en avance : un mot sur la raison ? (aide à calibrer nos estimations)',
                 'en_retard' => 'Terminée après l\'échéance : merci d\'ajouter une justification en commentaire.',
                 default     => 'Tâche terminée.',
@@ -164,7 +164,7 @@ class TacheController extends Controller
             $tache->commentaires()->create([
                 'user_id'  => $r->user()->id,
                 'contenu'  => '✓ Tâche validée par ' . $r->user()->nomComplet()
-                    . ($r->motif ? ' — ' . $r->motif : ''),
+                    . ($r->motif ? ' - ' . $r->motif : ''),
                 'contexte' => 'validation',
             ]);
 
@@ -185,8 +185,8 @@ class TacheController extends Controller
 
             $msg = match ($tache->qualification) {
                 'a_temps'   => 'Validée à temps.',
-                'anticipee' => 'Validée — terminée en avance.',
-                'en_retard' => 'Validée — terminée en retard.',
+                'anticipee' => 'Validée - terminée en avance.',
+                'en_retard' => 'Validée - terminée en retard.',
                 default     => 'Validée.',
             };
             return back()->with('succes', $msg);
@@ -198,7 +198,7 @@ class TacheController extends Controller
 
         $tache->commentaires()->create([
             'user_id'  => $r->user()->id,
-            'contenu'  => '✗ Validation rejetée par ' . $r->user()->nomComplet() . ' — ' . $motif,
+            'contenu'  => '✗ Validation rejetée par ' . $r->user()->nomComplet() . ' - ' . $motif,
             'contexte' => 'rejet',
         ]);
 
@@ -216,10 +216,10 @@ class TacheController extends Controller
                 route('taches.show', $tache));
         }
 
-        return back()->with('erreur', 'Tâche rejetée — renvoyée en cours.');
+        return back()->with('erreur', 'Tâche rejetée - renvoyée en cours.');
     }
 
-    /** Suppression d'une tâche — pilotes ou propriétaire. */
+    /** Suppression d'une tâche - pilotes ou propriétaire. */
     public function destroy(Request $r, Tache $tache)
     {
         abort_unless($r->user()->estPilote(), 403);
@@ -231,7 +231,7 @@ class TacheController extends Controller
         return redirect()->route('taches.index')->with('succes', "Tâche « {$intitule} » supprimée.");
     }
 
-    /** Duplication de la veille (US-08 — anticipée ici tant la demande est fréquente). */
+    /** Duplication de la veille (US-08 - anticipée ici tant la demande est fréquente). */
     public function dupliquerVeille(Request $r)
     {
         $veille = Tache::where('user_id', $r->user()->id)

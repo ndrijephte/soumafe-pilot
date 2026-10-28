@@ -66,7 +66,7 @@ class MotDePasseController extends Controller
             return back()->with('succes', 'Un lien de réinitialisation a été envoyé à votre adresse email.');
         }
 
-        // Email échoué — afficher le lien directement (usage interne)
+        // Email échoué - afficher le lien directement (usage interne)
         return back()->with('lien_reset', $lien)
             ->with('warn', 'L\'envoi d\'email a échoué (SMTP non configuré). Utilisez le lien ci-dessous.');
     }

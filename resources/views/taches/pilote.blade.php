@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('sousTitre', 'Pilotage des tâches')
-@section('titre', 'Toutes les tâches — Pilote')
+@section('titre', 'Toutes les tâches - Pilote')
 @push('styles')
 <style>
 .filtre-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:14px 18px;background:var(--carte);border:1px solid var(--bord);border-radius:12px}

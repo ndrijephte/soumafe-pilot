@@ -48,7 +48,7 @@
         <input type="date" name="date_fin" value="{{ $fin->format('Y-m-d') }}">
     </span>
     <button class="btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer">Actualiser</button>
-    <span style="font-size:11px;color:var(--gris);margin-left:8px">{{ $debut->format('d/m/Y') }} &mdash; {{ $fin->format('d/m/Y') }}</span>
+    <span style="font-size:11px;color:var(--gris);margin-left:8px">{{ $debut->format('d/m/Y') }} - {{ $fin->format('d/m/Y') }}</span>
 </form>
 <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap">
     <a href="{{ route('reporting.imprimer', ['periode' => $periode, 'date_debut' => $debut->format('Y-m-d'), 'date_fin' => $fin->format('Y-m-d')]) }}" class="btn" style="font-size:12px;padding:6px 14px;text-decoration:none" target="_blank">
@@ -92,7 +92,7 @@
     <td>{{ $s['terminees'] }}/{{ $s['total'] }}</td>
     <td><strong>{{ $s['terminees_periode'] }}</strong></td>
     <td style="font-size:12px;color:var(--bleu);font-weight:600" title="Tâches terminées par jour ouvré">{{ $s['productivite'] ?? 0 }}</td>
-    <td>@if($s['en_retard'] > 0)<span class="badge b-ko">{{ $s['en_retard'] }}</span>@else — @endif</td>
+    <td>@if($s['en_retard'] > 0)<span class="badge b-ko">{{ $s['en_retard'] }}</span>@else - @endif</td>
     <td>
         <div style="display:flex;align-items:center;gap:6px">
             <div class="bar-wrap"><div class="bar-fill {{ $coulBar }}" style="width:{{ $s['taux'] }}%"></div></div>
@@ -125,8 +125,8 @@
             <td><strong>{{ $p->libelle }}</strong></td>
             <td>{{ $p->taches_count }}</td>
             <td>{{ $p->terminees_count }}</td>
-            <td>@if($p->en_retard_count > 0)<span class="badge b-ko">{{ $p->en_retard_count }}</span>@else — @endif</td>
-            <td>@if($p->bloquees_count > 0)<span class="badge b-warn">{{ $p->bloquees_count }}</span>@else — @endif</td>
+            <td>@if($p->en_retard_count > 0)<span class="badge b-ko">{{ $p->en_retard_count }}</span>@else - @endif</td>
+            <td>@if($p->bloquees_count > 0)<span class="badge b-warn">{{ $p->bloquees_count }}</span>@else - @endif</td>
             <td>
                 <div style="display:flex;align-items:center;gap:6px">
                     <div class="bar-wrap"><div class="bar-fill" style="width:{{ $pct }}%"></div></div>
@@ -239,9 +239,9 @@
     <td><strong>{{ $u->nomComplet() }}</strong></td>
     <td style="font-size:11px;color:var(--gris)">{{ $u->roleLibelle() }}</td>
     <td style="color:var(--ok);font-weight:600">{{ $ps['presents'] }}</td>
-    <td>@if($ps['retards'] > 0)<span style="color:#b45309;font-weight:600">{{ $ps['retards'] }}</span>@else — @endif</td>
-    <td>@if($ps['sortis_tot'] > 0)<span style="color:#2e7d32">{{ $ps['sortis_tot'] }}</span>@else — @endif</td>
-    <td>@if($ps['absents'] > 0)<span style="color:var(--ko);font-weight:600">{{ $ps['absents'] }}</span>@else — @endif</td>
+    <td>@if($ps['retards'] > 0)<span style="color:#b45309;font-weight:600">{{ $ps['retards'] }}</span>@else - @endif</td>
+    <td>@if($ps['sortis_tot'] > 0)<span style="color:#2e7d32">{{ $ps['sortis_tot'] }}</span>@else - @endif</td>
+    <td>@if($ps['absents'] > 0)<span style="color:var(--ko);font-weight:600">{{ $ps['absents'] }}</span>@else - @endif</td>
     <td><span class="badge {{ $coulPres }}">{{ $ps['taux_presence'] }}%</span></td>
     <td><span class="badge {{ $coulPonc }}">{{ $ps['taux_ponctualite'] }}%</span></td>
 </tr>

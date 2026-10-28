@@ -56,7 +56,7 @@ class ImportDonneesExcel extends Command
         }
 
         foreach ($anomalies as $a) $this->warn($a);
-        $this->info('Import terminé — ' . count($anomalies) . ' anomalie(s) à vérifier.');
+        $this->info('Import terminé - ' . count($anomalies) . ' anomalie(s) à vérifier.');
         return self::SUCCESS;
     }
 }

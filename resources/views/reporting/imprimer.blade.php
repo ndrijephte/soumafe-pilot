@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="utf-8">
-    <title>Reporting SOUMAFE — {{ $debut->format('d/m/Y') }} au {{ $fin->format('d/m/Y') }}</title>
+    <title>Reporting SOUMAFE - {{ $debut->format('d/m/Y') }} au {{ $fin->format('d/m/Y') }}</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;font-size:11px;color:#1e293b;line-height:1.5;padding:20px 30px}
@@ -95,8 +95,8 @@
 {{-- En-tête --}}
 <div class="entete">
     <div>
-        <h1>SOUMAFE — Reporting d'activit&eacute;</h1>
-        <div class="sous">P&eacute;riode : {{ $debut->translatedFormat('d F Y') }} — {{ $fin->translatedFormat('d F Y') }}</div>
+        <h1>SOUMAFE - Reporting d'activit&eacute;</h1>
+        <div class="sous">P&eacute;riode : {{ $debut->translatedFormat('d F Y') }} - {{ $fin->translatedFormat('d F Y') }}</div>
     </div>
     <div class="meta">
         <div>G&eacute;n&eacute;r&eacute; le {{ now()->translatedFormat('d/m/Y à H:i') }}</div>
@@ -145,8 +145,8 @@
             @if(in_array('pole', $colsCollab))<td>{{ $c->pole?->libelle ?? '—' }}</td>@endif
             @if(in_array('total', $colsCollab))<td>{{ $s['terminees'] }}/{{ $s['total'] }}</td>@endif
             @if(in_array('periode', $colsCollab))<td><strong>{{ $s['terminees_periode'] }}</strong></td>@endif
-            @if(in_array('retard', $colsCollab))<td>@if($s['en_retard'] > 0)<span class="badge b-ko">{{ $s['en_retard'] }}</span>@else — @endif</td>@endif
-            @if(in_array('bloquees', $colsCollab))<td>@if($s['bloquees'] > 0)<span class="badge b-warn">{{ $s['bloquees'] }}</span>@else — @endif</td>@endif
+            @if(in_array('retard', $colsCollab))<td>@if($s['en_retard'] > 0)<span class="badge b-ko">{{ $s['en_retard'] }}</span>@else - @endif</td>@endif
+            @if(in_array('bloquees', $colsCollab))<td>@if($s['bloquees'] > 0)<span class="badge b-warn">{{ $s['bloquees'] }}</span>@else - @endif</td>@endif
             @if(in_array('taux', $colsCollab))
             <td>
                 @php $coulBar = $s['taux'] >= 70 ? 'bar-ok' : ($s['taux'] >= 40 ? 'bar-warn' : 'bar-ko'); @endphp
@@ -156,7 +156,7 @@
             @if(in_array('objectifs', $colsCollab))
             <td>
                 @php $sObj = $s['score_objectifs']; @endphp
-                @if($sObj !== null)<span class="badge {{ $sObj >= 70 ? 'b-ok' : ($sObj >= 40 ? 'b-warn' : 'b-ko') }}">{{ $sObj }}%</span>@else — @endif
+                @if($sObj !== null)<span class="badge {{ $sObj >= 70 ? 'b-ok' : ($sObj >= 40 ? 'b-warn' : 'b-ko') }}">{{ $sObj }}%</span>@else - @endif
             </td>@endif
             @if(in_array('assiduite', $colsCollab))
             <td><span class="badge {{ $s['assiduite'] >= 80 ? 'b-ok' : ($s['assiduite'] >= 50 ? 'b-warn' : 'b-ko') }}">{{ $s['assiduite'] }}%</span></td>
@@ -181,8 +181,8 @@
             <td><strong>{{ $p->libelle }}</strong></td>
             <td>{{ $p->taches_count }}</td>
             <td>{{ $p->terminees_count }}</td>
-            <td>@if($p->en_retard_count > 0)<span class="badge b-ko">{{ $p->en_retard_count }}</span>@else — @endif</td>
-            <td>@if($p->bloquees_count > 0)<span class="badge b-warn">{{ $p->bloquees_count }}</span>@else — @endif</td>
+            <td>@if($p->en_retard_count > 0)<span class="badge b-ko">{{ $p->en_retard_count }}</span>@else - @endif</td>
+            <td>@if($p->bloquees_count > 0)<span class="badge b-warn">{{ $p->bloquees_count }}</span>@else - @endif</td>
             <td>
                 <span class="bar"><span class="bar-fill" style="width:{{ $pct }}%"></span></span>
                 <span style="font-size:10px;font-weight:600">{{ $pct }}%</span>
@@ -263,7 +263,7 @@
 
 {{-- Pied de page --}}
 <div class="pied">
-    <span>SOUMAFE PILOT — Document confidentiel</span>
+    <span>SOUMAFE PILOT - Document confidentiel</span>
     <span>{{ now()->translatedFormat('d/m/Y H:i') }}</span>
 </div>
 

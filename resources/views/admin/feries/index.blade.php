@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('sousTitre', 'Administration')
-@section('titre', 'Administration — Jours fériés')
+@section('titre', 'Administration - Jours fériés')
 @push('styles')
 <style>
 .admin-tbl{width:100%;border-collapse:collapse;font-size:13px}

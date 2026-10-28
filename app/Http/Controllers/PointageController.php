@@ -299,7 +299,7 @@ class PointageController extends Controller
 
         foreach ($oublis as $p) {
             $p->heure_depart = '18:00:00';
-            $p->motif_depart = 'Oubli de pointage départ — clôturé automatiquement';
+            $p->motif_depart = 'Oubli de pointage départ - clôturé automatiquement';
             $p->statut = $p->calculerStatut();
             $p->save();
             $this->auditer('cloture_oubli_depart', $p);
@@ -358,7 +358,7 @@ class PointageController extends Controller
     private function auditer(string $action, Pointage $p)
     {
         if (Schema::hasTable('audit_logs') && class_exists(\App\Models\AuditLog::class)) {
-            \App\Models\AuditLog::log($action, 'pointage', $p->user->nomComplet() . ' — ' . $p->date->format('d/m/Y'));
+            \App\Models\AuditLog::log($action, 'pointage', $p->user->nomComplet() . ' - ' . $p->date->format('d/m/Y'));
         }
     }
 }

@@ -427,7 +427,7 @@ class ParcController extends Controller
                 'montant' => $data['cout_reel'],
                 'date_emprunt' => $data['date_cloture'] ?? now()->toDateString(),
                 'preteur' => $r->preteur ?? 'Non précisé',
-                'motif' => 'Réparation panne — ' . ($p->vehicule?->immatriculation ?? ''),
+                'motif' => 'Réparation panne - ' . ($p->vehicule?->immatriculation ?? ''),
                 'source_type' => 'panne',
                 'source_id' => $p->id,
                 'vehicule_id' => $data['vehicule_id'],
@@ -481,7 +481,7 @@ class ParcController extends Controller
                 'preteur' => $r->preteur,
                 'date_echeance' => $r->date_echeance_emprunt,
                 'modalites' => $r->modalites_emprunt,
-                'motif' => 'Réparation panne — ' . ($panne->vehicule?->immatriculation ?? ''),
+                'motif' => 'Réparation panne - ' . ($panne->vehicule?->immatriculation ?? ''),
                 'source_type' => 'panne',
                 'source_id' => $panne->id,
                 'vehicule_id' => $data['vehicule_id'],
@@ -658,7 +658,7 @@ class ParcController extends Controller
                 MouvementCaisse::create([
                     'caisse_code' => 'generale', 'sens' => 'entree', 'montant' => $montant,
                     'date_mouvement' => $data['date'], 'source_type' => 'recette', 'source_id' => $rec->id,
-                    'libelle' => "Recette — " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
+                    'libelle' => "Recette - " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
                     'cree_par' => auth()->user()->name,
                 ]);
             }
@@ -667,7 +667,7 @@ class ParcController extends Controller
                 MouvementCaisse::create([
                     'caisse_code' => 'pointage', 'sens' => 'entree', 'montant' => $data['pointage'],
                     'date_mouvement' => $data['date'], 'source_type' => 'pointage', 'source_id' => $rec->id,
-                    'libelle' => "Pointage — " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
+                    'libelle' => "Pointage - " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
                     'cree_par' => auth()->user()->name,
                 ]);
             }
@@ -692,7 +692,7 @@ class ParcController extends Controller
                         'statut' => 'actif',
                         'cree_par' => $r->user()->name,
                     ]);
-                    AuditLog::log('creation', 'recouvrement', $data['chauffeur'], "Déficit {$deficit} F — justification non valable (saisie individuelle)");
+                    AuditLog::log('creation', 'recouvrement', $data['chauffeur'], "Déficit {$deficit} F - justification non valable (saisie individuelle)");
                 }
             }
 
@@ -796,7 +796,7 @@ class ParcController extends Controller
 
             $recette->update($data);
 
-            AuditLog::log('modification', 'recette', "Recette #{$recette->id}", "Modifiee par " . $r->user()->name . " — {$data['chauffeur']} / " . ($v->immatriculation ?? '') . " du " . $data['date']);
+            AuditLog::log('modification', 'recette', "Recette #{$recette->id}", "Modifiee par " . $r->user()->name . " - {$data['chauffeur']} / " . ($v->immatriculation ?? '') . " du " . $data['date']);
 
             // Mise a jour mouvements caisse
             if (Schema::hasTable('mouvements_caisse')) {
@@ -806,7 +806,7 @@ class ParcController extends Controller
                     MouvementCaisse::create([
                         'caisse_code' => 'generale', 'sens' => 'entree', 'montant' => $montant,
                         'date_mouvement' => $data['date'], 'source_type' => 'recette', 'source_id' => $recette->id,
-                        'libelle' => "Recette — " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
+                        'libelle' => "Recette - " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
                         'cree_par' => auth()->user()->name,
                     ]);
                 }
@@ -814,7 +814,7 @@ class ParcController extends Controller
                     MouvementCaisse::create([
                         'caisse_code' => 'pointage', 'sens' => 'entree', 'montant' => $data['pointage'],
                         'date_mouvement' => $data['date'], 'source_type' => 'pointage', 'source_id' => $recette->id,
-                        'libelle' => "Pointage — " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
+                        'libelle' => "Pointage - " . ($v->immatriculation ?? '') . " / " . ($data['chauffeur'] ?? ''),
                         'cree_par' => auth()->user()->name,
                     ]);
                 }
@@ -840,7 +840,7 @@ class ParcController extends Controller
                         'statut' => 'actif',
                         'cree_par' => $r->user()->name,
                     ]);
-                    AuditLog::log('creation', 'recouvrement', $data['chauffeur'], "Déficit {$deficit} F — justification non valable (modification recette)");
+                    AuditLog::log('creation', 'recouvrement', $data['chauffeur'], "Déficit {$deficit} F - justification non valable (modification recette)");
                 }
             }
 
@@ -987,7 +987,7 @@ class ParcController extends Controller
                         MouvementCaisse::create([
                             'caisse_code' => 'generale', 'sens' => 'entree', 'montant' => $montant,
                             'date_mouvement' => $dateJour, 'source_type' => 'recette', 'source_id' => $recetteObj->id,
-                            'libelle' => "Recette — " . ($v->immatriculation ?? '') . " / " . ($chauffeurNomLigne ?? ''),
+                            'libelle' => "Recette - " . ($v->immatriculation ?? '') . " / " . ($chauffeurNomLigne ?? ''),
                             'cree_par' => auth()->user()->name,
                         ]);
                     }
@@ -997,7 +997,7 @@ class ParcController extends Controller
                         MouvementCaisse::create([
                             'caisse_code' => 'pointage', 'sens' => 'entree', 'montant' => $ptg,
                             'date_mouvement' => $dateJour, 'source_type' => 'pointage', 'source_id' => $recetteObj->id,
-                            'libelle' => "Pointage — " . ($v->immatriculation ?? '') . " / " . ($chauffeurNomLigne ?? ''),
+                            'libelle' => "Pointage - " . ($v->immatriculation ?? '') . " / " . ($chauffeurNomLigne ?? ''),
                             'cree_par' => auth()->user()->name,
                         ]);
                     }
@@ -1187,7 +1187,7 @@ class ParcController extends Controller
                 'type_depense'  => 'maintenance',
                 'vehicule_id'   => $maintenance->vehicule_id,
                 'montant'       => $r->cout,
-                'commentaire'   => 'Maintenance ' . $maintenance->typeLabel() . ' — ' . ($maintenance->vehicule->immatriculation ?? ''),
+                'commentaire'   => 'Maintenance ' . $maintenance->typeLabel() . ' - ' . ($maintenance->vehicule->immatriculation ?? ''),
                 'cree_par'      => auth()->user()->name,
             ];
 
@@ -1199,7 +1199,7 @@ class ParcController extends Controller
                     'preteur' => $r->preteur,
                     'date_echeance' => $r->date_echeance_emprunt,
                     'modalites' => $r->modalites_emprunt,
-                    'motif' => 'Maintenance ' . $maintenance->typeLabel() . ' — ' . ($maintenance->vehicule->immatriculation ?? ''),
+                    'motif' => 'Maintenance ' . $maintenance->typeLabel() . ' - ' . ($maintenance->vehicule->immatriculation ?? ''),
                     'source_type' => 'maintenance',
                     'source_id' => $maintenance->id,
                     'vehicule_id' => $maintenance->vehicule_id,
@@ -1239,7 +1239,7 @@ class ParcController extends Controller
                 'prochaine_echeance' => $dateProchaineEch,
                 'observations' => null,
             ]);
-            AuditLog::log('creation', 'maintenance', "Maintenance #{$next->id}", "Prochaine échéance auto — Type: {$next->type_echeance}, Véhicule: " . ($maintenance->vehicule->immatriculation ?? ''));
+            AuditLog::log('creation', 'maintenance', "Maintenance #{$next->id}", "Prochaine échéance auto - Type: {$next->type_echeance}, Véhicule: " . ($maintenance->vehicule->immatriculation ?? ''));
             $msg = 'Maintenance réalisée. Prochaine échéance planifiée au ' . date('d/m/Y', strtotime($dateProchaineEch)) . '.';
         }
 
@@ -1305,7 +1305,7 @@ class ParcController extends Controller
                     'solde' => $p->montant,
                     'statut' => 'actif',
                     'type_recouvrement' => 'penalite',
-                    'motif' => 'Pénalité — ' . $p->typeLabel(),
+                    'motif' => 'Pénalité - ' . $p->typeLabel(),
                     'cree_par' => auth()->user()->name,
                 ]);
             }
@@ -1380,7 +1380,7 @@ class ParcController extends Controller
                 'montant' => $r->montant,
                 'date_emprunt' => $r->date_paiement,
                 'preteur' => $r->preteur ?? 'Non précisé',
-                'motif' => 'Paiement pénalité — ' . ($penalite->chauffeur ?? $penalite->vehicule?->immatriculation ?? ''),
+                'motif' => 'Paiement pénalité - ' . ($penalite->chauffeur ?? $penalite->vehicule?->immatriculation ?? ''),
                 'source_type' => 'penalite',
                 'source_id' => $penalite->id,
                 'vehicule_id' => $penalite->vehicule_id,
@@ -2066,7 +2066,7 @@ class ParcController extends Controller
         MouvementCaisse::updateOrCreate(
             ['source_type' => 'emprunt', 'source_id' => $emp->id],
             ['caisse_code' => 'generale', 'sens' => 'entree', 'montant' => $emp->montant, 'date_mouvement' => $emp->date_emprunt,
-             'libelle' => "Emprunt reçu — {$emp->preteur}", 'reference' => $emp->reference, 'cree_par' => auth()->user()?->name]
+             'libelle' => "Emprunt reçu - {$emp->preteur}", 'reference' => $emp->reference, 'cree_par' => auth()->user()?->name]
         );
     }
 
@@ -2097,7 +2097,7 @@ class ParcController extends Controller
                 'caisse_code' => 'generale', 'sens' => 'sortie', 'montant' => $rb->montant,
                 'date_mouvement' => $rb->date_remboursement,
                 'source_type' => 'remboursement_emprunt', 'source_id' => $rb->id,
-                'libelle' => "Remboursement emprunt — {$emprunt->preteur}",
+                'libelle' => "Remboursement emprunt - {$emprunt->preteur}",
                 'reference' => $emprunt->reference, 'cree_par' => auth()->user()->name,
             ]);
         }
@@ -2150,7 +2150,7 @@ class ParcController extends Controller
                 'sens' => 'sortie', 'montant' => $pret->montant,
                 'date_mouvement' => $pret->date_pret,
                 'source_type' => 'pret_accorde', 'source_id' => $pret->id,
-                'libelle' => "Prêt accordé — {$pret->beneficiaire}",
+                'libelle' => "Prêt accordé - {$pret->beneficiaire}",
                 'reference' => $pret->reference,
                 'cree_par' => auth()->user()->name,
             ]);
@@ -2190,7 +2190,7 @@ class ParcController extends Controller
                 'sens' => 'entree', 'montant' => $rb->montant,
                 'date_mouvement' => $rb->date_remboursement,
                 'source_type' => 'remboursement_pret', 'source_id' => $rb->id,
-                'libelle' => "Remboursement prêt — {$pret->beneficiaire}",
+                'libelle' => "Remboursement prêt - {$pret->beneficiaire}",
                 'reference' => $pret->reference,
                 'cree_par' => auth()->user()->name,
             ]);
@@ -2243,7 +2243,7 @@ class ParcController extends Controller
                 'sens' => 'entree', 'montant' => $res->montant,
                 'date_mouvement' => $res->date_ressource,
                 'source_type' => 'autre_ressource', 'source_id' => $res->id,
-                'libelle' => 'Autre ressource — ' . $res->typeLibelle(),
+                'libelle' => 'Autre ressource - ' . $res->typeLibelle(),
                 'cree_par' => auth()->user()->name,
             ]);
         }
@@ -2342,12 +2342,12 @@ class ParcController extends Controller
                         'motif' => $recette->motif_absence,
                         'cree_par' => auth()->user()->name,
                     ]);
-                    AuditLog::log('creation', 'recouvrement', $recette->chauffeur, "Déficit {$deficit} F — motif invalidé");
+                    AuditLog::log('creation', 'recouvrement', $recette->chauffeur, "Déficit {$deficit} F - motif invalidé");
                 }
             }
         }
 
         AuditLog::log('invalidation', 'motif_recette', "Recette #{$recette->id}", "Motif invalidé par " . auth()->user()->name);
-        return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $recette->date->format('Y-m-d')])->with('succes', 'Motif invalidé — recouvrement créé.');
+        return redirect()->route('parc.index', ['tab' => 'recettes', 'date_recette' => $recette->date->format('Y-m-d')])->with('succes', 'Motif invalidé - recouvrement créé.');
     }
 }

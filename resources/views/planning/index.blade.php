@@ -42,7 +42,7 @@
 .type-header .th-nom{font-size:16px;font-weight:700}
 .type-header .th-rec{font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;color:var(--accent)}
 
-/* Cellule affectation — actions au hover */
+/* Cellule affectation - actions au hover */
 .cell-aff{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
 .cell-aff .nom{font-size:12px;font-weight:600;color:#1e293b}
 .cell-aff .statut{font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px}
@@ -57,7 +57,7 @@
 .cell-actions .btn-act:hover{color:var(--accent);background:rgba(46,116,181,.08)}
 .cell-actions .btn-act.del:hover{color:var(--ko);background:#fee2e2}
 
-/* Instance ponctuelle — actions en-tête au hover */
+/* Instance ponctuelle - actions en-tête au hover */
 .inst-card{background:var(--fond);border:1px solid var(--bord);border-radius:10px;padding:12px 16px;margin-bottom:10px;position:relative}
 .inst-header{font-weight:700;color:var(--bleu);font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .inst-actions{display:none;gap:4px;margin-left:auto}
@@ -65,7 +65,7 @@
 .inst-actions .btn-act{background:none;border:none;cursor:pointer;color:var(--gris);padding:3px;border-radius:4px}
 .inst-actions .btn-act:hover{color:var(--ko);background:#fee2e2}
 
-/* Row actions ponctuel — hover */
+/* Row actions ponctuel - hover */
 .row-acts{display:none;gap:2px;justify-content:center}
 .plan-table tr:hover .row-acts{display:flex}
 .row-acts .btn-act{background:none;border:none;cursor:pointer;color:var(--gris);padding:2px;border-radius:4px;line-height:1}
@@ -246,7 +246,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
                 <tbody>
                 @foreach($instance as $aff)
                 <tr>
-                    <td>{!! $ic('<circle cx="12" cy="12" r="3"/>',10) !!} {{ $aff->role->libelle ?? '—' }}</td>
+                    <td>{!! $ic('<circle cx="12" cy="12" r="3"/>',10) !!} {{ $aff->role->libelle ?? '—' }}@if(($aff->role->code ?? null) === 'scribe')<span title="Le scribe du jour est le rédacteur de tous les rapports de la journée (Daily Scrum, Review, Rétrospective, comptes rendus)" style="font-size:9.5px;font-weight:600;background:#eef2ff;color:#3730a3;padding:1px 6px;border-radius:6px;margin-left:4px">Rédacteur des rapports</span>@endif</td>
                     <td>
                         {{ $aff->user?->nomComplet() ?? '—' }}
                         @if($aff->statut !== 'prevu')
@@ -296,7 +296,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             <tbody>
                 @foreach($type->roles as $role)
                 <tr>
-                    <td>{!! $ic('<circle cx="12" cy="12" r="3"/>',12) !!} {{ $role->libelle }}</td>
+                    <td>{!! $ic('<circle cx="12" cy="12" r="3"/>',12) !!} {{ $role->libelle }}@if(($role->code ?? null) === 'scribe')<span title="Le scribe du jour est le rédacteur de tous les rapports de la journée (Daily Scrum, Review, Rétrospective, comptes rendus)" style="font-size:9.5px;font-weight:600;background:#eef2ff;color:#3730a3;padding:1px 6px;border-radius:6px;margin-left:4px">Rédacteur des rapports</span>@endif</td>
                     @foreach($jours as $j)
                     @php $aff = $affMap[$j->format('Y-m-d') . '_' . $role->id] ?? null; @endphp
                     <td>
@@ -443,7 +443,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
             <select name="projet_id" style="margin-bottom:6px">
                 <option value="">— Aucun projet —</option>
                 @foreach($projets as $pr)
-                <option value="{{ $pr->id }}">{{ $pr->code }} — {{ $pr->libelle }}</option>
+                <option value="{{ $pr->id }}">{{ $pr->code }} - {{ $pr->libelle }}</option>
                 @endforeach
             </select>
             @if($participants->isEmpty())
@@ -478,7 +478,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
 <div class="panneau" style="margin-top:16px">
     <h3>
         {!! $ic('<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>') !!}
-        Rôles — {{ $type->libelle }}
+        Rôles - {{ $type->libelle }}
     </h3>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         @forelse($type->roles as $r)
@@ -558,7 +558,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
 {{-- Dialog Nouveau rôle --}}
 @if($type)
 <dialog id="dlg-role">
-    <h3 style="margin-bottom:14px;color:var(--bleu)">Nouveau rôle — {{ $type->libelle }}</h3>
+    <h3 style="margin-bottom:14px;color:var(--bleu)">Nouveau rôle - {{ $type->libelle }}</h3>
     <form method="POST" action="{{ route('planning.role.store') }}">
         @csrf
         <input type="hidden" name="type_reunion_id" value="{{ $type->id }}">
@@ -651,7 +651,7 @@ dialog input,dialog select,dialog textarea{width:100%;padding:7px 10px;border:1p
 <script>
 function ouvrirAbsence(affId, nom, role, date) {
     document.getElementById('form-absence').action = '/planning/' + affId + '/absence';
-    document.getElementById('abs-info').textContent = nom + ' — ' + role + ' le ' + date;
+    document.getElementById('abs-info').textContent = nom + ' - ' + role + ' le ' + date;
     document.getElementById('abs-remplacant').value = '';
     document.getElementById('dlg-absence').showModal();
 }

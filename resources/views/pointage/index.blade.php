@@ -96,7 +96,7 @@ dialog textarea{resize:vertical}
                 Bonne journée !
             @else
                 <strong>Journée terminée</strong>
-                {{ \Carbon\Carbon::parse($monPointage->heure_arrivee)->format('H:i') }} — {{ \Carbon\Carbon::parse($monPointage->heure_depart)->format('H:i') }}
+                {{ \Carbon\Carbon::parse($monPointage->heure_arrivee)->format('H:i') }} - {{ \Carbon\Carbon::parse($monPointage->heure_depart)->format('H:i') }}
                 ({{ $monPointage->dureeFormatee() }})
             @endif
         </div>
@@ -141,7 +141,7 @@ dialog textarea{resize:vertical}
 
 {{-- Liste de présence --}}
 <div class="panneau" style="overflow-x:auto">
-    <h3>{!! $icUser !!} Liste de présence — {{ $date->locale('fr')->isoFormat('dddd D MMMM YYYY') }}</h3>
+    <h3>{!! $icUser !!} Liste de présence - {{ $date->locale('fr')->isoFormat('dddd D MMMM YYYY') }}</h3>
     <table class="mini-table" id="tablePresence">
         <thead>
         <tr>

@@ -63,7 +63,7 @@
 
         <div class="fg">
             <label>Date</label>
-            <input type="date" name="date_reunion" value="{{ old('date_reunion', now()->format('Y-m-d')) }}" required>
+            <input type="date" name="date_reunion" id="cr-date" value="{{ old('date_reunion', now()->format('Y-m-d')) }}" required onchange="scribeDuJour()">
         </div>
 
         <div class="fg">
@@ -92,12 +92,13 @@
 
         <div class="fg">
             <label>Rédacteur désigné</label>
-            <select name="redacteur_id" required>
+            <select name="redacteur_id" id="cr-redacteur" required>
                 <option value="">— Choisir —</option>
                 @foreach($collaborateurs as $c)
-                <option value="{{ $c->id }}" @selected(old('redacteur_id') == $c->id)>{{ $c->nomComplet() }} ({{ $c->roleLibelle() }})</option>
+                <option value="{{ $c->id }}" @selected(old('redacteur_id', $scribe) == $c->id)>{{ $c->nomComplet() }} ({{ $c->roleLibelle() }})</option>
                 @endforeach
             </select>
+            <div id="cr-scribe-info" style="font-size:11.5px;color:var(--gris);margin-top:4px">{{ $scribe ? 'Scribe du jour au planning des réunions : rédacteur de tous les rapports de la journée.' : 'Aucun scribe au planning des réunions à cette date.' }}</div>
         </div>
 
         @if($type === 'demo_sprint')
@@ -116,7 +117,7 @@
                 <option value="">— Choisir —</option>
                 @foreach($sprints as $s)
                 <option value="{{ $s->id }}" data-projet="{{ $s->projet_id }}" @selected(old('sprint_id', $sprintId) == $s->id)>
-                    Sprint {{ $s->numero }} — {{ $s->projet?->libelle ?? '—' }}
+                    Sprint {{ $s->numero }} - {{ $s->projet?->libelle ?? '—' }}
                 </option>
                 @endforeach
             </select>
@@ -130,6 +131,18 @@
     </form>
 </div>
 
+<script>
+// Le scribe du jour (planning des réunions) est le rédacteur des rapports de la journée
+function scribeDuJour(){
+    const d = document.getElementById('cr-date').value, info = document.getElementById('cr-scribe-info');
+    if (!d) return;
+    fetch(@json(route('comptes-rendus.scribe')) + '?date=' + d, {headers: {'Accept': 'application/json'}})
+        .then(r => r.json()).then(j => {
+            if (j.id) { document.getElementById('cr-redacteur').value = j.id; info.textContent = 'Scribe du jour au planning des réunions (' + j.nom + ') : rédacteur de tous les rapports de la journée.'; }
+            else info.textContent = 'Aucun scribe au planning des réunions à cette date : choisissez le rédacteur.';
+        }).catch(() => {});
+}
+</script>
 @if($type === 'demo_sprint')
 <script>
 function filtrerSprints(){

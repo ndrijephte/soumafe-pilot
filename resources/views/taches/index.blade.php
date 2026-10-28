@@ -66,9 +66,9 @@
         </select>
         <select name="type" class="filtre-select" onchange="this.form.submit()">
             <option value="">Type : tous</option>
-            <option value="T1" @selected(request('type')=='T1')>T1 — Sprint</option>
-            <option value="T2" @selected(request('type')=='T2')>T2 — Opérationnelle</option>
-            <option value="T3" @selected(request('type')=='T3')>T3 — Urgente</option>
+            <option value="T1" @selected(request('type')=='T1')>T1 - Sprint</option>
+            <option value="T2" @selected(request('type')=='T2')>T2 - Opérationnelle</option>
+            <option value="T3" @selected(request('type')=='T3')>T3 - Urgente</option>
         </select>
     </form>
 </div>
@@ -103,9 +103,9 @@
     <form method="POST" action="{{ route('taches.store') }}">@csrf
         <label>Type <span class="req">*</span></label>
         <select name="type" id="sel-type" onchange="basculeType()">
-            <option value="T2">T2 — Opérationnelle planifiée</option>
-            <option value="T1">T1 — Tâche de sprint</option>
-            <option value="T3">T3 — Urgente non planifiée</option>
+            <option value="T2">T2 - Opérationnelle planifiée</option>
+            <option value="T1">T1 - Tâche de sprint</option>
+            <option value="T3">T3 - Urgente non planifiée</option>
         </select>
         <label>Intitulé <span class="req">*</span></label><input name="intitule" required autofocus>
         <label>Projet</label>
@@ -160,7 +160,7 @@ async function chargerSprints(){
             sel.innerHTML = '<option value="">Aucun sprint disponible</option>';
         } else {
             sel.innerHTML = '<option value="">— Choisir —</option>' +
-                sprints.map(s => `<option value="${s.id}">Sprint ${s.numero} — ${s.objectif}</option>`).join('');
+                sprints.map(s => `<option value="${s.id}">Sprint ${s.numero} - ${s.objectif}</option>`).join('');
         }
     } catch(e) { sel.innerHTML = '<option value="">Erreur de chargement</option>'; }
 }
@@ -197,7 +197,7 @@ async function deplacerTache(id, statut){
         }
         setTimeout(() => location.reload(), 900);
     } catch(e) {
-        toast('Erreur réseau — réessayez.', 'ko');
+        toast('Erreur réseau - réessayez.', 'ko');
     }
 }
 

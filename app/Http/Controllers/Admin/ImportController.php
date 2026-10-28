@@ -16,7 +16,7 @@ class ImportController extends Controller
         return view('admin.import.index');
     }
 
-    /** US-19 — Import collaborateurs. */
+    /** US-19 - Import collaborateurs. */
     public function collaborateurs(Request $r)
     {
         $r->validate(['fichier' => 'required|file|mimes:xlsx']);
@@ -89,7 +89,7 @@ class ImportController extends Controller
         return back()->with('succes', "Import terminé : {$crees} créé(s), {$maj} mis à jour, {$ignores} ignoré(s). Mot de passe par défaut : Soumafe2026!");
     }
 
-    /** US-20 — Import tâches depuis suivi quotidien. */
+    /** US-20 - Import tâches depuis suivi quotidien. */
     public function taches(Request $r)
     {
         $r->validate(['fichier' => 'required|file|mimes:xlsx']);

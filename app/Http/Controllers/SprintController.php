@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{NotificationApp, Projet, Sprint, Tache, User};
+use App\Models\{NotificationApp, Projet, Sprint, Tache, User, UserStory};
 use App\Services\{ClotureService, LecteurXlsx};
 use Illuminate\Http\Request;
 
@@ -26,10 +26,10 @@ class SprintController extends Controller
                     }
                 });
             }
-        }, 'sprints.taches', 'responsable'])
+        }, 'sprints.taches', 'sprints.userStories', 'responsable'])
             ->orderBy('libelle')->get();
 
-        // Filtrage per-collaborateur (exclusions individuelles) — sauf responsable projet
+        // Filtrage per-collaborateur (exclusions individuelles) - sauf responsable projet
         if ($user->aRole('collaborateur')) {
             foreach ($projets as $p) {
                 $estResponsable = $p->responsable_projet_id === $user->id;
@@ -40,7 +40,9 @@ class SprintController extends Controller
         }
 
         $collaborateurs = $user->estAdmin() ? User::where('actif', true)->where('role', 'collaborateur')->orderBy('name')->get() : collect();
-        return view('sprints.index', compact('projets', 'collaborateurs'));
+        // Espaces projets accessibles (y compris projets sans sprint : le backlog se prépare avant le 1er sprint)
+        $espaces = $projets->filter(fn($p) => $p->estVisiblePour($user))->values();
+        return view('sprints.index', compact('projets', 'collaborateurs', 'espaces'));
     }
 
     /** Page détail d'un sprint : tâches, import, ajout. */
@@ -53,11 +55,23 @@ class SprintController extends Controller
         if ($user->aRole('collaborateur') && !$estResponsable && !$sprint->visiblePour($user->id)) {
             abort(403, 'Ce sprint n\'est pas visible pour vous.');
         }
-        $sprint->load(['projet.responsable', 'taches.user']);
+        $sprint->load(['projet.responsable', 'taches.user', 'taches.userStory', 'userStories.taches']);
         $users = User::where('actif', true)->orderBy('name')->get();
         $canEdit = $user->peutGererProjet($sprint->projet_id);
         $canEditSprint = $user->estPilote(); // seuls admin, charge_ops et direction modifient sprint/tâches
-        return view('sprints.show', compact('sprint', 'users', 'canEdit', 'canEditSprint'));
+
+        // Sprint Planning : stories du sprint et stories du backlog encore disponibles
+        $storiesSprint = UserStory::trierParNumero($sprint->userStories)->values();
+        $backlogDispo = UserStory::trierParNumero(
+            UserStory::where('projet_id', $sprint->projet_id)->where('statut', '!=', 'terminee')->whereNotIn('id', $storiesSprint->pluck('id'))->get()
+        )->values();
+        // Équipe du sprint (dynamique) : proposée en priorité pour l'attribution des tâches
+        $equipe = \App\Services\ScrumService::membres($sprint);
+        $retiresSprint = \App\Models\SprintEquipe::with(['user', 'par'])->where('sprint_id', $sprint->id)->where('statut', 'retire')->get();
+        $rolesProjet = $sprint->projet->collaborateurs()->get()->keyBy('user_id');
+        $voitProjet = $sprint->projet->estVisiblePour($user);
+
+        return view('sprints.show', compact('sprint', 'users', 'canEdit', 'canEditSprint', 'storiesSprint', 'backlogDispo', 'equipe', 'retiresSprint', 'rolesProjet', 'voitProjet'));
     }
 
     public function store(Request $r)
@@ -132,7 +146,7 @@ class SprintController extends Controller
             NotificationApp::create([
                 'user_id' => $sprint->projet->responsable_projet_id,
                 'type' => 'sprint_demarre',
-                'contenu' => "Le sprint {$sprint->numero} a démarré — {$sprint->taches()->count()} tâche(s).",
+                'contenu' => "Le sprint {$sprint->numero} a démarré - {$sprint->taches()->count()} tâche(s).",
             ]);
         }
 
@@ -171,7 +185,7 @@ class SprintController extends Controller
 
         // Résumé
         $pointsLivres = $sprint->pointsLivres();
-        $engagement = $sprint->engagement_points ?? 0;
+        $engagement = $sprint->pointsEngages();
         $velocite = $engagement > 0 ? round(($pointsLivres / $engagement) * 100) : 0;
 
         // Notifier le responsable projet
@@ -179,7 +193,7 @@ class SprintController extends Controller
             NotificationApp::create([
                 'user_id' => $sprint->projet->responsable_projet_id,
                 'type' => 'sprint_cloture',
-                'contenu' => "Sprint {$sprint->numero} clôturé — {$stats['a_temps']} à temps, {$stats['en_retard']} en retard, {$stats['non_termine']} non terminée(s). Vélocité : {$velocite}%.",
+                'contenu' => "Sprint {$sprint->numero} clôturé - {$stats['a_temps']} à temps, {$stats['en_retard']} en retard, {$stats['non_termine']} non terminée(s). Vélocité : {$velocite}%.",
             ]);
         }
 
@@ -252,8 +266,9 @@ class SprintController extends Controller
             'user_id' => 'required|exists:users,id',
             'priorite' => 'required|in:haute,moyenne,basse',
             'date_debut' => 'nullable|date',
-            'echeance' => 'nullable|date',
+            'echeance' => 'nullable|date|after_or_equal:date_debut',
             'points' => 'nullable|integer|min:1',
+            'user_story_id' => ['nullable', \Illuminate\Validation\Rule::exists('user_stories', 'id')->where('projet_id', $sprint->projet_id)],
         ]);
 
         Tache::create([
@@ -267,7 +282,9 @@ class SprintController extends Controller
             'date_debut' => $r->date_debut ?? today(),
             'echeance' => $r->echeance,
             'points' => $r->points,
+            'user_story_id' => $r->user_story_id,
         ]);
+        if ($r->user_story_id) $sprint->userStories()->syncWithoutDetaching([$r->user_story_id]);
 
         return back()->with('succes', 'Tâche ajoutée au sprint.');
     }
@@ -283,13 +300,76 @@ class SprintController extends Controller
             'user_id' => 'required|exists:users,id',
             'priorite' => 'required|in:haute,moyenne,basse',
             'date_debut' => 'nullable|date',
-            'echeance' => 'nullable|date',
+            'echeance' => 'nullable|date|after_or_equal:date_debut',
             'points' => 'nullable|integer|min:1',
+            'user_story_id' => ['nullable', \Illuminate\Validation\Rule::exists('user_stories', 'id')->where('projet_id', $sprint->projet_id)],
         ]);
 
-        $tache->update($r->only(['intitule', 'user_id', 'priorite', 'date_debut', 'echeance', 'points']));
+        $tache->update($r->only(['intitule', 'user_id', 'priorite', 'date_debut', 'echeance', 'points', 'user_story_id']));
+        if ($r->user_story_id) $sprint->userStories()->syncWithoutDetaching([$r->user_story_id]);
 
         return back()->with('succes', 'Tâche mise à jour.');
+    }
+
+    /* ═══════ SPRINT PLANNING : user stories du sprint ═══════ */
+
+    /** Ajouter des user stories du Product Backlog au Sprint Backlog. */
+    public function attacherUserStories(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        $r->validate([
+            'user_stories' => 'required|array|min:1',
+            'user_stories.*' => [\Illuminate\Validation\Rule::exists('user_stories', 'id')->where('projet_id', $sprint->projet_id)],
+        ], ['user_stories.required' => 'Sélectionnez au moins une user story.']);
+        $sprint->userStories()->syncWithoutDetaching($r->user_stories);
+        UserStory::whereIn('id', $r->user_stories)->where('statut', 'a_faire')->update(['statut' => 'planifiee']);
+        return back()->with('succes', count($r->user_stories) . ' user story(s) ajoutée(s) au Sprint Backlog.');
+    }
+
+    /** Avancement d'une user story dans le sprint (reporté sur le backlog). */
+    public function statutUserStory(Request $r, Sprint $sprint, UserStory $userStory)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        $r->validate(['statut_sprint' => ['required', \Illuminate\Validation\Rule::in(array_keys(UserStory::STATUTS_SPRINT))]]);
+        abort_unless($sprint->userStories()->whereKey($userStory->id)->exists(), 404);
+        $sprint->userStories()->updateExistingPivot($userStory->id, ['statut_sprint' => $r->statut_sprint]);
+        $userStory->update(['statut' => ['a_faire' => 'planifiee', 'en_cours' => 'en_cours', 'termine' => 'terminee'][$r->statut_sprint]]);
+        return back()->with('succes', "{$userStory->numero} : " . UserStory::STATUTS_SPRINT[$r->statut_sprint] . '.');
+    }
+
+    /** Sprint Planning : story points et tâches techniques d'une user story du sprint. */
+    public function planifierUserStory(Request $r, Sprint $sprint, UserStory $userStory)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        abort_unless($sprint->userStories()->whereKey($userStory->id)->exists(), 404);
+        $v = $r->validate([
+            'effort_estime' => ['sometimes', 'nullable', 'integer', \Illuminate\Validation\Rule::in(UserStory::POINTS)],
+            'taches_techniques' => 'sometimes|nullable|string|max:20000',
+        ], ['effort_estime.in' => 'Story points autorisés : ' . implode(', ', UserStory::POINTS) . '.']);
+        if (array_key_exists('taches_techniques', $v)) $v['taches_techniques'] = \App\Services\TexteRiche::nettoyer($v['taches_techniques']);
+        $userStory->update($v);
+        \App\Models\AuditLog::log('planif_user_story', 'sprints', "Sprint {$sprint->numero}", "{$userStory->numero} : " . ($userStory->effort_estime ? $userStory->effort_estime . ' pt(s)' : 'non estimée'));
+        if (!array_key_exists('effort_estime', $v)) return back()->with('succes', "{$userStory->numero} : tâches techniques mises à jour.");
+        return back()->with('succes', "{$userStory->numero} : " . ($userStory->effort_estime ? $userStory->effort_estime . ' story point(s) - ' . $userStory->complexiteStory()['libelle'] : 'estimation retirée') . '.');
+    }
+
+    /** Retirer une user story du sprint : elle retourne au backlog, ses tâches restent dans le sprint. */
+    public function detacherUserStory(Request $r, Sprint $sprint, UserStory $userStory)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        $sprint->userStories()->detach($userStory->id);
+        if (!$userStory->sprints()->exists() && $userStory->statut === 'planifiee') $userStory->update(['statut' => 'a_faire']);
+        return back()->with('succes', "{$userStory->numero} retirée du sprint (retour au backlog).");
+    }
+
+    /** Terminé → Terminé testé (TT), et inversement. */
+    public function basculerTeste(Request $r, Sprint $sprint, Tache $tache)
+    {
+        abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
+        abort_unless($tache->sprint_id === $sprint->id, 404);
+        if ($tache->statut !== 'termine') return back()->with('erreur', 'Seule une tâche terminée peut être marquée comme testée.');
+        $tache->update(['teste' => !$tache->teste]);
+        return back()->with('succes', "« {$tache->intitule} » : " . ($tache->teste ? 'terminée et testée (TT).' : 'test annulé (T).'));
     }
 
     /** Supprimer une tâche du sprint. */
@@ -390,7 +470,7 @@ class SprintController extends Controller
                     if (empty($assigneStr)) $manquants[] = 'Assigné à';
                     if (empty($echeanceStr)) $manquants[] = 'Échéance';
                     if (!empty($manquants)) {
-                        $erreurs[] = "Ligne {$numLigne} : champ(s) obligatoire(s) manquant(s) — " . implode(', ', $manquants);
+                        $erreurs[] = "Ligne {$numLigne} : champ(s) obligatoire(s) manquant(s) - " . implode(', ', $manquants);
                         $ignores++;
                         continue;
                     }

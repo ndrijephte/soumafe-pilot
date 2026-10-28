@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('sousTitre', 'Vue Direction Générale')
-@section('titre', 'Tableau de bord — Direction')
+@section('titre', 'Tableau de bord - Direction')
 @push('styles')
 <style>
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
@@ -139,7 +139,7 @@
         @forelse($sprintsEnCours as $s)
         <div class="sprint-item">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-                <span style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} &mdash; {{ $s->projet->libelle ?? '' }}</span>
+                <span style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} - {{ $s->projet->libelle ?? '' }}</span>
                 @if($s->jours_restants !== null)
                 <span class="badge {{ $s->jours_restants <= 3 ? 'b-ko' : 'b-ok' }}">{{ $s->jours_restants }}j</span>
                 @endif
@@ -236,7 +236,7 @@
 <div class="panneau" style="margin-bottom:20px">
     <h3>
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="22" height="12" rx="3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M5 10h14"/></svg>
-        Parc automobile &mdash; Exercice {{ $parc['exercice'] }}
+        Parc automobile - Exercice {{ $parc['exercice'] }}
         <a href="{{ route('reporting.parc') }}" class="lien" style="margin-left:auto">Reporting d&eacute;taill&eacute; &rarr;</a>
     </h3>
     <div class="kpis" style="margin-bottom:14px">

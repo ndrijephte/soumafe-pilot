@@ -68,7 +68,7 @@
             <select name="collaborateur_id" required style="padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;min-width:200px">
                 <option value="">— Sélectionner —</option>
                 @foreach($collaborateurs as $c)
-                <option value="{{ $c->id }}" {{ request('collaborateur_id') == $c->id ? 'selected' : '' }}>{{ $c->nomComplet() }} — {{ $c->roleLibelle() }}</option>
+                <option value="{{ $c->id }}" {{ request('collaborateur_id') == $c->id ? 'selected' : '' }}>{{ $c->nomComplet() }} - {{ $c->roleLibelle() }}</option>
                 @endforeach
             </select>
         </div>
@@ -183,7 +183,7 @@
             <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $obj->libelle }}">{{ $obj->libelle }}</td>
             <td style="font-size:11px">{{ $obj->projet?->code ?? '—' }}</td>
             <td style="text-align:center;font-size:11px;font-weight:600">{{ $obj->ponderation }}%</td>
-            <td style="text-align:center;font-size:11px">@if($krCount) {{ $krOk }}/{{ $krCount }} @else — @endif</td>
+            <td style="text-align:center;font-size:11px">@if($krCount) {{ $krOk }}/{{ $krCount }} @else - @endif</td>
             <td><span class="badge {{ $badgeV }}">{{ $labelV }}</span></td>
         </tr>
         @endforeach

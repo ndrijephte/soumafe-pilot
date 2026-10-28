@@ -57,7 +57,7 @@ dialog textarea{min-height:60px;resize:vertical}
     <a href="{{ route('taches.index') }}">Mes tâches</a>
     <a href="{{ route('saisie.index') }}" class="actif">Suivi de saisie</a>
 </div>
-<div class="crumb">{{ now()->translatedFormat('l j F Y') }} &mdash; confirmation quotidienne</div>
+<div class="crumb">{{ now()->translatedFormat('l j F Y') }} - confirmation quotidienne</div>
 
 @if(session('succes'))
 <div class="alerte ok">{{ session('succes') }}</div>
@@ -240,7 +240,7 @@ dialog textarea{min-height:60px;resize:vertical}
     <div class="carte">
         @foreach($absencesEquipe as $ae)
         <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px">
-            <span><strong>{{ $ae->user->nomComplet() }}</strong> &mdash; {{ $ae->labelType() }} &middot; {{ $ae->date_debut->format('d/m') }} &rarr; {{ $ae->date_fin->format('d/m') }}</span>
+            <span><strong>{{ $ae->user->nomComplet() }}</strong> - {{ $ae->labelType() }} &middot; {{ $ae->date_debut->format('d/m') }} &rarr; {{ $ae->date_fin->format('d/m') }}</span>
             @if($ae->motif)<span style="color:var(--gris);font-size:11px">{{ $ae->motif }}</span>@endif
         </div>
         @endforeach
@@ -377,7 +377,7 @@ dialog textarea{min-height:60px;resize:vertical}
             <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;border-bottom:1px solid #f1f5f9">
                 <input type="checkbox" name="user_ids[]" value="{{ $c->id }}" class="notif-cb" style="accent-color:var(--accent);width:16px;height:16px">
                 <span style="font-weight:600">{{ $c->nomComplet() }}</span>
-                @if($c->titre_poste) <span style="font-size:10.5px;color:var(--gris)">— {{ $c->titre_poste }}</span> @endif
+                @if($c->titre_poste) <span style="font-size:10.5px;color:var(--gris)">- {{ $c->titre_poste }}</span> @endif
             </label>
             @endforeach
         </div>

@@ -81,6 +81,15 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div> @endif
 @if($errors->any())<div class="alerte ko">{{ $errors->first() }}</div> @endif
 
+@if($espaces->isNotEmpty())
+<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:12.5px">
+    <span style="color:var(--gris);font-weight:600">Espaces projets (équipe, backlog) :</span>
+    @foreach($espaces as $ep)
+    <a href="{{ route('projets.espace', $ep) }}" style="padding:3px 10px;border:1px solid var(--bord);border-radius:14px;background:#fff;color:var(--accent);text-decoration:none;font-weight:600">{{ $ep->code }}</a>
+    @endforeach
+</div>
+@endif
+
 {{-- Barre de filtres --}}
 <div class="filtre-bar">
     <input type="text" id="filtreProjet" placeholder="Rechercher un projet..." oninput="filtrer()">
@@ -98,7 +107,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     <div class="projet-header">
         <span class="projet-code">{{ $p->code }}</span>
         <div>
-            <div class="projet-nom">{{ $p->libelle }}</div>
+            <div class="projet-nom">{{ $p->libelle }}@if($espaces->contains('id', $p->id)) <a href="{{ route('projets.espace', $p) }}" style="font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;margin-left:6px">Espace projet ›</a>@endif</div>
             @if($p->responsable)
             <div class="projet-resp" style="display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#dbeafe,#eff6ff);border:1px solid #93c5fd;color:#1d4ed8;padding:3px 10px;border-radius:6px;font-weight:600;margin-top:4px">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -157,7 +166,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div class="sprint-stats">
                 <div>T&acirc;ches : <strong>{{ $totalTaches }}</strong></div>
                 <div>Termin&eacute;es : <strong>{{ $terminees }}</strong></div>
-                <div>Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->engagement_points) / {{ $s->engagement_points }} @endif</div>
+                <div>Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->pointsEngages()) / {{ $s->pointsEngages() }} @endif</div>
             </div>
             <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:600">Voir le d&eacute;tail &rarr;</div>
         </a>
@@ -214,7 +223,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div class="sprint-stats">
                 <div>T&acirc;ches : <strong>{{ $totalTaches }}</strong></div>
                 <div>Termin&eacute;es : <strong>{{ $terminees }}</strong></div>
-                <div>Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->engagement_points) / {{ $s->engagement_points }} @endif</div>
+                <div>Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->pointsEngages()) / {{ $s->pointsEngages() }} @endif</div>
             </div>
             <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:600">Voir le d&eacute;tail &rarr;</div>
         </a>
@@ -244,7 +253,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <label>Projet <span class="req">*</span></label>
         <select name="projet_id" required>
             <option value="">— Choisir —</option>
-            @foreach(auth()->user()->projetsGerables() as $pg)<option value="{{ $pg->id }}">{{ $pg->code }} — {{ $pg->libelle }}</option> @endforeach
+            @foreach(auth()->user()->projetsGerables() as $pg)<option value="{{ $pg->id }}">{{ $pg->code }} - {{ $pg->libelle }}</option> @endforeach
         </select>
         <div class="form-row">
             <div><label>N° du sprint <span class="req">*</span></label><input type="number" name="numero" min="1" required></div>
@@ -269,7 +278,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <div style="background:var(--fond);border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px">
             <div style="font-weight:700;color:#1e293b;margin-bottom:4px;font-size:12px">Format attendu (7 colonnes, ordre libre) :</div>
             <div style="font-size:11px"><strong style="color:var(--ko)">Intitul&eacute;</strong> (obligatoire) &bull; <strong style="color:var(--ko)">Assign&eacute; &agrave;</strong> (obligatoire) &bull; <strong style="color:var(--ko)">&Eacute;ch&eacute;ance</strong> (obligatoire) &bull; Date d&eacute;but &bull; Priorit&eacute; &bull; Points &bull; Projet</div>
-            <div style="margin-top:4px;font-size:10.5px;color:#64748b">En-t&ecirc;te en ligne 1. L'ordre des colonnes est libre — le syst&egrave;me reconna&icirc;t les noms.</div>
+            <div style="margin-top:4px;font-size:10.5px;color:#64748b">En-t&ecirc;te en ligne 1. L'ordre des colonnes est libre - le syst&egrave;me reconna&icirc;t les noms.</div>
         </div>
     </div>
     <form method="POST" action="{{ route('sprints.importer') }}" enctype="multipart/form-data">@csrf
@@ -278,7 +287,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <option value="">— Aucun (cr&eacute;ation libre) —</option>
             @foreach($projets as $p)
                 @foreach($p->sprints as $s)
-                <option value="{{ $s->id }}">{{ $p->code }} — Sprint {{ $s->numero }}</option>
+                <option value="{{ $s->id }}">{{ $p->code }} - Sprint {{ $s->numero }}</option>
                 @endforeach
             @endforeach
         </select>

@@ -56,7 +56,7 @@ class ObservationController extends Controller
         return view('observations.index', compact('observations', 'stats', 'responsables', 'projets', 'peutDeclarer'));
     }
 
-    /** Phase 1 — Déclaration */
+    /** Phase 1 - Déclaration */
     public function store(Request $r)
     {
         abort_unless(Observation::peutDeclarer($r->user()), 403, "Seuls les pilotes et les collaborateurs désignés au suivi peuvent déclarer.");
@@ -85,8 +85,8 @@ class ObservationController extends Controller
             // Déclaré par un collaborateur désigné : il en assure le suivi
             'suivi_par'       => $r->user()->estPilote() ? null : auth()->id(),
         ]);
-        $obs->journaliser('declaration', trim($obs->type_difficulte . ' — priorité ' . $obs->prioriteLibelle() . ' — ' . $obs->origine)
-            . ($obs->responsable_id ? ' — responsable : ' . ($obs->responsable?->nomComplet() ?? '') : ''));
+        $obs->journaliser('declaration', trim($obs->type_difficulte . ' - priorité ' . $obs->prioriteLibelle() . ' - ' . $obs->origine)
+            . ($obs->responsable_id ? ' - responsable : ' . ($obs->responsable?->nomComplet() ?? '') : ''));
 
         // Notification au responsable désigné
         $this->notifierResponsable($obs, $r->responsable_id);
@@ -97,7 +97,7 @@ class ObservationController extends Controller
             ->with('succes', 'Observation déclarée avec succès.');
     }
 
-    /** Phase 2 — Résolution / mise à jour statut */
+    /** Phase 2 - Résolution / mise à jour statut */
     public function update(Request $r, Observation $observation)
     {
         $u = $r->user();
@@ -151,8 +151,8 @@ class ObservationController extends Controller
         if ($ancienStatut !== $observation->statut) {
             $observation->journaliser(in_array($observation->statut, ['resolu', 'rejete']) ? 'resolution' : 'statut',
                 Observation::make(['statut' => $ancienStatut])->statutLibelle() . ' → ' . $observation->statutLibelle()
-                . ($observation->mode_execution ? ' — mode : ' . $observation->mode_execution : '')
-                . ($observation->date_livraison ? ' — livraison : ' . $observation->date_livraison->format('d/m/Y') : ''));
+                . ($observation->mode_execution ? ' - mode : ' . $observation->mode_execution : '')
+                . ($observation->date_livraison ? ' - livraison : ' . $observation->date_livraison->format('d/m/Y') : ''));
         }
         if ((int) $ancienResp !== (int) $observation->responsable_id && $observation->responsable_id) {
             $observation->journaliser('responsable', $observation->fresh('responsable')->responsable?->nomComplet());
@@ -189,7 +189,7 @@ class ObservationController extends Controller
             NotificationApp::create([
                 'user_id' => $collab->id,
                 'type'    => 'observation',
-                'contenu' => 'Suivi observation ' . $observation->code . ' — ' . \Illuminate\Support\Str::limit($observation->description, 80),
+                'contenu' => 'Suivi observation ' . $observation->code . ' - ' . \Illuminate\Support\Str::limit($observation->description, 80),
                 'lien'    => route('observations.index'),
                 'lu'      => false,
                 'canal'   => 'in_app',

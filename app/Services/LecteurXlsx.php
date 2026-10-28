@@ -89,6 +89,60 @@ class LecteurXlsx
         return array_values($lignes);
     }
 
+    /**
+     * Lit un onglet par son nom (ou le premier si null) en résolvant le chemin réel
+     * via les relations du classeur. Les cellules fusionnées reçoivent la valeur
+     * de leur cellule d'origine. Retourne [numéro de ligne => [index colonne => valeur]].
+     */
+    public function lignesFeuille(?string $nom = null): array
+    {
+        $wb = simplexml_load_string($this->zip->getFromName('xl/workbook.xml'));
+        $rels = [];
+        $relsXml = $this->zip->getFromName('xl/_rels/workbook.xml.rels');
+        if ($relsXml !== false) {
+            foreach (simplexml_load_string($relsXml)->Relationship as $rel) {
+                $cible = ltrim((string) $rel['Target'], '/');
+                $rels[(string) $rel['Id']] = str_starts_with($cible, 'xl/') ? $cible : 'xl/' . $cible;
+            }
+        }
+        $chemin = null; $i = 0;
+        foreach ($wb->sheets->sheet as $sheet) {
+            $i++;
+            $rid = (string) $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+            if ($nom === null || mb_strtolower(trim((string) $sheet['name'])) === mb_strtolower(trim($nom))) {
+                $chemin = $rels[$rid] ?? "xl/worksheets/sheet{$i}.xml";
+                break;
+            }
+        }
+        if (!$chemin || ($contenu = $this->zip->getFromName($chemin)) === false) {
+            throw new \RuntimeException('Onglet « ' . ($nom ?? '1') . ' » introuvable.');
+        }
+
+        $xml = simplexml_load_string($contenu);
+        $lignes = [];
+        foreach ($xml->sheetData->row as $row) {
+            $cols = [];
+            foreach ($row->c as $cell) {
+                $val = $this->valeurCellule($cell);
+                if ($val !== null && trim($val) !== '') $cols[$this->colToIndex((string) $cell['r'])] = $val;
+            }
+            if ($cols) $lignes[(int) $row['r']] = $cols;
+        }
+
+        // Cellules fusionnées : propager la valeur de la cellule haut-gauche
+        foreach ($xml->mergeCells->mergeCell ?? [] as $m) {
+            if (!preg_match('/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/', (string) $m['ref'], $p)) continue;
+            [$c1, $r1, $c2, $r2] = [$this->colToIndex($p[1] . '1'), (int) $p[2], $this->colToIndex($p[3] . '1'), (int) $p[4]];
+            $v = $lignes[$r1][$c1] ?? null;
+            if ($v === null) continue;
+            for ($r = $r1; $r <= $r2; $r++) {
+                for ($c = $c1; $c <= $c2; $c++) $lignes[$r][$c] ??= $v;
+            }
+        }
+        ksort($lignes);
+        return $lignes;
+    }
+
     private function chargerChainesPartagees(): void
     {
         $contenu = $this->zip->getFromName('xl/sharedStrings.xml');
@@ -111,6 +165,11 @@ class LecteurXlsx
     private function valeurCellule(\SimpleXMLElement $cell): ?string
     {
         $type = (string) $cell['t'];
+        if ($type === 'inlineStr') {
+            $texte = '';
+            foreach ($cell->is->xpath('.//*[local-name()="t"]') ?: [] as $tt) $texte .= (string) $tt;
+            return $texte === '' ? null : $texte;
+        }
         $val = (string) $cell->v;
         if ($val === '') return null;
 

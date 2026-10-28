@@ -219,7 +219,7 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
             @endforeach
             @endif
         </td>
-        <td>@if($o->projet)<span class="projet-tag">{{ $o->projet->libelle }}</span>@else &mdash; @endif</td>
+        <td>@if($o->projet)<span class="projet-tag">{{ $o->projet->libelle }}</span>@else - @endif</td>
         <td style="font-weight:600">{{ $o->ponderation }}%</td>
         <td>
             @if($o->date_debut){{ $o->date_debut->format('d/m') }}@endif
@@ -273,7 +273,7 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
                 @foreach($segments as $seg)
                 <div class="anneau-legend-item">
                     <span class="anneau-legend-dot" style="background:{{ $seg['couleur'] }}"></span>
-                    <span>{{ $seg['libelle'] }} — <em>{{ ucfirst(str_replace('_', ' ', $seg['statut'])) }}</em></span>
+                    <span>{{ $seg['libelle'] }} - <em>{{ ucfirst(str_replace('_', ' ', $seg['statut'])) }}</em></span>
                 </div>
                 @endforeach
             </div>
@@ -393,7 +393,7 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
         @endforeach
         @endif
     </td>
-    <td>@if($o->projet)<span class="projet-tag">{{ $o->projet->libelle }}</span>@else &mdash; @endif</td>
+    <td>@if($o->projet)<span class="projet-tag">{{ $o->projet->libelle }}</span>@else - @endif</td>
     <td style="font-weight:600">{{ $o->ponderation }}%</td>
     <td>
         @if($o->date_debut){{ $o->date_debut->format('d/m') }}@endif
@@ -427,7 +427,7 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
         </svg>
         <div class="anneau-legend">
             @foreach($segments as $seg)
-            <div class="anneau-legend-item"><span class="anneau-legend-dot" style="background:{{ $seg['couleur'] }}"></span><span>{{ $seg['libelle'] }} — <em>{{ ucfirst(str_replace('_', ' ', $seg['statut'])) }}</em></span></div>
+            <div class="anneau-legend-item"><span class="anneau-legend-dot" style="background:{{ $seg['couleur'] }}"></span><span>{{ $seg['libelle'] }} - <em>{{ ucfirst(str_replace('_', ' ', $seg['statut'])) }}</em></span></div>
             @endforeach
         </div>
     </div>

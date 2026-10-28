@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOUMAFE PILOT — Connexion</title>
+    <title>SOUMAFE PILOT - Connexion</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Calibri,sans-serif}
         body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#16385C 0%,#1F4E79 55%,#2E74B5 100%)}
@@ -35,7 +35,7 @@
         @if(session('succes'))<div style="background:#dcfce7;color:#16a34a;border-radius:8px;padding:8px 12px;font-size:12.5px;margin-top:12px">{{ session('succes') }}</div>@endif
         <button>Se connecter</button>
         <a href="{{ route('password.request') }}" style="display:block;text-align:center;margin-top:14px;font-size:12.5px;color:#2E74B5;text-decoration:none">Mot de passe oublié ?</a>
-        <div class="pied">SF SOUMAFÊ — accès réservé au personnel</div>
+        <div class="pied">SF SOUMAFÊ - accès réservé au personnel</div>
     </form>
 </body>
 </html>

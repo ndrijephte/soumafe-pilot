@@ -115,7 +115,7 @@ class ExportController extends Controller
             $xlsx->ligne(['Objectif', $sprint->objectif ?? '—']);
             $xlsx->ligne(['Début', $sprint->date_debut ? $sprint->date_debut->format('d/m/Y') : '—']);
             $xlsx->ligne(['Fin', $sprint->date_fin ? $sprint->date_fin->format('d/m/Y') : '—']);
-            $xlsx->ligne(['Engagement', ($sprint->engagement_points ?? 0) . ' pts']);
+            $xlsx->ligne(['Engagement', $sprint->pointsEngages() . ' pts']);
             $xlsx->ligne(['Livrés', $sprint->pointsLivres() . ' pts']);
             $xlsx->ligne(['Statut', ucfirst(str_replace('_', ' ', $sprint->statut ?? ''))]);
             $xlsx->ligne(['', '']);

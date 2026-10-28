@@ -27,7 +27,7 @@ class Depense extends Model
         MouvementCaisse::updateOrCreate(
             ['source_type' => 'depense', 'source_id' => $this->id],
             ['caisse_code' => $this->caisse_source ?: 'generale', 'sens' => 'sortie', 'montant' => $this->montant,
-             'date_mouvement' => $this->date_depense, 'libelle' => 'Dépense — ' . $this->typeLibelle(),
+             'date_mouvement' => $this->date_depense, 'libelle' => 'Dépense - ' . $this->typeLibelle(),
              'cree_par' => auth()->user()?->name ?? $this->cree_par]
         );
     }

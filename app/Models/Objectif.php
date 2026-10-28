@@ -170,9 +170,9 @@ class Objectif extends Model
         foreach ($krs as $kr) {
             $ratio = $kr->poids / $sommePoids;
             $couleur = match (true) {
-                is_null($kr->valide) => '#cbd5e1', // gris — en attente
-                $kr->valide === true, $kr->valide == 1 => '#22c55e', // vert — atteint
-                default => '#ef4444', // rouge — non atteint
+                is_null($kr->valide) => '#cbd5e1', // gris - en attente
+                $kr->valide === true, $kr->valide == 1 => '#22c55e', // vert - atteint
+                default => '#ef4444', // rouge - non atteint
             };
             $segments[] = [
                 'ratio' => $ratio,
@@ -214,12 +214,12 @@ class Objectif extends Model
         $jours = $this->joursRestants();
 
         if ($jours !== null && $jours <= 7 && $jours > 0 && $this->avancement < 70) {
-            $alertes[] = ['type' => 'echeance', 'msg' => "Échéance dans {$jours}j — avancement à {$this->avancement}%"];
+            $alertes[] = ['type' => 'echeance', 'msg' => "Échéance dans {$jours}j - avancement à {$this->avancement}%"];
         }
 
         if ($this->date_echeance && $this->date_echeance->isPast() && $this->avancement < 100) {
             $diff = (int) now()->diffInDays($this->date_echeance);
-            $alertes[] = ['type' => 'retard', 'msg' => "En retard de {$diff}j — avancement {$this->avancement}%"];
+            $alertes[] = ['type' => 'retard', 'msg' => "En retard de {$diff}j - avancement {$this->avancement}%"];
         }
 
         if (Schema::hasTable('historique_avancement') && $this->avancement < 100 && $this->avancement > 0) {

@@ -90,7 +90,7 @@ dialog textarea{min-height:70px;resize:vertical}
             </button>
             @endif
         @else
-            <span style="font-size:12px;color:var(--gris);padding:4px 10px;background:#f1f5f9;border-radius:6px">Sprint {{ $tache->sprint?->statut === 'planifie' ? 'non d&eacute;marr&eacute;' : 'termin&eacute;' }} — consultation uniquement</span>
+            <span style="font-size:12px;color:var(--gris);padding:4px 10px;background:#f1f5f9;border-radius:6px">Sprint {{ $tache->sprint?->statut === 'planifie' ? 'non d&eacute;marr&eacute;' : 'termin&eacute;' }} - consultation uniquement</span>
         @endif
         @if(auth()->user()->estPilote())
         <button class="btn-ic" onclick="document.getElementById('dlg-edit-tache').showModal()" style="color:#475569;border-color:#94a3b8">
@@ -252,9 +252,9 @@ dialog textarea{min-height:70px;resize:vertical}
         @csrf @method('PUT')
         <label>Type <span style="color:var(--ko)">*</span></label>
         <select name="type" id="edit-type" onchange="basculeTypeEdit()">
-            <option value="T1" @selected($tache->type==='T1')>T1 — Tâche de sprint</option>
-            <option value="T2" @selected($tache->type==='T2')>T2 — Opérationnelle planifiée</option>
-            <option value="T3" @selected($tache->type==='T3')>T3 — Urgente non planifiée</option>
+            <option value="T1" @selected($tache->type==='T1')>T1 - Tâche de sprint</option>
+            <option value="T2" @selected($tache->type==='T2')>T2 - Opérationnelle planifiée</option>
+            <option value="T3" @selected($tache->type==='T3')>T3 - Urgente non planifiée</option>
         </select>
         <label>Intitulé <span style="color:var(--ko)">*</span></label>
         <input name="intitule" value="{{ $tache->intitule }}" required>

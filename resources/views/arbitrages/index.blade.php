@@ -149,7 +149,7 @@ dialog textarea{width:100%;padding:7px 10px;border:1px solid var(--bord);border-
     @if($e->estTraite())
     <div class="reco-zone">
         <div style="font-size:11px;color:var(--gris);font-weight:600">
-            Recommandation de {{ $e->traitePar->nomComplet() }} &mdash; {{ $e->traite_le->format('d/m/Y H:i') }}
+            Recommandation de {{ $e->traitePar->nomComplet() }} - {{ $e->traite_le->format('d/m/Y H:i') }}
         </div>
         <div class="reco-texte">{{ $e->recommandation }}</div>
     </div>

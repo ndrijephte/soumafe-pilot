@@ -184,7 +184,7 @@ class SaisieController extends Controller
         if ($r->statut === 'confirmee') {
             $msg = 'Tâche confirmée comme réalisée.';
         } else {
-            $msg = 'Tâche infirmée — motif enregistré.';
+            $msg = 'Tâche infirmée - motif enregistré.';
         }
         return back()->with('succes', $msg);
     }
@@ -237,7 +237,7 @@ class SaisieController extends Controller
         $com = Commentaire::create([
             'tache_id' => null,
             'user_id'  => $r->user()->id,
-            'contenu'  => "[{$type} — {$jour->date->format('d/m/Y')}] {$r->justification}",
+            'contenu'  => "[{$type} - {$jour->date->format('d/m/Y')}] {$r->justification}",
         ]);
 
         $jour->update([
@@ -326,7 +326,7 @@ class SaisieController extends Controller
         NotificationApp::create([
             'user_id' => $cible->id,
             'type'    => 'rappel',
-            'contenu' => 'Rappel : merci de mettre à jour votre saisie quotidienne. — ' . $r->user()->nomComplet(),
+            'contenu' => 'Rappel : merci de mettre à jour votre saisie quotidienne. - ' . $r->user()->nomComplet(),
             'lu'      => false,
         ]);
 

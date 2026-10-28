@@ -27,7 +27,7 @@ class TacheRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'sprint_id.required_if' => 'Une tâche de sprint (T1) doit être rattachée à un sprint — aucune tâche projet hors sprint.',
+            'sprint_id.required_if' => 'Une tâche de sprint (T1) doit être rattachée à un sprint - aucune tâche projet hors sprint.',
             'projet_id.required_if' => 'Une tâche de sprint (T1) doit être rattachée à un projet.',
             'echeance.required' => "L'échéance est obligatoire pour les tâches T1 et T2.",
             'echeance.after_or_equal' => "L'échéance ne peut pas précéder la date de début.",

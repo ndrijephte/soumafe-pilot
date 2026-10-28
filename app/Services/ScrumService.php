@@ -119,12 +119,29 @@ class ScrumService
     }
 
     /** Tâches du jour d'un membre : tâches du sprint non terminées et déjà commencées (ou sans date). */
+    /** Nombre maximal de tâches listées par case du Daily (au-delà : « … et N autre(s) »). */
+    public const MAX_TACHES_DAILY = 5;
+
+    /**
+     * Tâches du jour d'un membre : tâches commencées (en cours, à valider, bloquées)
+     * et tâches prévues ce jour-là (date de début passée, échéance non dépassée).
+     * Les tâches en retard non commencées sont signalées à part dans les défis.
+     */
     public static function tachesDuJour(Sprint $sprint, int $userId, Carbon $date): Collection
     {
         return $sprint->taches()->where('user_id', $userId)
             ->whereNotIn('statut', ['termine', 'reporte'])
-            ->where(fn($q) => $q->whereNull('date_debut')->orWhereDate('date_debut', '<=', $date))
-            ->orderBy('echeance')->orderBy('id')->get();
+            ->where(fn($q) => $q->whereIn('statut', ['en_cours', 'a_valider', 'bloque'])
+                ->orWhere(fn($p) => $p->whereDate('date_debut', '<=', $date)
+                    ->where(fn($e) => $e->whereNull('echeance')->orWhereDate('echeance', '>=', $date))))
+            ->orderByRaw("statut = 'en_cours' desc")->orderBy('echeance')->orderBy('id')->get();
+    }
+
+    /** Tâches à faire dont l'échéance est dépassée sans avoir été commencées. */
+    public static function tachesEnRetard(Sprint $sprint, int $userId, Carbon $date): Collection
+    {
+        return $sprint->taches()->where('user_id', $userId)->where('statut', 'a_faire')
+            ->whereNotNull('echeance')->whereDate('echeance', '<', $date)->get(['id', 'intitule']);
     }
 
     /** Durée restante = durée prévue − jours écoulés, soit les jours ouvrés jusqu'à l'échéance la plus lointaine. */
@@ -140,10 +157,14 @@ class ScrumService
         return 'Retard ' . abs($restes->min()) . ' j';
     }
 
-    /** Liste à puces (HTML du cadre de rédaction). */
-    public static function puces(Collection $lignes): string
+    /** Liste à puces (HTML du cadre de rédaction), limitée à $max éléments. */
+    public static function puces(Collection $lignes, int $max = self::MAX_TACHES_DAILY): string
     {
-        return TexteRiche::liste($lignes) ?? '';
+        $lignes = $lignes->filter()->values();
+        $reste = $lignes->count() - $max;
+        $liste = $lignes->take($max);
+        if ($reste > 0) $liste->push("… et {$reste} autre(s)");
+        return TexteRiche::liste($liste) ?? '';
     }
 
     /** Calcule les champs automatiques d'une ligne du Daily. */
@@ -152,25 +173,26 @@ class ScrumService
         $sprint = $daily->sprint;
         $date = $daily->date_reunion->copy()->startOfDay();
 
-        // Hier = « à faire ce jour » du Daily précédent
+        // Hier = tâches terminées depuis le Daily précédent (à défaut, depuis le jour ouvré précédent)
         $precedent = DailyScrum::where('sprint_id', $sprint->id)->where('numero_jour', '<', $daily->numero_jour)->orderByDesc('numero_jour')->first();
-        $hier = $precedent ? DailyScrumEntree::where('daily_scrum_id', $precedent->id)->where('user_id', $userId)->value('taches_jour') : null;
-        if ($hier === null) {
-            // Premier Daily (ou membre absent la veille) : tâches terminées avant ce jour
-            $hier = self::puces($sprint->taches()->where('user_id', $userId)->where('statut', 'termine')
-                ->where(fn($q) => $q->whereNull('date_fin_reelle')->orWhereDate('date_fin_reelle', '<', $date))
-                ->when($precedent, fn($q) => $q->whereDate('date_fin_reelle', '>=', $precedent->date_reunion))
-                ->pluck('intitule'));
-        }
+        $depuis = $precedent?->date_reunion ?? $date->copy()->subWeekday();
+        $hier = self::puces($sprint->taches()->where('user_id', $userId)->where('statut', 'termine')
+            ->whereNotNull('date_fin_reelle')->whereDate('date_fin_reelle', '>=', $depuis)->whereDate('date_fin_reelle', '<', $date)
+            ->orderBy('date_fin_reelle')->pluck('intitule'));
+        // Rien de terminé : on reprend le « à faire » prévu au Daily précédent
+        if ($hier === '' && $precedent) $hier = DailyScrumEntree::where('daily_scrum_id', $precedent->id)->where('user_id', $userId)->value('taches_jour');
 
         $taches = self::tachesDuJour($sprint, $userId, $date);
+        $retard = self::tachesEnRetard($sprint, $userId, $date);
         $blocages = Blocage::whereNull('date_levee')->whereIn('tache_id', $sprint->taches()->where('user_id', $userId)->pluck('id'))->pluck('motif');
+        $defis = $blocages->map(fn($m) => 'Blocage : ' . $m);
+        if ($retard->isNotEmpty()) $defis->push($retard->count() . ' tâche(s) en retard non commencée(s)');
 
         return [
             'taches_hier' => $hier ?: null,
             'taches_jour' => self::puces($taches->pluck('intitule')) ?: null,
             'duree_restante' => self::dureeRestante($sprint, $taches, $date),
-            'defis' => $blocages->isNotEmpty() ? self::puces($blocages->map(fn($m) => 'Blocage : ' . $m)) : null,
+            'defis' => self::puces($defis) ?: null,
         ];
     }
 

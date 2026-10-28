@@ -239,6 +239,7 @@ class ArchiveScrum
         $nom = fn($role) => ($id = $d->roleUserId($role)) && isset($users[$id]) ? $users[$id]->nomComplet() : '';
         // Liste de présence : statut du Pointage du jour
         $pointages = Pointage::whereDate('date', $d->date_reunion)->whereIn('user_id', $d->entrees->pluck('user_id'))->get()->keyBy('user_id');
+        $absences = ScrumService::absences($d->date_reunion, $d->entrees->pluck('user_id'));
         [$statut] = $d->statutPublication();
 
         $f->ligne(['', '', 'OBJET', mb_strtoupper($sprint->projet->libelle)], [2 => X::LIBELLE])->fusionner(3, 7)->vide();
@@ -251,8 +252,9 @@ class ArchiveScrum
         $f->ligne(['', '', 'Nom', 'Présence', 'Tâches réalisées précédemment / hier', 'Détail tâches à faire ce jour', 'Durée restante (jrs/h)', 'Défis ou observations'], [2 => X::ENTETE, 3 => X::ENTETE, 4 => X::ENTETE, 5 => X::ENTETE, 6 => X::ENTETE, 7 => X::ENTETE]);
         foreach ($d->entrees->sortBy(fn($e) => $e->user?->name) as $e) {
             $p = $pointages[$e->user_id] ?? null;
-            $presence = $p ? $p->statutLibelle() . ($p->heure_arrivee ? "\n" . substr($p->heure_arrivee, 0, 5) : '') : 'Non pointé';
-            $style = match ($p?->statut) { 'present', 'sorti_tot' => X::OK, 'absent' => X::ALERTE, default => X::CENTRE };
+            $abs = $absences[$e->user_id] ?? null;
+            $presence = $p ? $p->statutLibelle() . ($p->heure_arrivee ? "\n" . substr($p->heure_arrivee, 0, 5) : '') : ($abs ? 'Absent (' . mb_strtolower($abs->labelType()) . ')' : 'Non pointé');
+            $style = match ($p?->statut ?? ($abs ? 'absent' : null)) { 'present', 'sorti_tot' => X::OK, 'absent' => X::ALERTE, default => X::CENTRE };
             $f->ligne(['', '', $e->user?->nomComplet(), ['v' => $presence, 's' => $style], $e->taches_hier, $e->taches_jour, $e->duree_restante, $e->defis], [2 => X::STORY, 4 => X::CELLULE, 5 => X::CELLULE, 6 => X::CENTRE, 7 => X::CELLULE]);
         }
         $f->vide();

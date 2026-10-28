@@ -166,6 +166,7 @@ class SprintScrumController extends Controller
             'peutVoirProjet' => $sprint->projet->estVisiblePour($r->user()),
             // Liste de présence : statut du Pointage du jour pour chaque participant
             'pointages' => \App\Models\Pointage::whereDate('date', $daily->date_reunion)->whereIn('user_id', $daily->entrees->pluck('user_id'))->get()->keyBy('user_id'),
+            'absences' => ScrumService::absences($daily->date_reunion, $daily->entrees->pluck('user_id')),
             'config' => $sprint->projet->configDaily(),
         ]);
     }

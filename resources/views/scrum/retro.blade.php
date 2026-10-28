@@ -34,6 +34,7 @@
     <div class="{{ $ind['blocages_ouverts'] ? 'alerte-i' : '' }}"><b>{{ $ind['blocages'] }}</b><span>blocage(s) dont {{ $ind['blocages_ouverts'] }} ouvert(s)</span></div>
     <div><b>{{ $ind['stories_terminees'] }}/{{ $ind['stories'] }}</b><span>user stories terminées</span></div>
     <div><b>{{ $ind['dailies'] }}/{{ $ind['jours'] }}</b><span>Dailies tenus</span></div>
+    <div title="Tâches T2 / T3 terminées par l'équipe pendant le sprint"><b>{{ $ind['hors_sprint'] }}</b><span>tâche(s) hors sprint réalisée(s)</span></div>
 </div>
 
 <form method="POST" action="{{ route('scrum.retro.update', $sprint) }}" id="f-retro">@csrf @method('PUT')

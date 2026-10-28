@@ -44,6 +44,7 @@
     <div><b>{{ $ind['points_faits'] }}/{{ $ind['points'] }}</b><span>story points livrés</span></div>
     <div class="{{ $ind['en_retard'] ? 'alerte-i' : '' }}"><b>{{ $ind['en_retard'] }}</b><span>tâche(s) en retard</span></div>
     <div><b>{{ $ind['dailies'] }}/{{ $ind['jours'] }}</b><span>Dailies tenus</span></div>
+    <div title="Tâches T2 / T3 terminées par l'équipe pendant le sprint"><b>{{ $ind['hors_sprint'] }}</b><span>tâche(s) hors sprint réalisée(s)</span></div>
 </div>
 
 <form method="POST" action="{{ route('scrum.review.update', $sprint) }}">@csrf @method('PUT')

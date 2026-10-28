@@ -30,8 +30,10 @@
     $autres = $tousUsers->whereNotIn('id', $membres->pluck('id'));
     $ajoutables = $tousUsers->whereNotIn('id', $entrees->pluck('user_id'));
     // Liste de présence : référence au Pointage du jour
-    $presence = function ($uid) use ($pointages) {
+    $presence = function ($uid) use ($pointages, $absences) {
         $p = $pointages[$uid] ?? null;
+        // Sans pointage : absence déclarée dans la saisie quotidienne
+        if (!$p && ($a = $absences[$uid] ?? null)) return ['Absent (' . mb_strtolower($a->labelType()) . ')', 'b-ko', $a->motif, 'absent'];
         $statut = $p?->statut ?? 'non_pointe';
         return [$p ? $p->statutLibelle() : 'Non pointé', match ($statut) { 'present' => 'b-ok', 'retard' => 'b-warn', 'sorti_tot' => 'b-tot', 'absent' => 'b-ko', default => 'b-gris' },
             $p && $p->heure_arrivee ? 'Arrivée ' . \Carbon\Carbon::parse($p->heure_arrivee)->format('H:i') : null, $statut];

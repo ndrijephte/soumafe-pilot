@@ -32,7 +32,8 @@ class TexteRiche
         if (!preg_match('/<[a-z\/]/i', $html)) {
             // Une ligne sans balise : on normalise l'encodage (« s&#039;est » → « s'est »)
             $t = self::esc(html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-            return trim($t) === '' ? null : trim($t);
+            $t = preg_replace('/^[\s\x{a0}]+|[\s\x{a0}]+$/u', '', $t); // espaces et insécables en bordure
+            return $t === '' ? null : $t;
         }
         $html = preg_replace('#<(script|style|head)\b.*?</\1>#is', '', $html);
         $html = strip_tags($html, self::BALISES);

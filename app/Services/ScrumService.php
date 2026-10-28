@@ -27,12 +27,12 @@ class ScrumService
         return User::whereIn('id', $ids)->orderBy('name')->get();
     }
 
-    /** Jours du calendrier du sprint : tous les jours ouvrés (lundi → vendredi). */
+    /** Jours du calendrier du sprint : tous les jours travaillés (selon les horaires en vigueur). */
     public static function joursProgrammes(Sprint $sprint): Collection
     {
         $res = collect();
         for ($j = $sprint->date_debut->copy()->startOfDay(); $j->lte($sprint->date_fin); $j->addDay()) {
-            if (!$j->isWeekend()) $res->push($j->copy());
+            if (\App\Services\CalendrierTravail::estJourTravaille($j)) $res->push($j->copy());
         }
         return $res;
     }
@@ -40,7 +40,7 @@ class ScrumService
     /** Un Daily de sprint se tient un jour ouvré compris dans le sprint. */
     public static function estProgramme(Sprint $sprint, Carbon $date): bool
     {
-        return !$date->isWeekend() && $date->between($sprint->date_debut->copy()->startOfDay(), $sprint->date_fin->copy()->endOfDay());
+        return \App\Services\CalendrierTravail::estJourTravaille($date) && $date->between($sprint->date_debut->copy()->startOfDay(), $sprint->date_fin->copy()->endOfDay());
     }
 
     /** Numéro du Daily = rang du jour ouvré dans le sprint (Daily 1 = premier jour du sprint). */

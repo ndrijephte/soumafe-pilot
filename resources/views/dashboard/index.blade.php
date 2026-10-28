@@ -117,7 +117,7 @@
         @php
             $statutCls = match($t->statut) { 'en_cours' => 'b-ok', 'bloque' => 'b-ko', default => 'b-warn' };
             $prioCls = $t->priorite === 'haute' ? 'color:var(--ko);font-weight:700' : '';
-            $echeanceCls = ($t->echeance && $t->echeance->lt(today()) && $t->statut !== 'termine') ? 'color:var(--ko);font-weight:700' : 'color:var(--gris)';
+            $echeanceCls = $t->estEnRetard() ? 'color:var(--ko);font-weight:700' : 'color:var(--gris)';
         @endphp
         <div class="tache-line" data-collapse-item style="gap:8px">
             <div style="flex:1">

@@ -127,7 +127,7 @@ class SprintScrumController extends Controller
         ], ['date_reunion.after_or_equal' => 'La date doit être comprise dans le sprint.', 'date_reunion.before_or_equal' => 'La date doit être comprise dans le sprint.']);
         $date = Carbon::parse($v['date_reunion'])->startOfDay();
         $sprint->loadMissing('projet');
-        if (!ScrumService::estProgramme($sprint, $date)) return back()->withInput()->with('erreur', 'Le Daily se tient un jour ouvré (lundi → vendredi).');
+        if (!ScrumService::estProgramme($sprint, $date)) return back()->withInput()->with('erreur', 'Le Daily se tient un jour travaillé (' . \App\Services\CalendrierTravail::regle($date)->joursLibelle() . ').');
         if ($sprint->dailyScrums()->whereDate('date_reunion', $date)->exists()) return back()->withInput()->with('erreur', 'Un Daily existe déjà à cette date.');
 
         $daily = DB::transaction(fn() => ScrumService::creerDaily($sprint, $date, $r->user()->id, $v['heure_debut'] ?? null, $v['heure_fin'] ?? null));

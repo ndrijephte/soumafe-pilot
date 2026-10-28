@@ -38,8 +38,7 @@ class DashboardController extends Controller
         $terminees = Tache::where('user_id', $userId)->where('statut', 'termine')->count();
         $enCours = Tache::where('user_id', $userId)->where('statut', 'en_cours')->count();
         $bloquees = Tache::where('user_id', $userId)->where('statut', 'bloque')->count();
-        $enRetard = Tache::where('user_id', $userId)->whereNull('date_fin_reelle')
-            ->whereNotNull('echeance')->whereDate('echeance', '<', today())->count();
+        $enRetard = Tache::where('user_id', $userId)->enRetard()->count();
         $tauxCompletion = $total > 0 ? round(($terminees / $total) * 100) : 0;
 
         $alertes = [];
@@ -47,7 +46,7 @@ class DashboardController extends Controller
         if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s)."];
 
         $aSaisiAujourdhui = Tache::where('user_id', $userId)->whereDate('date_debut', today())->exists();
-        $estJourOuvre = (!today()->isWeekend() || (Schema::hasTable('jours_ouvrables_speciaux') && \App\Models\JourOuvrableSpecial::where('date', today()->toDateString())->exists())) && !JourFerie::whereDate('date', today())->exists();
+        $estJourOuvre = (\App\Services\CalendrierTravail::estJourTravaille(today()) || (Schema::hasTable('jours_ouvrables_speciaux') && \App\Models\JourOuvrableSpecial::where('date', today()->toDateString())->exists())) && !JourFerie::whereDate('date', today())->exists();
         if (!$aSaisiAujourdhui && $estJourOuvre) {
             $alertes[] = ['type' => 'info', 'msg' => 'Aucune tâche saisie aujourd\'hui.'];
         }
@@ -111,7 +110,7 @@ class DashboardController extends Controller
             $mesProjets = Projet::whereIn('id', $projetIds)->withCount([
                 'taches',
                 'taches as terminees_count' => fn ($q) => $q->where('statut', 'termine'),
-                'taches as en_retard_count' => fn ($q) => $q->whereNull('date_fin_reelle')->whereNotNull('echeance')->whereDate('echeance', '<', today()),
+                'taches as en_retard_count' => fn ($q) => $q->enRetard(),
                 'taches as bloquees_count' => fn ($q) => $q->where('statut', 'bloque'),
             ])->get();
 
@@ -171,15 +170,14 @@ class DashboardController extends Controller
         $terminees = Tache::where('statut', 'termine')->count();
         $enCours = Tache::where('statut', 'en_cours')->count();
         $bloquees = Tache::where('statut', 'bloque')->count();
-        $enRetard = Tache::whereNull('date_fin_reelle')->whereNotNull('echeance')
-            ->whereDate('echeance', '<', today())->count();
+        $enRetard = Tache::enRetard()->count();
         $tauxGlobal = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
 
         $arbitragesEnAttente = ArbitrageT3::where('decision', 'en_attente')->count();
 
         $hier = today()->subDay();
         $sansSaisieHier = 0;
-        if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
+        if (\App\Services\CalendrierTravail::estJourTravaille($hier) && !JourFerie::whereDate('date', $hier)->exists()) {
             $totalActifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->count();
             $idsCouverts = JourSaisie::whereDate('date', $hier)
                 ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->map(fn($v) => (int)$v)->toArray();
@@ -212,7 +210,7 @@ class DashboardController extends Controller
         $parProjet = Projet::whereHas('taches')->withCount([
             'taches',
             'taches as terminees_count' => fn ($q) => $q->where('statut', 'termine'),
-            'taches as en_retard_count' => fn ($q) => $q->whereNull('date_fin_reelle')->whereNotNull('echeance')->whereDate('echeance', '<', today()),
+            'taches as en_retard_count' => fn ($q) => $q->enRetard(),
         ])->get();
 
         // Tendance hebdo (4 semaines)
@@ -380,8 +378,7 @@ class DashboardController extends Controller
         $terminees = Tache::where('statut', 'termine')->count();
         $enCours = Tache::where('statut', 'en_cours')->count();
         $bloquees = Tache::where('statut', 'bloque')->count();
-        $enRetard = Tache::whereNull('date_fin_reelle')->whereNotNull('echeance')
-            ->whereDate('echeance', '<', today())->count();
+        $enRetard = Tache::enRetard()->count();
         $tauxGlobal = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
 
         $termineesSemaine = Tache::where('statut', 'termine')
@@ -391,7 +388,7 @@ class DashboardController extends Controller
         $alertes = [];
         $hier = today()->subDay();
         $sansSaisieHier = 0;
-        if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
+        if (\App\Services\CalendrierTravail::estJourTravaille($hier) && !JourFerie::whereDate('date', $hier)->exists()) {
             $totalActifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->count();
             $idsCouverts = JourSaisie::whereDate('date', $hier)
                 ->whereIn('statut', ['saisi', 'justifie'])->pluck('user_id')->map(fn($v) => (int)$v)->toArray();
@@ -409,6 +406,9 @@ class DashboardController extends Controller
         if ($sansSaisieHier > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$sansSaisieHier} collaborateur(s) sans saisie hier."];
         if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s) sur tous les projets."];
         if ($enRetard > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$enRetard} tâche(s) en retard."];
+        // Sprints à cheval sur deux périodes d'exercice (05 → 04) en attente d'arbitrage
+        $aArbitrer = Sprint::whereDate('date_fin', '>=', today()->subMonths(3))->get()->filter->arbitragePeriodeRequis();
+        if ($aArbitrer->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $aArbitrer->count() . " sprint(s) à cheval sur deux périodes d'exercice : arbitrage requis (" . $aArbitrer->map(fn($s) => 'Sprint ' . $s->numero)->join(', ') . ').'];
 
         // Alertes objectifs (DG)
         if (Schema::hasTable('objectifs')) {
@@ -449,8 +449,7 @@ class DashboardController extends Controller
                 $c->taches_terminees = Tache::where('user_id', $c->id)->where('statut', 'termine')->count();
                 $c->taches_en_cours = Tache::where('user_id', $c->id)->where('statut', 'en_cours')->count();
                 $c->taches_bloquees = Tache::where('user_id', $c->id)->where('statut', 'bloque')->count();
-                $c->taches_en_retard = Tache::where('user_id', $c->id)->whereNull('date_fin_reelle')
-                    ->whereNotNull('echeance')->whereDate('echeance', '<', today())
+                $c->taches_en_retard = Tache::where('user_id', $c->id)->enRetard()
                     ->whereIn('statut', ['en_cours', 'a_faire'])->count();
                 $c->points_livres = (int) Tache::where('user_id', $c->id)->where('statut', 'termine')
                     ->whereNotNull('sprint_id')->sum('points');
@@ -463,8 +462,7 @@ class DashboardController extends Controller
             ->orderByDesc('updated_at')->limit(8)->get();
 
         // Tâches en retard
-        $tachesEnRetard = Tache::with(['user', 'projet'])->whereNull('date_fin_reelle')
-            ->whereNotNull('echeance')->whereDate('echeance', '<', today())
+        $tachesEnRetard = Tache::with(['user', 'projet'])->enRetard()
             ->whereIn('statut', ['en_cours', 'a_faire'])
             ->orderBy('echeance')->limit(8)->get();
 
@@ -472,7 +470,7 @@ class DashboardController extends Controller
         $parProjet = Projet::whereHas('taches')->withCount([
             'taches',
             'taches as terminees_count' => fn ($q) => $q->where('statut', 'termine'),
-            'taches as en_retard_count' => fn ($q) => $q->whereNull('date_fin_reelle')->whereNotNull('echeance')->whereDate('echeance', '<', today()),
+            'taches as en_retard_count' => fn ($q) => $q->enRetard(),
         ])->get();
 
         // Événements récents
@@ -524,7 +522,7 @@ class DashboardController extends Controller
 
         // Pointage du jour (pilote) - masqué si jour non ouvré
         $monPointage = null;
-        $estJourOuvreP = (!today()->isWeekend() || (Schema::hasTable('jours_ouvrables_speciaux') && \App\Models\JourOuvrableSpecial::where('date', today()->toDateString())->exists())) && !JourFerie::whereDate('date', today())->exists();
+        $estJourOuvreP = (\App\Services\CalendrierTravail::estJourTravaille(today()) || (Schema::hasTable('jours_ouvrables_speciaux') && \App\Models\JourOuvrableSpecial::where('date', today()->toDateString())->exists())) && !JourFerie::whereDate('date', today())->exists();
         $pointageActif = $estJourOuvreP;
         if (Schema::hasTable('pointages') && $pointageActif) {
             $monPointage = Pointage::where('user_id', $user->id)->where('date', today()->toDateString())->first();
@@ -552,7 +550,7 @@ class DashboardController extends Controller
         $joursSaisis = 0;
         $cursor = $debut->copy();
         while ($cursor->lte(today())) {
-            if (!$cursor->isWeekend() && !JourFerie::whereDate('date', $cursor)->exists()) {
+            if (\App\Services\CalendrierTravail::estJourTravaille($cursor) && !JourFerie::whereDate('date', $cursor)->exists()) {
                 $joursOuvres++;
 
                 // 1. JourSaisie existe avec statut saisi/justifie

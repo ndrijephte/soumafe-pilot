@@ -157,14 +157,14 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
 {{-- ==================== VUE PILOTE ==================== --}}
 
 <div class="score-global">
-    <div><div class="val">{{ $scoreEquipe }}%</div><div class="lab">Score &eacute;quipe (p&eacute;riode)</div></div>
+    <div><div class="val">{{ $scoreEquipe }}%</div><div class="lab">Score &eacute;quipe (exercice)</div></div>
     @if(isset($monScore) && $monScore !== null)
     <div style="border-left:1px solid var(--bord);padding-left:12px"><div class="val">{{ $monScore }}%</div><div class="lab">Mon score</div></div>
     @endif
     <form method="POST" action="{{ route('objectifs.evaluer') }}" style="margin:0">
         @csrf
         <input type="hidden" name="periode" value="{{ $periode }}">
-        <button class="btn sm sec" title="Lancer l'&eacute;valuation automatique des objectifs de cette p&eacute;riode">&#x2713; &Eacute;valuer la p&eacute;riode</button>
+        <button class="btn sm sec" title="Lancer l'&eacute;valuation automatique des objectifs de cet exercice">&#x2713; &Eacute;valuer l'exercice</button>
     </form>
 </div>
 
@@ -347,7 +347,7 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
 </div>
 @endforeach
 @else
-<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif pour cette p&eacute;riode.</div>
+<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif pour cet exercice.</div>
 @endif
 
 @else
@@ -456,7 +456,7 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
 </table>
 </div>
 @else
-<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif pour cette p&eacute;riode.</div>
+<div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun objectif pour cet exercice.</div>
 @endif
 
 
@@ -505,8 +505,8 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
                 </select>
             </div>
             <div>
-                <label>P&eacute;riode <span class="req">*</span></label>
-                <select name="periode" id="fPeriode" required>
+                <label>Exercice <span class="req">*</span></label>
+                <select name="periode" id="fPeriode" required onchange="bornerDates(true)">
                     @foreach($moisMenu as $val => $label)
                     <option value="{{ $val }}" {{ $periode === $val ? 'selected' : '' }}>{{ $label }}</option>
                     @endforeach
@@ -532,7 +532,7 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
         <div class="form-row">
             <div>
                 <label>Date de d&eacute;but <span class="req">*</span></label>
-                <input type="date" name="date_debut" id="fDebut" required value="{{ now()->format('Y-m-d') }}">
+                <input type="date" name="date_debut" id="fDebut" required>
             </div>
             <div>
                 <label>&Eacute;ch&eacute;ance <span class="req">*</span></label>
@@ -643,6 +643,17 @@ $icTree = $ic('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9"
 
 @push('scripts')
 <script>
+// Bornes des exercices (05 → 04) : les dates d'un objectif restent dans son exercice
+var BORNES_EX = @json(collect($moisMenu)->map(fn($l, $c) => array_map(fn($d) => $d->toDateString(), \App\Services\ExerciceParc::bornes($c))));
+function bornerDates(reinit) {
+    var b = BORNES_EX[document.getElementById('fPeriode').value]; if (!b) return;
+    var auj = '{{ today()->toDateString() }}';
+    ['fDebut', 'fEcheance'].forEach(function (id) { var el = document.getElementById(id); el.min = b[0]; el.max = b[1]; });
+    var d = document.getElementById('fDebut'), e = document.getElementById('fEcheance');
+    if (reinit || !d.value || d.value < b[0] || d.value > b[1]) d.value = auj >= b[0] && auj <= b[1] ? auj : b[0];
+    if (reinit || !e.value || e.value < b[0] || e.value > b[1]) e.value = b[1];
+}
+
 function toggleType() {
     var t = document.getElementById('fType').value;
     var fProjet = document.getElementById('fProjet');
@@ -676,6 +687,9 @@ function editObj(id, type, userId, libelle, projetId, pond, avanc, debut, echean
     document.getElementById('fAvanc').value = avanc;
     document.getElementById('fDebut').value = debut;
     document.getElementById('fEcheance').value = echeance;
+    document.getElementById('fPeriode').value = '{{ $periode }}';
+    document.getElementById('fPeriode').disabled = true;
+    bornerDates(false);
     document.getElementById('fEval').value = evaluation;
     document.getElementById('fStatut').value = statut;
     document.getElementById('fComm').value = comm;
@@ -703,8 +717,9 @@ function resetForm() {
     document.getElementById('fProjet').value = '';
     document.getElementById('fPond').value = '20';
     document.getElementById('fAvanc').value = '0';
-    document.getElementById('fDebut').value = '{{ now()->format("Y-m-d") }}';
-    document.getElementById('fEcheance').value = '';
+    document.getElementById('fPeriode').disabled = false;
+    document.getElementById('fPeriode').value = '{{ $periode }}';
+    bornerDates(true);
     document.getElementById('fEval').value = '';
     document.getElementById('fStatut').value = 'en_attente';
     document.getElementById('fComm').value = '';

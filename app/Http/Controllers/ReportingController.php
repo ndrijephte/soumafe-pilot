@@ -12,15 +12,16 @@ class ReportingController extends Controller
     {
         abort_unless($r->user()->estPilote(), 403);
 
-        $periode = $r->get('periode', 'semaine');
+        $periode = $r->get('periode', 'exercice');
         [$debut, $fin] = $this->bornesPeriode($periode, $r->get('date_debut'), $r->get('date_fin'));
+        $exercice = $periode === 'exercice';
 
         // ─── KPI globaux sur la période ───
         $terminees = 0; $creees = 0; $enRetardClotures = 0; $anticipees = 0; $aTemps = 0;
         $tauxGlobal = 0; $bloquees = 0; $enRetardOuvert = 0;
 
         if (Schema::hasTable('taches')) {
-            $tachesPeriode = Tache::whereBetween('date_fin_reelle', [$debut, $fin])->where('statut', 'termine');
+            $tachesPeriode = $this->tachesTermineesPeriode($debut, $fin, $exercice);
             $terminees = (clone $tachesPeriode)->count();
             $creees = Tache::whereBetween('created_at', [$debut, $fin])->count();
 
@@ -35,8 +36,7 @@ class ReportingController extends Controller
             $tauxGlobal = $totalActives > 0 ? round(($totalTerminees / $totalActives) * 100) : 0;
 
             $bloquees = Tache::where('statut', 'bloque')->count();
-            $enRetardOuvert = Tache::whereNull('date_fin_reelle')->whereNotNull('echeance')
-                ->whereDate('echeance', '<', today())->count();
+            $enRetardOuvert = Tache::enRetard()->count();
         }
 
         // ─── Par collaborateur ───
@@ -44,13 +44,11 @@ class ReportingController extends Controller
             ->whereNotIn('role', ['direction', 'invite'])
             ->with('pole')
             ->orderBy('name')->get()
-            ->map(function ($u) use ($debut, $fin) {
+            ->map(function ($u) use ($debut, $fin, $exercice) {
                 $total = Tache::where('user_id', $u->id)->count();
                 $term = Tache::where('user_id', $u->id)->where('statut', 'termine')->count();
-                $termPeriode = Tache::where('user_id', $u->id)->where('statut', 'termine')
-                    ->whereBetween('date_fin_reelle', [$debut, $fin])->count();
-                $retard = Tache::where('user_id', $u->id)->whereNull('date_fin_reelle')
-                    ->whereNotNull('echeance')->whereDate('echeance', '<', today())->count();
+                $termPeriode = $this->tachesTermineesPeriode($debut, $fin, $exercice)->where('user_id', $u->id)->count();
+                $retard = Tache::where('user_id', $u->id)->enRetard()->count();
                 $bloq = Tache::where('user_id', $u->id)->where('statut', 'bloque')->count();
 
                 // Score OKR unifié (individuel + projet) du mois en cours
@@ -58,7 +56,7 @@ class ReportingController extends Controller
                 $nbObjAtteints = 0;
                 $nbObjTotal = 0;
                 if (Schema::hasTable('objectifs') && Schema::hasColumn('objectifs', 'type')) {
-                    $moisCourant = now()->format('Y-m');
+                    $moisCourant = Objectif::periodeCourante();
                     $tousObj = Objectif::with('resultats')
                         ->where('user_id', $u->id)
                         ->where('periode', $moisCourant)->get();
@@ -76,7 +74,7 @@ class ReportingController extends Controller
                 $cp = $debut->copy();
                 $ep = $fin->copy()->min(today());
                 while ($cp->lte($ep)) {
-                    if (!$cp->isWeekend()) $joursOuvresPeriode++;
+                    if (\App\Services\CalendrierTravail::estJourTravaille($cp)) $joursOuvresPeriode++;
                     $cp->addDay();
                 }
                 $productivite = $joursOuvresPeriode > 0 ? round($termPeriode / $joursOuvresPeriode, 1) : 0;
@@ -103,8 +101,7 @@ class ReportingController extends Controller
             ->withCount([
                 'taches',
                 'taches as terminees_count' => fn ($q) => $q->where('statut', 'termine'),
-                'taches as en_retard_count' => fn ($q) => $q->whereNull('date_fin_reelle')
-                    ->whereNotNull('echeance')->whereDate('echeance', '<', today()),
+                'taches as en_retard_count' => fn ($q) => $q->enRetard(),
                 'taches as bloquees_count' => fn ($q) => $q->where('statut', 'bloque'),
             ])->orderBy('libelle')->get();
 
@@ -165,7 +162,7 @@ class ReportingController extends Controller
                 $c = $debut->copy();
                 $endDate = $fin->copy()->min(today());
                 while ($c->lte($endDate)) {
-                    if (!$c->isWeekend() || $joursSpeciaux->contains($c->toDateString())) $ouvres++;
+                    if (\App\Services\CalendrierTravail::estJourTravaille($c) || $joursSpeciaux->contains($c->toDateString())) $ouvres++;
                     $c->addDay();
                 }
                 $tauxPresence = $ouvres > 0 ? round((($presents + $retards + $sortisTot) / $ouvres) * 100) : 0;
@@ -199,8 +196,9 @@ class ReportingController extends Controller
     {
         abort_unless($r->user()->estPilote(), 403);
 
-        $periode = $r->get('periode', 'semaine');
+        $periode = $r->get('periode', 'exercice');
         [$debut, $fin] = $this->bornesPeriode($periode, $r->get('date_debut'), $r->get('date_fin'));
+        $exercice = $periode === 'exercice';
 
         // Sections sélectionnées (par défaut toutes)
         $sections = $r->get('sections', ['kpi', 'collaborateurs', 'projets', 'sprints', 'absences', 'evenements']);
@@ -215,7 +213,7 @@ class ReportingController extends Controller
         $tauxGlobal = 0; $bloquees = 0; $enRetardOuvert = 0;
 
         if (Schema::hasTable('taches')) {
-            $tachesPeriode = Tache::whereBetween('date_fin_reelle', [$debut, $fin])->where('statut', 'termine');
+            $tachesPeriode = $this->tachesTermineesPeriode($debut, $fin, $exercice);
             $terminees = (clone $tachesPeriode)->count();
             $creees = Tache::whereBetween('created_at', [$debut, $fin])->count();
             if (Schema::hasColumn('taches', 'qualification')) {
@@ -227,24 +225,21 @@ class ReportingController extends Controller
             $totalTerminees = Tache::where('statut', 'termine')->count();
             $tauxGlobal = $totalActives > 0 ? round(($totalTerminees / $totalActives) * 100) : 0;
             $bloquees = Tache::where('statut', 'bloque')->count();
-            $enRetardOuvert = Tache::whereNull('date_fin_reelle')->whereNotNull('echeance')
-                ->whereDate('echeance', '<', today())->count();
+            $enRetardOuvert = Tache::enRetard()->count();
         }
 
         $collaborateurs = User::where('actif', true)
             ->whereNotIn('role', ['direction', 'invite'])
             ->with('pole')->orderBy('name')->get()
-            ->map(function ($u) use ($debut, $fin) {
+            ->map(function ($u) use ($debut, $fin, $exercice) {
                 $total = Tache::where('user_id', $u->id)->count();
                 $term = Tache::where('user_id', $u->id)->where('statut', 'termine')->count();
-                $termPeriode = Tache::where('user_id', $u->id)->where('statut', 'termine')
-                    ->whereBetween('date_fin_reelle', [$debut, $fin])->count();
-                $retard = Tache::where('user_id', $u->id)->whereNull('date_fin_reelle')
-                    ->whereNotNull('echeance')->whereDate('echeance', '<', today())->count();
+                $termPeriode = $this->tachesTermineesPeriode($debut, $fin, $exercice)->where('user_id', $u->id)->count();
+                $retard = Tache::where('user_id', $u->id)->enRetard()->count();
                 $bloq = Tache::where('user_id', $u->id)->where('statut', 'bloque')->count();
                 $scoreObj = null;
                 if (Schema::hasTable('objectifs')) {
-                    $moisCourant = now()->format('Y-m');
+                    $moisCourant = Objectif::periodeCourante();
                     $objs = Objectif::where('user_id', $u->id)->where('periode', $moisCourant)->where('type', 'individuel')->get();
                     $sommePond = $objs->sum('ponderation');
                     $scoreObj = $sommePond > 0 ? round($objs->sum(fn($o) => $o->avancement * $o->ponderation / 100)) : null;
@@ -263,8 +258,7 @@ class ReportingController extends Controller
             ->withCount([
                 'taches',
                 'taches as terminees_count' => fn ($q) => $q->where('statut', 'termine'),
-                'taches as en_retard_count' => fn ($q) => $q->whereNull('date_fin_reelle')
-                    ->whereNotNull('echeance')->whereDate('echeance', '<', today()),
+                'taches as en_retard_count' => fn ($q) => $q->enRetard(),
                 'taches as bloquees_count' => fn ($q) => $q->where('statut', 'bloque'),
             ])->orderBy('libelle')->get();
 
@@ -306,9 +300,24 @@ class ReportingController extends Controller
         ));
     }
 
+    /**
+     * Tâches terminées imputées à la période. Pour une période d'exercice, une tâche de sprint compte
+     * dans la période du sprint (arbitrée s'il est à cheval) ; les autres tâches selon leur date de fin.
+     */
+    private function tachesTermineesPeriode(Carbon $debut, Carbon $fin, bool $exercice)
+    {
+        $q = Tache::where('statut', 'termine');
+        if (!$exercice) return $q->whereBetween('date_fin_reelle', [$debut, $fin]);
+        $sprints = Sprint::whereDate('date_debut', '<=', $fin)->whereDate('date_fin', '>=', $debut)->get()
+            ->filter(fn($s) => $s->periodeExercice()?->isSameDay($debut))->pluck('id');
+        return $q->where(fn($w) => $w->where(fn($h) => $h->whereNull('sprint_id')->whereBetween('date_fin_reelle', [$debut, $fin]))
+            ->orWhereIn('sprint_id', $sprints));
+    }
+
     private function bornesPeriode(string $p, ?string $d, ?string $f): array
     {
         return match ($p) {
+            'exercice' => \App\Services\PeriodeExercice::bornes(today()),
             'mois' => [today()->startOfMonth(), today()->endOfMonth()],
             'trimestre' => [today()->firstOfQuarter(), today()->lastOfQuarter()],
             'personnalise' => [
@@ -330,7 +339,7 @@ class ReportingController extends Controller
         $c = $debut->copy();
         $endDate = $fin->copy()->min(today());
         while ($c->lte($endDate)) {
-            if ((!$c->isWeekend() || $samOuv->contains($c->toDateString())) && !JourFerie::whereDate('date', $c)->exists()) {
+            if ((\App\Services\CalendrierTravail::estJourTravaille($c) || $samOuv->contains($c->toDateString())) && !JourFerie::whereDate('date', $c)->exists()) {
                 $ouvres++;
                 $ok = JourSaisie::where('user_id', $userId)->whereDate('date', $c)
                     ->whereIn('statut', ['saisi', 'justifie'])->exists();

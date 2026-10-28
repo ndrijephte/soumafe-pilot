@@ -88,7 +88,7 @@
     @php
         $statutCls = match($t->statut) { 'termine' => 'b-ok', 'en_cours' => 'b-ok', 'bloque' => 'b-ko', 'a_valider' => 'b-blue', default => 'b-warn' };
         $prioCls = match($t->priorite) { 'haute' => 'color:var(--ko);font-weight:700', 'basse' => 'color:var(--gris)', default => '' };
-        $retard = $t->echeance && $t->echeance->lt(today()) && !in_array($t->statut, ['termine']);
+        $retard = $t->estEnRetard();
     @endphp
     <tr>
         <td><a href="{{ route('taches.show', $t) }}" class="lien">{{ \Illuminate\Support\Str::limit($t->intitule, 45) }}</a></td>

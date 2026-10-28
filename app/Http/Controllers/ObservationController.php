@@ -263,16 +263,15 @@ class ObservationController extends Controller
         $user = User::find($userId);
         if (!$user) return response()->json([]);
 
-        $periode = now()->format('Y-m');
+        $periode = Objectif::periodeCourante();
 
         // Tâches
         $taches = Tache::where('user_id', $userId)->withTrashed();
         $tachesTotal     = (clone $taches)->count();
         $tachesTerminees = (clone $taches)->where('statut', 'termine')->count();
-        $tachesEnRetard  = (clone $taches)->whereNull('date_fin_reelle')
-            ->whereDate('echeance', '<', today())->count();
+        $tachesEnRetard  = (clone $taches)->enRetard()->count();
 
-        // Objectifs du mois
+        // Objectifs de l'exercice en cours
         $objectifs = Objectif::where('user_id', $userId)->where('periode', $periode);
         $objTotal     = (clone $objectifs)->count();
         $objAtteints  = (clone $objectifs)->where('avancement', '>=', 100)->count();
@@ -312,7 +311,7 @@ class ObservationController extends Controller
         $data    = null;
         $debut   = $r->input('debut', now()->startOfMonth()->toDateString());
         $fin     = $r->input('fin', now()->toDateString());
-        $periode = now()->format('Y-m');
+        $periode = Objectif::periodeCourante();
 
         if ($r->filled('collaborateur_id')) {
             $collab = User::findOrFail($r->collaborateur_id);
@@ -330,10 +329,10 @@ class ObservationController extends Controller
 
             // Objectifs (avec KR pour score pondéré + verdict)
             $objectifs = Objectif::where('user_id', $collab->id)
-                ->where(function ($q) use ($debut, $fin) {
+                ->where(function ($q) use ($debut, $fin, $periode) {
                     $q->whereBetween('date_debut', [$debut, $fin])
                       ->orWhereBetween('date_echeance', [$debut, $fin])
-                      ->orWhere('periode', now()->format('Y-m'));
+                      ->orWhere('periode', $periode);
                 })
                 ->with(['projet', 'resultats'])
                 ->orderByDesc('created_at')
@@ -393,7 +392,7 @@ class ObservationController extends Controller
             $cp = \Carbon\Carbon::parse($debut)->copy();
             $ep = \Carbon\Carbon::parse($fin)->copy()->min(today());
             while ($cp->lte($ep)) {
-                if (!$cp->isWeekend() || $joursSpeciaux->contains($cp->toDateString())) $joursOuvres++;
+                if (\App\Services\CalendrierTravail::estJourTravaille($cp) || $joursSpeciaux->contains($cp->toDateString())) $joursOuvres++;
                 $cp->addDay();
             }
             $productivite = $joursOuvres > 0 ? round($termPeriode / $joursOuvres, 1) : 0;
@@ -487,7 +486,7 @@ class ObservationController extends Controller
                 'stats'              => [
                     'taches_total'     => $taches->count(),
                     'taches_terminees' => $taches->where('statut', 'termine')->count(),
-                    'taches_retard'    => $taches->filter(fn($t) => !$t->date_fin_reelle && $t->echeance && $t->echeance->isPast())->count(),
+                    'taches_retard'    => $taches->filter(fn($t) => $t->estEnRetard())->count(),
                     'taux_completion'  => $tauxCompletion,
                     'productivite'     => $productivite,
                     'obj_total'        => $objectifs->count(),

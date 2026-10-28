@@ -122,7 +122,7 @@ dialog textarea{min-height:70px;resize:vertical}
         <div class="item"><div class="lbl">Qualification</div>{{ ucfirst(str_replace('_',' ',$tache->qualification ?? '—')) }}</div>
         @endif
         @if($tache->effort_volontaire)
-        <div class="item"><div class="lbl">Effort volontaire</div>Week-end/férié</div>
+        <div class="item"><div class="lbl">Effort volontaire</div>Jour de repos / férié</div>
         @endif
     </div>
 </div>

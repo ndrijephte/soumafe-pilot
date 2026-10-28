@@ -14,7 +14,7 @@ class ControleSaisie extends Command
     {
         $date = $this->option('date') ? \Carbon\Carbon::parse($this->option('date')) : today()->subDay();
 
-        if ($date->isWeekend()) { $this->info("$date est un week-end - pas de contrôle."); return 0; }
+        if (!\App\Services\CalendrierTravail::estJourTravaille($date)) { $this->info("$date n'est pas un jour travaillé - pas de contrôle."); return 0; }
         if (JourFerie::whereDate('date', $date)->exists()) { $this->info("$date est un jour férié - pas de contrôle."); return 0; }
 
         $users = User::where('actif', true)

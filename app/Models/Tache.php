@@ -33,16 +33,39 @@ class Tache extends Model
     public function arbitrage(): HasOne { return $this->hasOne(ArbitrageT3::class); }
 
     public function scopeDuJour($q, $date = null) { return $q->whereDate('date_debut', $date ?? today()); }
-    public function scopeEnRetard($q) { return $q->whereNull('date_fin_reelle')->whereDate('echeance', '<', today()); }
+    /**
+     * Tâches en retard : non terminées, échéance dépassée. Une tâche d'un sprint clôturé n'est plus en retard :
+     * sa qualité est figée à la clôture (« non terminée au sprint ») et ne pèse pas sur les périodes suivantes.
+     */
+    public function scopeEnRetard($q)
+    {
+        return $q->whereNull('date_fin_reelle')->whereNotIn('statut', ['termine', 'reporte'])
+            ->whereNotNull('echeance')->whereDate('echeance', '<', today())
+            ->where(fn($w) => $w->whereNull('sprint_id')->orWhereHas('sprint', fn($s) => $s->where('statut', '!=', 'termine')));
+    }
 
-    /** Nombre de jours ouvrés (lundi → vendredi) entre deux dates incluses. */
+    /** Même règle pour une tâche chargée. */
+    public function estEnRetard(): bool
+    {
+        if (in_array($this->statut, ['termine', 'reporte'], true) || $this->date_fin_reelle || !$this->echeance) return false;
+        if ($this->sprint_id && $this->sprint?->statut === 'termine') return false;
+        return $this->echeance->lt(today());
+    }
+
+    /** Tâche restée non terminée dans un sprint clôturé. */
+    public function nonTermineeSprintClos(): bool
+    {
+        return $this->statut !== 'termine' && $this->sprint_id && $this->sprint?->statut === 'termine';
+    }
+
+    /** Nombre de jours travaillés (selon les horaires en vigueur) entre deux dates incluses. */
     public static function joursOuvres($debut, $fin): int
     {
         if (!$debut || !$fin) return 0;
         $d = \Carbon\Carbon::parse($debut)->startOfDay(); $f = \Carbon\Carbon::parse($fin)->startOfDay();
         if ($f->lt($d)) return 0;
         $n = 0;
-        for ($j = $d->copy(); $j->lte($f); $j->addDay()) if (!$j->isWeekend()) $n++;
+        for ($j = $d->copy(); $j->lte($f); $j->addDay()) if (\App\Services\CalendrierTravail::estJourTravaille($j)) $n++;
         return $n;
     }
 
@@ -59,7 +82,10 @@ class Tache extends Model
         if ($this->statut === 'termine') {
             return $this->teste ? ['code' => 'TT', 'libelle' => 'Terminé testé', 'classe' => 'sc-tt'] : ['code' => 'T', 'libelle' => 'Terminé', 'classe' => 'sc-t'];
         }
-        if ($this->echeance && $this->echeance->lt(today())) {
+        if ($this->nonTermineeSprintClos()) {
+            return ['code' => 'NT', 'libelle' => 'Non terminé (sprint clos)', 'classe' => 'sc-autre'];
+        }
+        if ($this->estEnRetard()) {
             $j = self::joursOuvres($this->echeance->copy()->addDay(), today());
             return ['code' => 'ER', 'libelle' => "En retard de {$j} jour(s)", 'classe' => 'sc-er'];
         }

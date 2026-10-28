@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Services\CalendrierTravail;
 use Carbon\Carbon;
 
 class Pointage extends Model
@@ -31,7 +32,7 @@ class Pointage extends Model
 
     // --- Helpers ---
 
-    /** Calcule le statut automatiquement selon les heures saisies */
+    /** Calcule le statut selon les heures saisies et les horaires en vigueur à la date du pointage */
     public function calculerStatut(): string
     {
         if (!$this->heure_arrivee && !$this->heure_depart) {
@@ -41,8 +42,8 @@ class Pointage extends Model
         $arrivee = $this->heure_arrivee ? Carbon::parse($this->heure_arrivee) : null;
         $depart  = $this->heure_depart ? Carbon::parse($this->heure_depart) : null;
 
-        $limiteArrivee = Carbon::parse('08:00');
-        $limiteDepart  = Carbon::parse('18:00');
+        $limiteArrivee = Carbon::parse(CalendrierTravail::heureArrivee($this->date ?? today()));
+        $limiteDepart  = Carbon::parse(CalendrierTravail::heureDepart($this->date ?? today()));
 
         $retard   = $arrivee && $arrivee->gt($limiteArrivee);
         $sortiTot = $depart && $depart->lt($limiteDepart);

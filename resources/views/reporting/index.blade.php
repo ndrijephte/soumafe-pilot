@@ -38,6 +38,7 @@
 
 <form class="filtres" method="GET" action="{{ route('reporting.index') }}">
     <select name="periode" onchange="togglePerso(this.value)">
+        <option value="exercice" {{ $periode==='exercice'?'selected':'' }}>Période d'exercice ({{ \App\Services\PeriodeExercice::libelle(today()) }})</option>
         <option value="semaine" {{ $periode==='semaine'?'selected':'' }}>Cette semaine</option>
         <option value="mois" {{ $periode==='mois'?'selected':'' }}>Ce mois</option>
         <option value="trimestre" {{ $periode==='trimestre'?'selected':'' }}>Ce trimestre</option>

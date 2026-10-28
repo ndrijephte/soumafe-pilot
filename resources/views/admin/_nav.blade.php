@@ -12,6 +12,7 @@
     ['admin.roles.index', 'R&ocirc;les'],
     ['admin.profils.index', 'Profils'],
     ['admin.feries.index', 'Jours f&eacute;ri&eacute;s'],
+    ['admin.horaires.index', 'Horaires de travail'],
     ['admin.types-evenement.index', 'Types &eacute;v&eacute;nement'],
     ['admin.types-blocage.index', 'Types blocage'],
     ['admin.titres-poste.index', 'Titres de poste'],

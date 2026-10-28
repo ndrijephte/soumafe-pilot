@@ -46,10 +46,10 @@ class PlanningReunionController extends Controller
                 ->groupBy(fn($a) => $a->date_reunion->format('Y-m-d'))
                 ->map(fn($dateAff) => $dateAff->groupBy(fn($a) => $a->created_at?->format('Y-m-d H:i') ?? $a->id)->values());
         } else {
-            // Jours de la semaine (lun-ven)
+            // Jours travaillés (horaires paramétrables)
             $jours = [];
             for ($d = $debut->copy(); $d->lte($fin); $d->addDay()) {
-                if ($d->isWeekend()) continue;
+                if (!\App\Services\CalendrierTravail::estJourTravaille($d)) continue;
                 $jours[] = $d->copy();
             }
         }
@@ -147,7 +147,7 @@ class PlanningReunionController extends Controller
             $jourIdx = 1;
         } else {
             for ($d = $debut->copy(); $d->lte($fin); $d->addDay()) {
-                if ($d->isWeekend()) continue;
+                if (!\App\Services\CalendrierTravail::estJourTravaille($d)) continue;
 
                 // Vérifier récurrence (quotidien = tous les jours ouvrés)
                 if ($type->recurrence === 'hebdomadaire' && $d->dayOfWeek !== 1) continue;

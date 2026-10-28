@@ -14,6 +14,11 @@
 .progress-fill{height:100%;border-radius:6px;background:var(--accent);transition:width .5s}
 .stats-row{display:flex;gap:20px;font-size:13px;color:var(--gris);margin-bottom:18px;flex-wrap:wrap}
 .stats-row strong{color:#1e293b}
+.periode-ex{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#334155;border-top:1px dashed var(--bord);padding-top:10px}
+.periode-ex strong{color:var(--bleu)}
+.periode-ex .arb{font-size:11.5px;color:var(--gris)}
+.periode-ex.a-arbitrer{color:#92400e}
+.periode-ex.a-arbitrer strong{color:#92400e}
 .taches-table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
 .taches-table th{text-align:left;padding:8px 10px;background:var(--fond);color:var(--gris);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;vertical-align:middle}
 .taches-table td{padding:7px 10px;border-bottom:1px solid var(--bord);vertical-align:middle}
@@ -148,6 +153,24 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <div>Bloqu&eacute;es : <strong>{{ $bloquees }}</strong></div>
         <div>Story points livr&eacute;s : <strong>{{ $sprint->pointsLivres() }}</strong> / {{ $sprint->pointsEngages() }}</div>
         <div>Progression : <strong>{{ $pct }}%</strong></div>
+    </div>
+    {{-- Période d'exercice (05 → 04) : un sprint à cheval est arbitré par un pilote --}}
+    @php $periodeEx = $sprint->periodeExercice(); @endphp
+    <div class="periode-ex {{ $periodeEx ? '' : 'a-arbitrer' }}">
+        @if($periodeEx)
+            <span>P&eacute;riode d'exercice : <strong>{{ \App\Services\PeriodeExercice::nom($periodeEx) }}</strong> ({{ \App\Services\PeriodeExercice::libelle($periodeEx) }})</span>
+            @if($sprint->estACheval())<span class="arb">arbitr&eacute;e{{ $sprint->arbitrePar ? ' par ' . $sprint->arbitrePar->nomComplet() : '' }}{{ $sprint->periode_arbitree_le ? ' le ' . $sprint->periode_arbitree_le->format('d/m/Y') : '' }}</span>@endif
+        @else
+            <span><strong>Sprint &agrave; cheval</strong> sur {{ $sprint->periodesCouvertes()->count() }} p&eacute;riodes d'exercice : arbitrage requis.</span>
+        @endif
+        @if($sprint->estACheval() && auth()->user()->estAdmin())
+        <form method="POST" action="{{ route('sprints.periode', $sprint) }}" style="display:flex;gap:6px;align-items:center;margin:0 0 0 auto">@csrf @method('PATCH')
+            <select name="periode_exercice" style="padding:4px 8px;border:1px solid var(--bord);border-radius:6px;font-size:12px">
+                @foreach($sprint->periodesCouvertes() as $p)<option value="{{ $p->toDateString() }}" @selected(($periodeEx ?? $sprint->periodeProposee())->isSameDay($p))>{{ \App\Services\PeriodeExercice::nom($p) }} ({{ \App\Services\PeriodeExercice::libelle($p) }}){{ $sprint->periodeProposee()->isSameDay($p) ? ' - proposée' : '' }}</option>@endforeach
+            </select>
+            <button class="btn sm">{{ $periodeEx ? 'Modifier' : 'Arbitrer' }}</button>
+        </form>
+        @endif
     </div>
 </div>
 

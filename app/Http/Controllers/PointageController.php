@@ -52,7 +52,7 @@ class PointageController extends Controller
         $joursOuvres   = 0;
         $d = $debutMois->copy();
         while ($d->lte(min($date, $finMois))) {
-            if (!$d->isWeekend() || $joursSpeciaux->contains($d->toDateString())) $joursOuvres++;
+            if (\App\Services\CalendrierTravail::estJourTravaille($d) || $joursSpeciaux->contains($d->toDateString())) $joursOuvres++;
             $d->addDay();
         }
         $totalPointsMois = $moisPointages->where('statut', 'present')->count();
@@ -84,7 +84,7 @@ class PointageController extends Controller
     }
 
     /**
-     * Vérifie si une date est un jour ouvré (lun-ven hors férié, ou jour ouvrable spécial).
+     * Vérifie si une date est un jour ouvré (jour travaillé hors férié, ou jour ouvrable spécial).
      */
     private function estJourOuvre(Carbon $date): bool
     {
@@ -93,7 +93,7 @@ class PointageController extends Controller
             && JourOuvrableSpecial::where('date', $date->toDateString())->exists();
 
         if ($estSpecial) return true;
-        if ($date->isWeekend() || $estFerie) return false;
+        if (!\App\Services\CalendrierTravail::estJourTravaille($date) || $estFerie) return false;
         return true;
     }
 
@@ -157,9 +157,9 @@ class PointageController extends Controller
                 ->with('erreur', 'Départ déjà enregistré.');
         }
 
-        // Motif obligatoire si départ avant 18h
+        // Motif obligatoire si départ avant l'heure de fin en vigueur
         $hDepart = Carbon::parse($now);
-        if ($hDepart->lt(Carbon::parse('18:00')) && !$r->filled('motif_depart')) {
+        if ($hDepart->lt(Carbon::parse(\App\Services\CalendrierTravail::heureDepart())) && !$r->filled('motif_depart')) {
             return redirect()->route('pointage.index')
                 ->with('demande_motif_depart_avant', $pointage->id);
         }
@@ -298,7 +298,7 @@ class PointageController extends Controller
             ->get();
 
         foreach ($oublis as $p) {
-            $p->heure_depart = '18:00:00';
+            $p->heure_depart = \App\Services\CalendrierTravail::heureDepart($p->date) . ':00';
             $p->motif_depart = 'Oubli de pointage départ - clôturé automatiquement';
             $p->statut = $p->calculerStatut();
             $p->save();
@@ -319,8 +319,8 @@ class PointageController extends Controller
 
         $date = Carbon::parse($r->date);
 
-        // Vérifier que ce n'est pas déjà un jour ouvré normal (lun-ven hors férié)
-        if (!$date->isWeekend() && !\App\Models\JourFerie::whereDate('date', $date)->exists()) {
+        // Vérifier que ce n'est pas déjà un jour ouvré normal (jour travaillé hors férié)
+        if (\App\Services\CalendrierTravail::estJourTravaille($date) && !\App\Models\JourFerie::whereDate('date', $date)->exists()) {
             return back()->withErrors(['Cette date est déjà un jour ouvré normal.']);
         }
 

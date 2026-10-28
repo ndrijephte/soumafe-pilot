@@ -80,7 +80,7 @@ class SaisieController extends Controller
         $justificationsEnAttente = collect();
         if ($user->estPilote()) {
             $hier = today()->subDay();
-            if (!$hier->isWeekend() && !JourFerie::whereDate('date', $hier)->exists()) {
+            if (\App\Services\CalendrierTravail::estJourTravaille($hier) && !JourFerie::whereDate('date', $hier)->exists()) {
                 $actifs = User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->get();
 
                 // IDs ayant un JourSaisie saisi/justifié hier

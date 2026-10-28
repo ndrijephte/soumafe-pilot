@@ -140,7 +140,7 @@ class TacheController extends Controller
                 'en_retard' => 'Terminée après l\'échéance : merci d\'ajouter une justification en commentaire.',
                 default     => 'Tâche terminée.',
             };
-            if ($tache->effort_volontaire) $msg .= ' Effort week-end/férié comptabilisé.';
+            if ($tache->effort_volontaire) $msg .= ' Effort hors jour travaillé (repos/férié) comptabilisé.';
             return response()->json(['ok' => true, 'qualification' => $tache->qualification,
                 'justification_requise' => $tache->justification_requise, 'message' => $msg]);
         }

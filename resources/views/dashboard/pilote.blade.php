@@ -304,7 +304,7 @@
         @php
             $statutCls = match($t->statut) { 'en_cours' => 'b-ok', 'bloque' => 'b-ko', default => 'b-warn' };
             $prioCls = match($t->priorite) { 'haute' => 'color:var(--ko);font-weight:700', 'basse' => 'color:var(--gris)', default => 'color:var(--accent);font-weight:600' };
-            $echeanceCls = ($t->echeance && $t->echeance->lt(today()) && $t->statut !== 'termine') ? 'color:var(--ko);font-weight:700' : 'color:var(--gris)';
+            $echeanceCls = $t->estEnRetard() ? 'color:var(--ko);font-weight:700' : 'color:var(--gris)';
         @endphp
         <tr>
             <td><a href="{{ route('taches.show', $t) }}" style="color:var(--accent);text-decoration:none;font-weight:500">{{ \Illuminate\Support\Str::limit($t->intitule, 40) }}</a></td>

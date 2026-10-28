@@ -2,7 +2,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\{Objectif, Projet, ResultatCle, Tache, User};
-use App\Services\LecteurXlsx;
+use App\Services\{ExerciceParc, LecteurXlsx};
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -12,7 +13,8 @@ class ObjectifController extends Controller
     {
         $user = $r->user();
         $moisMenu = Objectif::moisDisponibles();
-        $periode = $r->get('periode', now()->format('Y-m'));
+        $periode = $r->get('periode', Objectif::periodeCourante());
+        if (!preg_match('/^\d{4}-\d{2}$/', $periode)) $periode = Objectif::periodeCourante();
         $projets = Projet::where('statut', 'actif')->orderBy('libelle')->get();
         $hasType = Schema::hasColumn('objectifs', 'type');
 
@@ -106,7 +108,7 @@ class ObjectifController extends Controller
         $rules = [
             'libelle' => 'required|string|max:255',
             'ponderation' => 'required|integer|min:0|max:100',
-            'periode' => 'required|string|max:20',
+            'periode' => ['required', 'regex:/^\d{4}-\d{2}$/'],
         ];
         if ($hasType) $rules['type'] = 'required|in:individuel,projet';
         if ($hasDateDebut) $rules['date_debut'] = 'required|date';
@@ -118,7 +120,8 @@ class ObjectifController extends Controller
         } else {
             $rules['projet_id'] = 'required|exists:projets,id';
         }
-        $r->validate($rules);
+        $r->validate($rules, ['periode.regex' => "Période d'exercice invalide."]);
+        if ($err = $this->horsExercice($r->periode, $r->date_debut, $r->date_echeance)) return back()->with('erreur', $err)->withInput();
 
         if ($type === 'individuel') {
             $q = Objectif::where('user_id', $r->user_id)->where('periode', $r->periode);
@@ -196,6 +199,7 @@ class ObjectifController extends Controller
         if ($hasDateEcheance) $rules['date_echeance'] = 'nullable|date';
         if ($hasEval) $rules['evaluation'] = 'nullable|in:en_cours,atteint,partiel,non_atteint';
         $r->validate($rules);
+        if ($err = $this->horsExercice($objectif->periode, $r->date_debut, $r->date_echeance)) return back()->with('erreur', $err)->withInput();
 
         if ($hasType && $objectif->type === 'individuel') {
             $somme = Objectif::where('user_id', $objectif->user_id)
@@ -234,6 +238,18 @@ class ObjectifController extends Controller
         }
 
         return back()->with('succes', 'Objectif mis à jour.');
+    }
+
+    /** Les dates d'un objectif doivent rester dans sa période d'exercice (05 → 04). */
+    private function horsExercice(string $periode, ?string $debut, ?string $echeance): ?string
+    {
+        [$d, $f] = ExerciceParc::bornes($periode);
+        foreach (array_filter([$debut, $echeance]) as $date) {
+            if (!Carbon::parse($date)->betweenIncluded($d, $f)) {
+                return "Les dates de l'objectif doivent être comprises dans l'exercice " . Objectif::libellePeriode($periode) . '.';
+            }
+        }
+        return null;
     }
 
     public function evaluer(Request $r)
@@ -356,8 +372,10 @@ class ObjectifController extends Controller
                 if ($pondVal === 0) { $erreurs[] = "Ligne {$numLigne} : pondération max atteinte pour {$collabStr}."; $ignores++; continue; }
             }
 
-            $dateEch = ($echStr && strtotime($echStr)) ? date('Y-m-d', strtotime($echStr)) : null;
-            $dateDeb = ($debStr && strtotime($debStr)) ? date('Y-m-d', strtotime($debStr)) : null;
+            // Dates absentes : bornes de l'exercice d'import
+            [$exDeb, $exFin] = ExerciceParc::bornes($r->periode_import);
+            $dateEch = ($echStr && strtotime($echStr)) ? date('Y-m-d', strtotime($echStr)) : $exFin->toDateString();
+            $dateDeb = ($debStr && strtotime($debStr)) ? date('Y-m-d', strtotime($debStr)) : $exDeb->toDateString();
 
             $dataImport = [
                 'user_id' => $user->id,

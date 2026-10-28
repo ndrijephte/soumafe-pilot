@@ -1,6 +1,7 @@
 <?php
 namespace App\Models;
 
+use App\Services\ExerciceParc;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,16 +51,28 @@ class Objectif extends Model
     public function scopeProjet($q) { return $q->where('type', 'projet'); }
     public function scopeRacines($q) { return $q->whereNull('parent_id'); }
 
-    /** Mois disponibles pour le filtre (6 mois avant → 3 mois après). */
+    /**
+     * Périodes d'exercice disponibles (6 avant → 3 après), du 05 au 04 du mois suivant (ExerciceParc).
+     * La clé 'Y-m' d'un objectif désigne l'exercice qui commence ce mois-là.
+     */
     public static function moisDisponibles(): array
     {
         $mois = [];
-        $start = now()->subMonths(6)->startOfMonth();
-        for ($i = 0; $i < 10; $i++) {
-            $d = $start->copy()->addMonths($i);
-            $mois[$d->format('Y-m')] = $d->translatedFormat('F Y');
-        }
+        $cle = ExerciceParc::decaler(ExerciceParc::cle(), -6);
+        for ($i = 0; $i < 10; $i++, $cle = ExerciceParc::decaler($cle, 1)) $mois[$cle] = self::libellePeriode($cle);
         return $mois;
+    }
+
+    /** « Octobre 2026 (05/10 au 04/11/2026) » */
+    public static function libellePeriode(string $cle): string
+    {
+        return ExerciceParc::libelle($cle);
+    }
+
+    /** Exercice en cours. */
+    public static function periodeCourante(): string
+    {
+        return ExerciceParc::cle();
     }
 
     /** Recalcule l'avancement à partir des résultats clés. */

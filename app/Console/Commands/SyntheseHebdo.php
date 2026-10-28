@@ -20,8 +20,7 @@ class SyntheseHebdo extends Command
                 ->whereBetween('date_fin_reelle', [$debut, $fin])->count();
             $enCours = Tache::where('user_id', $u->id)->where('statut', 'en_cours')->count();
             $bloquees = Tache::where('user_id', $u->id)->where('statut', 'bloque')->count();
-            $enRetard = Tache::where('user_id', $u->id)->whereNull('date_fin_reelle')
-                ->whereNotNull('echeance')->whereDate('echeance', '<', today())->count();
+            $enRetard = Tache::where('user_id', $u->id)->enRetard()->count();
 
             NotificationApp::create([
                 'user_id' => $u->id,

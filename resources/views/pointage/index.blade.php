@@ -209,7 +209,7 @@ dialog textarea{resize:vertical}
 @if(session('demande_motif_retard'))
 <dialog id="dlg-motif-retard">
     <h3 style="color:var(--bleu);margin-bottom:4px">Motif du retard</h3>
-    <p style="font-size:12px;color:var(--gris)">Votre arrivée a été enregistrée après 08h00. Veuillez justifier.</p>
+    <p style="font-size:12px;color:var(--gris)">Votre arrivée a été enregistrée après {{ str_replace(':', 'h', \App\Services\CalendrierTravail::heureArrivee()) }}. Veuillez justifier.</p>
     <form method="POST" action="{{ route('pointage.motif', session('demande_motif_retard')) }}">@csrf
         <input type="hidden" name="type" value="retard">
         <label>Motif <span class="req">*</span></label>
@@ -225,7 +225,7 @@ dialog textarea{resize:vertical}
 @if(session('demande_motif_depart'))
 <dialog id="dlg-motif-depart">
     <h3 style="color:var(--bleu);margin-bottom:4px">Motif du départ anticipé</h3>
-    <p style="font-size:12px;color:var(--gris)">Votre départ a été enregistré avant 18h00. Veuillez justifier.</p>
+    <p style="font-size:12px;color:var(--gris)">Votre départ a été enregistré avant {{ str_replace(':', 'h', \App\Services\CalendrierTravail::heureDepart()) }}. Veuillez justifier.</p>
     <form method="POST" action="{{ route('pointage.motif', session('demande_motif_depart')) }}">@csrf
         <input type="hidden" name="type" value="depart">
         <label>Motif <span class="req">*</span></label>
@@ -237,11 +237,11 @@ dialog textarea{resize:vertical}
 </dialog>
 @endif
 
-{{-- Dialog motif départ AVANT pointage (avant 18h) --}}
+{{-- Dialog motif départ AVANT pointage (avant l'heure de fin) --}}
 @if(session('demande_motif_depart_avant'))
 <dialog id="dlg-motif-depart-avant">
-    <h3 style="color:var(--bleu);margin-bottom:4px">Départ avant 18h00</h3>
-    <p style="font-size:12px;color:var(--gris)">Il n'est pas encore 18h00. Veuillez justifier votre départ anticipé.</p>
+    <h3 style="color:var(--bleu);margin-bottom:4px">Départ avant {{ str_replace(':', 'h', \App\Services\CalendrierTravail::heureDepart()) }}</h3>
+    <p style="font-size:12px;color:var(--gris)">Il n'est pas encore {{ str_replace(':', 'h', \App\Services\CalendrierTravail::heureDepart()) }}. Veuillez justifier votre départ anticipé.</p>
     <form method="POST" action="{{ route('pointage.depart') }}">@csrf
         <label>Motif <span class="req">*</span></label>
         <textarea name="motif_depart" required rows="3" placeholder="Raison du départ anticipé..."></textarea>

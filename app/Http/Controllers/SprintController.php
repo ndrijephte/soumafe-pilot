@@ -101,6 +101,10 @@ class SprintController extends Controller
             'engagement_points' => 'nullable|integer|min:1',
         ]);
         $sprint->update($r->only(['objectif', 'date_debut', 'date_fin', 'engagement_points']));
+        // Dates modifiées : l'arbitrage de période ne vaut plus si la période retenue n'est plus couverte
+        if ($sprint->periode_exercice && !$sprint->periodesCouvertes()->contains(fn($p) => $p->isSameDay($sprint->periode_exercice))) {
+            $sprint->update(['periode_exercice' => null, 'periode_arbitree_par' => null, 'periode_arbitree_le' => null]);
+        }
         return back()->with('succes', 'Sprint mis à jour.');
     }
 
@@ -224,6 +228,19 @@ class SprintController extends Controller
         }
 
         return back()->with('succes', "Sprint arrêté. Motif enregistré.");
+    }
+
+    /** Arbitrage de la période d'exercice d'un sprint à cheval sur deux périodes (pilote). */
+    public function arbitrerPeriode(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $choix = $sprint->periodesCouvertes()->map->toDateString()->all();
+        $v = $r->validate(['periode_exercice' => ['required', 'date', \Illuminate\Validation\Rule::in($choix)]],
+            ['periode_exercice.in' => "Choisissez l'une des périodes d'exercice couvertes par le sprint."]);
+        $sprint->update(['periode_exercice' => $v['periode_exercice'], 'periode_arbitree_par' => $r->user()->id, 'periode_arbitree_le' => now()]);
+        $nom = \App\Services\PeriodeExercice::nom($v['periode_exercice']);
+        \App\Models\AuditLog::log('arbitrage_periode', 'sprints', "Sprint #{$sprint->numero}", $nom . ' (' . \App\Services\PeriodeExercice::libelle($v['periode_exercice']) . ')');
+        return back()->with('succes', "Sprint {$sprint->numero} rattaché à l'" . mb_strtolower($nom) . '.');
     }
 
     /** Basculer la visibilité globale d'un sprint pour les collaborateurs. */

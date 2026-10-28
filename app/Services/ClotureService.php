@@ -45,14 +45,12 @@ class ClotureService
     /** Une tâche encore « en cours » à l'échéance dépassée doit être justifiée. */
     public function estEnRetardOuvert(Tache $tache): bool
     {
-        return $tache->statut !== 'termine'
-            && $tache->echeance !== null
-            && $tache->echeance->isPast();
+        return $tache->estEnRetard();
     }
 
     public function estHorsJourOuvre(Carbon $date): bool
     {
-        return $date->isWeekend()
+        return !\App\Services\CalendrierTravail::estJourTravaille($date)
             || JourFerie::whereDate('date', $date)->exists();
     }
 
@@ -64,7 +62,7 @@ class ClotureService
         [$debut, $borne, $signe] = $fin->lessThan($echeance) ? [$fin, $echeance, 1] : [$echeance, $fin, -1];
         $jours = 0;
         for ($d = $debut->copy()->addDay(); $d->lessThanOrEqualTo($borne); $d->addDay()) {
-            if (!$d->isWeekend() && !in_array($d->toDateString(), $feries, true)) $jours++;
+            if (\App\Services\CalendrierTravail::estJourTravaille($d) && !in_array($d->toDateString(), $feries, true)) $jours++;
         }
         return $signe * $jours;
     }

@@ -45,6 +45,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sprints/{sprint}/toggle-visibilite', [SprintController::class, 'toggleVisibilite'])->name('sprints.toggle-visibilite');
     Route::post('/sprints/{sprint}/update-exclusions', [SprintController::class, 'updateExclusions'])->name('sprints.update-exclusions');
     // Sprint Planning (Scrum) : user stories du sprint, tâche testée
+    Route::patch('/sprints/{sprint}/periode', [SprintController::class, 'arbitrerPeriode'])->name('sprints.periode');
     Route::post('/sprints/{sprint}/user-stories', [SprintController::class, 'attacherUserStories'])->name('sprints.user-stories.attacher');
     Route::patch('/sprints/{sprint}/user-stories/{userStory}', [SprintController::class, 'statutUserStory'])->name('sprints.user-stories.statut');
     Route::patch('/sprints/{sprint}/user-stories/{userStory}/planification', [SprintController::class, 'planifierUserStory'])->name('sprints.user-stories.planifier');
@@ -284,6 +285,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/feries', [JourFerieController::class, 'store'])->name('feries.store');
         Route::put('/feries/{ferie}', [JourFerieController::class, 'update'])->name('feries.update');
         Route::delete('/feries/{ferie}', [JourFerieController::class, 'destroy'])->name('feries.destroy');
+
+        Route::get('/horaires', [\App\Http\Controllers\Admin\HoraireTravailController::class, 'index'])->name('horaires.index');
+        Route::post('/horaires', [\App\Http\Controllers\Admin\HoraireTravailController::class, 'store'])->name('horaires.store');
+        Route::delete('/horaires/{horaire}', [\App\Http\Controllers\Admin\HoraireTravailController::class, 'destroy'])->name('horaires.destroy');
 
         Route::get('/domaines', [DomaineController::class, 'index'])->name('domaines.index');
         Route::post('/domaines', [DomaineController::class, 'store'])->name('domaines.store');

@@ -27,6 +27,9 @@
 .prog .sep{color:#cbd5e1}
 dialog.dlg{border:none;border-radius:14px;padding:22px;width:520px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18)}
 dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
+.parts{max-height:220px;overflow-y:auto;border:1px solid var(--bord);border-radius:8px;padding:6px 10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px}
+.parts label{display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;text-transform:none;font-weight:400;color:#1e293b;margin:0;padding:3px 0}
+.parts input{width:auto}
 .jours-choix{display:flex;gap:6px;flex-wrap:wrap}
 .jours-choix label{display:flex;align-items:center;gap:5px;border:1px solid var(--bord);border-radius:8px;padding:6px 10px;font-size:12.5px;cursor:pointer;text-transform:none;font-weight:500;color:#1e293b;margin:0}
 .jours-choix input{width:auto}
@@ -38,19 +41,8 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
 @section('contenu')
 @include('scrum._entete', ['sprint' => $sprint, 'actif' => 'daily', 'page' => 'Daily Scrum'])
 
-@php $libJours = collect($config['jours'])->map(fn($j) => \App\Models\Projet::JOURS_DAILY[$j]); @endphp
+@php $libJours = collect(['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi']); @endphp
 <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px">
-{{-- Programmation : réservée au gestionnaire du projet --}}
-@if($canEdit)
-<div class="carte prog">
-    <span>Programmation du Daily Scrum :</span>
-    <b>{{ $libJours->join(', ') }}</b><span class="sep">|</span>
-    <span>de <b>{{ $config['heure_debut'] }}</b> à <b>{{ $config['heure_fin'] }}</b> ({{ $config['duree'] }} min)</span>
-    @if($config['lieu'])<span class="sep">|</span><span>{{ $config['lieu'] }}</span>@endif
-    <span class="sep">|</span><span>Création {{ $config['creation_auto'] ? 'automatique chaque jour programmé' : 'manuelle' }}</span>
-    <button type="button" class="btn sm sec" style="margin-left:auto" onclick="document.getElementById('dlg-prog').showModal()">Paramétrer</button>
-</div>
-@endif
 @if($peutCreer && $dateProposee)
 <div class="carte">
     <div style="font-weight:700;color:var(--bleu);margin-bottom:4px">Nouveau Daily Scrum</div>
@@ -74,20 +66,21 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
 
 <div class="carte">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-        <div style="font-weight:700;color:var(--bleu)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendrier du sprint <span style="font-weight:400;color:var(--gris);font-size:12.5px">- {{ collect($jours)->whereNotNull('daily')->count() }} Daily(s) sur {{ count($jours) }} jour(s) programmé(s)</span></div>
+        <div style="font-weight:700;color:var(--bleu)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendrier du sprint <span style="font-weight:400;color:var(--gris);font-size:12.5px">- {{ collect($jours)->whereNotNull('daily')->count() }} Daily(s) sur {{ count($jours) }} jour(s) ouvré(s)</span></div>
+        @if($peutCreer)<button type="button" class="btn sm sec" onclick="document.getElementById('dlg-hs').showModal()">+ Daily hors sprint</button>@endif
     </div>
     @php
         $nom = fn($id) => $id && isset($users[$id]) ? $users[$id]->nomComplet() : '—';
         $premier = $jours[0]['date'] ?? null;
-        $decalage = $premier ? array_search($premier->dayOfWeekIso, $config['jours'], true) : 0;
+        $decalage = $premier ? $premier->dayOfWeekIso - 1 : 0;
     @endphp
-    <div class="cal" style="grid-template-columns:repeat({{ count($config['jours']) }},minmax(0,1fr))">
+    <div class="cal">
         @foreach($libJours as $jl)<div class="cal-entete">{{ $jl }}</div>@endforeach
         @for($k = 0; $k < $decalage; $k++)<div></div>@endfor
         @foreach($jours as $j)
             @php $d = $j['daily']; $auj = $j['date']->isToday(); @endphp
             @if($d)
-            <a class="jour fait {{ $auj ? 'auj' : '' }}" href="{{ route('scrum.daily', [$sprint, $d]) }}">
+            <a class="jour fait {{ $auj ? 'auj' : '' }}" href="{{ $d->url() }}">
                 <span class="num">Daily {{ $d->numero_jour }}</span>
                 <span class="dt">{{ ucfirst($j['date']->translatedFormat('D d/m')) }}</span>
                 <span class="roles">Facilitateur : <b>{{ $nom($d->roleUserId('facilitateur')) }}</b><br>Scribe : <b>{{ $nom($d->roleUserId('scribe')) }}</b></span>
@@ -99,7 +92,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
                 <span class="num">Jour {{ $j['numero'] }}</span>
                 <span class="dt">{{ ucfirst($j['date']->translatedFormat('D d/m')) }}</span>
                 <span class="roles">Pas de Daily</span>
-                @if($peutCreer && ($auj || !$j['date']->isFuture()))
+                @if($peutCreer)
                 <span class="bas">
                     <form method="POST" action="{{ route('scrum.daily.store', $sprint) }}">@csrf
                         <input type="hidden" name="date_reunion" value="{{ $j['date']->toDateString() }}">
@@ -112,9 +105,12 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
             @endif
         @endforeach
     </div>
-    @if($horsProgramme->isNotEmpty())
-    <div style="margin-top:10px;font-size:12px;color:var(--gris)">Daily tenus hors programmation actuelle :
-        @foreach($horsProgramme as $hp)<a href="{{ route('scrum.daily', [$sprint, $hp]) }}" class="pill p-attente" style="text-decoration:none;margin-left:4px">{{ $hp->libelle() }}</a>@endforeach
+    @if($horsProgramme->isNotEmpty() || $dailiesHorsSprint->isNotEmpty())
+    <div style="margin-top:10px;font-size:12px;color:var(--gris);display:flex;gap:4px;flex-wrap:wrap;align-items:center">Daily hors sprint du projet :
+        @foreach($horsProgramme->concat($dailiesHorsSprint) as $hp)
+        @php [$libS, $clsS] = $hp->statutPublication(); @endphp
+        <a href="{{ $hp->url() }}" class="pill {{ $clsS }}" style="text-decoration:none" title="{{ $libS }}">{{ $hp->objet ?: $hp->libelle() }} · {{ $hp->date_reunion->format('d/m') }}</a>
+        @endforeach
     </div>
     @endif
 </div>
@@ -124,26 +120,27 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
     <div class="equipe-liste">@forelse($membres as $m)<span>{{ $m->nomComplet() }}</span>@empty<span>Aucun membre : ajoutez l'équipe dans l'espace projet.</span>@endforelse</div>
 </div>
 </div>
-@if($canEdit)
-<dialog id="dlg-prog" class="dlg">
-    <h3 style="color:var(--bleu);margin:0 0 4px">Programmation du Daily Scrum</h3>
-    <p style="font-size:12px;color:var(--gris);margin:0 0 12px">Pour tous les sprints du projet. Les Daily existants sont conservés.</p>
-    <form method="POST" action="{{ route('scrum.daily.programmation', $sprint) }}">@csrf @method('PUT')
-        <div class="champ"><label>Jours</label>
-            <div class="jours-choix">@foreach(\App\Models\Projet::JOURS_DAILY as $n => $lib)<label><input type="checkbox" name="jours[]" value="{{ $n }}" @checked(in_array($n, $config['jours'], true))> {{ $lib }}</label>@endforeach</div>
-        </div>
+@if($peutCreer)
+{{-- Daily hors sprint du projet (date libre, participants au choix) --}}
+<dialog id="dlg-hs" class="dlg">
+    <h3 style="color:var(--bleu);margin:0 0 4px">Daily hors sprint - {{ $sprint->projet->libelle }}</h3>
+    <p style="font-size:12px;color:var(--gris);margin:0 0 12px">À n'importe quelle date. Lignes pré-remplies avec les tâches de chaque participant.</p>
+    <form method="POST" action="{{ route('scrum.daily.hors-sprint') }}">@csrf
+        <input type="hidden" name="projet_id" value="{{ $sprint->projet_id }}">
         <div class="grille3">
-            <div class="champ"><label>Heure de début</label><input type="time" name="heure_debut" value="{{ $config['heure_debut'] }}" required></div>
-            <div class="champ"><label>Durée (minutes)</label><input type="number" name="duree" value="{{ $config['duree'] }}" min="5" max="120" required></div>
-            <div class="champ"><label>Lieu / lien</label><input name="lieu" value="{{ $config['lieu'] }}" maxlength="150" placeholder="Salle, visio…"></div>
+            <div class="champ"><label>Date</label><input type="date" name="date_reunion" value="{{ today()->toDateString() }}" required></div>
+            <div class="champ"><label>Heure début</label><input type="time" name="heure_debut" value="{{ $config['heure_debut'] }}"></div>
+            <div class="champ"><label>Heure fin</label><input type="time" name="heure_fin" value="{{ $config['heure_fin'] }}"></div>
         </div>
-        <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:14px 0 4px;cursor:pointer;text-transform:none;font-weight:500;color:#1e293b">
-            <input type="checkbox" name="creation_auto" value="1" @checked($config['creation_auto']) style="margin-top:3px;width:auto">
-            <span>Créer automatiquement le Daily chaque jour programmé</span>
-        </label>
+        <div class="champ" style="margin-top:10px"><label>Objet</label><input name="objet" maxlength="150" placeholder="Ex. Point d'avancement inter-sprint"></div>
+        <div class="champ" style="margin-top:10px"><label>Participants</label>
+            <div class="parts">
+                @foreach($collaborateurs as $c)<label><input type="checkbox" name="participants[]" value="{{ $c->id }}" @checked($membres->contains('id', $c->id))> {{ $c->nomComplet() }}</label>@endforeach
+            </div>
+        </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
-            <button class="btn">Enregistrer</button>
+            <button class="btn">Créer et pré-remplir</button>
         </div>
     </form>
 </dialog>

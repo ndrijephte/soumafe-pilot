@@ -75,38 +75,27 @@ class SprintScrumController extends Controller
             'sprint' => $sprint, 'jours' => $jours, 'horsProgramme' => $horsProgramme, 'membres' => $membres, 'users' => $users,
             'dateProposee' => $dateProposee, 'config' => $config, 'heureDefaut' => $config['heure_debut'],
             'peutCreer' => $this->peutCreerDaily($r, $sprint), 'canEdit' => $this->gerer($r, $sprint),
+            // Daily hors sprint du projet, et collaborateurs pour en créer un depuis le calendrier
+            'dailiesHorsSprint' => DailyScrum::whereNull('sprint_id')->where('projet_id', $sprint->projet_id)->orderByDesc('date_reunion')->get()
+                ->filter(fn($d) => $d->visiblePour($r->user()))->values(),
+            'collaborateurs' => User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->orderBy('name')->get(),
         ]);
-    }
-
-    /** Programmation du Daily Scrum du projet (jours, horaire, durée, lieu, création automatique). */
-    public function programmationDaily(Request $r, Sprint $sprint)
-    {
-        abort_unless($this->gerer($r, $sprint), 403);
-        $v = $r->validate([
-            'jours' => 'required|array|min:1', 'jours.*' => 'integer|between:1,6',
-            'heure_debut' => 'required|date_format:H:i',
-            'duree' => 'required|integer|between:5,120',
-            'lieu' => 'nullable|string|max:150',
-            'creation_auto' => 'nullable|boolean',
-        ], ['jours.required' => 'Choisissez au moins un jour pour le Daily Scrum.']);
-        $v['jours'] = array_values(array_unique(array_map('intval', $v['jours'])));
-        $v['creation_auto'] = $r->boolean('creation_auto');
-        $sprint->projet->update(['daily_config' => $v]);
-        $libJours = collect($v['jours'])->sort()->map(fn($j) => \App\Models\Projet::JOURS_DAILY[$j])->join(', ');
-        AuditLog::log('programmation_daily', 'projet', $sprint->projet->code, "{$libJours} à {$v['heure_debut']} ({$v['duree']} min)" . ($v['creation_auto'] ? ', création automatique' : ''));
-        return back()->with('succes', "Programmation enregistrée : {$libJours} à {$v['heure_debut']} ({$v['duree']} min)" . ($v['creation_auto'] ? ', création automatique.' : '.'));
     }
 
     /** Tous les rapports de Daily Scrum, tous projets confondus : consultables par tous les collaborateurs. */
     public function rapportsDaily(Request $r)
     {
-        $q = DailyScrum::with(['sprint.projet'])->withCount(['entrees', 'entrees as defis_count' => fn($e) => $e->whereNotNull('defis')->where('defis', '!=', '')])
-            ->when($r->projet_id, fn($q) => $q->whereHas('sprint', fn($s) => $s->where('projet_id', $r->projet_id)))
+        $q = DailyScrum::with(['sprint', 'projet'])->withCount(['entrees', 'entrees as defis_count' => fn($e) => $e->whereNotNull('defis')->where('defis', '!=', '')])
+            ->when($r->projet_id === 'transversal', fn($q) => $q->whereNull('projet_id'))
+            ->when($r->projet_id && $r->projet_id !== 'transversal', fn($q) => $q->where('projet_id', $r->projet_id))
+            ->when($r->type === 'sprint', fn($q) => $q->whereNotNull('sprint_id'))
+            ->when($r->type === 'hors_sprint', fn($q) => $q->whereNull('sprint_id'))
             ->when($r->du, fn($q) => $q->whereDate('date_reunion', '>=', $r->du))
             ->when($r->au, fn($q) => $q->whereDate('date_reunion', '<=', $r->au))
             ->when(!$r->user()->estPilote(), fn($q) => $q->where(fn($v) => $v->whereNotNull('publie_le')
+                ->orWhere('cree_par', $r->user()->id)
                 ->orWhereHas('entrees', fn($e) => $e->where('user_id', $r->user()->id))
-                ->orWhereHas('sprint.projet', fn($p) => $p->where('responsable_projet_id', $r->user()->id)
+                ->orWhereHas('projet', fn($p) => $p->where('responsable_projet_id', $r->user()->id)
                     ->orWhereHas('collaborateurs', fn($c) => $c->where('user_id', $r->user()->id)->where('actif', true)))))
             ->orderByDesc('date_reunion')->orderByDesc('id');
         $dailies = $q->paginate(25)->withQueryString();
@@ -114,7 +103,11 @@ class SprintScrumController extends Controller
         return view('scrum.rapports', [
             'dailies' => $dailies,
             'scribes' => User::whereIn('id', $ids)->get()->keyBy('id'),
-            'projets' => \App\Models\Projet::whereHas('sprints.dailyScrums')->orderBy('libelle')->get(['id', 'libelle', 'code']),
+            'projets' => \App\Models\Projet::where('statut', 'actif')->orWhereHas('sprints.dailyScrums')->orderBy('libelle')->get(['id', 'libelle', 'code']),
+            // Création d'un Daily hors sprint : collaborateurs et équipes des projets (pré-sélection)
+            'collaborateurs' => User::where('actif', true)->whereNotIn('role', ['direction', 'invite'])->orderBy('name')->get(),
+            'equipes' => \App\Models\ProjetCollaborateur::where('actif', true)->get(['projet_id', 'user_id'])->groupBy('projet_id')->map(fn($c) => $c->pluck('user_id')->values()),
+            'heureDefaut' => (new \App\Models\Projet())->configDaily(),
         ]);
     }
 
@@ -134,63 +127,99 @@ class SprintScrumController extends Controller
         ], ['date_reunion.after_or_equal' => 'La date doit être comprise dans le sprint.', 'date_reunion.before_or_equal' => 'La date doit être comprise dans le sprint.']);
         $date = Carbon::parse($v['date_reunion'])->startOfDay();
         $sprint->loadMissing('projet');
-        if (!ScrumService::estProgramme($sprint, $date)) {
-            $jours = collect($sprint->projet->configDaily()['jours'])->map(fn($j) => mb_strtolower(\App\Models\Projet::JOURS_DAILY[$j]))->join(', ');
-            return back()->withInput()->with('erreur', "Jour non programmé pour le Daily (prévus : {$jours}).");
-        }
+        if (!ScrumService::estProgramme($sprint, $date)) return back()->withInput()->with('erreur', 'Le Daily se tient un jour ouvré (lundi → vendredi).');
         if ($sprint->dailyScrums()->whereDate('date_reunion', $date)->exists()) return back()->withInput()->with('erreur', 'Un Daily existe déjà à cette date.');
 
         $daily = DB::transaction(fn() => ScrumService::creerDaily($sprint, $date, $r->user()->id, $v['heure_debut'] ?? null, $v['heure_fin'] ?? null));
         $numero = $daily->numero_jour;
         AuditLog::log('creation_daily', 'sprint', $sprint->projet->code . ' S' . $sprint->numero, $daily->libelle());
-        return redirect()->route('scrum.daily', [$sprint, $daily])->with('succes', "Daily {$numero} créé et pré-rempli.");
+        return redirect($daily->url())->with('succes', "Daily {$numero} créé et pré-rempli.");
     }
 
+    /** Ancienne adresse d'un Daily de sprint : redirige vers l'adresse commune. */
     public function daily(Request $r, Sprint $sprint, DailyScrum $daily)
     {
         abort_unless($daily->sprint_id === $sprint->id, 404);
-        $daily->load(['entrees.user', 'createur', 'publiePar', 'soumisPar']);
-        $sprint->load('projet');
+        return redirect($daily->url());
+    }
+
+    /** Rapport d'un Daily (de sprint ou hors sprint). */
+    public function afficher(Request $r, DailyScrum $daily)
+    {
+        $daily->load(['entrees.user', 'createur', 'publiePar', 'soumisPar', 'sprint.projet', 'projet']);
         // Sauf aval d'un pilote (publication), le rapport n'est pas diffusé hors de l'équipe
         abort_unless($daily->visiblePour($r->user()), 403, "Ce rapport de Daily Scrum n'est pas encore publié.");
-        $membres = ScrumService::membres($sprint);
-        $voisins = $sprint->dailyScrums()->get(['id', 'numero_jour', 'date_reunion']);
-        $manquants = $membres->whereNotIn('id', $daily->entrees->pluck('user_id'));
+        $sprint = $daily->sprint;
+        // Participants attendus : équipe du sprint ; hors sprint, équipe du projet (ou participants inscrits)
+        $membres = $sprint ? ScrumService::membres($sprint)
+            : ($daily->projet ? $daily->projet->equipe()->orderBy('name')->get() : User::whereIn('id', $daily->entrees->pluck('user_id'))->orderBy('name')->get());
+        $voisins = DailyScrum::when($sprint, fn($q) => $q->where('sprint_id', $sprint->id), fn($q) => $q->whereNull('sprint_id')->where('projet_id', $daily->projet_id))
+            ->orderBy('date_reunion')->get(['id', 'numero_jour', 'date_reunion', 'sprint_id', 'projet_id']);
 
         return view('scrum.daily', [
-            'sprint' => $sprint, 'daily' => $daily, 'membres' => $membres, 'manquants' => $manquants,
-            'precedent' => $voisins->where('numero_jour', '<', $daily->numero_jour)->last(),
-            'suivant' => $voisins->where('numero_jour', '>', $daily->numero_jour)->first(),
+            'sprint' => $sprint, 'daily' => $daily, 'membres' => $membres,
+            'manquants' => $membres->whereNotIn('id', $daily->entrees->pluck('user_id')),
+            'precedent' => $voisins->where('date_reunion', '<', $daily->date_reunion)->last(),
+            'suivant' => $voisins->where('date_reunion', '>', $daily->date_reunion)->first(),
             'tousUsers' => User::where('actif', true)->orderBy('name')->get(),
-            'edition' => $this->editionDaily($r, $sprint, $daily),
-            'peutVoirProjet' => $sprint->projet->estVisiblePour($r->user()),
+            'edition' => $this->editionDaily($r, $daily),
+            'peutGerer' => $daily->gerablePar($r->user()),
             // Liste de présence : statut du Pointage du jour pour chaque participant
             'pointages' => \App\Models\Pointage::whereDate('date', $daily->date_reunion)->whereIn('user_id', $daily->entrees->pluck('user_id'))->get()->keyBy('user_id'),
             'absences' => ScrumService::absences($daily->date_reunion, $daily->entrees->pluck('user_id')),
-            'config' => $sprint->projet->configDaily(),
+            'config' => ($daily->projet ?? new \App\Models\Projet())->configDaily(),
         ]);
     }
 
-    /** « tout » : gestionnaire du projet, scribe ou facilitateur du jour ; « ligne » : un membre pour sa propre ligne. */
-    private function editionDaily(Request $r, Sprint $sprint, DailyScrum $daily): ?string
+    /**
+     * Daily hors sprint : rattaché à un projet (sans sprint) ou transversal. Les lignes des participants
+     * sont pré-remplies avec leurs tâches du module Projets / Sprints et leurs tâches hors sprint.
+     */
+    public function storeHorsSprint(Request $r)
+    {
+        $v = $r->validate([
+            'date_reunion' => 'required|date',
+            'projet_id' => 'nullable|exists:projets,id',
+            'objet' => 'nullable|string|max:150',
+            'participants' => 'required|array|min:1',
+            'participants.*' => [Rule::exists('users', 'id')->where('actif', true)],
+            'heure_debut' => 'nullable|date_format:H:i',
+            'heure_fin' => 'nullable|date_format:H:i|after:heure_debut',
+        ], ['participants.required' => 'Choisissez au moins un participant.']);
+        $projet = !empty($v['projet_id']) ? \App\Models\Projet::find($v['projet_id']) : null;
+        // Projet : gestionnaire ou membre ; Daily transversal : tout collaborateur (publication soumise à un pilote)
+        abort_if($projet && !$r->user()->peutGererProjet($projet->id) && !$projet->estVisiblePour($r->user()), 403);
+        $date = Carbon::parse($v['date_reunion'])->startOfDay();
+        if (DailyScrum::whereNull('sprint_id')->where('projet_id', $projet?->id)->whereDate('date_reunion', $date)->exists()) {
+            return back()->withInput()->with('erreur', 'Un Daily hors sprint existe déjà à cette date' . ($projet ? ' pour ce projet.' : ' (transversal).'));
+        }
+        $participants = User::whereIn('id', $v['participants'])->orderBy('name')->get();
+        $daily = DB::transaction(fn() => ScrumService::creerDailyHorsSprint($projet?->id, $date, $participants, $r->user()->id,
+            trim($v['objet'] ?? '') ?: null, $v['heure_debut'] ?? null, $v['heure_fin'] ?? null));
+        AuditLog::log('creation_daily', 'daily', $daily->contexte(), $daily->libelle() . ' (hors sprint)');
+        return redirect($daily->url())->with('succes', 'Daily hors sprint créé et pré-rempli.');
+    }
+
+    /** « tout » : gestionnaire, scribe, facilitateur ou créateur ; « ligne » : un participant pour sa propre ligne. */
+    private function editionDaily(Request $r, DailyScrum $daily): ?string
     {
         $u = $r->user();
         // Rapport soumis ou publié : modifiable uniquement par un pilote (administrateur ou chargé des opérations)
         if ($daily->estPublie() || $daily->estSoumis()) return $u->estAdmin() ? 'tout' : null;
-        if ($this->gerer($r, $sprint) || in_array($u->id, [$daily->roleUserId('scribe'), $daily->roleUserId('facilitateur'), $daily->cree_par], true)) return 'tout';
+        if ($daily->gerablePar($u) || in_array($u->id, [$daily->roleUserId('scribe'), $daily->roleUserId('facilitateur'), (int) $daily->cree_par], true)) return 'tout';
         return $daily->entrees->contains('user_id', $u->id) ? 'ligne' : null;
     }
 
-    public function updateDaily(Request $r, Sprint $sprint, DailyScrum $daily)
+    public function updateDaily(Request $r, DailyScrum $daily)
     {
-        abort_unless($daily->sprint_id === $sprint->id, 404);
         $daily->load('entrees');
-        $mode = $this->editionDaily($r, $sprint, $daily);
+        $mode = $this->editionDaily($r, $daily);
         abort_unless($mode, 403);
 
         $v = $r->validate([
             'heure_debut' => 'nullable|date_format:H:i',
             'heure_fin' => 'nullable|date_format:H:i',
+            'objet' => 'nullable|string|max:150',
             'roles' => 'nullable|array',
             'roles.*' => 'nullable|exists:users,id',
             'commentaire_general' => 'nullable|string|max:20000',
@@ -206,17 +235,21 @@ class SprintScrumController extends Controller
             foreach (['taches_hier', 'taches_jour', 'defis'] as $k) if (array_key_exists($k, $champs)) $v['entrees'][$id][$k] = TexteRiche::nettoyer($champs[$k]);
         }
 
-        DB::transaction(function () use ($v, $mode, $daily, $sprint, $r) {
+        DB::transaction(function () use ($v, $mode, $daily, $r) {
             if ($mode === 'tout') {
                 // Seuls les champs soumis sont modifiés
                 $maj = [];
                 foreach (['heure_debut', 'heure_fin', 'commentaire_general', 'observation'] as $k) {
                     if ($r->exists($k)) $maj[$k] = $v[$k] ?? null;
                 }
+                if ($daily->estHorsSprint() && $r->exists('objet')) $maj['objet'] = trim($v['objet'] ?? '') ?: null;
                 if ($r->exists('roles')) $maj['roles'] = array_map('intval', array_filter(array_intersect_key($v['roles'] ?? [], DailyScrum::ROLES)));
                 if ($maj) $daily->update($maj);
             }
-            $suivant = $sprint->dailyScrums()->where('numero_jour', '>', $daily->numero_jour)->first();
+            // Daily suivant du même contexte (sprint, ou projet hors sprint)
+            $suivant = DailyScrum::where('id', '!=', $daily->id)->whereDate('date_reunion', '>', $daily->date_reunion)
+                ->when($daily->sprint_id, fn($q) => $q->where('sprint_id', $daily->sprint_id), fn($q) => $q->whereNull('sprint_id')->where('projet_id', $daily->projet_id))
+                ->orderBy('date_reunion')->first();
             foreach ($v['entrees'] ?? [] as $id => $champs) {
                 $e = $daily->entrees->firstWhere('id', (int) $id);
                 if (!$e || ($mode === 'ligne' && $e->user_id !== $r->user()->id)) continue;
@@ -234,13 +267,11 @@ class SprintScrumController extends Controller
     }
 
     /** Recalcule les lignes à partir de l'état actuel des tâches (les défis saisis sont conservés). */
-    public function recalculerDaily(Request $r, Sprint $sprint, DailyScrum $daily)
+    public function recalculerDaily(Request $r, DailyScrum $daily)
     {
-        abort_unless($daily->sprint_id === $sprint->id, 404);
         $daily->load('entrees');
-        abort_unless($this->editionDaily($r, $sprint, $daily) === 'tout', 403);
+        abort_unless($this->editionDaily($r, $daily) === 'tout', 403);
         $n = ScrumService::remplir($daily, true);
-        if ($r->boolean('roles')) $daily->update(['roles' => ScrumService::roles($sprint, $daily->date_reunion, $daily->numero_jour)]);
         return back()->with('succes', "{$n} ligne(s) recalculée(s).");
     }
 
@@ -248,43 +279,40 @@ class SprintScrumController extends Controller
      * Publication du rapport : le scribe (ou l'équipe de rédaction) le soumet ; il n'est diffusé
      * qu'après l'aval d'un pilote (administrateur ou chargé des opérations), qui peut publier directement.
      */
-    public function publierDaily(Request $r, Sprint $sprint, DailyScrum $daily)
+    public function publierDaily(Request $r, DailyScrum $daily)
     {
-        abort_unless($daily->sprint_id === $sprint->id, 404);
         $daily->load('entrees');
         abort_if($daily->estPublie(), 403);
-        $cible = $sprint->projet->code . ' S' . $sprint->numero;
+        $cible = $daily->contexte();
         if ($r->user()->estAdmin()) {
             $daily->update(['publie_le' => now(), 'publie_par' => $r->user()->id, 'soumis_le' => $daily->soumis_le ?? now(), 'soumis_par' => $daily->soumis_par ?? $r->user()->id]);
-            AuditLog::log('publication_daily', 'sprint', $cible, $daily->libelle());
-            if ($daily->soumis_par && $daily->soumis_par !== $r->user()->id) $this->notifierMembre($daily->soumis_par, "Le rapport {$daily->libelle()} ({$sprint->projet->libelle}) a été publié.", route('scrum.daily', [$sprint, $daily]));
+            AuditLog::log('publication_daily', 'daily', $cible, $daily->libelle());
+            if ($daily->soumis_par && $daily->soumis_par !== $r->user()->id) $this->notifierMembre($daily->soumis_par, "Le rapport {$daily->libelle()} ({$cible}) a été publié.", $daily->url());
             return back()->with('succes', 'Rapport publié.');
         }
-        abort_unless(!$daily->estSoumis() && $this->editionDaily($r, $sprint, $daily) === 'tout', 403);
+        abort_unless(!$daily->estSoumis() && $this->editionDaily($r, $daily) === 'tout', 403);
         $daily->update(['soumis_le' => now(), 'soumis_par' => $r->user()->id]);
-        AuditLog::log('soumission_daily', 'sprint', $cible, $daily->libelle());
+        AuditLog::log('soumission_daily', 'daily', $cible, $daily->libelle());
         foreach (User::where('actif', true)->whereIn('role', ['administrateur', 'charge_operations'])->pluck('id') as $pid) {
-            $this->notifierMembre($pid, "{$r->user()->nomComplet()} soumet le rapport {$daily->libelle()} ({$sprint->projet->libelle}) pour publication.", route('scrum.daily', [$sprint, $daily]));
+            $this->notifierMembre($pid, "{$r->user()->nomComplet()} soumet le rapport {$daily->libelle()} ({$cible}) pour publication.", $daily->url());
         }
         return back()->with('succes', 'Rapport soumis : publication après validation d\'un pilote.');
     }
 
     /** Remet un Daily publié en brouillon (pilote uniquement). */
-    public function depublierDaily(Request $r, Sprint $sprint, DailyScrum $daily)
+    public function depublierDaily(Request $r, DailyScrum $daily)
     {
-        abort_unless($daily->sprint_id === $sprint->id, 404);
         abort_unless($r->user()->estAdmin() && ($daily->estPublie() || $daily->estSoumis()), 403);
         $daily->update(['publie_le' => null, 'publie_par' => null, 'soumis_le' => null, 'soumis_par' => null]);
-        AuditLog::log('depublication_daily', 'sprint', $sprint->projet->code . ' S' . $sprint->numero, $daily->libelle());
+        AuditLog::log('depublication_daily', 'daily', $daily->contexte(), $daily->libelle());
         return back()->with('succes', 'Daily remis en brouillon.');
     }
 
     /** Ajoute une ligne au Daily pour n'importe quel collaborateur (invité, renfort, membre d'un autre projet…). */
-    public function ajouterEntree(Request $r, Sprint $sprint, DailyScrum $daily)
+    public function ajouterEntree(Request $r, DailyScrum $daily)
     {
-        abort_unless($daily->sprint_id === $sprint->id, 404);
         $daily->load('entrees');
-        abort_unless($this->editionDaily($r, $sprint, $daily) === 'tout', 403);
+        abort_unless($this->editionDaily($r, $daily) === 'tout', 403);
         $v = $r->validate(['user_id' => ['required', Rule::exists('users', 'id')->where('actif', true)]]);
         if ($daily->entrees->contains('user_id', (int) $v['user_id'])) return back()->with('erreur', 'Ce collaborateur a déjà une ligne dans ce Daily.');
         $daily->loadMissing('sprint');
@@ -292,24 +320,24 @@ class SprintScrumController extends Controller
         return back()->with('succes', User::find($v['user_id'])->nomComplet() . ' ajouté(e) au Daily.');
     }
 
-    public function retirerEntree(Request $r, Sprint $sprint, DailyScrum $daily, DailyScrumEntree $entree)
+    public function retirerEntree(Request $r, DailyScrum $daily, DailyScrumEntree $entree)
     {
-        abort_unless($daily->sprint_id === $sprint->id && $entree->daily_scrum_id === $daily->id, 404);
+        abort_unless($entree->daily_scrum_id === $daily->id, 404);
         $daily->load('entrees');
-        abort_unless($this->editionDaily($r, $sprint, $daily) === 'tout', 403);
+        abort_unless($this->editionDaily($r, $daily) === 'tout', 403);
         $entree->delete();
         return back()->with('succes', 'Ligne retirée du Daily.');
     }
 
-    public function destroyDaily(Request $r, Sprint $sprint, DailyScrum $daily)
+    public function destroyDaily(Request $r, DailyScrum $daily)
     {
-        abort_unless($daily->sprint_id === $sprint->id, 404);
-        abort_unless($this->gerer($r, $sprint) && (!($daily->estPublie() || $daily->estSoumis()) || $r->user()->estAdmin()), 403);
+        abort_unless($daily->gerablePar($r->user()) && (!($daily->estPublie() || $daily->estSoumis()) || $r->user()->estAdmin()), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5']);
-        AuditLog::log('suppression_daily', 'sprint', $sprint->projet->code . ' S' . $sprint->numero, $daily->libelle() . ' - Motif : ' . $r->motif_suppression);
+        AuditLog::log('suppression_daily', 'daily', $daily->contexte(), $daily->libelle() . ' - Motif : ' . $r->motif_suppression);
+        $sprintId = $daily->sprint_id;
         $daily->entrees()->delete();
         $daily->delete();
-        return redirect()->route('scrum.dailies', $sprint)->with('succes', 'Daily supprimé.');
+        return ($sprintId ? redirect()->route('scrum.dailies', $sprintId) : redirect()->route('scrum.rapports'))->with('succes', 'Daily supprimé.');
     }
 
     /* ═══════ REVIEW ═══════ */

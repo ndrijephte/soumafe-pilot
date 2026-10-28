@@ -27,24 +27,23 @@ class ScrumService
         return User::whereIn('id', $ids)->orderBy('name')->get();
     }
 
-    /** Jours du sprint où le Daily est programmé (paramètres du projet). */
+    /** Jours du calendrier du sprint : tous les jours ouvrés (lundi → vendredi). */
     public static function joursProgrammes(Sprint $sprint): Collection
     {
-        $jours = $sprint->projet->configDaily()['jours'];
         $res = collect();
         for ($j = $sprint->date_debut->copy()->startOfDay(); $j->lte($sprint->date_fin); $j->addDay()) {
-            if (in_array($j->dayOfWeekIso, $jours, true)) $res->push($j->copy());
+            if (!$j->isWeekend()) $res->push($j->copy());
         }
         return $res;
     }
 
+    /** Un Daily de sprint se tient un jour ouvré compris dans le sprint. */
     public static function estProgramme(Sprint $sprint, Carbon $date): bool
     {
-        return in_array($date->dayOfWeekIso, $sprint->projet->configDaily()['jours'], true)
-            && $date->between($sprint->date_debut->copy()->startOfDay(), $sprint->date_fin->copy()->endOfDay());
+        return !$date->isWeekend() && $date->between($sprint->date_debut->copy()->startOfDay(), $sprint->date_fin->copy()->endOfDay());
     }
 
-    /** Numéro du Daily = rang du jour programmé dans le sprint (Daily 1 = premier jour programmé). */
+    /** Numéro du Daily = rang du jour ouvré dans le sprint (Daily 1 = premier jour du sprint). */
     public static function numeroJour(Sprint $sprint, Carbon $date): int
     {
         return max(1, self::joursProgrammes($sprint)->filter(fn($j) => $j->lte($date->copy()->startOfDay()))->count());
@@ -56,6 +55,7 @@ class ScrumService
         $config = $sprint->projet->configDaily();
         $numero = self::numeroJour($sprint, $date);
         $d = $sprint->dailyScrums()->create([
+            'projet_id' => $sprint->projet_id,
             'numero_jour' => $numero, 'date_reunion' => $date->copy()->startOfDay(),
             'heure_debut' => $debut ??= $config['heure_debut'],
             // Fin = début + durée programmée, sauf heure de fin saisie
@@ -63,6 +63,28 @@ class ScrumService
             'roles' => self::roles($sprint, $date, $numero), 'cree_par' => $creePar,
         ]);
         self::remplir($d);
+        return $d;
+    }
+
+    /**
+     * Crée et pré-remplit un Daily hors sprint, rattaché à un projet ou transversal,
+     * pour les participants choisis (tâches du module Projets / Sprints et hors sprint).
+     */
+    public static function creerDailyHorsSprint(?int $projetId, Carbon $date, Collection $participants, ?int $creePar, ?string $objet = null, ?string $debut = null, ?string $fin = null): DailyScrum
+    {
+        $config = ($projetId ? \App\Models\Projet::find($projetId) : new \App\Models\Projet())->configDaily();
+        $numero = DailyScrum::whereNull('sprint_id')->where('projet_id', $projetId)->whereDate('date_reunion', '<', $date)->count() + 1;
+        $debut ??= $config['heure_debut'];
+        $d = DailyScrum::create([
+            'sprint_id' => null, 'projet_id' => $projetId, 'objet' => $objet,
+            'numero_jour' => $numero, 'date_reunion' => $date->copy()->startOfDay(),
+            'heure_debut' => $debut,
+            'heure_fin' => $fin ?? Carbon::createFromFormat('H:i', substr($debut, 0, 5))->addMinutes((int) $config['duree'])->format('H:i'),
+            'roles' => self::rolesPour($projetId, $date, $numero, $participants), 'cree_par' => $creePar,
+        ]);
+        foreach ($participants as $u) {
+            DailyScrumEntree::create(['daily_scrum_id' => $d->id, 'user_id' => $u->id] + self::calculerEntree($d, $u->id));
+        }
         return $d;
     }
 
@@ -81,14 +103,19 @@ class ScrumService
      */
     public static function roles(Sprint $sprint, Carbon $date, int $numero, ?Collection $membres = null): array
     {
-        $membres ??= self::membres($sprint);
+        return self::rolesPour($sprint->projet_id, $date, $numero, $membres ?? self::membres($sprint));
+    }
+
+    /** Rôles du Daily pour un projet (ou transversal) : planning des réunions, scribe du jour, puis rotation. */
+    public static function rolesPour(?int $projetId, Carbon $date, int $numero, Collection $membres): array
+    {
         $roles = [];
 
         $type = TypeReunion::where('code', 'daily_scrum')->first();
         if ($type) {
             $affectations = AffectationReunion::with('role')->where('type_reunion_id', $type->id)
                 ->whereDate('date_reunion', $date)
-                ->where(fn($q) => $q->whereNull('projet_id')->orWhere('projet_id', $sprint->projet_id))
+                ->where(fn($q) => $q->whereNull('projet_id')->when($projetId, fn($p) => $p->orWhere('projet_id', $projetId)))
                 ->orderByRaw('projet_id is null')->get();
             foreach ($affectations as $a) {
                 $code = $a->role?->code;
@@ -99,7 +126,7 @@ class ScrumService
         }
 
         // Le scribe du jour (planning des réunions, toutes réunions confondues) est le rédacteur des rapports
-        if (!isset($roles['scribe']) && ($scribe = RedacteurDuJour::id($date, $sprint->projet_id))) $roles['scribe'] = $scribe;
+        if (!isset($roles['scribe']) && ($scribe = RedacteurDuJour::id($date, $projetId))) $roles['scribe'] = $scribe;
 
         // Rotation : chaque jour, les rôles avancent d'un cran dans la liste des membres
         $ids = $membres->pluck('id')->values();
@@ -128,13 +155,41 @@ class ScrumService
      */
     public static function tachesDuJour(Sprint $sprint, int $userId, Carbon $date): Collection
     {
-        return $sprint->taches()->where('user_id', $userId)
-            ->whereNotIn('statut', ['termine', 'reporte'])
-            ->where(fn($q) => $q->whereIn('statut', ['en_cours', 'a_valider', 'bloque'])
+        return self::actives($sprint->taches()->where('user_id', $userId), $date)->get();
+    }
+
+    /** Filtre « tâches du jour » : commencées, ou prévues à la date ; les urgences T3 restent visibles tant qu'actives. */
+    private static function actives($q, Carbon $date)
+    {
+        return $q->whereNotIn('statut', ['termine', 'reporte'])
+            ->where(fn($w) => $w->where('type', 'T3')->orWhereIn('statut', ['en_cours', 'a_valider', 'bloque'])
                 ->orWhere(fn($p) => $p->whereDate('date_debut', '<=', $date)
                     ->where(fn($e) => $e->whereNull('echeance')->orWhereDate('echeance', '>=', $date))))
-            ->orderByRaw("statut = 'en_cours' desc")->orderBy('echeance')->orderBy('id')->get();
+            ->orderByRaw("type = 'T3' desc")->orderByRaw("statut = 'en_cours' desc")->orderBy('echeance')->orderBy('id');
     }
+
+    /**
+     * Périmètre des tâches d'un Daily.
+     * Sprint : tâches du sprint + tâches hors sprint. Hors sprint : tâches du module Projets / Sprints
+     * (limitées au projet s'il y en a un) + tâches hors sprint ; $enCours ne garde que les sprints en cours.
+     */
+    public static function perimetre(DailyScrum $daily, bool $enCours = false): \Closure
+    {
+        if ($daily->sprint_id) return fn($q) => $q->where(fn($w) => $w->where('sprint_id', $daily->sprint_id)->orWhereNull('sprint_id'));
+        return fn($q) => $q->where(fn($w) => $w->whereNull('sprint_id')->orWhere(fn($t) => $t->whereNotNull('sprint_id')
+            ->when($daily->projet_id, fn($p) => $p->where('projet_id', $daily->projet_id))
+            ->when($enCours, fn($p) => $p->whereHas('sprint', fn($sp) => $sp->where('statut', 'en_cours')))));
+    }
+
+    /** Daily précédent dans le même contexte (même sprint, ou même projet hors sprint). */
+    public static function dailyPrecedent(DailyScrum $daily): ?DailyScrum
+    {
+        return DailyScrum::where('id', '!=', $daily->id)->whereDate('date_reunion', '<', $daily->date_reunion)
+            ->when($daily->sprint_id, fn($q) => $q->where('sprint_id', $daily->sprint_id),
+                fn($q) => $q->whereNull('sprint_id')->where('projet_id', $daily->projet_id))
+            ->orderByDesc('date_reunion')->first();
+    }
+
 
     /**
      * Tâches hors sprint du membre (T2 planifiées, T3 urgentes), selon les mêmes règles que la saisie quotidienne :
@@ -150,11 +205,10 @@ class ScrumService
             ->orderByRaw("type = 'T3' desc")->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")->orderBy('echeance')->get();
     }
 
-    /** Tâches à faire (sprint et hors sprint) dont l'échéance est dépassée sans avoir été commencées. */
-    public static function tachesEnRetard(Sprint $sprint, int $userId, Carbon $date): Collection
+    /** Tâches à faire du périmètre dont l'échéance est dépassée sans avoir été commencées. */
+    public static function tachesEnRetard(\Closure $perimetre, int $userId, Carbon $date): Collection
     {
-        return Tache::where('user_id', $userId)->where('statut', 'a_faire')
-            ->where(fn($q) => $q->where('sprint_id', $sprint->id)->orWhereNull('sprint_id'))
+        return Tache::where('user_id', $userId)->where('statut', 'a_faire')->where($perimetre)
             ->whereNotNull('echeance')->whereDate('echeance', '<', $date)->get(['id', 'intitule']);
     }
 
@@ -165,20 +219,27 @@ class ScrumService
         return \App\Models\Absence::whereIn('user_id', $userIds)->whereDate('date_debut', '<=', $date)->whereDate('date_fin', '>=', $date)->get()->keyBy('user_id');
     }
 
-    /** Libellé d'une tâche dans le Daily (les tâches hors sprint sont signalées). */
-    public static function libelleTache(Tache $t): string
+    /**
+     * Libellé d'une tâche dans le Daily. Dans un Daily de sprint, les tâches hors sprint sont signalées ;
+     * dans un Daily hors sprint, les tâches de sprint indiquent leur sprint (et leur projet si le Daily est transversal).
+     */
+    public static function libelleTache(Tache $t, ?DailyScrum $daily = null): string
     {
-        return $t->sprint_id ? $t->intitule : $t->intitule . ' (hors sprint' . ($t->type === 'T3' ? ', urgence' : '') . ')';
+        if (!$t->sprint_id) return $t->intitule . ' (hors sprint' . ($t->type === 'T3' ? ', urgence' : '') . ')';
+        if (!$daily || $daily->sprint_id) return $t->intitule;
+        $t->loadMissing(['sprint:id,numero', 'projet:id,code']);
+        return $t->intitule . ' (' . ($daily->projet_id ? '' : ($t->projet?->code ?? '') . ' ') . 'Sprint ' . $t->sprint?->numero . ')';
     }
 
     /** Durée restante = durée prévue − jours écoulés, soit les jours ouvrés jusqu'à l'échéance la plus lointaine. */
-    public static function dureeRestante(Sprint $sprint, Collection $taches, Carbon $date): string
+    public static function dureeRestante(?Sprint $sprint, Collection $taches, Carbon $date): string
     {
-        if ($taches->isEmpty()) return '0 j';
         $restes = $taches->map(function ($t) use ($sprint, $date) {
-            $fin = $t->echeance ?? $sprint->date_fin;
+            $fin = $t->echeance ?? $t->sprint?->date_fin ?? $sprint?->date_fin;
+            if (!$fin) return null;
             return $fin->lt($date) ? -Tache::joursOuvres($fin->copy()->addDay(), $date) : Tache::joursOuvres($date, $fin);
-        });
+        })->filter(fn($v) => $v !== null);
+        if ($restes->isEmpty()) return '0 j';
         $max = $restes->max();
         if ($max >= 0) return $max . ' j';
         return 'Retard ' . abs($restes->min()) . ' j';
@@ -201,21 +262,23 @@ class ScrumService
         $date = $daily->date_reunion->copy()->startOfDay();
 
         // Période couverte : depuis le Daily précédent (à défaut, depuis le jour ouvré précédent)
-        $precedent = DailyScrum::where('sprint_id', $sprint->id)->where('numero_jour', '<', $daily->numero_jour)->orderByDesc('numero_jour')->first();
+        $precedent = self::dailyPrecedent($daily);
         $depuis = $precedent?->date_reunion ?? $date->copy()->subWeekday();
-        $dansSprintOuHors = fn($q) => $q->where(fn($w) => $w->where('sprint_id', $sprint->id)->orWhereNull('sprint_id'));
+        $dansSprintOuHors = self::perimetre($daily);
 
         // Hier = tâches terminées sur la période, sprint et hors sprint (dont les confirmations de la saisie quotidienne)
         $faites = Tache::where('user_id', $userId)->where('statut', 'termine')->where($dansSprintOuHors)
             ->whereNotNull('date_fin_reelle')->whereDate('date_fin_reelle', '>=', $depuis)->whereDate('date_fin_reelle', '<', $date)
             ->orderBy('date_fin_reelle')->get();
-        $hier = self::puces($faites->map(fn($t) => self::libelleTache($t)));
+        $hier = self::puces($faites->map(fn($t) => self::libelleTache($t, $daily)));
         // Rien de terminé : on reprend le « à faire » prévu au Daily précédent
         if ($hier === '' && $precedent) $hier = DailyScrumEntree::where('daily_scrum_id', $precedent->id)->where('user_id', $userId)->value('taches_jour');
 
-        // Ce jour = tâches du sprint puis tâches hors sprint (T2 / urgences T3)
-        $taches = self::tachesDuJour($sprint, $userId, $date)->concat(self::tachesHorsSprint($userId, $date));
-        $retard = self::tachesEnRetard($sprint, $userId, $date);
+        // Ce jour : Daily de sprint = tâches du sprint puis hors sprint ; Daily hors sprint = tâches des sprints en cours et hors sprint
+        $taches = $sprint
+            ? self::tachesDuJour($sprint, $userId, $date)->concat(self::tachesHorsSprint($userId, $date))
+            : self::actives(Tache::with('sprint:id,numero,date_fin')->where('user_id', $userId)->where(self::perimetre($daily, true)), $date)->get();
+        $retard = self::tachesEnRetard(self::perimetre($daily, true), $userId, $date);
 
         // Défis = blocages ouverts, saisies manuelles de la saisie quotidienne (tâches non réalisées, événements), retards
         $ids = Tache::where('user_id', $userId)->where($dansSprintOuHors)->pluck('id');
@@ -231,7 +294,7 @@ class ScrumService
 
         return [
             'taches_hier' => $hier ?: null,
-            'taches_jour' => self::puces($taches->map(fn($t) => self::libelleTache($t))) ?: null,
+            'taches_jour' => self::puces($taches->map(fn($t) => self::libelleTache($t, $daily))) ?: null,
             'duree_restante' => self::dureeRestante($sprint, $taches, $date),
             'defis' => self::puces($defis) ?: null,
         ];
@@ -245,7 +308,9 @@ class ScrumService
     {
         $daily->loadMissing('sprint.projet');
         $n = 0;
-        foreach (self::membres($daily->sprint) as $m) {
+        // Daily hors sprint : les participants sont ceux déjà inscrits au Daily
+        $participants = $daily->sprint ? self::membres($daily->sprint) : User::whereIn('id', $daily->entrees()->pluck('user_id'))->get();
+        foreach ($participants as $m) {
             $e = DailyScrumEntree::firstOrNew(['daily_scrum_id' => $daily->id, 'user_id' => $m->id]);
             if ($e->exists && !$ecraser) continue;
             $calc = self::calculerEntree($daily, $m->id);

@@ -65,16 +65,18 @@ Route::middleware(['auth'])->group(function () {
     // Cérémonies Scrum du sprint
     Route::get('/daily-scrum', [SprintScrumController::class, 'rapportsDaily'])->name('scrum.rapports');
     Route::get('/sprints/{sprint}/daily', [SprintScrumController::class, 'dailies'])->name('scrum.dailies');
-    Route::put('/sprints/{sprint}/daily/programmation', [SprintScrumController::class, 'programmationDaily'])->name('scrum.daily.programmation');
     Route::post('/sprints/{sprint}/daily', [SprintScrumController::class, 'storeDaily'])->name('scrum.daily.store');
     Route::get('/sprints/{sprint}/daily/{daily}', [SprintScrumController::class, 'daily'])->name('scrum.daily');
-    Route::put('/sprints/{sprint}/daily/{daily}', [SprintScrumController::class, 'updateDaily'])->name('scrum.daily.update');
-    Route::post('/sprints/{sprint}/daily/{daily}/recalculer', [SprintScrumController::class, 'recalculerDaily'])->name('scrum.daily.recalculer');
-    Route::post('/sprints/{sprint}/daily/{daily}/entrees', [SprintScrumController::class, 'ajouterEntree'])->name('scrum.daily.entree.ajouter');
-    Route::post('/sprints/{sprint}/daily/{daily}/publier', [SprintScrumController::class, 'publierDaily'])->name('scrum.daily.publier');
-    Route::post('/sprints/{sprint}/daily/{daily}/depublier', [SprintScrumController::class, 'depublierDaily'])->name('scrum.daily.depublier');
-    Route::delete('/sprints/{sprint}/daily/{daily}/entrees/{entree}', [SprintScrumController::class, 'retirerEntree'])->name('scrum.daily.entree.retirer');
-    Route::delete('/sprints/{sprint}/daily/{daily}', [SprintScrumController::class, 'destroyDaily'])->name('scrum.daily.destroy');
+    // Daily (de sprint ou hors sprint) : adresses communes
+    Route::post('/daily-scrum', [SprintScrumController::class, 'storeHorsSprint'])->name('scrum.daily.hors-sprint');
+    Route::get('/daily-scrum/{daily}', [SprintScrumController::class, 'afficher'])->name('scrum.d.show');
+    Route::put('/daily-scrum/{daily}', [SprintScrumController::class, 'updateDaily'])->name('scrum.d.update');
+    Route::post('/daily-scrum/{daily}/recalculer', [SprintScrumController::class, 'recalculerDaily'])->name('scrum.d.recalculer');
+    Route::post('/daily-scrum/{daily}/entrees', [SprintScrumController::class, 'ajouterEntree'])->name('scrum.d.entree.ajouter');
+    Route::delete('/daily-scrum/{daily}/entrees/{entree}', [SprintScrumController::class, 'retirerEntree'])->name('scrum.d.entree.retirer');
+    Route::post('/daily-scrum/{daily}/publier', [SprintScrumController::class, 'publierDaily'])->name('scrum.d.publier');
+    Route::post('/daily-scrum/{daily}/depublier', [SprintScrumController::class, 'depublierDaily'])->name('scrum.d.depublier');
+    Route::delete('/daily-scrum/{daily}', [SprintScrumController::class, 'destroyDaily'])->name('scrum.d.destroy');
     Route::get('/sprints/{sprint}/review', [SprintScrumController::class, 'review'])->name('scrum.review');
     Route::put('/sprints/{sprint}/review', [SprintScrumController::class, 'updateReview'])->name('scrum.review.update');
     Route::post('/sprints/{sprint}/review/valider', [SprintScrumController::class, 'validerReview'])->name('scrum.review.valider');

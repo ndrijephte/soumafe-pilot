@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('sousTitre', 'Projets & Sprints')
-@section('titre', $daily->libelle() . ' - Sprint ' . $sprint->numero)
+@section('titre', $daily->libelle() . ' - ' . $daily->contexte())
 
 @push('styles')
 <style>
@@ -21,7 +21,21 @@
 @endpush
 
 @section('contenu')
+@if($sprint)
 @include('scrum._entete', ['sprint' => $sprint, 'actif' => 'daily', 'page' => $daily->libelle()])
+@else
+{{-- Daily hors sprint : en-tête simple --}}
+@include('scrum._styles')
+<div class="sc-tete">
+    <div>
+        <h2>Daily hors sprint - {{ $daily->objet ?: $daily->contexte() }}</h2>
+        <div class="crumb"><a href="{{ route('scrum.rapports') }}" style="color:var(--accent);text-decoration:none">Daily Scrum</a> &rsaquo; {{ $daily->contexte() }} &rsaquo; {{ $daily->libelle() }}</div>
+    </div>
+</div>
+@if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
+@if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
+@if($errors->any())<div class="alerte ko">{{ $errors->first() }}</div>@endif
+@endif
 @php
     $tout = $edition === 'tout';
     $moi = auth()->id();
@@ -42,9 +56,9 @@
 @endphp
 
 <div class="dl-nav" style="margin-bottom:12px">
-    @if($precedent)<a class="btn sm sec" href="{{ route('scrum.daily', [$sprint, $precedent]) }}">‹ Daily {{ $precedent->numero_jour }}</a>@endif
-    <a class="btn sm sec" href="{{ route('scrum.dailies', $sprint) }}">Calendrier</a>
-    @if($suivant)<a class="btn sm sec" href="{{ route('scrum.daily', [$sprint, $suivant]) }}">Daily {{ $suivant->numero_jour }} ›</a>@endif
+    @if($precedent)<a class="btn sm sec" href="{{ $precedent->url() }}">‹ Daily {{ $precedent->numero_jour }}</a>@endif
+    <a class="btn sm sec" href="{{ $sprint ? route('scrum.dailies', $sprint) : route('scrum.rapports') }}">{{ $sprint ? 'Calendrier' : 'Tous les Daily' }}</a>
+    @if($suivant)<a class="btn sm sec" href="{{ $suivant->url() }}">Daily {{ $suivant->numero_jour }} ›</a>@endif
     <span style="margin-left:auto;font-size:12px;color:var(--gris)">Rédacteur (scribe du jour) : <strong style="color:#1e293b">{{ $nomUser($daily->roleUserId('scribe')) }}</strong> · créé par {{ $daily->createur?->nomComplet() ?? '—' }} · modifié le {{ $daily->updated_at->format('d/m/Y H:i') }}</span>
 </div>
 
@@ -53,8 +67,8 @@
 @endif
 @if($daily->estPublie())
 <div class="alerte ok" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <span><strong>Rapport publié</strong> le {{ $daily->publie_le->format('d/m/Y à H:i') }} par {{ $daily->publiePar?->nomComplet() ?? '—' }}. Modifiable par un pilote uniquement.</span>
-    @if(auth()->user()->estAdmin())<form method="POST" action="{{ route('scrum.daily.depublier', [$sprint, $daily]) }}" style="margin:0 0 0 auto" onsubmit="return confirm('Retirer la publication et remettre ce Daily en brouillon ?')">@csrf<button class="btn sm sec">Remettre en brouillon</button></form>@endif
+    <span><strong>Rapport publié</strong> le {{ $daily->publie_le->format('d/m/Y à H:i') }} par {{ $daily->publiePar?->nomComplet() ?? '—' }}.@if(auth()->user()->estAdmin()) Modifiable par un pilote uniquement.@endif</span>
+    @if(auth()->user()->estAdmin())<form method="POST" action="{{ $daily->url('depublier') }}" style="margin:0 0 0 auto" onsubmit="return confirm('Retirer la publication et remettre ce Daily en brouillon ?')">@csrf<button class="btn sm sec">Remettre en brouillon</button></form>@endif
 </div>
 @elseif($daily->estSoumis())
 <div class="alerte info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -62,18 +76,24 @@
     @if(auth()->user()->estAdmin())
     <span style="margin-left:auto;display:flex;gap:6px">
         <button type="submit" form="f-publier" class="btn sm vert">Approuver et publier</button>
-        <form method="POST" action="{{ route('scrum.daily.depublier', [$sprint, $daily]) }}" style="margin:0" onsubmit="return confirm('Renvoyer ce rapport en brouillon au scribe ?')">@csrf<button class="btn sm sec">Renvoyer en brouillon</button></form>
+        <form method="POST" action="{{ $daily->url('depublier') }}" style="margin:0" onsubmit="return confirm('Renvoyer ce rapport en brouillon au scribe ?')">@csrf<button class="btn sm sec">Renvoyer en brouillon</button></form>
     </span>
     @endif
 </div>
 @endif
 @if($edition === 'ligne')<div class="alerte info">Complétez votre ligne (surlignée).</div>@endif
 
-<form method="POST" action="{{ route('scrum.daily.update', [$sprint, $daily]) }}" id="f-daily">@csrf @method('PUT')
+<form method="POST" action="{{ $daily->url('update') }}" id="f-daily">@csrf @method('PUT')
 <div class="carte" style="margin-bottom:14px">
     <div class="dl-tete">
         <div class="dl-info">
-            <span class="lib">Objet</span><span>{{ mb_strtoupper($sprint->projet->libelle) }}</span>
+            <span class="lib">Objet</span>
+            @if($daily->estHorsSprint() && $edition === 'tout')
+            <span class="champ"><input name="objet" value="{{ $daily->objet }}" maxlength="150" placeholder="{{ $daily->contexte() }}"></span>
+            @else
+            <span>{{ mb_strtoupper($daily->objet ?: ($daily->projet?->libelle ?? 'Transversal')) }}</span>
+            @endif
+            @if($daily->estHorsSprint())<span class="lib">Contexte</span><span>{{ $daily->contexte() }}</span>@endif
             <span class="lib">Réunion</span><span class="dl-titre">DAILY SCRUM - JOUR {{ $daily->numero_jour }}</span>
             <span class="lib">Date</span><span>{{ ucfirst($daily->date_reunion->translatedFormat('l d F Y')) }} <span class="pill {{ $clsStatut }}" style="margin-left:6px">{{ $libStatut }}</span></span>
             @if($config['lieu'])<span class="lib">Lieu</span><span>{{ $config['lieu'] }}</span>@endif
@@ -93,7 +113,7 @@
             @if($tout)
             <span class="champ"><select name="roles[{{ $code }}]">
                 <option value="">—</option>
-                <optgroup label="Équipe du sprint">@foreach($membres as $m)<option value="{{ $m->id }}" @selected($daily->roleUserId($code) === $m->id)>{{ $m->nomComplet() }}</option>@endforeach</optgroup>
+                <optgroup label="{{ $sprint ? 'Équipe du sprint' : ($daily->projet ? 'Équipe du projet' : 'Participants') }}">@foreach($membres as $m)<option value="{{ $m->id }}" @selected($daily->roleUserId($code) === $m->id)>{{ $m->nomComplet() }}</option>@endforeach</optgroup>
                 <optgroup label="Autres collaborateurs">@foreach($autres as $m)<option value="{{ $m->id }}" @selected($daily->roleUserId($code) === $m->id)>{{ $m->nomComplet() }}</option>@endforeach</optgroup>
             </select></span>
             @else
@@ -136,7 +156,7 @@
     <span>Ajouter un participant :</span>
     <select name="user_id" form="f-ajout-part" required>
         <option value="">— Choisir —</option>
-        @if($membres->whereNotIn('id', $entrees->pluck('user_id'))->isNotEmpty())<optgroup label="Équipe du sprint">@foreach($membres->whereNotIn('id', $entrees->pluck('user_id')) as $m)<option value="{{ $m->id }}">{{ $m->nomComplet() }}</option>@endforeach</optgroup>@endif
+        @if($membres->whereNotIn('id', $entrees->pluck('user_id'))->isNotEmpty())<optgroup label="{{ $sprint ? 'Équipe du sprint' : 'Équipe du projet' }}">@foreach($membres->whereNotIn('id', $entrees->pluck('user_id')) as $m)<option value="{{ $m->id }}">{{ $m->nomComplet() }}</option>@endforeach</optgroup>@endif
         <optgroup label="Autres collaborateurs">@foreach($ajoutables->whereNotIn('id', $membres->pluck('id')) as $m)<option value="{{ $m->id }}">{{ $m->nomComplet() }}</option>@endforeach</optgroup>
     </select>
     <button type="submit" form="f-ajout-part" class="btn sm sec">+ Ajouter la ligne</button>
@@ -165,27 +185,27 @@
     @if($tout)
     <button type="submit" form="f-recalc" class="btn sec" title="Recharge hier / ce jour / durée restante depuis la planification. Les défis saisis sont conservés.">Recalculer depuis la planification</button>
     @endif
-    @if(auth()->user()->peutGererProjet($sprint->projet_id) && (!($daily->estPublie() || $daily->estSoumis()) || auth()->user()->estAdmin()))
+    @if($peutGerer && (!($daily->estPublie() || $daily->estSoumis()) || auth()->user()->estAdmin()))
     <button type="submit" form="f-suppr" class="btn ko" style="margin-left:auto">Supprimer ce Daily</button>
     @endif
 </div>
 </form>
 
 @if($tout)
-<form method="POST" action="{{ route('scrum.daily.entree.ajouter', [$sprint, $daily]) }}" id="f-ajout-part">@csrf</form>
+<form method="POST" action="{{ $daily->url('entree.ajouter') }}" id="f-ajout-part">@csrf</form>
 
-<form method="POST" action="{{ route('scrum.daily.recalculer', [$sprint, $daily]) }}" id="f-recalc" onsubmit="return confirm('Recalculer les lignes à partir de l\'état actuel des tâches ? Les colonnes hier / ce jour / durée seront remplacées (les défis saisis sont conservés).')">@csrf
+<form method="POST" action="{{ $daily->url('recalculer') }}" id="f-recalc" onsubmit="return confirm('Recalculer les lignes à partir de l\'état actuel des tâches ? Les colonnes hier / ce jour / durée seront remplacées (les défis saisis sont conservés).')">@csrf
     <input type="hidden" name="roles" value="0">
 </form>
 @foreach($entrees as $e)
-<form method="POST" action="{{ route('scrum.daily.entree.retirer', [$sprint, $daily, $e]) }}" id="f-retirer-{{ $e->id }}" onsubmit="return confirm('Retirer {{ addslashes($e->user?->nomComplet()) }} de ce Daily ?')">@csrf @method('DELETE')</form>
+<form method="POST" action="{{ $daily->url('entree.retirer', $e) }}" id="f-retirer-{{ $e->id }}" onsubmit="return confirm('Retirer {{ addslashes($e->user?->nomComplet()) }} de ce Daily ?')">@csrf @method('DELETE')</form>
 @endforeach
 @endif
 @if(($tout || auth()->user()->estAdmin()) && !$daily->estPublie())
-<form method="POST" action="{{ route('scrum.daily.publier', [$sprint, $daily]) }}" id="f-publier" onsubmit="return confirm(@js(auth()->user()->estAdmin() ? 'Publier ce rapport ? Il sera visible de tous les collaborateurs.' : 'Soumettre ce rapport pour publication ? Enregistrez vos saisies avant : il ne sera plus modifiable, sauf par un pilote.'))">@csrf</form>
+<form method="POST" action="{{ $daily->url('publier') }}" id="f-publier" onsubmit="return confirm(@js(auth()->user()->estAdmin() ? 'Publier ce rapport ? Il sera visible de tous les collaborateurs.' : 'Soumettre ce rapport pour publication ? Enregistrez vos saisies avant : il ne sera plus modifiable, sauf par un pilote.'))">@csrf</form>
 @endif
-@if(auth()->user()->peutGererProjet($sprint->projet_id) && (!($daily->estPublie() || $daily->estSoumis()) || auth()->user()->estAdmin()))
-<form method="POST" action="{{ route('scrum.daily.destroy', [$sprint, $daily]) }}" id="f-suppr" onsubmit="return demanderMotifSuppression(this,'ce Daily')">@csrf @method('DELETE')
+@if($peutGerer && (!($daily->estPublie() || $daily->estSoumis()) || auth()->user()->estAdmin()))
+<form method="POST" action="{{ $daily->url('destroy') }}" id="f-suppr" onsubmit="return demanderMotifSuppression(this,'ce Daily')">@csrf @method('DELETE')
     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
 </form>
 @endif

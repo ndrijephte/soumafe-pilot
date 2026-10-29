@@ -457,11 +457,11 @@ class CompteRenduController extends Controller
             'par_dev' => $parDev,
             'modules' => [
                 [
-                    'id' => 'mod_1', 'titre' => 'Resultats du Sprint',
-                    'objectif' => 'Presenter les livrables et le score du sprint',
+                    'id' => 'mod_1', 'titre' => 'Résultats du sprint',
+                    'objectif' => 'Présenter les livrables et le score du sprint',
                     'sections' => [
                         [
-                            'id' => 'sec_1', 'titre' => 'Taches realisees',
+                            'id' => 'sec_1', 'titre' => 'Tâches réalisées',
                             'blocs' => [
                                 ['id' => 'blc_1', 'type' => 'tableau_taches'],
                                 ['id' => 'blc_2', 'type' => 'score'],
@@ -470,11 +470,11 @@ class CompteRenduController extends Controller
                     ],
                 ],
                 [
-                    'id' => 'mod_2', 'titre' => 'Analyse et prochaines etapes',
-                    'objectif' => 'Evaluer la performance et planifier la suite',
+                    'id' => 'mod_2', 'titre' => 'Analyse et prochaines étapes',
+                    'objectif' => 'Évaluer la performance et planifier la suite',
                     'sections' => [
                         [
-                            'id' => 'sec_2', 'titre' => 'Actions a mener',
+                            'id' => 'sec_2', 'titre' => 'Actions à mener',
                             'blocs' => [
                                 ['id' => 'blc_3', 'type' => 'actions', 'items' => []],
                             ],
@@ -1205,9 +1205,9 @@ class CompteRenduController extends Controller
             'bonne_pratique'  => ['label' => 'Bonne pratique',  'icon' => "\xE2\x9C\x93", 'bg' => 'E0F2FE', 'border' => '0288D1'],
             'rappel'          => ['label' => 'Rappel',          'icon' => "\xF0\x9F\x94\x94", 'bg' => 'E8F5E9', 'border' => '00897B'],
             'fondamental'     => ['label' => 'Fondamental',     'icon' => "\xE2\x98\x85", 'bg' => 'FFF8E1', 'border' => 'F9A825'],
-            'methode'         => ['label' => 'Methode',         'icon' => "\xE2\x9A\x99", 'bg' => 'F3E8F9', 'border' => '7B2D8E'],
+            'methode'         => ['label' => 'Méthode',         'icon' => "\xE2\x9A\x99", 'bg' => 'F3E8F9', 'border' => '7B2D8E'],
             'conseil'         => ['label' => 'Conseil',         'icon' => "\xF0\x9F\x92\xA1", 'bg' => 'FFF8E1', 'border' => 'EF6C00'],
-            'definition'      => ['label' => 'Definition',      'icon' => "\xF0\x9F\x93\x96", 'bg' => 'E3F2FD', 'border' => '1565C0'],
+            'definition'      => ['label' => 'Définition',      'icon' => "\xF0\x9F\x93\x96", 'bg' => 'E3F2FD', 'border' => '1565C0'],
             'exemple'         => ['label' => 'Exemple',         'icon' => "\xE2\x9C\xA6", 'bg' => 'F1F8E9', 'border' => '558B2F'],
         ];
         $cfg = $types[$type] ?? $types['remarque'];
@@ -1348,11 +1348,21 @@ class CompteRenduController extends Controller
         try { return (string) $fn(); } finally { $this->ooxmlInterligne = $avant; }
     }
 
+    /** Couleurs de texte de l'éditeur (classe tc-N) : sobres, lisibles à l'impression. */
+    public const COULEURS = [
+        1 => ['Noir', '1E293B'], 2 => ['Gris', '64748B'], 3 => ['Bleu foncé', '1F4E79'], 4 => ['Bleu', '2E74B5'],
+        5 => ['Vert', '15803D'], 6 => ['Orange', 'C2410C'], 7 => ['Rouge', 'B91C1C'], 8 => ['Violet', '7E22CE'],
+    ];
+
     private function sanitizeHtml(string $html): string
     {
         $html = strip_tags($html, '<b><u><i><strong><em><ol><ul><li><br><div><p><blockquote><font>');
-        // Seule la taille (boutons A-/A+) est conservée sur <font>
-        $html = preg_replace_callback('/<font\b[^>]*>/i', fn($m) => preg_match('/\bsize=["\']?([1-7])\b/i', $m[0], $s) ? "<font size=\"{$s[1]}\">" : '<font>', $html);
+        // Seuls la taille (menu Taille) et la couleur de la palette (classe tc-N) sont conservées sur <font>
+        $html = preg_replace_callback('/<font\b[^>]*>/i', function ($m) {
+            $attr = preg_match('/\bsize=["\']?([1-7])\b/i', $m[0], $s) ? " size=\"{$s[1]}\"" : '';
+            if (preg_match('/\bclass=["\'][^"\']*\btc-([1-8])\b/i', $m[0], $c)) $attr .= " class=\"tc-{$c[1]}\"";
+            return "<font{$attr}>";
+        }, $html);
         // Retire style, class… collés ; ne garde que les classes de l'éditeur (liste hiérarchique, interligne)
         $html = preg_replace('/<(b|u|i|strong|em|br)\b[^>]*>/i', '<$1>', $html);
         return preg_replace_callback('/<(ol|ul|li|div|p|blockquote)\b([^>]*)>/i', function ($m) {
@@ -1470,6 +1480,7 @@ class CompteRenduController extends Controller
             $ratio = [1 => 0.75, 2 => 10 / 12, 3 => 1, 4 => 14 / 12, 5 => 16 / 12, 6 => 20 / 12, 7 => 2][$taille] ?? 1;
             $fmt['sz'] = (int) round($this->mefSz('texte', 24) * $ratio);
         }
+        if ($tag === 'font' && preg_match('/\btc-([1-8])\b/', $node->getAttribute('class'), $tc)) $fmt['color'] = self::COULEURS[(int) $tc[1]][1];
         foreach ($node->childNodes as $c) $this->ooxmlInline($c, $fmt, $segs);
     }
 
@@ -1483,6 +1494,7 @@ class CompteRenduController extends Controller
         $rpr = fn(array $f) => '<w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
             . '<w:sz w:val="' . ($f['sz'] ?? $this->mefSz('texte', 24)) . '"/><w:szCs w:val="' . ($f['sz'] ?? $this->mefSz('texte', 24)) . '"/>'
             . (!empty($f['b']) ? '<w:b/>' : '') . (!empty($f['u']) ? '<w:u w:val="single"/>' : '') . (!empty($f['i']) ? '<w:i/>' : '')
+            . (!empty($f['color']) ? '<w:color w:val="' . $f['color'] . '"/>' : '')
             . '</w:rPr>';
 
         $runs = '';

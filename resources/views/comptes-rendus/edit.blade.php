@@ -44,6 +44,15 @@
 .rich-editor ul,.rich-editor ol{margin:4px 0 4px 20px}
 .rich-editor *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
 .rich-editor a{text-decoration:none!important;pointer-events:none}
+/* Couleur du texte (palette de l'éditeur) */
+.coul-a{display:inline-block;font-weight:700;border-bottom:3px solid #2E74B5;line-height:1;padding:0 1px}
+.lh-menu.coul-menu{width:150px;flex-wrap:wrap;gap:4px;padding:6px}
+.lh-menu.coul-menu.open{display:flex}
+.lh-menu .coul-pastille{width:26px;height:22px;padding:0;border-radius:5px;border:1px solid rgba(0,0,0,.12);background:var(--c)!important}
+.lh-menu .coul-pastille:hover{outline:2px solid #93c5fd;outline-offset:1px}
+.lh-menu .coul-auto{flex-basis:100%;font-size:.74rem;text-align:center}
+@foreach(\App\Http\Controllers\CompteRenduController::COULEURS as $n => [$lib, $hex]).rich-editor .tc-{{ $n }}{color:#{{ $hex }}!important}
+@endforeach
 .rich-editor .lh-10{line-height:1!important}
 .rich-editor .lh-115{line-height:1.15!important}
 .rich-editor .lh-15{line-height:1.5!important}
@@ -123,8 +132,8 @@
 .be-bloc-bar button:hover{background:#f1f5f9;color:#475569}
 .be-bloc-body{padding:10px 12px}
 .be-bloc-body .rich-editor{min-height:60px;font-size:.88rem}
-/* Reference blocks */
-.be-ref{border-radius:8px;border-left:4px solid;padding:10px 14px}
+/* Blocs référence */
+.be-ref{border-radius:8px;padding:10px 14px}
 .be-ref-label{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.82rem;margin-bottom:6px}
 .be-ref-label svg{flex-shrink:0}
 .be-ref textarea,.be-ref .rich-editor{width:100%;border:1px solid rgba(0,0,0,.08);border-radius:6px;padding:8px 10px;font-size:.85rem;background:rgba(255,255,255,.7);min-height:48px;resize:vertical}
@@ -294,7 +303,7 @@
                             <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                             <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
                             <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Couleur du texte sélectionné"><span class="coul-a">A</span> &#9662;</button><span class="lh-menu coul-menu">@foreach(\App\Http\Controllers\CompteRenduController::COULEURS as $n => [$lib, $hex])<button type="button" class="coul-pastille" style="--c:#{{ $hex }}" title="{{ $lib }}" onmousedown="event.preventDefault();appliquerCouleur({{ $n }},this)"></button>@endforeach<button type="button" class="coul-auto" onmousedown="event.preventDefault();appliquerCouleur(0,this)">Couleur automatique</button></span></span>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="ctx-editor" style="--num-prefix:'1.'" data-name="donnees[contexte]">{!! $donnees['contexte'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[contexte]" id="ctx-editor-hidden">
@@ -343,7 +352,7 @@
                                 <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                             <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
                             <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Couleur du texte sélectionné"><span class="coul-a">A</span> &#9662;</button><span class="lh-menu coul-menu">@foreach(\App\Http\Controllers\CompteRenduController::COULEURS as $n => [$lib, $hex])<button type="button" class="coul-pastille" style="--c:#{{ $hex }}" title="{{ $lib }}" onmousedown="event.preventDefault();appliquerCouleur({{ $n }},this)"></button>@endforeach<button type="button" class="coul-auto" onmousedown="event.preventDefault();appliquerCouleur(0,this)">Couleur automatique</button></span></span>
                             </div>
                             <div class="rich-editor" contenteditable="true" id="derou-{{ $k }}" style="--num-prefix:'2.{{ $k + 1 }}.'" data-name="donnees[ordre_du_jour][{{ $k }}][contenu]">{!! $odj['contenu'] ?? '' !!}</div>
                             <input type="hidden" name="donnees[ordre_du_jour][{{ $k }}][contenu]" id="derou-{{ $k }}-hidden">
@@ -416,7 +425,7 @@
                             <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                             <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
                             <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
+                            <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Couleur du texte sélectionné"><span class="coul-a">A</span> &#9662;</button><span class="lh-menu coul-menu">@foreach(\App\Http\Controllers\CompteRenduController::COULEURS as $n => [$lib, $hex])<button type="button" class="coul-pastille" style="--c:#{{ $hex }}" title="{{ $lib }}" onmousedown="event.preventDefault();appliquerCouleur({{ $n }},this)"></button>@endforeach<button type="button" class="coul-auto" onmousedown="event.preventDefault();appliquerCouleur(0,this)">Couleur automatique</button></span></span>
                         </div>
                         <div class="rich-editor" contenteditable="true" id="concl-editor" style="--num-prefix:'4.'" data-name="donnees[conclusion]">{!! $donnees['conclusion'] ?? '' !!}</div>
                         <input type="hidden" name="donnees[conclusion]" id="concl-editor-hidden">
@@ -514,6 +523,27 @@ function indenterRich(cmd, btn){
 }
 /* Taille : <font size> 1→7 = 9, 10, 12 (normal), 14, 16, 20, 24 pt */
 const TAILLES_PT = {1:'9', 2:'10', 3:'12', 4:'14', 5:'16', 6:'20', 7:'24'};
+const COULEURS_TEXTE = {!! json_encode(collect(\App\Http\Controllers\CompteRenduController::COULEURS)->map(fn($c, $n) => [$n, $c[0], $c[1]])->values()) !!};
+/* Couleur du texte sélectionné : classe tc-N (0 = couleur automatique) */
+function appliquerCouleur(n, btn){
+    btn.closest('.lh-menu').classList.remove('open');
+    const ed = editeurDeBouton(btn); if(!ed) return;
+    const sel = window.getSelection();
+    const plage = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+    ed.focus();
+    if(plage && ed.contains(plage.commonAncestorContainer)){ sel.removeAllRanges(); sel.addRange(plage); }
+    if(!sel.rangeCount || sel.isCollapsed || !ed.contains(sel.getRangeAt(0).commonAncestorContainer)){ alert("Sélectionnez d'abord le texte à colorer."); return; }
+    document.execCommand('styleWithCSS', false, false);
+    document.execCommand('foreColor', false, '#010203');
+    ed.querySelectorAll('font[color="#010203"]').forEach(f => {
+        f.removeAttribute('color');
+        f.querySelectorAll('font[class*="tc-"]').forEach(x => { x.classList.forEach(k => { if(k.startsWith('tc-')) x.classList.remove(k); }); if(!x.attributes.length || (x.attributes.length === 1 && x.getAttribute('class') === '')) x.replaceWith(...x.childNodes); });
+        f.classList.forEach(k => { if(k.startsWith('tc-')) f.classList.remove(k); });
+        if(n) f.classList.add('tc-' + n);
+        if(!f.classList.length) f.removeAttribute('class');
+        if(!f.attributes.length) f.replaceWith(...f.childNodes);
+    });
+}
 function appliquerTaille(n, btn){
     btn.closest('.lh-menu').classList.remove('open');
     const ed = editeurDeBouton(btn); if(!ed) return;
@@ -663,7 +693,7 @@ function genererDeroulement(){
                 <button type="button" onclick="execRich('insertOrderedList',this)" title="Liste numérotée">1. Liste</button>
                 <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1 Liste</button>
                 <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-                <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
+                <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Couleur du texte sélectionné"><span class="coul-a">A</span> &#9662;</button><span class="lh-menu coul-menu">${COULEURS_TEXTE.map(([n, lib, hex]) => `<button type="button" class="coul-pastille" style="--c:#${hex}" title="${lib}" onmousedown="event.preventDefault();appliquerCouleur(${n},this)"></button>`).join('')}<button type="button" class="coul-auto" onmousedown="event.preventDefault();appliquerCouleur(0,this)">Couleur automatique</button></span></span>
             </div>
             <div class="rich-editor" contenteditable="true" id="${edId}" data-name="donnees[ordre_du_jour][${p.idx}][contenu]"></div>
             <input type="hidden" name="donnees[ordre_du_jour][${p.idx}][contenu]" id="${edId}-hidden">`;
@@ -736,9 +766,9 @@ const REF_STYLES = {
     fondamental:    {bg:'#FFF8E1',border:'#F9A825',label:'Fondamental'},
     attention:      {bg:'#FFF3E0',border:'#E6A817',label:'Attention'},
     remarque:       {bg:'#E8EEF4',border:'#2E74B5',label:'Remarque'},
-    methode:        {bg:'#F3E8F9',border:'#7B2D8E',label:'Methode'},
+    methode:        {bg:'#F3E8F9',border:'#7B2D8E',label:'Méthode'},
     conseil:        {bg:'#FFF8E1',border:'#EF6C00',label:'Conseil'},
-    definition:     {bg:'#E3F2FD',border:'#1565C0',label:'Definition'},
+    definition:     {bg:'#E3F2FD',border:'#1565C0',label:'Définition'},
     exemple:        {bg:'#F1F8E9',border:'#558B2F',label:'Exemple'},
     bonne_pratique: {bg:'#E0F2FE',border:'#0288D1',label:'Bonne pratique'},
     blocage:        {bg:'#FEECEC',border:'#CC3333',label:'Blocage'}
@@ -747,12 +777,12 @@ const REF_STYLES = {
 /* --- Conversion ancien format vers blocs --- */
 function legacyToModules(d){
     const mods = [];
-    const m1Secs = [{id:uid(),titre:'Taches realisees',blocs:[{id:uid(),type:'tableau_taches'},{id:uid(),type:'score'}]}];
-    mods.push({id:uid(),titre:'Resultats du Sprint',objectif:'Presenter les livrables et le score du sprint',sections:m1Secs});
+    const m1Secs = [{id:uid(),titre:'Tâches réalisées',blocs:[{id:uid(),type:'tableau_taches'},{id:uid(),type:'score'}]}];
+    mods.push({id:uid(),titre:'Résultats du sprint',objectif:'Présenter les livrables et le score du sprint',sections:m1Secs});
     const m2Secs = [];
-    m2Secs.push({id:uid(),titre:'Actions a mener',blocs:[{id:uid(),type:'actions',items:d.actions_a_mener||[]}]});
+    m2Secs.push({id:uid(),titre:'Actions à mener',blocs:[{id:uid(),type:'actions',items:d.actions_a_mener||[]}]});
     m2Secs.push({id:uid(),titre:'Note pour le sprint suivant',blocs:[{id:uid(),type:'texte',contenu:d.note_sprint||''}]});
-    mods.push({id:uid(),titre:'Analyse et prochaines etapes',objectif:'Evaluer la performance et planifier la suite',sections:m2Secs});
+    mods.push({id:uid(),titre:'Analyse et prochaines étapes',objectif:'Évaluer la performance et planifier la suite',sections:m2Secs});
     /* Convertir anciennes annotations en blocs reference */
     if(d.annotations && d.annotations.length){
         const annSec = {id:uid(),titre:'Annotations',blocs:[]};
@@ -777,12 +807,12 @@ function beRichToolbar(edId){
     return `<div class="rich-toolbar" data-target="${edId}">
         <button type="button" onmousedown="event.preventDefault();beExec('bold','${edId}')" title="Gras"><b>G</b></button>
         <button type="button" onmousedown="event.preventDefault();beExec('italic','${edId}')" title="Italique"><i>I</i></button>
-        <button type="button" onmousedown="event.preventDefault();beExec('underline','${edId}')" title="Souligne"><u>S</u></button>
-        <button type="button" onmousedown="event.preventDefault();beExec('insertUnorderedList','${edId}')" title="Liste a puces">&#8226;</button>
-        <button type="button" onmousedown="event.preventDefault();beExec('insertOrderedList','${edId}')" title="Liste numerotee">1.</button>
+        <button type="button" onmousedown="event.preventDefault();beExec('underline','${edId}')" title="Souligné"><u>S</u></button>
+        <button type="button" onmousedown="event.preventDefault();beExec('insertUnorderedList','${edId}')" title="Liste à puces">&#8226;</button>
+        <button type="button" onmousedown="event.preventDefault();beExec('insertOrderedList','${edId}')" title="Liste numérotée">1.</button>
         <button type="button" onmousedown="event.preventDefault();listeHier(this)" title="Liste numérotée hiérarchique (ex. 2.2.1.)">1.1</button>
         <button type="button" onmousedown="event.preventDefault();indenterRich('indent',this)" title="Décaler à droite (Tab)">&#8677;</button>
-        <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span>
+        <button type="button" onmousedown="event.preventDefault();indenterRich('outdent',this)" title="Décaler à gauche (Maj+Tab)">&#8676;</button><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Taille du texte sélectionné (pt)">Taille : <span class="taille-val">12</span> &#9662;</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerTaille(1,this)">9</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(2,this)">10</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(3,this)">12 (normal)</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(4,this)">14</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(5,this)">16</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(6,this)">20</button><button type="button" onmousedown="event.preventDefault();appliquerTaille(7,this)">24</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Interligne des paragraphes sélectionnés">&#8597; Interligne</button><span class="lh-menu"><button type="button" onmousedown="event.preventDefault();appliquerInterligne('',this)">Normal</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-10',this)">1,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-115',this)">1,15</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-15',this)">1,5</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-20',this)">2,0</button><button type="button" onmousedown="event.preventDefault();appliquerInterligne('lh-25',this)">2,5</button></span></span><span class="lh-wrap"><button type="button" onmousedown="event.preventDefault();this.nextElementSibling.classList.toggle('open')" title="Couleur du texte sélectionné"><span class="coul-a">A</span> &#9662;</button><span class="lh-menu coul-menu">${COULEURS_TEXTE.map(([n, lib, hex]) => `<button type="button" class="coul-pastille" style="--c:#${hex}" title="${lib}" onmousedown="event.preventDefault();appliquerCouleur(${n},this)"></button>`).join('')}<button type="button" class="coul-auto" onmousedown="event.preventDefault();appliquerCouleur(0,this)">Couleur automatique</button></span></span>
     </div>`;
 }
 function beExec(cmd, edId){
@@ -795,10 +825,10 @@ function renderBloc(bloc, secEl){
     const div = document.createElement('div');
     div.className = 'be-bloc'; div.dataset.id = bloc.id; div.dataset.type = bloc.type;
 
-    const typeLabels = {texte:'Texte',tableau_taches:'Tableau des taches',score:'Score global',actions:'Actions a mener',reference:'Reference',note:'Note'};
+    const typeLabels = {texte:'Texte',tableau_taches:'Tableau des tâches',score:'Score global',actions:'Actions à mener',reference:'Référence',note:'Note'};
     const typeLbl = typeLabels[bloc.type] || bloc.type;
 
-    let headHtml = `<div class="be-bloc-head"><span class="be-handle" title="Deplacer">&#9776;</span><span class="be-type-lbl">${typeLbl}</span>`;
+    let headHtml = `<div class="be-bloc-head"><span class="be-handle" title="Déplacer">&#9776;</span><span class="be-type-lbl">${typeLbl}</span>`;
     headHtml += `<div class="be-bloc-bar"><button type="button" onclick="beMoveBloc(this,-1)" title="Monter">&#9650;</button><button type="button" onclick="beMoveBloc(this,1)" title="Descendre">&#9660;</button><button type="button" onclick="beRemoveBloc(this)" title="Supprimer" style="color:#dc2626">&#10005;</button></div></div>`;
 
     let bodyHtml = '<div class="be-bloc-body">';
@@ -810,7 +840,7 @@ function renderBloc(bloc, secEl){
     }
     else if(bloc.type === 'tableau_taches'){
         const taches = BE_DONNEES.taches || [];
-        bodyHtml += '<table class="tbl"><thead><tr><th>Tache</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:55px">OK</th><th>Observation</th></tr></thead><tbody>';
+        bodyHtml += '<table class="tbl"><thead><tr><th>Tâche</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:70px">Réalisée</th><th>Observation</th></tr></thead><tbody>';
         taches.forEach((t,i) => {
             const chk = (t.termine == true || t.termine == 1 || t.termine === '1') ? 'checked' : '';
             bodyHtml += `<tr data-tache-idx="${i}"><td>${t.tache||''}</td><td style="text-align:center">${t.points||1}</td><td>${t.attribution||''}</td><td style="text-align:center"><input type="checkbox" class="chk be-tache-chk" data-idx="${i}" ${chk}></td><td><input type="text" class="be-tache-obs" data-idx="${i}" value="${(t.observation||'').replace(/"/g,'&quot;')}"></td></tr>`;
@@ -861,7 +891,7 @@ function beActionRow(i, action, resps, echeance){
     let checks = `<label><input type="checkbox" value="Tous" onchange="updateMSDisplay(this)" ${resps.includes('Tous')?'checked':''}> <strong>Tous</strong></label>`;
     collabs.forEach(c => { checks += `<label><input type="checkbox" value="${c}" onchange="updateMSDisplay(this)" ${resps.includes(c)?'checked':''}> ${c}</label>`; });
     return `<div class="be-act-row" data-act-idx="${i}">
-        <input type="text" class="be-act-action" value="${(action||'').replace(/"/g,'&quot;')}" placeholder="Action...">
+        <input type="text" class="be-act-action" value="${(action||'').replace(/"/g,'&quot;')}" placeholder="Action…">
         <div class="ms-wrap" style="min-width:180px"><div class="ms-btn" onclick="toggleMS(this)">${respTags}</div><div class="ms-drop">${checks}</div></div>
         <input type="date" class="be-act-date" value="${echeance||''}">
         <button type="button" class="be-rm" onclick="this.closest('.be-act-row').remove()">&#10005;</button>
@@ -878,7 +908,7 @@ function renderSection(sec, modEl){
     const div = document.createElement('div');
     div.className = 'be-section'; div.dataset.id = sec.id;
     div.innerHTML = `<div class="be-sec-head">
-        <span class="be-handle" title="Deplacer">&#9776;</span>
+        <span class="be-handle" title="Déplacer">&#9776;</span>
         <input type="text" class="be-sec-titre" value="${(sec.titre||'').replace(/"/g,'&quot;')}" placeholder="Titre de la section">
         <div class="be-sec-actions">
             <button type="button" onclick="beMoveSection(this,-1)" title="Monter">&#9650;</button>
@@ -890,10 +920,9 @@ function renderSection(sec, modEl){
     <div style="padding:6px 14px 10px">
         <div class="be-add-bar">
             <button type="button" class="be-add-btn" onclick="beInsertBloc(this,'texte')">${svgPlus()} Texte</button>
-            <button type="button" class="be-add-btn" onclick="beInsertBloc(this,'tableau_taches')">${svgTable()} Taches</button>
             <button type="button" class="be-add-btn" onclick="beInsertBloc(this,'score')">${svgChart()} Score</button>
             <button type="button" class="be-add-btn" onclick="beInsertBloc(this,'actions')">${svgList()} Actions</button>
-            <button type="button" class="be-add-btn" onclick="beShowRefMenu(this)">&#9670; Reference</button>
+            <button type="button" class="be-add-btn" onclick="beShowRefMenu(this)">&#9670; Référence</button>
         </div>
     </div>`;
     const blocsContainer = div.querySelector('.be-blocs');
@@ -906,7 +935,7 @@ function renderModule(mod){
     const div = document.createElement('div');
     div.className = 'be-module'; div.dataset.id = mod.id;
     div.innerHTML = `<div class="be-mod-head">
-        <span class="be-handle" title="Deplacer">&#9776;</span>
+        <span class="be-handle" title="Déplacer">&#9776;</span>
         <div class="be-mod-fields">
             <input type="text" class="be-mod-titre" value="${(mod.titre||'').replace(/"/g,'&quot;')}" placeholder="Titre du module">
             <input type="text" class="be-mod-obj" value="${(mod.objectif||'').replace(/"/g,'&quot;')}" placeholder="Objectif du module">
@@ -957,14 +986,19 @@ function beShowRefMenu(btn){
     if(menu){ menu.remove(); return; }
     menu = document.createElement('div');
     menu.className = 'be-ref-menu';
-    menu.style.cssText = 'position:absolute;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:100;padding:4px;display:flex;flex-wrap:wrap;gap:2px;width:260px';
+    // Positionné sur la page, au-dessus de tout (les modules masquent ce qui dépasse)
+    const r = btn.getBoundingClientRect();
+    menu.style.cssText = 'position:fixed;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.16);z-index:10000;padding:4px;display:flex;flex-wrap:wrap;gap:2px;width:280px';
+    menu.style.left = Math.min(r.left, window.innerWidth - 290) + 'px';
+    menu.style.top = (r.bottom + 4 + 260 > window.innerHeight ? Math.max(8, r.top - 264) : r.bottom + 4) + 'px';
     Object.keys(REF_STYLES).forEach(k => {
         const s = REF_STYLES[k];
         menu.innerHTML += `<button type="button" onclick="beInsertRef(this,'${k}')" style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:none;background:${s.bg};border-radius:5px;cursor:pointer;font-size:.76rem;font-weight:600;color:${s.border};flex:1 0 45%">${IC[k]} ${s.label}</button>`;
     });
-    btn.parentElement.style.position = 'relative';
     btn.parentElement.appendChild(menu);
-    setTimeout(() => document.addEventListener('click', function h(e){ if(!menu.contains(e.target)&&e.target!==btn){menu.remove();document.removeEventListener('click',h);} }), 0);
+    const fermer = () => { menu.remove(); document.removeEventListener('click', h); window.removeEventListener('scroll', fermer, true); };
+    function h(e){ if(!menu.contains(e.target) && !btn.contains(e.target)) fermer(); }
+    setTimeout(() => { document.addEventListener('click', h); window.addEventListener('scroll', fermer, true); }, 0);
 }
 function beInsertRef(btn, refType){
     const secEl = btn.closest('.be-section');
@@ -988,7 +1022,7 @@ function beChangeRefType(sel){
     sel.style.color = st.border;
 }
 
-/* --- Deplacer / Supprimer --- */
+/* --- Déplacer / Supprimer --- */
 function beMoveBloc(btn, dir){
     const bloc = btn.closest('.be-bloc');
     const container = bloc.parentElement;

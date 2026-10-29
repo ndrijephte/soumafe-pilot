@@ -6,7 +6,7 @@
 <style>
 @page{size:A4;margin:20mm 18mm 22mm 18mm}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:720px;margin:0 auto;padding:30px 20px}
 @media print{.page{padding:0;max-width:none}.no-print{display:none!important}}
 
@@ -36,6 +36,8 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
 .section .contenu [class^="MsoList"]{margin-left:40px!important}
 .section .contenu p{margin-bottom:6px}
 .section .contenu *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
+@foreach(\App\Http\Controllers\CompteRenduController::COULEURS as $n => [$lib, $hex]).section .contenu .tc-{{ $n }}{color:#{{ $hex }}!important}
+@endforeach
 .section .contenu a{text-decoration:none!important}
 .section .contenu .lh-10{line-height:1!important}
 .section .contenu .lh-115{line-height:1.15!important}
@@ -58,7 +60,8 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
 /* Tableaux */
 .tbl{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:10pt}
 .tbl th{background:#1F4E79;color:#fff;padding:6px 8px;text-align:left;font-weight:600;font-size:9.5pt;text-transform:uppercase;letter-spacing:.3px}
-.tbl td{padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+.tbl td{padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+.tbl th{vertical-align:middle}
 .tbl tr:nth-child(even) td{background:#f8fafc}
 .tbl .num{text-align:center;width:35px;color:#64748b;font-weight:600}
 .tbl .present{color:#1F4E79;font-weight:600}
@@ -270,7 +273,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;font-size:11pt;color:#1e293b
                     </table>
                     @elseif($bloc['type'] === 'reference' && !empty($bloc['contenu']))
                     @php [$rLabel, $rBg, $rBorder] = $refStyles[$bloc['ref_type'] ?? 'remarque'] ?? $refStyles['remarque']; @endphp
-                    <div style="background:{{ $rBg }};border-left:4px solid {{ $rBorder }};border-radius:6px;padding:8px 12px;margin:6px 0 10px">
+                    <div style="background:{{ $rBg }};border-radius:6px;padding:8px 12px;margin:6px 0 10px">
                         <div style="font-weight:700;color:{{ $rBorder }};font-size:9.5pt;margin-bottom:3px;text-transform:uppercase">{{ $rLabel }}</div>
                         <div class="contenu" style="padding:0;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
                     </div>

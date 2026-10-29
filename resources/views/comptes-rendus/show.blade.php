@@ -10,6 +10,8 @@
 .section h3{font-size:1rem;font-weight:700;color:var(--bleu,#1F4E79);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #DDEAF5}
 .section .cr-contenu{font-size:.9rem;color:#334155;line-height:1.6;padding:0 8px;overflow-wrap:break-word;word-break:break-word;max-width:100%;text-align:justify}
 .section .cr-contenu *{font-family:inherit!important;font-size:inherit!important;color:inherit!important;background:none!important;line-height:inherit!important}
+@foreach(\App\Http\Controllers\CompteRenduController::COULEURS as $n => [$lib, $hex]).section .cr-contenu .tc-{{ $n }}{color:#{{ $hex }}!important}
+@endforeach
 .section .cr-contenu a{text-decoration:none!important}
 .section .cr-contenu .lh-10{line-height:1!important}
 .section .cr-contenu .lh-115{line-height:1.15!important}
@@ -177,9 +179,9 @@
             'fondamental'    => ['label' => 'Fondamental',    'bg' => '#FFF8E1', 'border' => '#F9A825'],
             'attention'      => ['label' => 'Attention',      'bg' => '#FFF3E0', 'border' => '#E6A817'],
             'remarque'       => ['label' => 'Remarque',       'bg' => '#E8EEF4', 'border' => '#2E74B5'],
-            'methode'        => ['label' => 'Methode',        'bg' => '#F3E8F9', 'border' => '#7B2D8E'],
+            'methode'        => ['label' => 'Méthode',        'bg' => '#F3E8F9', 'border' => '#7B2D8E'],
             'conseil'        => ['label' => 'Conseil',        'bg' => '#FFF8E1', 'border' => '#EF6C00'],
-            'definition'     => ['label' => 'Definition',     'bg' => '#E3F2FD', 'border' => '#1565C0'],
+            'definition'     => ['label' => 'Définition',     'bg' => '#E3F2FD', 'border' => '#1565C0'],
             'exemple'        => ['label' => 'Exemple',        'bg' => '#F1F8E9', 'border' => '#558B2F'],
             'bonne_pratique' => ['label' => 'Bonne pratique', 'bg' => '#E0F2FE', 'border' => '#0288D1'],
             'blocage'        => ['label' => 'Blocage',        'bg' => '#FEECEC', 'border' => '#CC3333'],
@@ -229,7 +231,7 @@
                         <div class="cr-contenu" style="margin-bottom:10px;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
                         @elseif($bloc['type'] === 'tableau_taches' && !empty($d['taches']))
                         <table class="tbl" style="margin-bottom:10px">
-                            <thead><tr><th style="width:40px">N</th><th>Tache</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:50px">OK</th><th>Observation</th></tr></thead>
+                            <thead><tr><th style="width:40px">N</th><th>Tâche</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:70px">Réalisée</th><th>Observation</th></tr></thead>
                             <tbody>
                             @foreach($d['taches'] as $ti => $t)
                             <tr>
@@ -250,7 +252,7 @@
                         </div>
                         @elseif($bloc['type'] === 'actions' && !empty($bloc['items']))
                         <table class="tbl" style="margin-bottom:10px">
-                            <thead><tr><th style="width:40px">N</th><th>Action</th><th>Responsable(s)</th><th style="width:120px">Echeance</th></tr></thead>
+                            <thead><tr><th style="width:40px">N</th><th>Action</th><th>Responsable(s)</th><th style="width:120px">Échéance</th></tr></thead>
                             <tbody>
                             @foreach($bloc['items'] as $ai => $act)
                             @php $rAct = $act['responsables'] ?? []; @endphp
@@ -265,7 +267,7 @@
                         </table>
                         @elseif($bloc['type'] === 'reference' && !empty($bloc['contenu']))
                         @php $rs = $refStyles[$bloc['ref_type'] ?? 'remarque'] ?? $refStyles['remarque']; @endphp
-                        <div style="background:{{ $rs['bg'] }};border-left:4px solid {{ $rs['border'] }};border-radius:8px;padding:12px 16px;margin-bottom:10px">
+                        <div style="background:{{ $rs['bg'] }};border-radius:8px;padding:12px 16px;margin-bottom:10px">
                             <div style="font-weight:700;color:{{ $rs['border'] }};font-size:.85rem;margin-bottom:4px;display:flex;align-items:center;gap:6px">
                                 {!! $refIcons[$bloc['ref_type'] ?? 'remarque'] ?? '' !!} {{ $rs['label'] }}
                             </div>
@@ -282,10 +284,10 @@
             {{-- ANCIEN FORMAT (backward compat) --}}
             @if(!empty($d['taches']))
             <div class="section">
-                <h3>Resultats par tache</h3>
+                <h3>Résultats par tâche</h3>
                 <div style="font-size:.85rem;color:#64748b;margin-bottom:10px">Sprint : <strong>{{ $d['sprint'] ?? '---' }}</strong> --- Projet : <strong>{{ $d['projet'] ?? '---' }}</strong></div>
                 <table class="tbl">
-                    <thead><tr><th style="width:40px">N</th><th>Tache</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:50px">OK</th><th>Observation</th></tr></thead>
+                    <thead><tr><th style="width:40px">N</th><th>Tâche</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:70px">Réalisée</th><th>Observation</th></tr></thead>
                     <tbody>
                     @foreach($d['taches'] as $i => $t)
                     <tr>
@@ -307,9 +309,9 @@
             </div>
             @if(!empty($d['actions_a_mener']))
             <div class="section">
-                <h3>Actions a mener</h3>
+                <h3>Actions à mener</h3>
                 <table class="tbl">
-                    <thead><tr><th style="width:40px">N</th><th>Action</th><th>Responsable(s)</th><th style="width:120px">Echeance</th></tr></thead>
+                    <thead><tr><th style="width:40px">N</th><th>Action</th><th>Responsable(s)</th><th style="width:120px">Échéance</th></tr></thead>
                     <tbody>
                     @foreach($d['actions_a_mener'] as $i => $a)
                     @php $rAct = $a['responsables'] ?? (isset($a['responsable']) && $a['responsable'] ? [$a['responsable']] : []); @endphp
@@ -336,7 +338,7 @@
                 @foreach($d['annotations'] as $ann)
                     @if(!empty($ann['contenu']))
                     @php $rs = $refStyles[$ann['type'] ?? 'remarque'] ?? $refStyles['remarque']; @endphp
-                    <div style="background:{{ $rs['bg'] }};border-left:4px solid {{ $rs['border'] }};border-radius:8px;padding:12px 16px;margin-bottom:10px">
+                    <div style="background:{{ $rs['bg'] }};border-radius:8px;padding:12px 16px;margin-bottom:10px">
                         <div style="font-weight:700;color:{{ $rs['border'] }};font-size:.88rem;margin-bottom:4px">{!! $refIcons[$ann['type'] ?? 'remarque'] ?? '' !!} {{ $rs['label'] }}</div>
                         <div style="font-size:.88rem;color:#334155;line-height:1.5">{{ $ann['contenu'] }}</div>
                     </div>

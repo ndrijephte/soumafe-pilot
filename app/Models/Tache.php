@@ -37,6 +37,27 @@ class Tache extends Model
      * Tâches en retard : non terminées, échéance dépassée. Une tâche d'un sprint clôturé n'est plus en retard :
      * sa qualité est figée à la clôture (« non terminée au sprint ») et ne pèse pas sur les périodes suivantes.
      */
+    /**
+     * Tâche archivée : rattachée à un sprint clôturé (sa qualité est figée au sprint), ou tâche hors sprint
+     * terminée avant le début de la période d'exercice en cours (05 → 04). Consultable sur demande uniquement.
+     */
+    public function scopeArchivees($q)
+    {
+        $debut = \App\Services\PeriodeExercice::debut(today());
+        return $q->where(fn ($w) => $w->whereHas('sprint', fn ($s) => $s->where('statut', 'termine'))
+            ->orWhere(fn ($h) => $h->whereNull('sprint_id')->where('statut', 'termine')->whereDate('date_fin_reelle', '<', $debut)));
+    }
+
+    public function scopeNonArchivees($q)
+    {
+        $debut = \App\Services\PeriodeExercice::debut(today());
+        return $q->whereDoesntHave('sprint', fn ($s) => $s->where('statut', 'termine'))
+            ->where(fn ($w) => $w->whereNotNull('sprint_id')
+                ->orWhere('statut', '!=', 'termine')
+                ->orWhereNull('date_fin_reelle')
+                ->orWhereDate('date_fin_reelle', '>=', $debut));
+    }
+
     public function scopeEnRetard($q)
     {
         return $q->whereNull('date_fin_reelle')->whereNotIn('statut', ['termine', 'reporte'])

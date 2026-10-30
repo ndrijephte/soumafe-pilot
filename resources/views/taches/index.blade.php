@@ -11,12 +11,13 @@
     .col:hover{background:#e8edf4}
     .col h4{font-size:11px;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
     .col h4 span{background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}
-    .tache{background:#fff;border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12.5px;cursor:grab;transition:box-shadow .15s,transform .1s;-webkit-user-select:none;user-select:none}
+    .tache{position:relative;background:#fff;border:1px solid var(--bord);border-radius:8px;padding:10px 26px 10px 12px;margin-bottom:8px;font-size:12.5px;cursor:grab;transition:box-shadow .15s,transform .1s;-webkit-user-select:none;user-select:none}
     .tache:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-1px)}
     .tache-ghost{position:fixed;pointer-events:none;z-index:999;opacity:.85;box-shadow:0 8px 24px rgba(0,0,0,.18);border-radius:8px;transform:rotate(2deg)}
     .col.drop-target{background:#dbeafe !important;border:2px dashed var(--accent)}
     /* Voyant d'échéance : rouge en retard, orange ≤ 2 j, jaune ≤ 5 j, vert au-delà, gris sans échéance, bleu terminée */
-    .voyant{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px;flex:none}
+    .du-jour{display:table;margin:0 0 5px;padding:1px 8px;border-radius:999px;background:#eef4fb;border:1px solid #bfdbfe;color:#2e74b5;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+    .voyant{position:absolute;top:10px;right:10px;width:9px;height:9px;border-radius:50%}
     .voyant.v-retard{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18);animation:pulse-v 1.8s ease-in-out infinite}
     .voyant.v-proche{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)}
     .voyant.v-semaine{background:#eab308;box-shadow:0 0 0 3px rgba(234,179,8,.16)}
@@ -50,7 +51,7 @@
     @media(max-width:600px){
         .kanban{grid-template-columns:1fr}
         dialog{width:min(430px,92vw);padding:16px}
-        .tache{font-size:12px;padding:8px 10px}
+        .tache{font-size:12px;padding:8px 24px 8px 10px}
         .tache .meta{flex-direction:column;gap:2px}
     }
 </style>
@@ -67,7 +68,12 @@
 
 <div class="barre-outils">
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Nouvelle tâche</button>
-    <form method="GET" style="margin-left:auto;display:flex;gap:8px">
+    <form method="GET" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <select name="affichage" class="filtre-select" onchange="this.form.submit()" title="Les archives regroupent les tâches des sprints clôturés et les tâches terminées avant l'exercice en cours">
+            <option value="actives" @selected($affichage === 'actives')>Tâches actives</option>
+            <option value="archives" @selected($affichage === 'archives')>Archives ({{ $nbArchivees }})</option>
+            <option value="toutes" @selected($affichage === 'toutes')>Toutes les tâches</option>
+        </select>
         <select name="projet" class="filtre-select" onchange="this.form.submit()">
             <option value="">Projet : tous</option>
             @foreach($projets as $p)<option value="{{ $p->id }}" @selected(request('projet')==$p->id)>{{ $p->libelle }}</option>@endforeach
@@ -81,6 +87,11 @@
     </form>
 </div>
 
+@if($affichage === 'archives')
+<div class="carte" style="margin-bottom:12px;padding:10px 14px;font-size:12.5px;color:#475569;background:#f8fafc;border-color:#e2e8f0">
+    Consultation des archives : tâches des sprints clôturés et tâches hors sprint terminées avant le {{ $debutExercice->format('d/m/Y') }} (début de l'exercice en cours). Elles ne sont plus modifiables depuis ce tableau.
+</div>
+@endif
 <div class="kanban">
     @foreach($colonnes as $code => $libelle)
     <div class="col" data-statut="{{ $code }}" ondragover="event.preventDefault()" ondrop="deposer(event,'{{ $code }}')">
@@ -89,7 +100,7 @@
         @foreach($taches[$code] ?? [] as $t)
         @php
             $sprintBloque = $t->sprint_id && $t->sprint?->statut !== 'en_cours';
-            $peutDrag = $code !== 'termine' && !$sprintBloque;
+            $peutDrag = $code !== 'termine' && !$sprintBloque && $affichage !== 'archives';
         @endphp
         @php
             // Voyant : jours restants avant l'échéance
@@ -106,10 +117,12 @@
         @endphp
         <div class="tache" data-collapse-item
              draggable="{{ $peutDrag ? 'true' : 'false' }}" @if($peutDrag)ondragstart="event.dataTransfer.setData('id',{{ $t->id }})"@endif style="{{ !$peutDrag ? 'cursor:default;opacity:.55' : '' }}" @if($sprintBloque) title="Sprint {{ $t->sprint?->statut === 'planifie' ? 'non démarré' : 'terminé' }}"@endif>
+            <i class="voyant {{ $voyant }}" title="{{ $voyantTitre }}"></i>
+            @if($code === 'a_faire' && \App\Http\Controllers\TacheController::estDuJour($t))<span class="du-jour" title="Tâche à réaliser aujourd'hui">Aujourd'hui</span>@endif
             <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
             <div class="meta">
                 <span>{{ $t->projet?->libelle ?? $t->activite ?? '—' }}</span>
-                @if($code === 'termine')<span title="{{ $voyantTitre }}"><i class="voyant {{ $voyant }}"></i>Fait le {{ \App\Http\Controllers\TacheController::dateActivite($t)->format('d/m') }}</span>@else<span title="{{ $voyantTitre }}"><i class="voyant {{ $voyant }}"></i>{{ $t->echeance?->format('d/m') ?? 'sans échéance' }}</span>@endif
+                @if($code === 'termine')<span>Fait le {{ \App\Http\Controllers\TacheController::dateActivite($t)->format('d/m') }}</span>@else<span>{{ $t->echeance?->format('d/m') ?? 'sans échéance' }}</span>@endif
             </div>
         </div>
         @endforeach

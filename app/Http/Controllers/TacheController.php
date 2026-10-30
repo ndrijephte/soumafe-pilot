@@ -18,8 +18,14 @@ class TacheController extends Controller
             return redirect()->route('dashboard');
         }
 
+        // Affichage : tâches actives (défaut), archives (sprints clôturés, terminées avant l'exercice) ou tout
+        $affichage = in_array($r->affichage, ['archives', 'toutes'], true) ? $r->affichage : 'actives';
+        $nbArchivees = Tache::where('user_id', $r->user()->id)->archivees()->count();
+
         $taches = Tache::with(['projet', 'sprint'])
             ->where('user_id', $r->user()->id)
+            ->when($affichage === 'actives', fn ($q) => $q->nonArchivees())
+            ->when($affichage === 'archives', fn ($q) => $q->archivees())
             ->when($r->projet, fn ($q) => $q->where('projet_id', $r->projet))
             ->when($r->type, fn ($q) => $q->where('type', $r->type))
             ->when($r->priorite, fn ($q) => $q->where('priorite', $r->priorite))
@@ -33,12 +39,30 @@ class TacheController extends Controller
             ->groupBy('statut')
             ->map->values();
 
+        // À faire : les tâches du jour en tête (même définition que la saisie quotidienne), puis les autres
+        if (isset($taches['a_faire']) && $affichage !== 'archives') {
+            [$duJour, $autres] = $taches['a_faire']->partition(fn ($t) => self::estDuJour($t));
+            $taches['a_faire'] = $duJour->concat($autres)->values();
+        }
+
         return view('taches.index', [
             'taches'  => $taches,
+            'affichage' => $affichage,
+            'nbArchivees' => $nbArchivees,
+            'debutExercice' => \App\Services\PeriodeExercice::debut(today()),
             'vue'     => $r->get('vue', 'kanban'),
             'projets' => Projet::orderBy('libelle')->get(),
             'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
         ]);
+    }
+
+    /** Tâche du jour : commencée, échéance non dépassée, hors sprint ou sprint en cours (T3 : toujours). */
+    public static function estDuJour(Tache $t): bool
+    {
+        if (in_array($t->statut, ['termine', 'reporte'], true)) return false;
+        if ($t->sprint_id && $t->sprint?->statut !== 'en_cours') return false;
+        if ($t->type === 'T3') return true;
+        return $t->date_debut && $t->date_debut->lte(today()) && (!$t->echeance || $t->echeance->gte(today()));
     }
 
     /** Date d'une activité dans « Mes tâches » : fin réelle si terminée, sinon échéance, début ou création. */

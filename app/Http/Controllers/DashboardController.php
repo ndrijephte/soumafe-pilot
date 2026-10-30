@@ -407,6 +407,9 @@ class DashboardController extends Controller
         if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s) sur tous les projets."];
         if ($enRetard > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$enRetard} tâche(s) en retard."];
         // Sprints à cheval sur deux périodes d'exercice (05 → 04) en attente d'arbitrage
+        // Sprint dont la date de fin est passée mais non clôturé : ses tâches restent actives (et en retard)
+        $echus = Sprint::with('projet')->where('statut', 'en_cours')->whereDate('date_fin', '<', today())->orderBy('date_fin')->get();
+        if ($echus->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $echus->count() . ' sprint(s) échu(s) non clôturé(s) : ' . $echus->map(fn($s) => ($s->projet->code ?: $s->projet->libelle) . ' Sprint ' . $s->numero . ' (fin ' . $s->date_fin->format('d/m') . ')')->join(', ') . '. À clôturer pour archiver leurs tâches.'];
         $aArbitrer = Sprint::whereDate('date_fin', '>=', today()->subMonths(3))->get()->filter->arbitragePeriodeRequis();
         if ($aArbitrer->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $aArbitrer->count() . " sprint(s) à cheval sur deux périodes d'exercice : arbitrage requis (" . $aArbitrer->map(fn($s) => 'Sprint ' . $s->numero)->join(', ') . ').'];
 

@@ -3,11 +3,12 @@
 @section('titre', 'Journal d\'audit')
 @push('styles')
 <style>
-.audit-filtres{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding:14px;background:var(--carte);border:1px solid var(--bord);border-radius:12px}
+.audit-filtres{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:10px 12px;align-items:end;margin-bottom:16px;padding:14px;background:var(--carte);border:1px solid var(--bord);border-radius:12px}
+.audit-filtres .af-actions{display:flex;gap:8px}
 .audit-filtres label{display:block;font-size:11px;font-weight:600;color:var(--gris);text-transform:uppercase;margin-bottom:3px}
-.audit-filtres select,.audit-filtres input{padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;min-width:140px}
+.audit-filtres select,.audit-filtres input{width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;min-width:0;background:#fff}
 .audit-filtres select:focus,.audit-filtres input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
-.audit-filtres .btn{background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;align-self:flex-end}
+.audit-filtres .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none;text-align:center;white-space:nowrap}
 .audit-filtres .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
 .audit-tbl{width:100%;border-collapse:collapse;font-size:13px}
 .audit-tbl th{text-align:left;color:var(--gris);font-weight:600;padding:8px 10px;border-bottom:2px solid var(--bord);font-size:11.5px;text-transform:uppercase;white-space:nowrap}
@@ -29,10 +30,13 @@
 .audit-pag .active span{background:var(--accent);color:#fff;border-color:var(--accent)}
 .audit-pag .disabled span{opacity:.4}
 .audit-vide{text-align:center;padding:40px;color:var(--gris);font-size:14px}
-@media(max-width:768px){
-    .audit-filtres{flex-direction:column}
-    .audit-filtres select,.audit-filtres input{width:100%;min-width:0}
-    .audit-filtres .btn{width:100%}
+@media(max-width:900px){
+    .audit-filtres{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .audit-filtres .af-actions{grid-column:1/-1}
+    .audit-filtres .af-actions .btn{flex:1}
+}
+@media(max-width:480px){
+    .audit-filtres .af-large{grid-column:1/-1}
 }
 @media(max-width:600px){
     .audit-tbl .col-ip{display:none}
@@ -54,7 +58,7 @@ $ic = fn(string $d, int $s=17) => '<svg viewBox="0 0 24 24" width="'.$s.'" heigh
 </div>
 
 <form method="GET" action="{{ route('admin.audit.index') }}" class="audit-filtres">
-    <div>
+    <div class="af-large">
         <label>Module</label>
         <select name="module">
             <option value="">Tous</option>
@@ -63,7 +67,7 @@ $ic = fn(string $d, int $s=17) => '<svg viewBox="0 0 24 24" width="'.$s.'" heigh
             @endforeach
         </select>
     </div>
-    <div>
+    <div class="af-large">
         <label>Action</label>
         <select name="action">
             <option value="">Toutes</option>
@@ -80,10 +84,12 @@ $ic = fn(string $d, int $s=17) => '<svg viewBox="0 0 24 24" width="'.$s.'" heigh
         <label>Au</label>
         <input type="date" name="date_fin" value="{{ request('date_fin') }}">
     </div>
-    <button type="submit" class="btn">Filtrer</button>
-    @if(request()->hasAny(['module','action','date_debut','date_fin']))
-    <a href="{{ route('admin.audit.index') }}" class="btn sec">Effacer</a>
-    @endif
+    <div class="af-actions">
+        <button type="submit" class="btn">Filtrer</button>
+        @if(request()->hasAny(['module','action','date_debut','date_fin']))
+        <a href="{{ route('admin.audit.index') }}" class="btn sec">Effacer</a>
+        @endif
+    </div>
 </form>
 
 @if($logs->isEmpty())
@@ -122,7 +128,7 @@ $ic = fn(string $d, int $s=17) => '<svg viewBox="0 0 24 24" width="'.$s.'" heigh
 </div>
 
 <div class="audit-pag">
-    {{ $logs->links('pagination::bootstrap-4') }}
+    {{ $logs->links() }}
 </div>
 @endif
 @endsection

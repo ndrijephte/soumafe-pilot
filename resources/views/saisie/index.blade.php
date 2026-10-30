@@ -41,6 +41,13 @@ dialog textarea{min-height:60px;resize:vertical}
 .hist-line:last-child{border:none}
 .st-saisi{color:var(--ok)}.st-justifie{color:var(--accent)}.st-a_justifier{color:var(--ko)}
 .grille{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
+.justif-ligne{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9}
+.justif-ligne:last-child{border-bottom:none}
+.justif-date{flex:none;font-size:12.5px;font-weight:600;min-width:96px;color:var(--bleu)}
+.justif-motif{flex:none;width:110px;padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:12px;background:#fff}
+.justif-texte{flex:1;min-width:0;padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
+@media(max-width:600px){.justif-ligne{flex-wrap:wrap}.justif-date{width:100%}.justif-motif{flex:1}.justif-texte{flex-basis:100%;order:3}}
 @media(max-width:768px){
     .grille{grid-template-columns:1fr}
     .tache-confirm{flex-direction:column;gap:8px}
@@ -61,6 +68,12 @@ dialog textarea{min-height:60px;resize:vertical}
 
 @if(session('succes'))
 <div class="alerte ok">{{ session('succes') }}</div>
+@endif
+@if(session('erreur'))
+<div class="alerte ko">{{ session('erreur') }}</div>
+@endif
+@if($errors->any())
+<div class="alerte ko">{{ $errors->first() }}</div>
 @endif
 
 <div class="section">
@@ -110,7 +123,7 @@ dialog textarea{min-height:60px;resize:vertical}
     @endforelse
 </div>
 
-<div class="grille">
+<div class="{{ auth()->user()->estPilote() ? 'grille' : '' }}">
     @if(auth()->user()->estPilote())
     <div class="section">
         <div class="section-titre">
@@ -130,6 +143,8 @@ dialog textarea{min-height:60px;resize:vertical}
             </div>
             @endforeach
         </div>
+        @else
+        <div class="carte" style="text-align:center;color:var(--gris);font-size:13px;padding:16px;margin-bottom:8px">Aucun &eacute;v&eacute;nement signal&eacute; aujourd'hui.</div>
         @endif
         <button class="btn sm sec" onclick="document.getElementById('dlg-evt').showModal()" style="display:inline-flex;align-items:center;gap:5px;font-size:12px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Signaler</button>
     </div>
@@ -143,17 +158,17 @@ dialog textarea{min-height:60px;resize:vertical}
         @if($jours->count() > 0)
         <div class="carte">
             @foreach($jours as $j)
-            <form method="POST" action="{{ route('saisie.justifier', $j) }}" style="display:flex;gap:8px;align-items:flex-end;padding:8px 0;border-bottom:1px solid #f1f5f9;flex-wrap:wrap">
+            <form method="POST" action="{{ route('saisie.justifier', $j) }}" class="justif-ligne">
                 @csrf
                 @method('PATCH')
-                <div style="flex:none;font-size:13px;font-weight:600;min-width:70px">{{ $j->date->format('d/m/Y') }}</div>
-                <select name="motif_type" style="flex:none;width:110px;padding:6px 8px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
+                <div class="justif-date">{{ ucfirst($j->date->translatedFormat('D d/m/Y')) }}</div>
+                <select name="motif_type" class="justif-motif">
                     <option value="autre">Autre</option>
                     <option value="conge">Cong&eacute;</option>
                     <option value="mission">Mission</option>
                     <option value="maladie">Maladie</option>
                 </select>
-                <input name="justification" placeholder="Précisez..." required style="flex:1;padding:6px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px">
+                <input name="justification" placeholder="Précisez…" required maxlength="500" class="justif-texte">
                 <button type="submit" class="btn-ic-s accent"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Envoyer</button>
             </form>
             @endforeach
@@ -193,6 +208,24 @@ dialog textarea{min-height:60px;resize:vertical}
                 </form>
                 @endif
             </div>
+        </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
+@if(auth()->user()->estPilote() && $justificationsEnAttente->isNotEmpty())
+<div class="section">
+    <div class="section-titre">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Justifications re&ccedil;ues ({{ $justificationsEnAttente->count() }})
+    </div>
+    <div class="carte">
+        @foreach($justificationsEnAttente as $js)
+        <div style="padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:12.5px">
+            <strong>{{ $js->user?->nomComplet() ?? '—' }}</strong>
+            <span style="color:var(--gris);margin-left:6px">{{ ucfirst($js->date->translatedFormat('D d/m/Y')) }}</span>
+            @if($js->justification)<div style="font-size:12px;color:#475569;margin-top:2px">{{ $js->justification->contenu }}</div>@endif
         </div>
         @endforeach
     </div>

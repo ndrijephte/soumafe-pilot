@@ -19,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Pagination aux couleurs de l'application (horizontale, responsive)
+        \Illuminate\Pagination\Paginator::defaultView('vendor.pagination.soumafe');
     }
 }

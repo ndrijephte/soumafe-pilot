@@ -23,19 +23,15 @@ class TacheController extends Controller
             ->when($r->projet, fn ($q) => $q->where('projet_id', $r->projet))
             ->when($r->type, fn ($q) => $q->where('type', $r->type))
             ->when($r->priorite, fn ($q) => $q->where('priorite', $r->priorite))
-            ->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")
-            ->orderBy('echeance')
             ->get()
-            ->groupBy('statut');
-
-        // Tâches terminées : tri par date de fin décroissante (récente → ancienne)
-        if (isset($taches['termine'])) {
-            // date_fin_reelle n'a pas d'heure : updated_at départage les tâches finies le même jour
-            $taches['termine'] = $taches['termine']->sortBy([
-                fn ($a, $b) => ($b->date_fin_reelle ?? $b->updated_at)->format('Y-m-d') <=> ($a->date_fin_reelle ?? $a->updated_at)->format('Y-m-d'),
+            // Toutes les colonnes : de la date la plus récente à la plus ancienne (date affichée sur la carte),
+            // la dernière modification départageant les tâches d'un même jour
+            ->sortBy([
+                fn ($a, $b) => self::dateActivite($b)->format('Y-m-d') <=> self::dateActivite($a)->format('Y-m-d'),
                 fn ($a, $b) => $b->updated_at <=> $a->updated_at,
-            ])->values();
-        }
+            ])
+            ->groupBy('statut')
+            ->map->values();
 
         return view('taches.index', [
             'taches'  => $taches,
@@ -43,6 +39,14 @@ class TacheController extends Controller
             'projets' => Projet::orderBy('libelle')->get(),
             'colonnes' => ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'termine' => 'Terminé'],
         ]);
+    }
+
+    /** Date d'une activité dans « Mes tâches » : fin réelle si terminée, sinon échéance, début ou création. */
+    public static function dateActivite(Tache $t): \Carbon\CarbonInterface
+    {
+        return $t->statut === 'termine'
+            ? ($t->date_fin_reelle ?? $t->updated_at)
+            : ($t->echeance ?? $t->date_debut ?? $t->created_at);
     }
 
     /** Vue pilote : toutes les tâches de tous les collaborateurs avec filtres. */

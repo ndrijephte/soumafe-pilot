@@ -14,8 +14,8 @@ class ControleSaisie extends Command
     {
         $date = $this->option('date') ? \Carbon\Carbon::parse($this->option('date')) : today()->subDay();
 
-        if (!\App\Services\CalendrierTravail::estJourTravaille($date)) { $this->info("$date n'est pas un jour travaillé - pas de contrôle."); return 0; }
-        if (JourFerie::whereDate('date', $date)->exists()) { $this->info("$date est un jour férié - pas de contrôle."); return 0; }
+        // Jour ouvré selon les horaires en vigueur, les jours fériés et les jours ouvrables spéciaux
+        if (!\App\Services\CalendrierTravail::estJourOuvre($date)) { $this->info("{$date->format('d/m/Y')} n'est pas un jour ouvré - pas de contrôle."); return 0; }
 
         $users = User::where('actif', true)
             ->whereNotIn('role', ['direction', 'invite'])
@@ -24,6 +24,8 @@ class ControleSaisie extends Command
         $manquants = 0;
 
         foreach ($users as $u) {
+            // Compte créé après la date contrôlée : rien à lui reprocher
+            if ($u->created_at && $u->created_at->copy()->startOfDay()->gt($date)) continue;
             // Déjà traité ?
             if (JourSaisie::where('user_id', $u->id)->whereDate('date', $date)->exists()) continue;
 
@@ -38,13 +40,16 @@ class ControleSaisie extends Command
                 continue;
             }
 
-            // Tâches planifiées ce jour-là (même logique que la page saisie)
+            // Tâches planifiées ce jour-là (même logique que la page saisie) : en cours de réalisation à cette date,
+            // hors sprint ou dans un sprint qui couvre la date ; une tâche terminée avant la date n'est plus attendue
             $tachesPlanifiees = Tache::where('user_id', $u->id)
                 ->whereDate('date_debut', '<=', $date)
                 ->where(function ($q) use ($date) {
                     $q->whereNull('echeance')->orWhereDate('echeance', '>=', $date);
                 })
                 ->whereIn('statut', ['a_faire', 'en_cours', 'bloque', 'termine'])
+                ->where(fn ($q) => $q->where('statut', '!=', 'termine')->orWhereDate('date_fin_reelle', '>=', $date))
+                ->where(fn ($q) => $q->whereNull('sprint_id')->orWhereHas('sprint', fn ($s) => $s->whereDate('date_debut', '<=', $date)->whereDate('date_fin', '>=', $date)))
                 ->pluck('id');
 
             if ($tachesPlanifiees->isEmpty()) {
@@ -61,10 +66,13 @@ class ControleSaisie extends Command
             $nbConfirmations = 0;
             $nbNonConfirmees = 0;
 
-            if (Schema::hasTable('confirmation_taches')) {
+            if (Schema::hasTable((new ConfirmationTache())->getTable())) {
+                // Confirmées / infirmées ce jour, ou terminées ce jour (kanban)
                 $confirmees = ConfirmationTache::where('user_id', $u->id)
                     ->whereDate('date', $date)
-                    ->pluck('tache_id');
+                    ->pluck('tache_id')
+                    ->merge(Tache::where('user_id', $u->id)->where('statut', 'termine')->whereDate('date_fin_reelle', $date)->pluck('id'))
+                    ->unique();
 
                 $nbConfirmations = $confirmees->count();
                 $nbNonConfirmees = $tachesPlanifiees->diff($confirmees)->count();

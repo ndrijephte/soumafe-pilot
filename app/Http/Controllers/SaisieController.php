@@ -45,10 +45,11 @@ class SaisieController extends Controller
             ? ConfirmationTache::where('user_id', $userId)->whereDate('date', today())->pluck('statut', 'tache_id')
             : collect();
 
-        // Jours à justifier
+        // Jours à justifier (un jour devenu non ouvré depuis - férié ajouté, horaires modifiés - n'est plus à justifier)
         $jours = JourSaisie::where('user_id', $userId)
             ->where('statut', 'a_justifier')
-            ->orderByDesc('date')->get();
+            ->orderByDesc('date')->get()
+            ->filter(fn ($j) => \App\Services\CalendrierTravail::estJourOuvre($j->date))->values();
 
         // Événements du jour
         $evenementsDuJour = Evenement::where('user_id', $userId)
@@ -111,7 +112,7 @@ class SaisieController extends Controller
             }
 
             // Justifications soumises en attente de validation pilote
-            $justificationsEnAttente = JourSaisie::with('user')
+            $justificationsEnAttente = JourSaisie::with(['user', 'justification'])
                 ->where('statut', 'justifie')
                 ->orderByDesc('date')->limit(20)->get();
 

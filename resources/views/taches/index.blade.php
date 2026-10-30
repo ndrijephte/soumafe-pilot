@@ -15,7 +15,15 @@
     .tache:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-1px)}
     .tache-ghost{position:fixed;pointer-events:none;z-index:999;opacity:.85;box-shadow:0 8px 24px rgba(0,0,0,.18);border-radius:8px;transform:rotate(2deg)}
     .col.drop-target{background:#dbeafe !important;border:2px dashed var(--accent)}
-    .tache.retard{border-left:3px solid var(--ko)}
+    /* Voyant d'échéance : rouge en retard, orange ≤ 2 j, jaune ≤ 5 j, vert au-delà, gris sans échéance, bleu terminée */
+    .voyant{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px;flex:none}
+    .voyant.v-retard{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18);animation:pulse-v 1.8s ease-in-out infinite}
+    .voyant.v-proche{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)}
+    .voyant.v-semaine{background:#eab308;box-shadow:0 0 0 3px rgba(234,179,8,.16)}
+    .voyant.v-ok{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+    .voyant.v-aucune{background:#cbd5e1}
+    .voyant.v-fait{background:#2e74b5;box-shadow:0 0 0 3px rgba(46,116,181,.15)}
+    @keyframes pulse-v{50%{box-shadow:0 0 0 5px rgba(220,38,38,.06)}}
     .tache .meta{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--gris)}
     .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer}
     .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
@@ -83,12 +91,25 @@
             $sprintBloque = $t->sprint_id && $t->sprint?->statut !== 'en_cours';
             $peutDrag = $code !== 'termine' && !$sprintBloque;
         @endphp
-        <div class="tache {{ $t->echeance?->isPast() && $code !== 'termine' ? 'retard' : '' }}" data-collapse-item
+        @php
+            // Voyant : jours restants avant l'échéance
+            $reste = $t->echeance ? (int) today()->diffInDays($t->echeance->copy()->startOfDay(), false) : null;
+            [$voyant, $voyantTitre] = match (true) {
+                $code === 'termine' => ['v-fait', 'Terminée'],
+                $reste === null => ['v-aucune', 'Sans échéance'],
+                $reste < 0 => ['v-retard', 'En retard de ' . abs($reste) . ' jour(s)'],
+                $reste === 0 => ['v-proche', "Échéance aujourd'hui"],
+                $reste <= 2 => ['v-proche', "Échéance dans {$reste} jour(s)"],
+                $reste <= 5 => ['v-semaine', "Échéance dans {$reste} jours"],
+                default => ['v-ok', "Échéance dans {$reste} jours"],
+            };
+        @endphp
+        <div class="tache" data-collapse-item
              draggable="{{ $peutDrag ? 'true' : 'false' }}" @if($peutDrag)ondragstart="event.dataTransfer.setData('id',{{ $t->id }})"@endif style="{{ !$peutDrag ? 'cursor:default;opacity:.55' : '' }}" @if($sprintBloque) title="Sprint {{ $t->sprint?->statut === 'planifie' ? 'non démarré' : 'terminé' }}"@endif>
             <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
             <div class="meta">
                 <span>{{ $t->projet?->libelle ?? $t->activite ?? '—' }}</span>
-                <span>{{ $t->echeance?->format('d/m') ?? 'sans échéance' }}</span>
+                @if($code === 'termine')<span title="{{ $voyantTitre }}"><i class="voyant {{ $voyant }}"></i>Fait le {{ \App\Http\Controllers\TacheController::dateActivite($t)->format('d/m') }}</span>@else<span title="{{ $voyantTitre }}"><i class="voyant {{ $voyant }}"></i>{{ $t->echeance?->format('d/m') ?? 'sans échéance' }}</span>@endif
             </div>
         </div>
         @endforeach

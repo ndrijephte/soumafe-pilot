@@ -236,14 +236,33 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
                 @foreach($sec['blocs'] ?? [] as $bloc)
                     @if($bloc['type'] === 'texte' && !empty($bloc['contenu']))
                     <div class="contenu" style="margin-bottom:8px;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
-                    @elseif($bloc['type'] === 'tableau_taches' && !empty($d['taches']))
+                    @elseif($bloc['type'] === 'tableau_stories' && !empty($d['stories']))
+                        <table class="tbl" style="margin-bottom:10px">
+                            <thead><tr><th>Module › Epic</th><th>User story</th><th style="width:120px">Exécution</th><th style="width:70px;text-align:center">Tâches</th><th style="width:50px;text-align:center">Pts</th><th style="width:90px">Statut</th></tr></thead>
+                            <tbody>
+                            @php $grp = null; @endphp
+                            @foreach($d['stories'] as $st)
+                            @php $ctx = $st['module'] . ($st['epic'] ? ' › ' . $st['epic'] : ''); @endphp
+                            <tr>
+                                <td style="color:#475569;font-size:.8rem">{{ $ctx !== $grp ? $ctx : '' }}</td>
+                                <td><strong>{{ $st['numero'] }}</strong> {{ $st['intitule'] }}</td>
+                                <td><span style="display:inline-block;width:46px;height:5px;background:#e5eaf1;border-radius:5px;vertical-align:middle;overflow:hidden"><span style="display:block;height:100%;width:{{ $st['niveau'] }}%;background:{{ $st['niveau'] >= 100 ? '#16a34a' : '#2e74b5' }}"></span></span> <strong>{{ $st['niveau'] }} %</strong>@if(($st['origine'] ?? '') === 'declare')<small style="color:#2e74b5"> déclaré</small>@endif</td>
+                                <td style="text-align:center">{{ $st['taches_terminees'] }}/{{ $st['taches'] }}</td>
+                                <td style="text-align:center">{{ $st['points'] ?? '-' }}</td>
+                                <td>{{ $st['statut'] }}</td>
+                            </tr>
+                            @php $grp = $ctx; @endphp
+                            @endforeach
+                            </tbody>
+                        </table>
+                        @elseif($bloc['type'] === 'tableau_taches' && !empty($d['taches']))
                     <table class="tbl">
                         <thead><tr><th class="num">N°</th><th>Tâche</th><th style="width:40px;text-align:center">Pts</th><th>Attribution</th><th style="width:40px;text-align:center">État</th><th>Observation</th></tr></thead>
                         <tbody>
                         @foreach($d['taches'] as $i => $t)
                         <tr>
                             <td class="num">{{ $i + 1 }}</td>
-                            <td>{{ $t['tache'] }}</td>
+                            <td>{{ $t['tache'] }}@if(!empty($t['us']))<div style="font-size:8.5pt;color:#64748b">{{ $t['us'] }}{{ $t['us_contexte'] ? ' · ' . $t['us_contexte'] : '' }}</div>@endif</td>
                             <td style="text-align:center">{{ $t['points'] }}</td>
                             <td>{{ $t['attribution'] }}</td>
                             <td class="{{ ($t['termine'] ?? false) ? 'ok' : 'ko' }}">{!! ($t['termine'] ?? false) ? '&#10003;' : '&#10007;' !!}</td>

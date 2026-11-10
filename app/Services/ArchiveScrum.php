@@ -10,6 +10,9 @@ use App\Services\ClasseurXlsx as X;
  */
 class ArchiveScrum
 {
+    private const ENTETES_BACKLOG = ['N°', 'Epic', 'Module / Fonctionnalité', 'Profil / Acteur', 'User Story', 'Priorité MoSCoW', 'Story points', 'DoR', 'Statut', 'Exigences fonctionnelles'];
+    private const LARGEURS_BACKLOG = [10, 22, 24, 18, 58, 13, 8, 7, 12, 46];
+
     private X $c;
 
     public function __construct() { $this->c = new X(); }
@@ -39,13 +42,13 @@ class ArchiveScrum
     public static function modeleImport(): X
     {
         $a = new self();
-        $f = $a->c->feuille('Product Backlog')->largeurs([12, 30, 65, 60]);
-        $f->ligne(['NOM DU PROJET'], X::TITRE)->fusionner(0, 3);
+        $f = $a->c->feuille('Product Backlog')->largeurs(self::LARGEURS_BACKLOG);
+        $f->ligne(['NOM DU PROJET'], X::TITRE)->fusionner(0, 9);
         $f->ligne(['PRODUCT BACKLOG'], X::SOUS_TITRE)->vide();
-        $f->ligne(['Une ligne par user story. Le N° est facultatif (numérotation automatique) ; « US 2.3 - En tant que … » dans la colonne User Story est aussi reconnu. Les tâches techniques et les story points se renseignent ensuite au Sprint Planning.'])->fusionner(0, 3)->hauteur(32)->vide();
-        $f->ligne(['N°', 'Module / Fonctionnalité', 'User Story', 'Exigences fonctionnelles'], X::ENTETE);
-        $f->ligne(['US 1.1', 'Authentification', "En tant qu'utilisateur, je veux me connecter afin d'accéder à mon espace.", "• Formulaire email / mot de passe\n• Message d'erreur explicite"], X::CELLULE);
-        $f->ligne(['US 1.2', 'Authentification', "En tant qu'utilisateur, je veux réinitialiser mon mot de passe.", '• Lien « mot de passe oublié »'], X::CELLULE);
+        $f->ligne(['Une ligne par user story. Le N° est facultatif (numérotation automatique). MoSCoW : Must have, Should have ou Could have. Story points : ' . implode(', ', UserStory::POINTS) . '. DoR : Oui ou Non. Statut : ' . implode(', ', UserStory::STATUTS) . '.'])->fusionner(0, 9)->hauteur(32)->vide();
+        $f->ligne(self::ENTETES_BACKLOG, X::ENTETE);
+        $f->ligne(['US 1.1', 'Comptes', 'Authentification', 'Utilisateur', "En tant qu'utilisateur, je veux me connecter afin d'accéder à mon espace.", 'Must have', 3, 'Oui', 'À faire', "• Formulaire email / mot de passe\n• Message d'erreur explicite"], X::CELLULE);
+        $f->ligne(['US 1.2', 'Comptes', 'Authentification', 'Utilisateur', "En tant qu'utilisateur, je veux réinitialiser mon mot de passe afin de retrouver l'accès à mon compte.", 'Should have', 2, 'Non', 'À faire', '• Lien « mot de passe oublié »'], X::CELLULE);
         return $a->c;
     }
 
@@ -93,44 +96,44 @@ class ArchiveScrum
 
     private function productBacklog(Projet $projet): void
     {
-        $f = $this->c->feuille('Product Backlog')->largeurs([10, 30, 65, 60]);
-        $f->ligne([mb_strtoupper($projet->libelle)], X::TITRE)->fusionner(0, 3);
+        $f = $this->c->feuille('Product Backlog')->largeurs(self::LARGEURS_BACKLOG);
+        $f->ligne([mb_strtoupper($projet->libelle)], X::TITRE)->fusionner(0, 9);
         $f->ligne(['PRODUCT BACKLOG'], X::SOUS_TITRE)->vide();
-        $f->ligne(['Responsable : ' . ($projet->responsable?->nomComplet() ?? '—') . '   ·   Édité le ' . now()->format('d/m/Y H:i')])->fusionner(0, 3)->vide();
-        $f->ligne(['N°', 'Module / Fonctionnalité', 'User Story', 'Exigences fonctionnelles'], X::ENTETE);
+        $f->ligne(['Responsable : ' . ($projet->responsable?->nomComplet() ?? '—') . '   ·   Édité le ' . now()->format('d/m/Y H:i')])->fusionner(0, 9)->vide();
+        $f->ligne(self::ENTETES_BACKLOG, X::ENTETE);
         $stories = UserStory::trierParNumero($projet->userStories()->get());
-        foreach ($stories->groupBy(fn($s) => $s->module ?: 'Sans module') as $module => $groupe) {
-            $debut = $f->numero();
-            foreach ($groupe->values() as $i => $us) {
-                $f->ligne([$us->numero, $i === 0 ? $module : '', $us->intitule, $us->exigences], X::CELLULE);
+        foreach ($stories->groupBy(fn($s) => $s->module ?: 'Sans module') as $duModule) {
+            foreach ($duModule->groupBy(fn($s) => trim((string) $s->epic))->sortKeys() as $groupe) {
+                foreach ($groupe as $us) {
+                    $f->ligne([$us->numero, $us->epic, $us->module, $us->profil, $us->intitule, UserStory::MOSCOW[$us->priorite_moscow] ?? '', $us->effort_estime ?: '', $us->dor ? 'Oui' : 'Non', $us->statutLibelle(), $us->exigences], X::CELLULE);
+                }
             }
-            if ($groupe->count() > 1) $f->fusion('B' . $debut . ':B' . ($f->numero() - 1));
         }
-        if ($stories->isEmpty()) $f->ligne(['Backlog vide.'])->fusionner(0, 3);
+        if ($stories->isEmpty()) $f->ligne(['Backlog vide.'])->fusionner(0, 9);
     }
 
     private function sprintBacklog(Sprint $sprint): void
     {
-        $l = [10, 26, 60, 50, 50];
+        $l = [10, 22, 18, 55, 12, 8, 7, 12, 42, 42];
         $f = $this->c->feuille("Sprint {$sprint->numero} Backlog")->largeurs($l);
-        $f->ligne([mb_strtoupper($sprint->projet->libelle)], X::TITRE)->fusionner(0, 4);
+        $f->ligne([mb_strtoupper($sprint->projet->libelle)], X::TITRE)->fusionner(0, 9);
         $f->ligne(["SPRINT {$sprint->numero} BACKLOG"], X::SOUS_TITRE)->vide();
         $this->fiche($f, $l, [
-            ['Objectif du sprint', $sprint->objectif, 0, 2],
-            ['Dates et durée', 'Du ' . $sprint->date_debut->format('d/m/Y') . ' au ' . $sprint->date_fin->format('d/m/Y') . ' - ' . $sprint->dureeJours() . ' jours ouvrés', 3, 3],
-            ['Story points engagés', $sprint->pointsEngages() . ' pts - ' . $sprint->userStories->count() . ' user story(s)', 4, 4],
+            ['Objectif du sprint', $sprint->objectif, 0, 3],
+            ['Dates et durée', 'Du ' . $sprint->date_debut->format('d/m/Y') . ' au ' . $sprint->date_fin->format('d/m/Y') . ' - ' . $sprint->dureeJours() . ' jours ouvrés', 4, 8],
+            ['Story points engagés', $sprint->pointsEngages() . ' pts - ' . $sprint->userStories->count() . ' user story(s)', 9, 9],
         ]);
-        $f->ligne(['N°', 'Module', 'User Story', 'Exigences fonctionnelles', 'Tâches techniques'], X::ENTETE);
+        $f->ligne(['N°', 'Module', 'Profil / Acteur', 'User Story', 'Priorité MoSCoW', 'Story points', 'DoR', 'Statut', 'Exigences fonctionnelles', 'Tâches techniques'], X::ENTETE);
         foreach (UserStory::trierParNumero($sprint->userStories) as $us) {
-            $f->ligne([$us->numero, $us->module, $us->intitule, $us->exigences, $us->taches_techniques], X::CELLULE);
+            $f->ligne([$us->numero, $us->module, $us->profil, $us->intitule, UserStory::MOSCOW[$us->priorite_moscow] ?? '', $us->effort_estime ?: '', $us->dor ? 'Oui' : 'Non', $us->statutLibelle(), $us->exigences, $us->taches_techniques], X::CELLULE);
         }
-        if ($sprint->userStories->isEmpty()) $f->ligne(['Aucune user story rattachée au sprint.'])->fusionner(0, 4);
+        if ($sprint->userStories->isEmpty()) $f->ligne(['Aucune user story rattachée au sprint.'])->fusionner(0, 9);
     }
 
     /** Sprint Planning (ou Review : même tableau + statut de réalisation et observation). */
     private function planning(Sprint $sprint, bool $review): void
     {
-        $cr = $review ? CompteRendu::where('sprint_id', $sprint->id)->where('type', 'review_sprint')->first() : null;
+        $cr = $review ? CompteRendu::where('sprint_id', $sprint->id)->where('type', 'review_sprint')->duModuleScrum()->first() : null;
         $d = $cr ? $cr->getDonnees() : [];
         $obs = $d['observations'] ?? [];
         $nbCol = $review ? 10 : 9;
@@ -176,13 +179,18 @@ class ArchiveScrum
         foreach (ScrumService::planning($sprint) as $bloc) {
             $m++;
             $f->ligne(array_pad(["MODULE {$m} : {$bloc['module']}"], $nbCol, ''), X::MODULE)->fusionner(0, $nbCol - 1);
+            $epicCourant = null;
             foreach ($bloc['stories'] as $g) {
                 $us = $g['story'];
                 $taches = $g['taches'];
+                if ($us?->epic && $us->epic !== $epicCourant) {
+                    $epicCourant = $us->epic;
+                    $f->ligne(array_pad(['Epic : ' . $us->epic], $nbCol, ''), X::FICHE_LIB)->fusionner(0, $nbCol - 1);
+                }
                 if ($us) {
                     $debut = $taches->pluck('date_debut')->filter()->min();
                     $fin = $taches->pluck('echeance')->filter()->max();
-                    $ligne = [$us->numero, $us->module ?: $us->numero, $us->intitule, $taches->map(fn($t) => $t->user?->nomComplet())->filter()->unique()->join(', '),
+                    $ligne = [$us->numero, $us->module ?: '', $us->intitule, $taches->map(fn($t) => $t->user?->nomComplet())->filter()->unique()->join(', '),
                         $debut?->format('d/m/Y'), $fin?->format('d/m/Y'), $debut && $fin ? \App\Models\Tache::joursOuvres($debut, $fin) : '',
                         $us->effort_estime ?: '',
                         UserStory::STATUTS_SPRINT[$us->pivot->statut_sprint ?? ''] ?? $us->statutLibelle()];

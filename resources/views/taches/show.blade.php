@@ -116,7 +116,7 @@ dialog textarea{min-height:70px;resize:vertical}
         @php $statutPill = match($tache->statut) { 'termine' => 'p-ok', 'bloque' => 'p-bloque', 'a_valider' => 'p-attente', default => 'p-cours' }; @endphp
         <div class="item"><div class="lbl">Statut</div><span class="pill {{ $statutPill }}">{{ $tache->labelStatut() }}</span></div>
         <div class="item"><div class="lbl">Début</div>{{ $tache->date_debut?->format('d/m/Y') ?? '—' }}</div>
-        <div class="item"><div class="lbl">Échéance</div>{{ $tache->echeance?->format('d/m/Y') ?? 'Non définie' }}</div>
+        <div class="item"><div class="lbl">Échéance</div><x-voyant :tache="$tache" :lien="false" texte /> {{ $tache->echeance?->format('d/m/Y') ?? 'Non définie' }}</div>
         @if($tache->date_fin_reelle)
         <div class="item"><div class="lbl">Terminée le</div>{{ $tache->date_fin_reelle->format('d/m/Y') }}</div>
         <div class="item"><div class="lbl">Qualification</div>{{ ucfirst(str_replace('_',' ',$tache->qualification ?? '—')) }}</div>

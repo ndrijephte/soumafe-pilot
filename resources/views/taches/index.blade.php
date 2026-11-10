@@ -17,14 +17,17 @@
     .col.drop-target{background:#dbeafe !important;border:2px dashed var(--accent)}
     /* Voyant d'échéance : rouge en retard, orange ≤ 2 j, jaune ≤ 5 j, vert au-delà, gris sans échéance, bleu terminée */
     .du-jour{display:table;margin:0 0 5px;padding:1px 8px;border-radius:999px;background:#eef4fb;border:1px solid #bfdbfe;color:#2e74b5;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
-    .voyant{position:absolute;top:10px;right:10px;width:9px;height:9px;border-radius:50%}
-    .voyant.v-retard{background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18);animation:pulse-v 1.8s ease-in-out infinite}
-    .voyant.v-proche{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)}
-    .voyant.v-semaine{background:#eab308;box-shadow:0 0 0 3px rgba(234,179,8,.16)}
-    .voyant.v-ok{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
-    .voyant.v-aucune{background:#cbd5e1}
-    .voyant.v-fait{background:#2e74b5;box-shadow:0 0 0 3px rgba(46,116,181,.15)}
-    @keyframes pulse-v{50%{box-shadow:0 0 0 5px rgba(220,38,38,.06)}}
+    .tache>.voyant{position:absolute;top:9px;right:9px}
+    /* Légende cliquable : filtre le tableau par niveau d'urgence */
+    .urg-legende{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;font-size:12px;color:#475569}
+    .urg-legende button{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--bord);border-radius:999px;background:#fff;color:#334155;font:inherit;font-weight:600;cursor:pointer}
+    .urg-legende button:hover{border-color:#93c5fd}
+    .urg-legende button[aria-pressed=true]{background:#eef4fb;border-color:#2e74b5;color:#1f4e79}
+    .urg-legende .pt{width:9px;height:9px;border-radius:50%;background:var(--v)}
+    .urg-legende .nb{color:#64748b;font-weight:500}
+    .kanban.filtre-actif .tache{display:none!important}
+    .kanban.filtre-actif .tache.urg-ok-filtre{display:block!important}
+    .kanban.filtre-actif .btn-collapse{display:none}
     .tache .meta{display:flex;justify-content:space-between;margin-top:6px;font-size:10.5px;color:var(--gris)}
     .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer}
     .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
@@ -92,7 +95,19 @@
     Consultation des archives : tâches des sprints clôturés et tâches hors sprint terminées avant le {{ $debutExercice->format('d/m/Y') }} (début de l'exercice en cours). Elles ne sont plus modifiables depuis ce tableau.
 </div>
 @endif
-<div class="kanban">
+@php
+    $parUrgence = collect($colonnes)->keys()->flatMap(fn($c) => $taches[$c] ?? collect())->countBy(fn($t) => $t->urgence()['niveau']);
+@endphp
+@if($parUrgence->isNotEmpty())
+<div class="urg-legende" id="urg-legende" role="group" aria-label="Filtrer par urgence">
+    @foreach(\App\Models\Tache::URGENCES as $niv => $lib)
+    @if($parUrgence[$niv] ?? 0)
+    <button type="button" class="v-{{ $niv }}" data-niveau="{{ $niv }}" aria-pressed="false"><span class="pt"></span>{{ $lib }} <span class="nb">{{ $parUrgence[$niv] }}</span></button>
+    @endif
+    @endforeach
+</div>
+@endif
+<div class="kanban" id="kanban">
     @foreach($colonnes as $code => $libelle)
     <div class="col" data-statut="{{ $code }}" ondragover="event.preventDefault()" ondrop="deposer(event,'{{ $code }}')">
         <h4>{{ $libelle }} <span>{{ ($taches[$code] ?? collect())->count() }}</span></h4>
@@ -102,22 +117,9 @@
             $sprintBloque = $t->sprint_id && $t->sprint?->statut !== 'en_cours';
             $peutDrag = $code !== 'termine' && !$sprintBloque && $affichage !== 'archives';
         @endphp
-        @php
-            // Voyant : jours restants avant l'échéance
-            $reste = $t->echeance ? (int) today()->diffInDays($t->echeance->copy()->startOfDay(), false) : null;
-            [$voyant, $voyantTitre] = match (true) {
-                $code === 'termine' => ['v-fait', 'Terminée'],
-                $reste === null => ['v-aucune', 'Sans échéance'],
-                $reste < 0 => ['v-retard', 'En retard de ' . abs($reste) . ' jour(s)'],
-                $reste === 0 => ['v-proche', "Échéance aujourd'hui"],
-                $reste <= 2 => ['v-proche', "Échéance dans {$reste} jour(s)"],
-                $reste <= 5 => ['v-semaine', "Échéance dans {$reste} jours"],
-                default => ['v-ok', "Échéance dans {$reste} jours"],
-            };
-        @endphp
-        <div class="tache" data-collapse-item
+        <div class="tache" data-collapse-item data-urgence="{{ $t->urgence()['niveau'] }}"
              draggable="{{ $peutDrag ? 'true' : 'false' }}" @if($peutDrag)ondragstart="event.dataTransfer.setData('id',{{ $t->id }})"@endif style="{{ !$peutDrag ? 'cursor:default;opacity:.55' : '' }}" @if($sprintBloque) title="Sprint {{ $t->sprint?->statut === 'planifie' ? 'non démarré' : 'terminé' }}"@endif>
-            <i class="voyant {{ $voyant }}" title="{{ $voyantTitre }}"></i>
+            <x-voyant :tache="$t" />
             @if($code === 'a_faire' && \App\Http\Controllers\TacheController::estDuJour($t))<span class="du-jour" title="Tâche à réaliser aujourd'hui">Aujourd'hui</span>@endif
             <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
             <div class="meta">
@@ -205,6 +207,24 @@ function toast(msg, type){
     t.style.display = 'block';
     setTimeout(() => t.style.display = 'none', 4500);
 }
+// Légende des voyants : un clic filtre le tableau, un second clic retire le filtre
+(function () {
+    const leg = document.getElementById('urg-legende'), kb = document.getElementById('kanban');
+    if (!leg || !kb) return;
+    leg.addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        const actif = b.getAttribute('aria-pressed') === 'true';
+        leg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', 'false'));
+        kb.classList.toggle('filtre-actif', !actif);
+        kb.querySelectorAll('.tache').forEach(t => t.classList.toggle('urg-ok-filtre', !actif && t.dataset.urgence === b.dataset.niveau));
+        if (!actif) b.setAttribute('aria-pressed', 'true');
+        kb.querySelectorAll('.col').forEach(c => {
+            const nb = c.querySelector('h4 span');
+            if (nb) nb.textContent = actif ? c.querySelectorAll('.tache').length : c.querySelectorAll('.tache.urg-ok-filtre').length;
+        });
+    });
+})();
+
 async function deposer(ev, statut){
     const id = ev.dataTransfer.getData('id');
     if (!id) return;

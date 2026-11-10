@@ -17,11 +17,15 @@ class Tache extends Model
     /** Module Scrum : l'avancement des tâches fait progresser la user story (backlog + sprint). */
     protected static function booted(): void
     {
+        // Hiérarchie dynamique : la user story (et donc son epic et son module) suit ses tâches
         static::saved(function (Tache $t) {
-            if ($t->user_story_id && ($t->wasChanged('statut') || $t->wasChanged('user_story_id') || $t->wasRecentlyCreated)) {
-                $t->userStory?->synchroniserAvecTaches($t->sprint_id);
+            if ($t->wasRecentlyCreated || $t->wasChanged(['statut', 'user_story_id', 'sprint_id'])) {
+                \App\Services\AvancementScrum::synchroniser($t->user_story_id);
+                if ($t->wasChanged('user_story_id')) \App\Services\AvancementScrum::synchroniser($t->getOriginal('user_story_id'), true);
             }
         });
+        static::deleted(fn (Tache $t) => \App\Services\AvancementScrum::synchroniser($t->user_story_id, true));
+        static::restored(fn (Tache $t) => \App\Services\AvancementScrum::synchroniser($t->user_story_id));
     }
 
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
@@ -118,6 +122,39 @@ class Tache extends Model
             'reporte' => ['code' => '—', 'libelle' => 'Reporté', 'classe' => 'sc-autre'],
             default   => ['code' => '—', 'libelle' => 'Non démarré', 'classe' => 'sc-autre'],
         };
+    }
+
+    /** Niveaux du voyant d'urgence, du plus urgent au moins urgent. */
+    public const URGENCES = [
+        'retard' => 'En retard', 'bloque' => 'Bloquée', 'proche' => '2 jours ou moins', 'semaine' => '3 à 5 jours',
+        'ok' => 'Plus de 5 jours', 'aucune' => 'Sans échéance', 'fait' => 'Terminée', 'clos' => 'Sprint clos / reportée',
+    ];
+
+    /**
+     * Urgence de la tâche pour le voyant (délais en jours ouvrés, comme le code Scrum ER).
+     * @return array{niveau: string, libelle: string, court: string}
+     */
+    public function urgence(): array
+    {
+        if ($this->statut === 'termine') {
+            $fin = $this->date_fin_reelle?->format('d/m/Y');
+            return ['niveau' => 'fait', 'libelle' => $fin ? "Terminée le {$fin}" : 'Terminée', 'court' => 'Terminée'];
+        }
+        if ($this->nonTermineeSprintClos()) return ['niveau' => 'clos', 'libelle' => 'Non terminée (sprint clos)', 'court' => 'Sprint clos'];
+        if ($this->statut === 'reporte') return ['niveau' => 'clos', 'libelle' => 'Reportée', 'court' => 'Reportée'];
+        if ($this->estEnRetard()) {
+            $j = self::joursOuvres($this->echeance->copy()->addDay(), today());
+            return ['niveau' => 'retard', 'libelle' => "En retard de {$j} jour(s) ouvré(s)", 'court' => "{$j} j de retard"];
+        }
+        if ($this->statut === 'bloque') return ['niveau' => 'bloque', 'libelle' => 'Tâche bloquée', 'court' => 'Bloquée'];
+        if (!$this->echeance) return ['niveau' => 'aucune', 'libelle' => 'Sans échéance', 'court' => 'Sans échéance'];
+        if ($this->echeance->isToday()) return ['niveau' => 'proche', 'libelle' => "Échéance aujourd'hui", 'court' => "Aujourd'hui"];
+        $j = self::joursOuvres(today()->addDay(), $this->echeance);
+        return [
+            'niveau' => $j <= 2 ? 'proche' : ($j <= 5 ? 'semaine' : 'ok'),
+            'libelle' => "Échéance dans {$j} jour(s) ouvré(s)",
+            'court' => "Dans {$j} j",
+        ];
     }
 
     /** Libellé lisible du statut. */

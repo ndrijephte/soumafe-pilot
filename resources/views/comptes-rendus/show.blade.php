@@ -31,15 +31,17 @@
 .section .cr-contenu blockquote{margin:0 0 0 28px!important;padding:0!important;border:none!important}
 .section .cr-contenu p,.section .cr-contenu div,.section .cr-contenu ul,.section .cr-contenu ol{max-width:100%;overflow-wrap:break-word;word-break:break-word}
 .tbl{width:100%;border-collapse:collapse;font-size:.85rem;table-layout:fixed}
-.tbl th{background:var(--bleu,#1F4E79);color:#fff;padding:8px 10px;text-align:left;font-weight:600}
+.tbl th{background:var(--fond,#f1f5f9);color:#475569;padding:8px 10px;text-align:left;font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e2e8f0}
+.tbl tbody tr:hover td{background:#f8fafc}
 .tbl td{padding:8px 10px;border-bottom:1px solid #e5e7eb;overflow-wrap:break-word;word-break:break-word}
 .tbl tr:nth-child(even) td{background:#f8fafc}
 .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
 .badge-ok{background:#d1fae5;color:#065f46}
 .badge-brouillon{background:#fef3c7;color:#92400e}
-.info-grid{display:grid;grid-template-columns:160px 1fr;gap:6px 12px;font-size:.88rem}
-.info-grid dt{font-weight:600;color:#475569}
-.info-grid dd{color:var(--bleu,#1F4E79)}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin:0}
+.info-grid>div{border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;background:#fbfcfe}
+.info-grid dt{font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px}
+.info-grid dd{margin:3px 0 0;color:#1f2937;font-weight:600;font-size:.88rem}
 .presence-ok{color:#059669;font-weight:700}
 .presence-no{color:#dc2626;font-weight:700}
 .cr-bar{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0}
@@ -52,32 +54,34 @@
 .cr-bar .btn-suppr{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:600;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;cursor:pointer;transition:all .15s}
 .cr-bar .btn-suppr:hover{background:#dc2626;color:#fff;border-color:#dc2626}
 .tbl .num-col{width:45px;text-align:center;color:#94a3b8;font-weight:600}
-@media(max-width:900px){.tbl{display:block;overflow-x:auto}.info-grid{grid-template-columns:1fr}.cr-bar{flex-wrap:wrap}}
+@media(max-width:900px){.tbl{display:block;overflow-x:auto}.info-grid{grid-template-columns:1fr 1fr}.cr-bar{flex-wrap:wrap}}
 @media(max-width:600px){.cr-show{margin:0}.section{padding:14px 12px}.cr-bar a,.cr-bar button,.cr-bar form{flex:1}.cr-bar a,.cr-bar button{text-align:center;justify-content:center}}
 </style>
 
 <div class="cr-show">
     <h2>{{ $cr->titre }}</h2>
     <div class="sub">
-        {{ $cr->typeCourt() }} —
+        {{ $cr->typeCourt() }} ·
         <span class="badge {{ $cr->estConfirme() ? 'badge-ok' : 'badge-brouillon' }}">{{ $cr->estConfirme() ? 'Confirmé' : 'Brouillon' }}</span>
     </div>
 
     {{-- Informations générales --}}
     <div class="section">
         <h3>Informations</h3>
+        @php
+            $heures = $cr->heure_debut ? substr($cr->heure_debut, 0, 5) . ($cr->heure_fin ? ' - ' . substr($cr->heure_fin, 0, 5) : '') : '-';
+            $infos = array_filter([
+                'Date' => ucfirst($cr->date_reunion->translatedFormat('l d F Y')),
+                'Horaire' => $heures,
+                'Lieu' => $cr->lieu ?: '-',
+                'Président' => $cr->estReunion() ? $cr->president?->nomComplet() : null,
+                'Rédacteur' => $cr->redacteur?->nomComplet() ?? '-',
+                'Désigné par' => $cr->designePar?->nomComplet() ?? '-',
+                'Sprint' => $cr->sprint ? 'Sprint ' . $cr->sprint->numero . ' - ' . ($cr->sprint->projet?->libelle ?? '') : null,
+            ]);
+        @endphp
         <dl class="info-grid">
-            <dt>Date</dt><dd>{{ $cr->date_reunion->format('d/m/Y') }}</dd>
-            <dt>Heure</dt><dd>{{ $cr->heure_debut ?? '—' }} – {{ $cr->heure_fin ?? '—' }}</dd>
-            <dt>Lieu</dt><dd>{{ $cr->lieu ?? '—' }}</dd>
-            @if($cr->estReunion() && $cr->president)
-            <dt>Président</dt><dd>{{ $cr->president->nomComplet() }}</dd>
-            @endif
-            <dt>Rédacteur</dt><dd>{{ $cr->redacteur?->nomComplet() ?? '—' }}</dd>
-            <dt>Désigné par</dt><dd>{{ $cr->designePar?->nomComplet() ?? '—' }}</dd>
-            @if($cr->sprint)
-            <dt>Sprint</dt><dd>Sprint {{ $cr->sprint->numero }} - {{ $cr->sprint->projet?->libelle ?? '' }}</dd>
-            @endif
+            @foreach($infos as $lib => $val)<div><dt>{{ $lib }}</dt><dd>{{ $val }}</dd></div>@endforeach
         </dl>
     </div>
 
@@ -95,7 +99,7 @@
                 <tr>
                     <td class="num-col">{{ $i + 1 }}</td>
                     <td>{{ $p['nom'] }}</td>
-                    <td>{{ ($p['fonction'] ?? '') ?: '—' }}</td>
+                    <td>{{ ($p['fonction'] ?? '') ?: '-' }}</td>
                     <td style="text-align:center">
                         @if($p['present'] ?? false)
                         <span class="presence-ok">Présent</span>
@@ -113,7 +117,7 @@
         {{-- 1. CONTEXTE --}}
         <div class="section">
             <h3>1. Contexte et objectifs de la réunion</h3>
-            <div class="cr-contenu" style="--num-prefix:'1.'">{!! $d['contexte'] ?? '—' !!}</div>
+            <div class="cr-contenu" style="--num-prefix:'1.'">{!! $d['contexte'] ?? '-' !!}</div>
 
             @if(!empty($d['ordre_du_jour']))
             <div style="margin-top:14px">
@@ -154,8 +158,8 @@
                 <tr>
                     <td style="text-align:center">{{ $i + 1 }}</td>
                     <td>{{ $dec['action'] ?? '' }}</td>
-                    <td>{{ implode(', ', $rDec) ?: '—' }}</td>
-                    <td>{{ $dec['echeance'] ?? '—' }}</td>
+                    <td>{{ implode(', ', $rDec) ?: '-' }}</td>
+                    <td>{{ $dec['echeance'] ?? '-' }}</td>
                 </tr>
                 @endforeach
                 </tbody>
@@ -229,6 +233,25 @@
                     @foreach($sec['blocs'] ?? [] as $bloc)
                         @if($bloc['type'] === 'texte' && !empty($bloc['contenu']))
                         <div class="cr-contenu" style="margin-bottom:10px;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
+                        @elseif($bloc['type'] === 'tableau_stories' && !empty($d['stories']))
+                        <table class="tbl" style="margin-bottom:10px">
+                            <thead><tr><th>Module › Epic</th><th>User story</th><th style="width:120px">Exécution</th><th style="width:70px;text-align:center">Tâches</th><th style="width:50px;text-align:center">Pts</th><th style="width:90px">Statut</th></tr></thead>
+                            <tbody>
+                            @php $grp = null; @endphp
+                            @foreach($d['stories'] as $st)
+                            @php $ctx = $st['module'] . ($st['epic'] ? ' › ' . $st['epic'] : ''); @endphp
+                            <tr>
+                                <td style="color:#475569;font-size:.8rem">{{ $ctx !== $grp ? $ctx : '' }}</td>
+                                <td><strong>{{ $st['numero'] }}</strong> {{ $st['intitule'] }}</td>
+                                <td><span style="display:inline-block;width:46px;height:5px;background:#e5eaf1;border-radius:5px;vertical-align:middle;overflow:hidden"><span style="display:block;height:100%;width:{{ $st['niveau'] }}%;background:{{ $st['niveau'] >= 100 ? '#16a34a' : '#2e74b5' }}"></span></span> <strong>{{ $st['niveau'] }} %</strong>@if(($st['origine'] ?? '') === 'declare')<small style="color:#2e74b5"> déclaré</small>@endif</td>
+                                <td style="text-align:center">{{ $st['taches_terminees'] }}/{{ $st['taches'] }}</td>
+                                <td style="text-align:center">{{ $st['points'] ?? '-' }}</td>
+                                <td>{{ $st['statut'] }}</td>
+                            </tr>
+                            @php $grp = $ctx; @endphp
+                            @endforeach
+                            </tbody>
+                        </table>
                         @elseif($bloc['type'] === 'tableau_taches' && !empty($d['taches']))
                         <table class="tbl" style="margin-bottom:10px">
                             <thead><tr><th style="width:40px">N</th><th>Tâche</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:70px">Réalisée</th><th>Observation</th></tr></thead>
@@ -236,7 +259,7 @@
                             @foreach($d['taches'] as $ti => $t)
                             <tr>
                                 <td style="text-align:center">{{ $ti + 1 }}</td>
-                                <td>{{ $t['tache'] }}</td>
+                                <td>{{ $t['tache'] }}@if(!empty($t['us']))<small style="display:block;color:#64748b;font-size:.75rem">{{ $t['us'] }}{{ $t['us_contexte'] ? ' · ' . $t['us_contexte'] : '' }}</small>@endif</td>
                                 <td style="text-align:center">{{ $t['points'] }}</td>
                                 <td>{{ $t['attribution'] }}</td>
                                 <td style="text-align:center">{!! ($t['termine'] ?? false) ? '<span class="presence-ok">&#10003;</span>' : '<span class="presence-no">&#10007;</span>' !!}</td>

@@ -18,6 +18,14 @@
 .jour .roles b{color:#334155;font-weight:600}
 .jour .bas{margin-top:auto;display:flex;gap:4px;flex-wrap:wrap;align-items:center}
 .jour form{margin:0}
+/* Jour sans Daily : discret ; le bouton de création n'apparaît qu'au survol */
+.jour.vide{background:#fbfcfe;border-style:dashed;min-height:84px}
+.jour.vide .dt{color:#475569;font-weight:600}
+.jour.vide .roles{color:#94a3b8}
+.jour.vide .bas{opacity:0;transition:opacity .15s}
+.jour.vide:hover .bas,.jour.vide:focus-within .bas{opacity:1}
+.jour.vide:hover{border-color:#93c5fd;background:#fff}
+@media(hover:none){.jour.vide .bas{opacity:1}}
 .creer{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
 .creer .champ{min-width:150px}
 .equipe-liste{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
@@ -47,7 +55,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
 <div class="carte">
     <div style="font-weight:700;color:var(--bleu);margin-bottom:4px">Nouveau Daily Scrum</div>
     <div style="font-size:12px;color:var(--gris);margin-bottom:10px">
-        Lignes pré-remplies depuis la planification : tâches d'hier, du jour, durée restante et blocages.
+        Lignes pré-remplies depuis la planification : tâches d'hier, tâches du jour et blocages.
     </div>
     <form method="POST" action="{{ route('scrum.daily.store', $sprint) }}" class="creer">@csrf
         <div class="champ"><label>Date</label>
@@ -67,7 +75,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
 <div class="carte">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         <div style="font-weight:700;color:var(--bleu)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendrier du sprint <span style="font-weight:400;color:var(--gris);font-size:12.5px">- {{ collect($jours)->whereNotNull('daily')->count() }} Daily(s) sur {{ count($jours) }} jour(s) ouvré(s)</span></div>
-        @if($peutCreer)<button type="button" class="btn sm sec" onclick="document.getElementById('dlg-hs').showModal()">+ Daily hors sprint</button>@endif
+        @if($peutCreerHorsSprint)<button type="button" class="btn sm sec" onclick="document.getElementById('dlg-hs').showModal()">+ Daily hors sprint</button>@endif
     </div>
     @php
         $nom = fn($id) => $id && isset($users[$id]) ? $users[$id]->nomComplet() : '—';
@@ -88,7 +96,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
                 <span class="bas"><span class="pill {{ $clsS }}">{{ $libS }}</span><span class="pill p-cours">{{ $d->entrees_count }} membre(s)</span>@if($d->defis_count)<span class="pill p-warn">{{ $d->defis_count }} défi(s)</span>@endif</span>
             </a>
             @else
-            <div class="jour {{ $auj ? 'auj' : '' }} {{ $j['date']->isFuture() && !$auj ? 'futur' : '' }}">
+            <div class="jour vide {{ $auj ? 'auj' : '' }} {{ $j['date']->isFuture() && !$auj ? 'futur' : '' }}">
                 <span class="num">Jour {{ $j['numero'] }}</span>
                 <span class="dt">{{ ucfirst($j['date']->translatedFormat('D d/m')) }}</span>
                 <span class="roles">Pas de Daily</span>
@@ -120,7 +128,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
     <div class="equipe-liste">@forelse($membres as $m)<span>{{ $m->nomComplet() }}</span>@empty<span>Aucun membre : ajoutez l'équipe dans l'espace projet.</span>@endforelse</div>
 </div>
 </div>
-@if($peutCreer)
+@if($peutCreerHorsSprint)
 {{-- Daily hors sprint du projet (date libre, participants au choix) --}}
 <dialog id="dlg-hs" class="dlg">
     <h3 style="color:var(--bleu);margin:0 0 4px">Daily hors sprint - {{ $sprint->projet->libelle }}</h3>

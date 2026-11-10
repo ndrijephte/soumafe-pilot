@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\{ArbitrageT3, Chauffeur, ConfirmationTache, Evenement, MaintenancePreventive, Objectif, Panne, Penalite, Pointage, Projet, RecetteVehicule, Sprint, Tache, JourFerie, JourSaisie, User, Vehicule};
 use App\Services\AlerteParcService;
 use App\Services\ExerciceParc;
+use App\Services\PerformanceEquipe;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -21,6 +22,14 @@ class DashboardController extends Controller
 
         // Collaborateur (enrichi si responsable projet)
         return $this->dashboardCollab($user);
+    }
+
+    /** Bloc « Performance équipe » pour la période choisie (du ... au). */
+    public function performanceEquipe(Request $r)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $v = $r->validate(['du' => 'required|date_format:Y-m-d', 'au' => 'required|date_format:Y-m-d|after_or_equal:du']);
+        return view('dashboard._performance_lignes', ['performance' => PerformanceEquipe::calculer($v['du'], $v['au'])]);
     }
 
     /* ─── Dashboard collaborateur (US-16) - enrichi si responsable projet ─── */
@@ -93,13 +102,16 @@ class DashboardController extends Controller
         $totalPrio = max(1, array_sum($parPriorite));
 
         // Toutes mes tâches actives
-        $mesTachesActives = Tache::with('projet')
+        $mesTachesActives = Tache::with(['projet', 'sprint'])
             ->where('user_id', $userId)
             ->whereIn('statut', ['a_valider', 'a_faire', 'en_cours', 'bloque'])
+            ->nonArchivees()
             ->orderByRaw("FIELD(statut,'a_valider','bloque','en_cours','a_faire')")
             ->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")
             ->orderBy('echeance')
-            ->get();
+            ->get()
+            // Tâches du jour en tête (même définition que « Mes tâches » et la saisie quotidienne)
+            ->sortBy(fn ($t) => \App\Http\Controllers\TacheController::estDuJour($t) ? 0 : 1)->values();
 
         // --- Section responsable projet (dynamique) ---
         $estResponsable = $user->projetsResponsable()->exists();
@@ -236,16 +248,7 @@ class DashboardController extends Controller
             return $s;
         })->sortByDesc('date_fin')->take(6)->values();
 
-        // Performance collaborateurs (exclut admin, DG, invité)
-        $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction', 'administrateur'])
-            ->orderBy('name')->get()->map(function ($c) {
-                $c->taches_total = Tache::where('user_id', $c->id)->count();
-                $c->taches_terminees = Tache::where('user_id', $c->id)->where('statut', 'termine')->count();
-                $c->taches_en_cours = Tache::where('user_id', $c->id)->where('statut', 'en_cours')->count();
-                $c->taches_bloquees = Tache::where('user_id', $c->id)->where('statut', 'bloque')->count();
-                $c->taux = $c->taches_total > 0 ? round(($c->taches_terminees / $c->taches_total) * 100) : 0;
-                return $c;
-            });
+        $performance = PerformanceEquipe::calculer();
 
         $evenements = collect();
         if (Schema::hasTable('evenements')) {
@@ -360,11 +363,17 @@ class DashboardController extends Controller
             $pointageStats = compact('totalCollabs', 'presentsJour', 'retardsJour', 'absentsJour', 'tauxPresence');
         }
 
+        $alertes = [];
+        if ($enRetard > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$enRetard} tâche(s) en retard."];
+        $echus = Sprint::with('projet')->where('statut', 'en_cours')->whereDate('date_fin', '<', today())->orderBy('date_fin')->get();
+        if ($echus->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $echus->count() . ' sprint(s) échu(s) non clôturé(s) : ' . $echus->map(fn($s) => ($s->projet->code ?: $s->projet->libelle) . ' Sprint ' . $s->numero . ' (fin ' . $s->date_fin->format('d/m') . ')')->join(', ') . '.'];
+        if ($arbitragesEnAttente > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$arbitragesEnAttente} arbitrage(s) en attente de décision."];
+
         return view('dashboard.dg', compact(
-            'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
+            'alertes', 'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
             'termineesSemaine', 'arbitragesEnAttente', 'sansSaisieHier',
             'sprintsEnCours', 'topBloquees', 'parProjet', 'evenements',
-            'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'collaborateurs',
+            'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'performance',
             'parc', 'pointageStats'
         ));
     }
@@ -445,20 +454,9 @@ class DashboardController extends Controller
             return $s;
         });
 
-        // Performance par collaborateur (exclut admin, DG, invité)
-        $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction', 'administrateur'])
-            ->orderBy('name')->get()->map(function ($c) {
-                $c->taches_total = Tache::where('user_id', $c->id)->count();
-                $c->taches_terminees = Tache::where('user_id', $c->id)->where('statut', 'termine')->count();
-                $c->taches_en_cours = Tache::where('user_id', $c->id)->where('statut', 'en_cours')->count();
-                $c->taches_bloquees = Tache::where('user_id', $c->id)->where('statut', 'bloque')->count();
-                $c->taches_en_retard = Tache::where('user_id', $c->id)->enRetard()
-                    ->whereIn('statut', ['en_cours', 'a_faire'])->count();
-                $c->points_livres = (int) Tache::where('user_id', $c->id)->where('statut', 'termine')
-                    ->whereNotNull('sprint_id')->sum('points');
-                $c->taux = $c->taches_total > 0 ? round(($c->taches_terminees / $c->taches_total) * 100) : 0;
-                return $c;
-            });
+        // Collaborateurs actifs (exclut admin, DG, invité) et leur performance sur la période d'exercice en cours
+        $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction', 'administrateur'])->orderBy('name')->get();
+        $performance = PerformanceEquipe::calculer();
 
         // Tâches bloquées
         $topBloquees = Tache::with(['user', 'projet'])->where('statut', 'bloque')
@@ -492,13 +490,16 @@ class DashboardController extends Controller
             ->get();
 
         // Mes tâches actives (personnel du pilote)
-        $mesTachesActives = Tache::with('projet')
+        $mesTachesActives = Tache::with(['projet', 'sprint'])
             ->where('user_id', $user->id)
             ->whereIn('statut', ['a_valider', 'a_faire', 'en_cours', 'bloque'])
+            ->nonArchivees()
             ->orderByRaw("FIELD(statut,'a_valider','bloque','en_cours','a_faire')")
             ->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")
             ->orderBy('echeance')
-            ->get();
+            ->get()
+            // Tâches du jour en tête (même définition que « Mes tâches » et la saisie quotidienne)
+            ->sortBy(fn ($t) => \App\Http\Controllers\TacheController::estDuJour($t) ? 0 : 1)->values();
 
         // Tendance hebdo globale (4 semaines)
         $tendanceHebdoGlobal = [];
@@ -539,7 +540,7 @@ class DashboardController extends Controller
         return view('dashboard.pilote', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
             'termineesSemaine', 'alertes', 'sansSaisieHier', 'arbitragesEnAttente',
-            'sprintsEnCours', 'collaborateurs', 'topBloquees', 'tachesEnRetard',
+            'sprintsEnCours', 'collaborateurs', 'performance', 'topBloquees', 'tachesEnRetard',
             'parProjet', 'evenements', 'mesTachesActives', 'aValider',
             'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines', 'monPointage', 'pointageActif'
         ));

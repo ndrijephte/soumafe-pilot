@@ -178,7 +178,7 @@
     <button type="submit" form="f-publier" class="btn vert" title="Diffuse le rapport à tous les collaborateurs">Publier le rapport</button>
     @endif
     @if($tout)
-    <button type="submit" form="f-recalc" class="btn sec" title="Recharge hier / ce jour / durée restante depuis la planification. Les défis saisis sont conservés.">Recalculer depuis la planification</button>
+    <button type="submit" form="f-recalc" class="btn sec" title="Recharge les tâches d’hier et du jour depuis la planification. Les défis saisis sont conservés.">Recalculer depuis la planification</button>
     @endif
     @if($peutGerer)
     <button type="submit" form="f-suppr" class="btn ko" style="margin-left:auto">Supprimer ce Daily</button>
@@ -189,7 +189,7 @@
 @if($tout)
 <form method="POST" action="{{ $daily->url('entree.ajouter') }}" id="f-ajout-part">@csrf</form>
 
-<form method="POST" action="{{ $daily->url('recalculer') }}" id="f-recalc" onsubmit="return confirm('Recalculer les lignes à partir de l\'état actuel des tâches ? Les colonnes hier / ce jour / durée seront remplacées (les défis saisis sont conservés).')">@csrf
+<form method="POST" action="{{ $daily->url('recalculer') }}" id="f-recalc" onsubmit="return confirm('Recalculer les lignes à partir de l\'état actuel des tâches ? Les colonnes Réalisé et À faire seront remplacées (les défis saisis sont conservés).')">@csrf
     <input type="hidden" name="roles" value="0">
 </form>
 @foreach($entrees as $e)

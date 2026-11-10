@@ -94,7 +94,7 @@ dialog textarea{min-height:60px;resize:vertical}
                 <div class="tache-meta">
                     {{ $t->projet->libelle ?? 'Sans projet' }}
                     @if($t->sprint) &middot; Sprint {{ $t->sprint->numero }} @endif
-                    @if($t->echeance) &middot; &Eacute;ch. {{ $t->echeance->format('d/m') }} @endif
+                    &middot; <x-voyant :tache="$t" /> @if($t->echeance) &Eacute;ch. {{ $t->echeance->format('d/m') }} @endif
                     @if($t->points) &middot; {{ $t->points }} pts @endif
                 </div>
             </div>

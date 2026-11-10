@@ -1,8 +1,8 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{AuditLog, CompteRendu, NotificationApp, Projet, Sprint, Tache, User, Blocage, Evenement};
-use App\Services\MailService;
+use App\Models\{AuditLog, CompteRendu, NotificationApp, Projet, Sprint, Tache, User, UserStory, Blocage, Evenement};
+use App\Services\{MailService, ScrumService};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -13,7 +13,7 @@ class CompteRenduController extends Controller
     public function index(Request $r)
     {
         $user = $r->user();
-        $query = CompteRendu::with(['redacteur', 'president', 'sprint'])->orderByDesc('date_reunion');
+        $query = CompteRendu::with(['redacteur', 'president', 'sprint.projet'])->orderByDesc('date_reunion');
 
         if (!$user->estPilote() && !$user->aRole('direction')) {
             $query->where(fn($q) => $q->where('redacteur_id', $user->id)->orWhere('statut', 'confirme'));
@@ -124,6 +124,7 @@ class CompteRenduController extends Controller
     /* ===== ÉDITION ===== */
     public function edit(Request $r, CompteRendu $cr)
     {
+        if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         $user = $r->user();
         if ($cr->estConfirme()) {
@@ -153,6 +154,7 @@ class CompteRenduController extends Controller
 
     public function update(Request $r, CompteRendu $cr)
     {
+        if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum()) return redirect($cr->lienScrum() ?? route('comptes-rendus.index'));
         $user = $r->user();
         // Brouillon : pilote ou rédacteur. Confirmé : admin uniquement.
@@ -178,6 +180,8 @@ class CompteRenduController extends Controller
                 }
                 unset($mod, $sec, $blc);
             }
+            // Avancement des stories : repris du sprint à la création, conservé tel quel
+            $donnees['stories'] = $donnees['stories'] ?? ($cr->getDonnees()['stories'] ?? []);
             $score = $this->calculerScoreDemo($donnees['taches'] ?? []);
             if (!empty($donnees['score_manuel'])) {
                 $pts = max(0, (int) ($donnees['points_realises'] ?? 0));
@@ -259,6 +263,7 @@ class CompteRenduController extends Controller
     /* ===== CONFIRMATION ===== */
     public function confirmer(Request $r, CompteRendu $cr)
     {
+        if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum()) return redirect($cr->lienScrum() ?? route('comptes-rendus.index'));
         $user = $r->user();
         abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
@@ -341,6 +346,7 @@ class CompteRenduController extends Controller
     /* ===== CONSULTATION ===== */
     public function show(Request $r, CompteRendu $cr)
     {
+        if ($cr->estReviewV1()) return $this->editReviewSprint($r, $cr);
         if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         $user = $r->user();
         $donnees = $cr->getDonnees();
@@ -351,12 +357,14 @@ class CompteRenduController extends Controller
     /* ===== TÉLÉCHARGEMENT ===== */
     public function telecharger(CompteRendu $cr)
     {
-        if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
+        if ($cr->estScrum() && !$cr->estReviewV1() && $cr->lienScrum()) return redirect($cr->lienScrum());
+        if ($cr->estReviewV1()) abort_unless(auth()->user() && $this->droitsReview(auth()->user(), $cr), 403);
         if (!$cr->fichier_path || !file_exists(storage_path('app/' . $cr->fichier_path))) {
             $this->genererDocx($cr);
         }
         $path = storage_path('app/' . $cr->fichier_path);
-        $nom = 'CR_' . ($cr->estReunion() ? 'Reunion' : 'Demo') . '_' . $cr->date_reunion->format('d_m_Y') . '.docx';
+        $typeNom = $cr->estReunion() ? 'Reunion' : ($cr->estReviewV1() ? 'Review_Sprint' : 'Demo');
+        $nom = 'CR_' . $typeNom . '_' . $cr->date_reunion->format('d_m_Y') . '.docx';
         return response()->download($path, $nom);
     }
 
@@ -417,7 +425,11 @@ class CompteRenduController extends Controller
     private function preRemplirDemo(int $sprintId): array
     {
         $sprint = Sprint::with('projet')->findOrFail($sprintId);
-        $taches = Tache::where('sprint_id', $sprintId)->with('user')->orderBy('type')->orderBy('intitule')->get();
+        $stories = \App\Services\AvancementScrum::lignesSprint($sprint);
+        $rang = collect($stories)->pluck('id')->flip();
+        // Tâches dans l'ordre de la hiérarchie (Module > Epic > User story), les tâches hors story à la fin
+        $taches = Tache::where('sprint_id', $sprintId)->with(['user', 'userStory'])->orderBy('date_debut')->orderBy('intitule')->get()
+            ->sortBy(fn($t) => $t->user_story_id !== null && isset($rang[$t->user_story_id]) ? $rang[$t->user_story_id] : PHP_INT_MAX)->values();
 
         $lignes = [];
         $totalPoints = 0;
@@ -430,8 +442,10 @@ class CompteRenduController extends Controller
             if ($termine) $pointsRealises += $pts;
             $lignes[] = [
                 'tache' => $t->intitule, 'points' => $pts,
-                'attribution' => $t->user?->nomComplet() ?? '—', 'statut' => $t->statut,
+                'attribution' => $t->user?->nomComplet() ?? '-', 'statut' => $t->statut,
                 'termine' => $termine, 'observation' => $t->qualification ?? '',
+                'us' => $t->userStory?->numero,
+                'us_contexte' => $t->userStory ? trim(($t->userStory->module ?: '') . ($t->userStory->epic ? ' › ' . $t->userStory->epic : '')) : null,
             ];
         }
 
@@ -452,6 +466,7 @@ class CompteRenduController extends Controller
             'date_debut' => $sprint->date_debut?->format('d/m/Y'),
             'date_fin' => $sprint->date_fin?->format('d/m/Y'),
             'taches' => $lignes,
+            'stories' => $stories,
             'total_points' => $totalPoints, 'points_realises' => $pointsRealises,
             'score_pourcent' => $scorePct,
             'par_dev' => $parDev,
@@ -461,11 +476,12 @@ class CompteRenduController extends Controller
                     'objectif' => 'Présenter les livrables et le score du sprint',
                     'sections' => [
                         [
-                            'id' => 'sec_1', 'titre' => 'Tâches réalisées',
-                            'blocs' => [
+                            'id' => 'sec_1', 'titre' => $stories ? 'Avancement et tâches réalisées' : 'Tâches réalisées',
+                            'blocs' => array_values(array_filter([
+                                $stories ? ['id' => 'blc_0', 'type' => 'tableau_stories'] : null,
                                 ['id' => 'blc_1', 'type' => 'tableau_taches'],
                                 ['id' => 'blc_2', 'type' => 'score'],
-                            ],
+                            ])),
                         ],
                     ],
                 ],
@@ -492,6 +508,313 @@ class CompteRenduController extends Controller
     }
 
     /* ===================================================================
+     *  CR REVIEW SPRINT - WIZARD REVIEW_V1 (document formel)
+     *  Brouillon (rédacteur) → En révision (responsable du projet) → Confirmé (DOCX).
+     *  La Review du module Scrum reste la saisie de référence (statuts, observations) : le CR formel
+     *  la reprend et la complète pour le client (retours, critères d'acceptation, décisions, signatures).
+     * =================================================================== */
+
+    /** Droit sur un CR Review Sprint : « edition », « lecture » ou null. */
+    private function droitsReview(User $u, CompteRendu $cr): ?string
+    {
+        $projet = $cr->sprint?->projet;
+        $gestionnaire = $projet && $u->peutGererProjet($projet->id);
+        $redacteur = (int) $cr->redacteur_id === (int) $u->id;
+        if ($cr->estConfirme()) {
+            if ($u->estAdmin()) return 'edition';
+            return $u->estPilote() || $gestionnaire || $redacteur || ($projet && $projet->estVisiblePour($u)) ? 'lecture' : null;
+        }
+        if ($cr->estEnRevision()) {
+            if ($u->estAdmin() || $gestionnaire) return 'edition';
+            return $u->estPilote() || $redacteur ? 'lecture' : null;
+        }
+        if ($u->estAdmin() || $gestionnaire || $redacteur) return 'edition';
+        return $u->estPilote() ? 'lecture' : null;
+    }
+
+    /** Valider (relecture) puis confirmer : responsable du projet ou pilote. */
+    private function peutValiderReview(User $u, CompteRendu $cr): bool
+    {
+        return !$cr->estConfirme() && ($u->estAdmin() || ($cr->sprint && $u->peutGererProjet($cr->sprint->projet_id)));
+    }
+
+    /** Créer (ou rouvrir) le CR Review Sprint depuis la page du sprint. */
+    public function createReviewSprint(Request $r, Sprint $sprint)
+    {
+        $user = $r->user();
+        abort_unless($user->estAdmin() || $user->peutGererProjet($sprint->projet_id), 403);
+
+        $existant = CompteRendu::where('sprint_id', $sprint->id)
+            ->where('type', 'review_sprint')->where('format', 'review_v1')->first();
+        if ($existant) return redirect()->route('comptes-rendus.review-sprint.edit', $existant);
+
+        // Règle du planning des réunions : le scribe du jour rédige les rapports
+        $redacteurId = \App\Services\RedacteurDuJour::id(today(), $sprint->projet_id) ?? $user->id;
+        $cr = CompteRendu::create([
+            'type'         => 'review_sprint',
+            'format'       => 'review_v1',
+            'titre'        => "CR Review Sprint {$sprint->numero} - {$sprint->projet->libelle}",
+            'sprint_id'    => $sprint->id,
+            'redacteur_id' => $redacteurId,
+            'designe_par'  => $user->id,
+            'date_reunion' => today(),
+            'statut'       => 'brouillon',
+        ]);
+        $cr->setDonnees($this->preRemplirReviewSprint($sprint));
+        $cr->save();
+        AuditLog::log('creation_cr', 'comptes_rendus', $cr->titre, 'CR Review Sprint créé - rédacteur : ' . (User::find($redacteurId)?->nomComplet() ?? '-'));
+
+        return redirect()->route('comptes-rendus.review-sprint.edit', $cr)->with('ok', 'CR Review Sprint créé et pré-rempli depuis la Review du sprint.');
+    }
+
+    /** Édition (ou consultation) du CR Review Sprint. */
+    public function editReviewSprint(Request $r, CompteRendu $cr)
+    {
+        abort_unless($cr->estReviewV1(), 404);
+        $user = $r->user();
+        $droit = $this->droitsReview($user, $cr);
+        abort_unless($droit, 403, "Ce compte rendu n'est pas encore confirmé.");
+
+        $cr->load(['redacteur', 'sprint.projet']);
+        $donnees = $cr->getDonnees();
+        $sprint = $cr->sprint;
+        $membres = $sprint ? ScrumService::membres($sprint) : collect();
+        $tousUsers = User::where('actif', true)->orderBy('name')->get();
+        // Indicateurs : valeurs du jour tant que le CR n'est pas confirmé, figées ensuite
+        $kpis = $cr->estConfirme() ? ($donnees['kpis'] ?? []) : ($sprint ? ScrumService::indicateurs($sprint) : []);
+        $estLecture = $droit === 'lecture';
+        $peutValider = $this->peutValiderReview($user, $cr);
+
+        return view('comptes-rendus.review-sprint', compact('cr', 'donnees', 'sprint', 'membres', 'tousUsers', 'kpis', 'user', 'estLecture', 'peutValider'));
+    }
+
+    /**
+     * Enregistrement du CR, suivi éventuellement d'une étape du circuit :
+     * transmettre (brouillon → en révision), renvoyer (en révision → brouillon), confirmer (→ confirmé + DOCX).
+     */
+    public function updateReviewSprint(Request $r, CompteRendu $cr)
+    {
+        abort_unless($cr->estReviewV1(), 404);
+        $user = $r->user();
+        abort_unless($this->droitsReview($user, $cr) === 'edition', 403);
+        $v = $r->validate([
+            'titre' => 'required|string|max:255',
+            'date_reunion' => 'required|date',
+            'lieu' => 'nullable|string|max:255',
+            'heure_debut' => 'nullable|date_format:H:i',
+            'heure_fin' => 'nullable|date_format:H:i|after:heure_debut',
+            'redacteur_id' => 'nullable|exists:users,id',
+            'donnees_json' => 'required|json',
+            'feedback_client' => 'nullable|string|max:30000',
+            'conclusion' => 'nullable|string|max:30000',
+            'apres' => 'nullable|in:enregistrer,transmettre,renvoyer,confirmer',
+        ], ['heure_fin.after' => "L'heure de fin doit suivre l'heure de début."]);
+        $apres = $v['apres'] ?? 'enregistrer';
+        if ($apres === 'transmettre') abort_unless($cr->estBrouillon(), 403);
+        if (in_array($apres, ['renvoyer', 'confirmer'], true)) abort_unless($this->peutValiderReview($user, $cr), 403);
+        if ($apres === 'renvoyer') abort_unless($cr->estEnRevision(), 403);
+
+        $ancien = $cr->getDonnees();
+        $d = $this->normaliserReview(json_decode($v['donnees_json'], true) ?: []);
+        $d['feedback']['client'] = \App\Services\TexteRiche::nettoyer($v['feedback_client'] ?? null);
+        $d['conclusion'] = \App\Services\TexteRiche::nettoyer($v['conclusion'] ?? null);
+        $d['objectif'] = $ancien['objectif'] ?? $cr->sprint?->objectif;
+        // Indicateurs figés à la confirmation ; recalculés à chaque enregistrement avant
+        $d['kpis'] = $cr->estConfirme() ? ($ancien['kpis'] ?? []) : ($cr->sprint ? ScrumService::indicateurs($cr->sprint) : []);
+        $d['format'] = 'review_v1';
+        $cr->setDonnees($d);
+        $cr->fill([
+            'titre' => $v['titre'], 'date_reunion' => $v['date_reunion'], 'lieu' => $v['lieu'] ?? null,
+            'heure_debut' => $v['heure_debut'] ?? null, 'heure_fin' => $v['heure_fin'] ?? null,
+        ]);
+        if (($user->estAdmin() || ($cr->sprint && $user->peutGererProjet($cr->sprint->projet_id))) && !empty($v['redacteur_id'])) {
+            $cr->redacteur_id = (int) $v['redacteur_id'];
+        }
+
+        $message = 'Brouillon enregistré.';
+        if ($apres === 'transmettre') {
+            $cr->statut = 'en_revision';
+            $this->notifierRelecteursReview($cr, $user);
+            AuditLog::log('transmission_cr', 'comptes_rendus', $cr->titre, 'CR Review Sprint transmis pour relecture');
+            $message = 'CR transmis au responsable du projet pour relecture.';
+        } elseif ($apres === 'renvoyer') {
+            $cr->statut = 'brouillon';
+            if ($cr->redacteur_id && $cr->redacteur_id !== $user->id) {
+                NotificationApp::create(['user_id' => $cr->redacteur_id, 'type' => 'cr_review', 'contenu' => "Le {$cr->titre} vous est renvoyé pour reprise.", 'lien' => route('comptes-rendus.review-sprint.edit', $cr), 'lu' => false]);
+            }
+            AuditLog::log('renvoi_cr', 'comptes_rendus', $cr->titre, 'CR Review Sprint renvoyé en brouillon');
+            $message = 'CR renvoyé en brouillon au rédacteur.';
+        } elseif ($apres === 'confirmer') {
+            $cr->statut = 'confirme';
+            $cr->fichier_path = null;
+            $d['kpis'] = $cr->sprint ? ScrumService::indicateurs($cr->sprint) : [];
+            $d['kpis_figes_le'] = now()->format('d/m/Y H:i');
+            $cr->setDonnees($d);
+            $message = 'CR Review Sprint confirmé et DOCX généré.';
+        } elseif ($cr->estConfirme()) {
+            $cr->fichier_path = null;
+            $message = 'Modifications enregistrées et DOCX régénéré.';
+        } elseif ($cr->estEnRevision()) {
+            $message = 'Relecture enregistrée.';
+        }
+        $cr->save();
+
+        if ($cr->estConfirme()) {
+            // Le backlog ne reçoit les critères d'acceptation et la priorité MoSCoW qu'une fois le CR confirmé
+            if ($apres === 'confirmer') {
+                $this->syncUserStoriesBdd($d['user_stories_bdd'] ?? []);
+                AuditLog::log('confirmation_cr', 'comptes_rendus', $cr->titre, 'CR Review Sprint confirmé - Sprint ' . ($cr->sprint?->numero ?? '?'));
+            }
+            try {
+                $this->genererDocx($cr);
+            } catch (\Throwable $e) {
+                return redirect()->route('comptes-rendus.review-sprint.edit', $cr)->with('erreur', 'CR enregistré, mais le DOCX n\'a pas pu être généré : ' . $e->getMessage());
+            }
+        }
+        return redirect()->route('comptes-rendus.review-sprint.edit', $cr)->with('ok', $message);
+    }
+
+    /** Ancienne route de confirmation : la confirmation passe par l'enregistrement (apres = confirmer). */
+    public function confirmerReviewSprint(Request $r, CompteRendu $cr)
+    {
+        abort_unless($cr->estReviewV1(), 404);
+        return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
+    }
+
+    /** Notifie le responsable du projet (et les pilotes à défaut) qu'un CR attend sa relecture. */
+    private function notifierRelecteursReview(CompteRendu $cr, User $auteur): void
+    {
+        $ids = collect([$cr->sprint?->projet?->responsable_projet_id])->filter();
+        if ($ids->isEmpty()) $ids = User::where('actif', true)->whereIn('role', ['administrateur', 'charge_operations'])->pluck('id');
+        foreach ($ids->unique()->reject(fn($id) => (int) $id === (int) $auteur->id) as $id) {
+            NotificationApp::create(['user_id' => $id, 'type' => 'cr_review', 'contenu' => "{$auteur->nomComplet()} vous transmet le {$cr->titre} pour relecture.", 'lien' => route('comptes-rendus.review-sprint.edit', $cr), 'lu' => false]);
+        }
+    }
+
+    /** Ne garde que la structure attendue des données saisies dans l'assistant. */
+    private function normaliserReview(array $d): array
+    {
+        $txt = fn($v, $max = 2000) => mb_substr(trim(strip_tags((string) ($v ?? ''))), 0, $max);
+        $date = fn($v) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $v) ? $v : '';
+        $liste = fn($v) => is_array($v) ? array_values($v) : [];
+        return [
+            'presences' => array_map(fn($p) => ['nom' => $txt($p['nom'] ?? '', 150), 'fonction' => $txt($p['fonction'] ?? '', 150), 'present' => (bool) ($p['present'] ?? false)],
+                array_filter($liste($d['presences'] ?? []), fn($p) => trim($p['nom'] ?? '') !== '')),
+            'modules_livres' => array_map(fn($m) => ['nom' => $txt($m['nom'] ?? '', 200), 'statut' => in_array($m['statut'] ?? '', ['livre', 'partiel', 'non_livre'], true) ? $m['statut'] : 'non_livre', 'observation' => $txt($m['observation'] ?? '')],
+                array_filter($liste($d['modules_livres'] ?? []), fn($m) => trim($m['nom'] ?? '') !== '')),
+            'user_stories_bdd' => array_map(fn($us) => [
+                'us_id' => (int) ($us['us_id'] ?? 0) ?: null, 'numero' => $txt($us['numero'] ?? '', 30), 'intitule' => $txt($us['intitule'] ?? '', 2000),
+                'module' => $txt($us['module'] ?? '', 150),
+                'moscow' => array_key_exists($us['moscow'] ?? '', UserStory::MOSCOW) ? $us['moscow'] : 'should',
+                'verdict' => in_array($us['verdict'] ?? '', ['acceptee', 'partielle', 'refusee'], true) ? $us['verdict'] : 'partielle',
+                'observation' => $txt($us['observation'] ?? ''),
+                'niveau' => isset($us['niveau']) ? max(0, min(100, (int) $us['niveau'])) : null,
+                'niveau_origine' => ($us['niveau_origine'] ?? '') === 'declare' ? 'declare' : 'calcule',
+                'epic' => $txt($us['epic'] ?? '', 150),
+                'criteres' => array_map(fn($c) => ['given' => $txt($c['given'] ?? '', 500), 'when' => $txt($c['when'] ?? '', 500), 'then' => $txt($c['then'] ?? '', 500), 'statut' => in_array($c['statut'] ?? '', ['valide', 'echoue', 'na'], true) ? $c['statut'] : 'na'],
+                    array_filter($liste($us['criteres'] ?? []), fn($c) => trim(($c['given'] ?? '') . ($c['when'] ?? '') . ($c['then'] ?? '')) !== '')),
+            ], $liste($d['user_stories_bdd'] ?? [])),
+            'feedback' => [
+                'positifs' => array_values(array_filter(array_map(fn($x) => $txt($x, 500), $liste($d['feedback']['positifs'] ?? [])))),
+                'ameliorations' => array_values(array_filter(array_map(fn($x) => $txt($x, 500), $liste($d['feedback']['ameliorations'] ?? [])))),
+            ],
+            'decisions' => array_map(fn($x) => [
+                'action' => $txt($x['action'] ?? ''), 'responsables' => array_values(array_filter(array_map(fn($p) => $txt($p, 150), is_array($x['responsables'] ?? null) ? $x['responsables'] : explode(',', (string) ($x['responsables'] ?? ''))))),
+                'priorite' => in_array($x['priorite'] ?? '', ['haute', 'moyenne', 'basse'], true) ? $x['priorite'] : '', 'echeance' => $date($x['echeance'] ?? ''),
+            ], array_filter($liste($d['decisions'] ?? []), fn($x) => trim($x['action'] ?? '') !== '')),
+            'signatures' => array_map(fn($s) => ['nom' => $txt($s['nom'] ?? '', 150), 'role' => $txt($s['role'] ?? '', 150), 'date' => $date($s['date'] ?? '')],
+                array_filter($liste($d['signatures'] ?? []), fn($s) => trim($s['nom'] ?? '') !== '')),
+        ];
+    }
+
+    /** Pré-remplissage depuis le sprint et sa Review (module Scrum) : objectif, modules, observations, synthèse, décisions. */
+    private function preRemplirReviewSprint(Sprint $sprint): array
+    {
+        $sprint->load(['projet', 'taches.userStory']);
+        $review = CompteRendu::where('sprint_id', $sprint->id)->where('type', 'review_sprint')->duModuleScrum()->first()?->getDonnees() ?? [];
+        $obsScrum = $review['observations'] ?? [];
+        $brut = fn($html) => trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['<br>', '</li>', '</div>'], ' ', (string) $html)), ENT_QUOTES, 'UTF-8')));
+
+        $presences = ScrumService::membres($sprint)->map(fn($u) => [
+            'nom' => $u->nomComplet(), 'fonction' => $u->titre_poste ?: $u->roleLibelle(), 'present' => true,
+        ])->values()->toArray();
+
+        // Modules livrés : groupes Module › Epic des user stories du sprint (niveau d'exécution déclaré ou calculé),
+        // puis les tâches hors user story ; observations reprises de la Review Scrum
+        $lignesUs = collect(\App\Services\AvancementScrum::lignesSprint($sprint));
+        $modules = $lignesUs->groupBy(fn($l) => $l['module'] . ($l['epic'] ? ' › ' . $l['epic'] : ''))
+            ->map(function ($groupe, $nom) use ($sprint, $obsScrum, $brut) {
+                $moy = (int) round($groupe->avg('niveau'));
+                $finies = $groupe->where('niveau', '>=', 100)->count();
+                $obs = $sprint->taches->whereIn('user_story_id', $groupe->pluck('id'))->map(fn($t) => isset($obsScrum[$t->id]) ? $brut($obsScrum[$t->id]) : null)->filter()->unique()->join(' ; ');
+                return [
+                    'nom' => $nom,
+                    'statut' => $finies === $groupe->count() ? 'livre' : ($moy > 0 ? 'partiel' : 'non_livre'),
+                    'observation' => mb_substr("{$finies}/{$groupe->count()} user story(s) terminée(s) · exécution moyenne {$moy} %" . ($obs ? " - {$obs}" : ''), 0, 2000),
+                ];
+            })->values();
+        $hors = $sprint->taches->whereNull('user_story_id')->whereNotIn('statut', ['reporte']);
+        if ($hors->isNotEmpty()) {
+            $faites = $hors->where('statut', 'termine')->count();
+            $obs = $hors->map(fn($t) => isset($obsScrum[$t->id]) ? $brut($obsScrum[$t->id]) : null)->filter()->unique()->join(' ; ');
+            $modules->push(['nom' => 'Tâches hors user story', 'statut' => $faites === $hors->count() ? 'livre' : ($faites > 0 ? 'partiel' : 'non_livre'),
+                'observation' => mb_substr("{$faites}/{$hors->count()} tâche(s) réalisée(s)" . ($obs ? " - {$obs}" : ''), 0, 2000)]);
+        }
+        $modules = $modules->all();
+        $niveaux = $lignesUs->keyBy('id');
+
+        $usBdd = $sprint->userStories()->get()->map(fn($us) => [
+            'us_id'       => $us->id,
+            'numero'      => $us->numero,
+            'intitule'    => $us->intitule,
+            'module'      => $us->module ?: '',
+            'moscow'      => $us->priorite_moscow ?: 'should',
+            'criteres'    => $us->criteres_acceptation ?: [['given' => '', 'when' => '', 'then' => '', 'statut' => 'na']],
+            'verdict'     => $us->pivot->statut_sprint === 'termine' ? 'acceptee' : 'partielle',
+            'observation' => '',
+            'niveau'      => $niveaux[$us->id]['niveau'] ?? 0,
+            'niveau_origine' => $niveaux[$us->id]['origine'] ?? 'calcule',
+            'epic'        => $us->epic,
+        ])->values()->toArray();
+
+        // Décisions de la Review Scrum : une ligne par élément de liste
+        $decisions = [];
+        if (!empty($review['decisions'])) {
+            preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $review['decisions'], $li);
+            foreach (($li[1] ?: [$review['decisions']]) as $item) {
+                if (($t = $brut($item)) !== '') $decisions[] = ['action' => mb_substr($t, 0, 2000), 'responsables' => [], 'priorite' => '', 'echeance' => ''];
+            }
+        }
+
+        return [
+            'format'           => 'review_v1',
+            'objectif'         => $sprint->objectif,
+            'presences'        => $presences,
+            'modules_livres'   => $modules,
+            'user_stories_bdd' => $usBdd,
+            'feedback'         => ['client' => null, 'positifs' => [], 'ameliorations' => []],
+            'kpis'             => ScrumService::indicateurs($sprint),
+            'decisions'        => $decisions,
+            'signatures'       => [],
+            'conclusion'       => $review['synthese'] ?? null,
+        ];
+    }
+
+    /** À la confirmation : critères d'acceptation et priorité MoSCoW reportés sur les user stories du backlog. */
+    private function syncUserStoriesBdd(array $usBdd): void
+    {
+        foreach ($usBdd as $item) {
+            if (empty($item['us_id']) || !($us = UserStory::find($item['us_id']))) continue;
+            $us->update([
+                'criteres_acceptation' => $item['criteres'] ?: null,
+                'priorite_moscow'      => $item['moscow'] ?? null,
+            ]);
+            // Verdict de la Review : une story terminée et acceptée change de statut
+            if (($item['verdict'] ?? '') === 'acceptee' && $us->statut === 'terminee') $us->update(['statut' => 'acceptee']);
+        }
+    }
+
+    /* ===================================================================
      *  GÉNÉRATION DOCX - Times New Roman 12pt, interligne 1,5, logo
      * =================================================================== */
 
@@ -507,6 +830,8 @@ class CompteRenduController extends Controller
 
         if ($cr->estReunion()) {
             $this->genererDocxReunion($cr, $donnees, $path);
+        } elseif ($cr->estReviewV1()) {
+            $this->genererDocxReviewSprint($cr, $donnees, $path);
         } else {
             $this->genererDocxDemo($cr, $donnees, $path);
         }
@@ -643,8 +968,10 @@ class CompteRenduController extends Controller
         $redNom = $redacteur?->nomComplet() ?? '—';
         $redTitre = $redacteur?->titre_poste ?? '';
         $projetNom = $cr->sprint?->projet?->libelle ?? $d['projet'] ?? 'SOUMAFÊ';
-        $sprintLabel = $d['sprint'] ?? 'Sprint';
-        $headerLine = "SOUMAFÊ - {$projetNom} | Compte-rendu de démonstration - {$sprintLabel}";
+        $sprintLabel = ($d['sprint'] ?? null) ?: ($cr->sprint ? "Sprint {$cr->sprint->numero}" : 'Sprint');
+        $d['date_debut'] = ($d['date_debut'] ?? null) ?: $cr->sprint?->date_debut?->format('d/m/Y');
+        $d['date_fin'] = ($d['date_fin'] ?? null) ?: $cr->sprint?->date_fin?->format('d/m/Y');
+        $headerLine = "SOUMAFÊ - {$projetNom} | Compte rendu de démonstration - {$sprintLabel}";
 
         $xml = $this->docxHeader();
 
@@ -665,7 +992,7 @@ class CompteRenduController extends Controller
         $xml .= $this->docxInfoTable([
             ['Projet', $projetNom],
             ['Sprint', $sprintLabel],
-            ['Période', ($d['date_debut'] ?? '') . ' au ' . ($d['date_fin'] ?? '')],
+            ['Période', $d['date_debut'] && $d['date_fin'] ? "Du {$d['date_debut']} au {$d['date_fin']}" : '-'],
             ['Date démonstration', $cr->date_reunion->format('d/m/Y')],
             ['Score global', ($d['points_realises'] ?? 0) . '/' . ($d['total_points'] ?? 0) . ' pts (' . ($d['score_pourcent'] ?? 0) . '%)'],
         ]);
@@ -715,14 +1042,26 @@ class CompteRenduController extends Controller
                         $xml .= $this->htmlToOoxml($bloc['contenu'], "{$secNum}.");
                         $xml .= $this->p('');
 
+                    } elseif ($type === 'tableau_stories' && !empty($d['stories'])) {
+                        $rows = [];
+                        $groupe = null;
+                        foreach ($d['stories'] as $st) {
+                            $ctx = $st['module'] . ($st['epic'] ? ' › ' . $st['epic'] : '');
+                            $rows[] = [$ctx !== $groupe ? $ctx : '', ($st['numero'] ?? '') . ' - ' . ($st['intitule'] ?? ''), ($st['niveau'] ?? 0) . ' %' . (($st['origine'] ?? '') === 'declare' ? ' (déclaré)' : ''),
+                                ($st['taches_terminees'] ?? 0) . '/' . ($st['taches'] ?? 0), (string) ($st['points'] ?? '-'), $st['statut'] ?? ''];
+                            $groupe = $ctx;
+                        }
+                        $xml .= $this->docxTableMultiAlt(['Module › Epic', 'User story', 'Exécution', 'Tâches', 'Pts', 'Statut'], $rows, [2000, 3600, 1200, 900, 600, 1300]);
+                        $xml .= $this->p('');
+
                     } elseif ($type === 'tableau_taches' && !empty($taches)) {
                         $taskRows = [];
                         foreach ($taches as $ti => $t) {
                             $termine = !empty($t['termine']);
-                            $statut = $termine ? 'Terminé' : ucfirst($t['statut'] ?? 'En cours');
+                            $statut = $termine ? 'Terminé' : (($t['statut'] ?? '') ? ([ 'a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'a_valider' => 'À valider', 'termine' => 'Terminé', 'reporte' => 'Reporté' ][$t['statut']] ?? ucfirst(str_replace('_', ' ', $t['statut']))) : 'En cours');
                             $taskRows[] = [
                                 (string)($ti + 1),
-                                $t['tache'] ?? '',
+                                (!empty($t['us']) ? $t['us'] . ' · ' : '') . ($t['tache'] ?? ''),
                                 (string)($t['points'] ?? 1),
                                 $t['attribution'] ?? '—',
                                 $statut,
@@ -832,7 +1171,7 @@ class CompteRenduController extends Controller
                 $devTotal += $pts;
                 $termine = !empty($t['termine']);
                 if ($termine) $devRealise += $pts;
-                $statut = $termine ? 'Terminé' : ucfirst($t['statut'] ?? 'En cours');
+                $statut = $termine ? 'Terminé' : (($t['statut'] ?? '') ? ([ 'a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'a_valider' => 'À valider', 'termine' => 'Terminé', 'reporte' => 'Reporté' ][$t['statut']] ?? ucfirst(str_replace('_', ' ', $t['statut']))) : 'En cours');
                 $devRows[] = [(string)($i + 1), $t['tache'] ?? '', $devNom, (string)$pts, $statut, $t['observation'] ?? ''];
             }
             $xml .= $this->docxTableMultiAlt(
@@ -923,6 +1262,240 @@ class CompteRenduController extends Controller
     }
 
     /* ===================================================================
+     *  DOCX REVIEW SPRINT (format review_v1) - Document formel
+     * =================================================================== */
+
+    private function genererDocxReviewSprint(CompteRendu $cr, array $d, string $path): void
+    {
+        $logoPath = public_path('images/logo_soumafe.png');
+        $hasLogo = file_exists($logoPath);
+        $cr->load(['redacteur', 'sprint.projet']);
+
+        $redacteur = $cr->redacteur;
+        $redNom = $redacteur?->nomComplet() ?? "—";
+        $redTitre = $redacteur?->titre_poste ?? '';
+        $sprint = $cr->sprint;
+        $projetNom = $sprint?->projet?->libelle ?? 'SOUMAFÊ';
+        $sprintLabel = $sprint ? "Sprint {$sprint->numero}" : 'Sprint';
+        $headerLine = "SOUMAFÊ - {$projetNom} | Review Sprint - {$sprintLabel}";
+
+        $xml = $this->docxHeader();
+
+        if ($hasLogo) $xml .= $this->docxImage($logoPath, 1500000, 1050000);
+
+        // Titre principal
+        $xml .= $this->titreBloc('COMPTE RENDU DE REVIEW SPRINT');
+        $xml .= $this->titreBloc($sprintLabel, 22);
+        $xml .= $this->p('');
+
+        // Encadré rédacteur
+        $redLigne = "Rédigé par : {$redNom}";
+        if ($redTitre) $redLigne .= " - {$redTitre}, SOUMAFÊ";
+        $xml .= $this->encadre($redLigne);
+        $xml .= $this->p('');
+
+        // Tableau d'information
+        $xml .= $this->docxInfoTable([
+            ['Projet', $projetNom],
+            ['Sprint', $sprintLabel],
+            ['Période', ($sprint?->date_debut?->format('d/m/Y') ?? '') . ' au ' . ($sprint?->date_fin?->format('d/m/Y') ?? '')],
+            ['Date review', $cr->date_reunion->format('d/m/Y')],
+            ['Lieu', $cr->lieu ?? "—"],
+            ['Horaire', $cr->heure_debut ? substr($cr->heure_debut, 0, 5) . ($cr->heure_fin ? ' - ' . substr($cr->heure_fin, 0, 5) : '') : '-'],
+            ['Rédacteur', $redNom],
+        ]);
+        $xml .= $this->p('');
+
+        // Objectif du sprint (rappel)
+        if ($objectif = trim((string) ($d['objectif'] ?? $sprint?->objectif ?? ''))) {
+            $xml .= $this->encadre('Objectif du sprint : ' . $objectif);
+            $xml .= $this->p('');
+        }
+
+        // === SECTION 1 : PARTICIPANTS ===
+        if (!empty($d['presences'])) {
+            $xml .= $this->titreSection('1', 'PARTICIPANTS');
+            $presRows = array_map(fn($p) => [
+                $p['nom'] ?? '', ($p['fonction'] ?? '') ?: "—",
+                ($p['present'] ?? false) ? 'Présent' : 'Absent',
+            ], $d['presences']);
+            $xml .= $this->docxTableMultiAlt(['Collaborateur', 'Fonction / Poste', 'Statut'], $presRows, [3800, 3600, 2200]);
+            $xml .= $this->p('');
+        }
+
+        // === SECTION 2 : MODULES LIVRÉS ===
+        $xml .= $this->titreSection('2', 'MODULES LIVRÉS');
+        if (!empty($d['modules_livres'])) {
+            $modRows = array_map(fn($m, $i) => [
+                (string)($i + 1),
+                $m['nom'] ?? '',
+                match ($m['statut'] ?? '') { 'livre' => 'Livré', 'partiel' => 'Partiel', default => 'Non livré' },
+                $m['observation'] ?? '',
+            ], $d['modules_livres'], array_keys($d['modules_livres']));
+            $xml .= $this->docxTableMultiAlt(
+                ['N°', 'Module', 'Statut', 'Observation'],
+                $modRows, [600, 3600, 1800, 3600]
+            );
+        } else {
+            $xml .= $this->p('(Aucun module renseigné)');
+        }
+        $xml .= $this->p('');
+
+        // === SECTION 3 : USER STORIES (BDD) ===
+        $xml .= $this->titreSection('3', 'USER STORIES - CRITÈRES D\'ACCEPTATION');
+        $usBdd = $d['user_stories_bdd'] ?? [];
+        if (!empty($usBdd)) {
+            foreach ($usBdd as $ui => $us) {
+                $moscowLabel = \App\Models\UserStory::MOSCOW[$us['moscow'] ?? 'should'] ?? $us['moscow'];
+                $verdictLabel = match ($us['verdict'] ?? '') { 'acceptee' => 'Acceptée', 'refusee' => 'Refusée', default => 'Partielle' };
+                $verdictColor = match ($us['verdict'] ?? '') { 'acceptee' => '2E8B57', 'refusee' => 'CC3333', default => 'E6A817' };
+                $verdictBg = match ($us['verdict'] ?? '') { 'acceptee' => 'F0F7ED', 'refusee' => 'FEECEC', default => 'FFF8E1' };
+
+                $xml .= $this->sousTitre('3.' . ($ui + 1), ($us['numero'] ?? '') . ' - ' . ($us['intitule'] ?? ''));
+
+                // Priorité MoSCoW
+                $xml .= $this->p("Priorité : {$moscowLabel}" . (isset($us['niveau']) && $us['niveau'] !== null ? " · Niveau d'exécution : {$us['niveau']} %" . (($us['niveau_origine'] ?? '') === 'declare' ? ' (déclaré par l\'équipe)' : '') : '') . (!empty($us['epic']) ? " · Epic : {$us['epic']}" : ''), true, 11);
+
+                // Critères BDD (Given/When/Then)
+                $criteres = $us['criteres'] ?? [];
+                if (!empty($criteres)) {
+                    $critRows = [];
+                    foreach ($criteres as $ci => $c) {
+                        $statutCrit = match ($c['statut'] ?? 'na') { 'valide' => 'Validé', 'echoue' => 'Échoué', default => 'N/A' };
+                        $critRows[] = [
+                            (string)($ci + 1),
+                            'Given: ' . ($c['given'] ?? ''),
+                            'When: ' . ($c['when'] ?? ''),
+                            'Then: ' . ($c['then'] ?? ''),
+                            $statutCrit,
+                        ];
+                    }
+                    $xml .= $this->docxTableMultiAlt(
+                        ['N°', 'Given (Contexte)', 'When (Action)', 'Then (Résultat)', 'Statut'],
+                        $critRows, [500, 2400, 2400, 2400, 1900]
+                    );
+                }
+
+                // Verdict
+                $xml .= $this->bilanBloc("Verdict : {$verdictLabel}", $us['observation'] ?? '', $verdictBg, $verdictColor);
+                $xml .= $this->p('');
+            }
+        } else {
+            $xml .= $this->p('(Aucune user story renseignée)');
+        }
+
+        // === SECTION 4 : RETOURS ET FEEDBACK ===
+        $xml .= $this->titreSection('4', 'RETOURS ET FEEDBACK');
+        $feedback = $d['feedback'] ?? [];
+        if (!empty($feedback['client'])) {
+            $xml .= $this->sousTitre('4.1', 'Retour client / PO');
+            $xml .= $this->htmlToOoxml($feedback['client'], '4.1.');
+            $xml .= $this->p('');
+        }
+        if (!empty($feedback['positifs'])) {
+            $positifs = array_filter($feedback['positifs'], fn($p) => trim($p) !== '');
+            if ($positifs) {
+                $xml .= $this->sousTitre('4.2', 'Points positifs');
+                foreach ($positifs as $i => $p) {
+                    $xml .= $this->listItemParagraph(($i + 1) . '.', $p);
+                }
+                $xml .= $this->p('');
+            }
+        }
+        if (!empty($feedback['ameliorations'])) {
+            $ameliorations = array_filter($feedback['ameliorations'], fn($a) => trim($a) !== '');
+            if ($ameliorations) {
+                $xml .= $this->sousTitre('4.3', 'Axes d\'amélioration');
+                foreach ($ameliorations as $i => $a) {
+                    $xml .= $this->listItemParagraph(($i + 1) . '.', $a);
+                }
+                $xml .= $this->p('');
+            }
+        }
+
+        // === SECTION 5 : KPIs SPRINT ===
+        $xml .= $this->titreSection('5', 'INDICATEURS CLÉS DU SPRINT');
+        $kpis = $d['kpis'] ?? [];
+        if (!empty($kpis)) {
+            $taux = $kpis['taux'] ?? 0;
+            $appreciation = $taux >= 90 ? 'Excellent' : ($taux >= 75 ? 'Bon' : ($taux >= 50 ? 'Acceptable' : 'Insuffisant'));
+            // Sprint non clôturé : bilan provisoire, sans appréciation
+            $enCours = $sprint && $sprint->statut !== 'termine';
+            $xml .= $this->docxTableMultiAlt(
+                ['Indicateur', 'Valeur'],
+                [
+                    ['Tâches totales', (string)($kpis['taches'] ?? 0)],
+                    ['Tâches réalisées', (string)($kpis['realisees'] ?? 0)],
+                    ['Taux de réalisation', $taux . '%'],
+                    ['Story points engagés', (string)($kpis['points'] ?? 0)],
+                    ['Story points livrés', (string)($kpis['points_faits'] ?? 0)],
+                    ['User stories', ($kpis['stories_terminees'] ?? 0) . '/' . ($kpis['stories'] ?? 0) . ' terminées'],
+                    ['Tâches en retard', (string)($kpis['en_retard'] ?? 0)],
+                    ['Blocages ouverts', (string)($kpis['blocages_ouverts'] ?? 0)],
+                    ['Dailies tenus', (string)($kpis['dailies'] ?? 0)],
+                    ['Tâches hors sprint', (string)($kpis['hors_sprint'] ?? 0)],
+                ],
+                [4800, 4800]
+            );
+            $xml .= $this->p('');
+            $detail = "Taux de réalisation : {$taux}% - " . ($kpis['points_faits'] ?? 0) . '/' . ($kpis['points'] ?? 0) . ' story points livrés'
+                . (!empty($d['kpis_figes_le']) ? " (valeurs au {$d['kpis_figes_le']})" : '');
+            $xml .= $enCours
+                ? $this->bilanBloc('Bilan provisoire : sprint en cours', $detail, 'EFF4FB', '2E74B5')
+                : $this->bilanBloc(
+                    "Appréciation globale : {$appreciation}", $detail,
+                    $taux >= 75 ? 'F0F7ED' : ($taux >= 50 ? 'FFF8E1' : 'FEECEC'),
+                    $taux >= 75 ? '2E8B57' : ($taux >= 50 ? 'E6A817' : 'CC3333')
+                );
+        } else {
+            $xml .= $this->p('(KPIs non disponibles)');
+        }
+        $xml .= $this->p('');
+
+        // === SECTION 6 : DÉCISIONS ET ACTIONS ===
+        $xml .= $this->titreSection('6', 'DÉCISIONS ET ACTIONS À MENER');
+        $decisions = $d['decisions'] ?? [];
+        if (!empty($decisions)) {
+            $decRows = [];
+            foreach ($decisions as $i => $dec) {
+                $resp = is_array($dec['responsables'] ?? null) ? implode(', ', $dec['responsables']) : ($dec['responsables'] ?? '');
+                $decRows[] = [(string)($i + 1), $dec['action'] ?? '', $resp ?: '-', ucfirst($dec['priorite'] ?? '') ?: '-',
+                    !empty($dec['echeance']) ? Carbon::parse($dec['echeance'])->format('d/m/Y') : '-'];
+            }
+            $xml .= $this->docxTableMultiAlt(
+                ['N°', 'Décision / Action', 'Responsable(s)', 'Priorité', 'Échéance'],
+                $decRows, [600, 4000, 2000, 1200, 1800]
+            );
+        } else {
+            $xml .= $this->p('(Aucune décision enregistrée)');
+        }
+        $xml .= $this->p('');
+
+        // === SECTION 7 : CONCLUSION ===
+        if (!empty($d['conclusion'])) {
+            $xml .= $this->titreSection('7', 'CONCLUSION');
+            $xml .= $this->htmlToOoxml($d['conclusion'], '7.');
+            $xml .= $this->p('');
+        }
+
+        // === SECTION 8 : SIGNATURES ===
+        $signatures = $d['signatures'] ?? [];
+        if (!empty($signatures)) {
+            $sectionNum = !empty($d['conclusion']) ? '8' : '7';
+            $xml .= $this->titreSection($sectionNum, 'SIGNATURES');
+            $sigRows = array_map(fn($s) => [$s['nom'] ?? '', $s['role'] ?? '', !empty($s['date']) ? Carbon::parse($s['date'])->format('d/m/Y') : ''], $signatures);
+            $xml .= $this->docxTableMultiAlt(['Nom', 'Rôle', 'Date'], $sigRows, [3600, 3600, 2400]);
+            $xml .= $this->p('');
+        }
+
+        // Signature rédacteur
+        $xml .= $this->signatureBloc($redNom, $redTitre, $cr->date_reunion->format('d/m/Y'));
+
+        $xml .= $this->docxSectPr();
+        $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null, $headerLine, 'Confidentiel - Usage interne');
+    }
+
+    /* ===================================================================
      *  HELPERS DOCX - Times New Roman 12pt, interligne 1,5
      * =================================================================== */
 
@@ -995,7 +1568,7 @@ class CompteRenduController extends Controller
 
     private function docxTable2Col(string $h1, string $h2, array $rows): string
     {
-        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders>' . $this->borders() . '</w:tblBorders></w:tblPr>';
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders>' . $this->borders() . '</w:tblBorders><w:tblCellMar><w:top w:w="50" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="50" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>';
         $xml .= '<w:tr>' . $this->cell($h1, true, '1F4E79', 'FFFFFF') . $this->cell($h2, true, '1F4E79', 'FFFFFF', 2000) . '</w:tr>';
         foreach ($rows as $r) $xml .= '<w:tr>' . $this->cell($r[0]) . $this->cell($r[1], false, null, null, 2000) . '</w:tr>';
         return $xml . '</w:tbl>';
@@ -1003,7 +1576,7 @@ class CompteRenduController extends Controller
 
     private function docxTable3Col(string $h1, string $h2, string $h3, array $rows): string
     {
-        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders>' . $this->borders() . '</w:tblBorders></w:tblPr>';
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders>' . $this->borders() . '</w:tblBorders><w:tblCellMar><w:top w:w="50" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="50" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>';
         $xml .= '<w:tr>' . $this->cell($h1, true, '1F4E79', 'FFFFFF', 4000) . $this->cell($h2, true, '1F4E79', 'FFFFFF', 2500) . $this->cell($h3, true, '1F4E79', 'FFFFFF', 2500) . '</w:tr>';
         foreach ($rows as $r) $xml .= '<w:tr>' . $this->cell($r[0], false, null, null, 4000) . $this->cell($r[1], false, null, null, 2500) . $this->cell($r[2], false, null, null, 2500) . '</w:tr>';
         return $xml . '</w:tbl>';
@@ -1013,8 +1586,8 @@ class CompteRenduController extends Controller
     {
         $n = count($headers);
         $w = intdiv(9000, $n);
-        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders>' . $this->borders() . '</w:tblBorders></w:tblPr>';
-        $xml .= '<w:tr>';
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/><w:tblBorders>' . $this->borders() . '</w:tblBorders><w:tblCellMar><w:top w:w="50" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="50" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>';
+        $xml .= '<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>';
         foreach ($headers as $h) $xml .= $this->cell($h, true, '1F4E79', 'FFFFFF', $w);
         $xml .= '</w:tr>';
         foreach ($rows as $r) {
@@ -1034,7 +1607,9 @@ class CompteRenduController extends Controller
         $shdTag = $bg ? "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bg}\"/>" : '';
         $wTag = $width ? "<w:tcW w:w=\"{$width}\" w:type=\"dxa\"/>" : '';
 
-        return "<w:tc><w:tcPr>{$wTag}{$shdTag}</w:tcPr><w:p><w:pPr><w:spacing w:line=\"360\" w:lineRule=\"auto\"/></w:pPr>"
+        // Texte des tableaux : aligné à gauche (la justification étire les mots en colonne étroite), gris anthracite
+        if (!$fg) $colorTag = '<w:color w:val="1F2937"/>';
+        return "<w:tc><w:tcPr>{$wTag}{$shdTag}<w:vAlign w:val=\"center\"/></w:tcPr><w:p><w:pPr><w:spacing w:before=\"20\" w:after=\"20\" w:line=\"264\" w:lineRule=\"auto\"/><w:jc w:val=\"left\"/></w:pPr>"
             . "<w:r><w:rPr><w:rFonts w:ascii=\"Times New Roman\" w:hAnsi=\"Times New Roman\" w:cs=\"Times New Roman\"/>"
             . "<w:sz w:val=\"{$szCell}\"/><w:szCs w:val=\"{$szCell}\"/>{$bTag}{$colorTag}</w:rPr>"
             . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p></w:tc>";
@@ -1042,7 +1617,7 @@ class CompteRenduController extends Controller
 
     private function borders(): string
     {
-        $b = 'w:val="single" w:sz="4" w:space="0" w:color="999999"';
+        $b = 'w:val="single" w:sz="4" w:space="0" w:color="A6B1C2"';
         return "<w:top {$b}/><w:left {$b}/><w:bottom {$b}/><w:right {$b}/><w:insideH {$b}/><w:insideV {$b}/>";
     }
 
@@ -1268,7 +1843,7 @@ class CompteRenduController extends Controller
         $totalW = 9600;
         $defaultW = intdiv($totalW, $n);
         $xml = "<w:tbl><w:tblPr><w:tblW w:w=\"{$totalW}\" w:type=\"dxa\"/><w:tblBorders>" . $this->borders() . '</w:tblBorders></w:tblPr>';
-        $xml .= '<w:tr>';
+        $xml .= '<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>';
         foreach ($headers as $i => $h) $xml .= $this->cell($h, true, '1F4E79', 'FFFFFF', $widths[$i] ?? $defaultW);
         $xml .= '</w:tr>';
         foreach ($rows as $ri => $r) {
@@ -1307,7 +1882,7 @@ class CompteRenduController extends Controller
         $rpr = '<w:rPr>'
             . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
             . '<w:sz w:val="16"/><w:szCs w:val="16"/>'
-            . '<w:i/><w:color w:val="999999"/>'
+            . '<w:i/><w:color w:val="4B5563"/>'
             . '</w:rPr>';
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'

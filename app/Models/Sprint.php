@@ -74,6 +74,21 @@ class Sprint extends Model
      * Points engagés : somme des story points des user stories du Sprint Backlog
      * (repli sur l'engagement saisi si aucune story n'est estimée).
      */
+    /**
+     * Urgence du sprint pour le voyant : échéance de fin, en jours ouvrés.
+     * @return array{niveau: string, libelle: string, court: string}
+     */
+    public function urgence(): array
+    {
+        if ($this->statut === 'termine') return ['niveau' => 'fait', 'libelle' => 'Sprint clôturé', 'court' => 'Clôturé'];
+        if ($this->statut === 'planifie') return ['niveau' => 'aucune', 'libelle' => 'Sprint planifié, non démarré', 'court' => 'Planifié'];
+        $fin = $this->date_fin->format('d/m');
+        if ($this->date_fin->lt(today())) return ['niveau' => 'retard', 'libelle' => "Sprint échu le {$fin} : à clôturer", 'court' => "Échu le {$fin}"];
+        if ($this->date_fin->isToday()) return ['niveau' => 'proche', 'libelle' => "Le sprint se termine aujourd'hui", 'court' => "Fin aujourd'hui"];
+        $j = Tache::joursOuvres(today()->addDay(), $this->date_fin);
+        return ['niveau' => $j <= 2 ? 'proche' : ($j <= 5 ? 'semaine' : 'ok'), 'libelle' => "{$j} jour(s) ouvré(s) restant(s), fin le {$fin}", 'court' => "{$j} j restant(s)"];
+    }
+
     public function pointsEngages(): int
     {
         $pts = (int) $this->userStories->sum('effort_estime');

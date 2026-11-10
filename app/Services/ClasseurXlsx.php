@@ -95,7 +95,7 @@ class ClasseurXlsx
     private function styles(): string
     {
         // Quadrillage gris sobre ; en-tête bleu clair souligné d'un trait bleu
-        $gris = fn($c = 'FFD1D5DB') => "<color rgb=\"{$c}\"/>";
+        $gris = fn($c = 'FFB8C2CF') => "<color rgb=\"{$c}\"/>";
         $bord = '<left style="thin">' . $gris() . '</left><right style="thin">' . $gris() . '</right><top style="thin">' . $gris() . '</top><bottom style="thin">' . $gris() . '</bottom><diagonal/>';
         $bordEntete = '<left style="thin">' . $gris() . '</left><right style="thin">' . $gris() . '</right><top style="thin">' . $gris() . '</top><bottom style="medium">' . $gris('FF2E74B5') . '</bottom><diagonal/>';
         $haut = '<alignment horizontal="left" vertical="top" wrapText="1" indent="1"/>';
@@ -106,15 +106,15 @@ class ClasseurXlsx
         $xf = fn(int $font, int $fill, int $border, string $align = '') => "<xf numFmtId=\"0\" fontId=\"{$font}\" fillId=\"{$fill}\" borderId=\"{$border}\" xfId=\"0\" applyFont=\"1\" applyFill=\"1\" applyBorder=\"1\" applyAlignment=\"1\">{$align}</xf>";
 
         $fonts = [
-            $police('', '11', 'FF334155'),          // 0 texte
+            $police('', '11', 'FF1F2937'),          // 0 texte (anthracite)
             $police('<b/>', '11', 'FF1F2937'),      // 1 gras
             $police('<b/>', '16', 'FF1F4E79'),      // 2 titre
-            $police('<b/>', '11', 'FF2E74B5'),      // 3 en-tête
-            $police('<b/>', '12', 'FF2E74B5'),      // 4 sous-titre
+            $police('<b/>', '11', 'FF12355B'),      // 3 en-tête (marine sur bleu clair : contraste élevé)
+            $police('<b/>', '12', 'FF1F4E79'),      // 4 sous-titre
             $police('<b/>', '11', 'FF991B1B'),      // 5 alerte
             $police('<b/>', '11', 'FF166534'),      // 6 réalisé
-            $police('<b/>', '10', 'FF2E74B5'),      // 7 libellé de fiche
-            $police('', '11', 'FF64748B'),          // 8 valeur de fiche (gris)
+            $police('<b/>', '10', 'FF1F4E79'),      // 7 libellé de fiche
+            $police('', '11', 'FF374151'),          // 8 valeur de fiche (gris foncé)
             $police('<b/>', '12', 'FF1F4E79'),      // 9 nom du projet
         ];
         $fills = [
@@ -122,7 +122,7 @@ class ClasseurXlsx
             $fond('FFBFDBFE'), // 2 en-tête
             $fond('FFEAF1FB'), // 3 regroupement
             $fond('FFF3F4F6'), // 4 ligne user story / participant
-            $fond('FFF8FBFF'), // 5 libellé de fiche
+            $fond('FFEEF4FB'), // 5 libellé de fiche
             $fond('FFDBEAFE'), // 6 projet
             $fond('FFF9FAFB'), // 7 ligne alternée
         ];

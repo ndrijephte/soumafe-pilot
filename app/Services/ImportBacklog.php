@@ -6,17 +6,20 @@ use Illuminate\Support\Str;
 
 /**
  * Import d'un Product Backlog depuis un fichier Excel (structure LEVRY ou export SOUMAFE).
- * Colonnes reconnues par leur en-tête : N°, Module / Fonctionnalité, User Story,
- * Exigences fonctionnelles, Tâches, Priorité, Statut, Effort.
+ * Colonnes reconnues par leur en-tête : N°, Epic, Module / Fonctionnalité, Profil / Acteur, User Story,
+ * Priorité MoSCoW, Story points, DoR, Statut, Exigences fonctionnelles, Tâches.
  */
 class ImportBacklog
 {
     private const COLONNES = [
-        'module' => ['module', 'fonctionnalite', 'epic'],
+        'module' => ['module', 'fonctionnalite'],
+        'epic' => ['epic'],
         'intitule' => ['user story', 'user stories', 'intitule', 'besoin'],
         'exigences' => ['exigence', 'critere'],
         'taches' => ['tache'],
-        'priorite' => ['priorite'],
+        'moscow' => ['moscow', 'priorite'],
+        'profil' => ['profil', 'acteur'],
+        'dor' => ['dor', 'definition of ready'],
         'statut' => ['statut', 'etat'],
         'effort' => ['effort', 'point', 'estimation'],
     ];
@@ -55,22 +58,33 @@ class ImportBacklog
             }
             $vus[$cle] = true;
 
+            // « Module › Epic » (format de l'export) : le module et l'epic sont séparés
+            if ($s['module'] && str_contains($s['module'], '›')) {
+                [$mod, $ep] = array_map('trim', explode('›', $s['module'], 2));
+                $s['module'] = $mod ?: null;
+                $s['epic'] = ($s['epic'] ?? null) ?: ($ep ?: null);
+            }
             $donnees = array_filter([
                 'numero' => $s['numero'],
                 'module' => $s['module'],
+                'epic' => $s['epic'] ?? null,
                 'intitule' => $s['intitule'],
                 'exigences' => $s['exigences'] ? TexteRiche::depuisTexte($s['exigences']) : null,
                 'taches_techniques' => $s['taches'] ? TexteRiche::depuisTexte($s['taches']) : null,
-                // Priorité / statut ne sont pas repris : le statut est piloté par les sprints
+                'profil' => $s['profil'],
+                'priorite_moscow' => $s['moscow'],
+                'dor' => $s['dor'],
                 'effort_estime' => $s['effort'],
             ], fn($v) => $v !== null && $v !== '');
 
             if ($us = $existantes->get($cle)) {
                 if ($mode !== 'maj') { $this->rapport['ignores']++; continue; }
+                // Le statut du fichier ne prime pas sur celui que calculent les tâches
+                if ($s['statut'] && !$us->taches()->exists()) $donnees['statut'] = $s['statut'];
                 $us->update($donnees);
                 $this->rapport['maj']++;
             } else {
-                $this->projet->userStories()->create($donnees + ['priorite' => 'moyenne', 'statut' => 'a_faire', 'origine' => 'import']);
+                $this->projet->userStories()->create($donnees + ['priorite' => 'moyenne', 'statut' => $s['statut'] ?: 'a_faire', 'origine' => 'import']);
                 $this->rapport['crees']++;
             }
         }
@@ -121,6 +135,11 @@ class ImportBacklog
                 if (preg_match('/^module\s*\d*\s*[:\-–—]\s*(.+)$/iu', $seul, $m)) $moduleCourant = trim($m[1]);
                 continue;
             }
+            // Lignes de synthèse du fichier : elles ne sont pas des user stories
+            if (preg_match('/^\s*(sous[\s-]*)?total\b|^\s*l[ée]gende\b/iu', $texte)) {
+                $this->remarque("Ligne {$num} ignorée : « " . Str::limit($texte, 40) . ' ».');
+                continue;
+            }
             $numero = null;
             if (preg_match('/^\s*(US[\s\-_]*[A-Z]?\d+(?:[.\-]\d+)*)\s*[—–\-:]*\s*(.*)$/su', $texte, $m)) {
                 $numero = preg_replace('/^US[\s\-_]*/i', 'US ', strtoupper(trim($m[1])));
@@ -131,11 +150,14 @@ class ImportBacklog
                 'numero' => $numero,
                 'numero_col' => $get('numero'),
                 'module' => $get('module') ?: null,
+                'epic' => $this->texte($get('epic'), 150) ?: null,
                 'module_courant' => $moduleCourant,
                 'intitule' => $this->texte($texte, 2000),
                 'exigences' => $this->texte($get('exigences'), 5000),
                 'taches' => $this->texte($get('taches'), 5000),
-                'priorite' => $this->priorite($get('priorite')),
+                'moscow' => $this->moscow($get('moscow')),
+                'profil' => $this->texte($get('profil'), 150),
+                'dor' => $this->dor($get('dor')),
                 'statut' => $this->statut($get('statut')),
                 'effort' => UserStory::normaliserPoints($get('effort')),
             ];
@@ -192,15 +214,23 @@ class ImportBacklog
         return mb_substr($v, 0, $max);
     }
 
-    private function priorite(string $v): ?string
+    private function moscow(string $v): ?string
     {
         $n = $this->norm($v);
         if ($n === '') return null;
         return match (true) {
-            str_contains($n, 'haut') || str_contains($n, 'elev') || str_contains($n, 'high') || str_contains($n, 'must') || $n === '1' => 'haute',
-            str_contains($n, 'bas') || str_contains($n, 'faible') || str_contains($n, 'low') || str_contains($n, 'could') || $n === '3' => 'basse',
-            default => 'moyenne',
+            str_contains($n, 'must') || str_contains($n, 'haut') || str_contains($n, 'elev') || $n === '1' => 'must',
+            str_contains($n, 'should') || str_contains($n, 'moyen') || $n === '2' => 'should',
+            str_contains($n, 'could') || str_contains($n, 'bas') || str_contains($n, 'faible') || $n === '3' => 'could',
+            default => null,
         };
+    }
+
+    private function dor(string $v): ?bool
+    {
+        $n = $this->norm($v);
+        if ($n === '') return null;
+        return in_array($n, ['oui', 'o', 'yes', 'y', '1', 'x', 'vrai', 'true'], true);
     }
 
     private function statut(string $v): ?string
@@ -208,9 +238,11 @@ class ImportBacklog
         $n = $this->norm($v);
         if ($n === '') return null;
         return match (true) {
+            str_contains($n, 'accept') => 'acceptee',
             str_contains($n, 'termin') || str_contains($n, 'realis') || str_contains($n, 'done') || $n === 't' || $n === 'tt' => 'terminee',
+            str_contains($n, 'revue') || str_contains($n, 'review') => 'en_revue',
+            str_contains($n, 'bloqu') => 'bloquee',
             str_contains($n, 'cours') || $n === 'e' || $n === 'd' => 'en_cours',
-            str_contains($n, 'planif') => 'planifiee',
             default => 'a_faire',
         };
     }

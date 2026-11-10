@@ -44,6 +44,12 @@ class Projet extends Model
         return $u->estPilote() || (int) $this->responsable_projet_id === (int) $u->id
             || $this->collaborateurs()->where('user_id', $u->id)->where('actif', true)->exists();
     }
+    /** Alimente le Product Backlog : pilote, responsable du projet ou Product Owner. */
+    public function peutAlimenterBacklog(User $u): bool
+    {
+        return $u->estPilote() || (int) $this->responsable_projet_id === (int) $u->id
+            || $this->collaborateurs()->where('user_id', $u->id)->where('actif', true)->whereIn('role_projet', ['responsable', 'product_owner'])->exists();
+    }
     public function sprints(): HasMany { return $this->hasMany(Sprint::class); }
     public function taches(): HasMany { return $this->hasMany(Tache::class); }
 }

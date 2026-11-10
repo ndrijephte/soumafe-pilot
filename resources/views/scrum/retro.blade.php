@@ -14,18 +14,20 @@
 
 @section('contenu')
 @include('scrum._entete', ['sprint' => $sprint, 'actif' => 'retro', 'page' => 'Rétrospective'])
+@include('scrum._actions_retro', ['sprint' => $sprint])
 @php
     $valide = $cr?->estConfirme();
     $colonnes = ['bien', 'pas_bien', 'causes', 'actions'];
 @endphp
 
 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-    @if(!$cr)<span class="pill p-attente">Rétrospective non commencée</span>
+    @if($verrou)<span class="pill p-attente">Rétrospective fermée</span><span style="font-size:12px;color:var(--gris)">{{ $verrou }}</span>
+    @elseif(!$cr)<span class="pill p-attente">Rétrospective non commencée</span>
     @elseif($valide)<span class="pill p-ok">Rétrospective validée</span>
         <span style="font-size:12px;color:var(--gris)">Modifiable par un pilote uniquement.</span>
         @if(auth()->user()->estAdmin())<form method="POST" action="{{ route('scrum.rouvrir', [$sprint, 'retrospective']) }}" style="margin:0">@csrf<button class="btn sm sec">Rouvrir</button></form>@endif
     @else<span class="pill p-warn">Brouillon</span>@endif
-    <span style="font-size:12px;color:var(--gris)">Rédacteur : <strong style="color:#1e293b">{{ $redacteur?->nomComplet() ?? '—' }}</strong> (scribe du jour au planning des réunions)</span>
+    <span style="font-size:12px;color:var(--gris)">Rédigée par les développeurs de l'équipe ; les actions seront reprises au sprint suivant.</span>
 </div>
 
 <div class="indic">

@@ -2,7 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{AuditLog, CompteRendu, DailyScrum, DailyScrumEntree, NotificationApp, ProjetCollaborateur, Sprint, SprintEquipe, TypeReunion, User, UserStory};
-use App\Services\{ArchiveScrum, RedacteurDuJour, ScrumService, TexteRiche};
+use App\Services\{ArchiveScrum, CeremoniesScrum, RedacteurDuJour, ScrumService, TexteRiche};
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
@@ -38,7 +38,15 @@ class SprintScrumController extends Controller
 
     private function redigerRapport(Request $r, Sprint $sprint, ?CompteRendu $cr): bool
     {
-        return $this->gerer($r, $sprint) || $this->redacteurId($sprint, $cr) === $r->user()->id;
+        return $this->gerer($r, $sprint) || $this->redacteurId($sprint, $cr) === $r->user()->id
+            || $sprint->projet->peutAlimenterBacklog($r->user()); // le Product Owner consigne les retours de la Review
+    }
+
+    /** La Rétrospective est rédigée par les développeurs : tout membre actif de l'équipe, en plus des rédacteurs du rapport. */
+    private function redigerRetro(Request $r, Sprint $sprint, ?CompteRendu $cr): bool
+    {
+        if ($this->redigerRapport($r, $sprint, $cr)) return true;
+        return !$r->user()->aRole('direction') && !$r->user()->aRole('invite') && $sprint->projet->estVisiblePour($r->user());
     }
 
     /** Si la date du rapport change (non validé), le rédacteur devient le scribe de cette date. */
@@ -71,7 +79,8 @@ class SprintScrumController extends Controller
         return view('scrum.dailies', [
             'sprint' => $sprint, 'jours' => $jours, 'horsProgramme' => $horsProgramme, 'membres' => $membres, 'users' => $users,
             'dateProposee' => $dateProposee, 'config' => $config, 'heureDefaut' => $config['heure_debut'],
-            'peutCreer' => $this->peutCreerDaily($r, $sprint), 'canEdit' => $this->gerer($r, $sprint),
+            'peutCreer' => $this->peutCreerDaily($r, $sprint) && !CeremoniesScrum::verrouDaily($sprint),
+            'peutCreerHorsSprint' => $r->user()->estAdmin(), 'canEdit' => $this->gerer($r, $sprint),
             // Daily hors sprint du projet, et collaborateurs pour en créer un depuis le calendrier
             'dailiesHorsSprint' => DailyScrum::whereNull('sprint_id')->where('projet_id', $sprint->projet_id)->orderByDesc('date_reunion')->get()
                 ->filter(fn($d) => $d->visiblePour($r->user()))->values(),
@@ -116,6 +125,7 @@ class SprintScrumController extends Controller
     public function storeDaily(Request $r, Sprint $sprint)
     {
         abort_unless($this->peutCreerDaily($r, $sprint), 403);
+        if ($motif = CeremoniesScrum::verrouDaily($sprint)) return back()->with('erreur', $motif);
         $v = $r->validate([
             'date_reunion' => ['required', 'date', 'after_or_equal:' . $sprint->date_debut->toDateString(), 'before_or_equal:' . $sprint->date_fin->toDateString()],
             'heure_debut' => 'nullable|date_format:H:i',
@@ -324,7 +334,7 @@ class SprintScrumController extends Controller
 
     private function compteRendu(Sprint $sprint, string $type): ?CompteRendu
     {
-        return CompteRendu::where('sprint_id', $sprint->id)->where('type', $type)->first();
+        return CompteRendu::where('sprint_id', $sprint->id)->where('type', $type)->duModuleScrum()->first();
     }
 
     private function nouveauCompteRendu(Request $r, Sprint $sprint, string $type): CompteRendu
@@ -346,8 +356,10 @@ class SprintScrumController extends Controller
         return view('scrum.review', [
             'sprint' => $sprint, 'cr' => $cr, 'donnees' => $cr?->getDonnees() ?? [],
             'planning' => ScrumService::planning($sprint), 'ind' => ScrumService::indicateurs($sprint),
-            'canEdit' => $cr?->estConfirme() ? $r->user()->estAdmin() : $this->redigerRapport($r, $sprint, $cr),
-            'canGerer' => $this->gerer($r, $sprint),
+            'verrou' => $verrou = CeremoniesScrum::verrouReview($sprint),
+            'canEdit' => !$verrou && ($cr?->estConfirme() ? $r->user()->estAdmin() : $this->redigerRapport($r, $sprint, $cr)),
+            'canGerer' => !$verrou && $this->gerer($r, $sprint),
+            'peutAlimenter' => $sprint->projet->peutAlimenterBacklog($r->user()),
             'redacteur' => User::find($this->redacteurId($sprint, $cr)),
             'storiesCreees' => UserStory::whereIn('id', collect($cr?->getDonnees()['backlog'] ?? [])->pluck('user_story_id')->filter())->get()->keyBy('id'),
             'modules' => $sprint->projet->userStories()->whereNotNull('module')->distinct()->orderBy('module')->pluck('module'),
@@ -359,6 +371,7 @@ class SprintScrumController extends Controller
     {
         $cr = $this->compteRendu($sprint, 'review_sprint');
         abort_unless($cr?->estConfirme() ? $r->user()->estAdmin() : $this->redigerRapport($r, $sprint, $cr), 403);
+        if ($motif = CeremoniesScrum::verrouReview($sprint)) return back()->with('erreur', $motif);
         $v = $r->validate([
             'date_reunion' => 'nullable|date',
             'heure_debut' => 'nullable|date_format:H:i', 'heure_fin' => 'nullable|date_format:H:i',
@@ -386,8 +399,12 @@ class SprintScrumController extends Controller
 
         $message = 'Review enregistrée.';
         if (($v['apres'] ?? null) === 'backlog') {
-            $n = $this->reviewVersBacklog($sprint, $d['backlog']);
-            $message .= $n ? " {$n} user story(s) ajoutée(s) au Product Backlog." : ' Aucune nouvelle user story à ajouter.';
+            if ($sprint->projet->peutAlimenterBacklog($r->user())) {
+                $n = $this->reviewVersBacklog($sprint, $d['backlog']);
+                $message .= $n ? " {$n} user story(s) ajoutée(s) au Product Backlog." : ' Aucune nouvelle user story à ajouter.';
+            } else {
+                $message .= " L'ajout au Product Backlog revient au responsable du projet, au Product Owner ou à un pilote.";
+            }
         }
         $cr->setDonnees($d);
         $this->reattribuer($cr, $sprint, $v['date_reunion'] ?? null);
@@ -420,10 +437,11 @@ class SprintScrumController extends Controller
         return $n;
     }
 
-    /** Valide la Review : fige le compte rendu ; les stories non terminées peuvent retourner au backlog. */
+    /** Valide la Review : fige le compte rendu ; les nouvelles user stories peuvent rejoindre le Product Backlog. */
     public function validerReview(Request $r, Sprint $sprint)
     {
         abort_unless($this->gerer($r, $sprint), 403);
+        if ($motif = CeremoniesScrum::verrouReview($sprint)) return back()->with('erreur', $motif);
         $cr = $this->compteRendu($sprint, 'review_sprint') ?? $this->nouveauCompteRendu($r, $sprint, 'review_sprint');
         abort_if($cr->estConfirme(), 403, 'Review déjà publiée.');
         $ajoutees = 0;
@@ -435,15 +453,13 @@ class SprintScrumController extends Controller
             $cr->setDonnees($d);
             $cr->save();
         }
-        $n = 0;
-        if ($r->boolean('retour_backlog')) {
-            foreach ($sprint->userStories as $us) {
-                if ($us->pivot->statut_sprint !== 'termine' && $us->statut !== 'terminee') { $us->update(['statut' => 'a_faire']); $n++; }
-            }
+        $acceptees = 0;
+        if ($r->boolean('accepter')) {
+            $acceptees = UserStory::whereIn('id', $sprint->userStories()->pluck('user_stories.id'))->where('statut', 'terminee')->update(['statut' => 'acceptee']);
         }
         $cr->update(['statut' => 'confirme']);
-        AuditLog::log('validation_review', 'sprint', $sprint->projet->code . ' S' . $sprint->numero, $n ? "{$n} story(s) remise(s) au backlog" : 'Review validée');
-        return back()->with('succes', 'Review validée.' . ($n ? " {$n} story(s) remise(s) au backlog." : '')
+        AuditLog::log('validation_review', 'sprint', $sprint->projet->code . ' S' . $sprint->numero, $acceptees ? "{$acceptees} user story(s) acceptée(s)" : 'Review validée');
+        return back()->with('succes', 'Review validée.' . ($acceptees ? " {$acceptees} user story(s) acceptée(s)." : '')
             . ($ajoutees ? " {$ajoutees} nouvelle(s) user story(s) ajoutée(s) au Product Backlog." : ''));
     }
 
@@ -467,8 +483,9 @@ class SprintScrumController extends Controller
         $lignes = $d['lignes'] ?? array_map(fn($t) => ['theme' => $t, 'bien' => '', 'pas_bien' => '', 'causes' => '', 'actions' => ''], self::THEMES);
         return view('scrum.retro', [
             'sprint' => $sprint, 'cr' => $cr, 'lignes' => $lignes, 'ind' => ScrumService::indicateurs($sprint),
-            'canEdit' => $cr?->estConfirme() ? $r->user()->estAdmin() : $this->redigerRapport($r, $sprint, $cr),
-            'canGerer' => $this->gerer($r, $sprint),
+            'verrou' => $verrou = CeremoniesScrum::verrouRetro($sprint),
+            'canEdit' => !$verrou && ($cr?->estConfirme() ? $r->user()->estAdmin() : $this->redigerRetro($r, $sprint, $cr)),
+            'canGerer' => !$verrou && $this->gerer($r, $sprint),
             'redacteur' => User::find($this->redacteurId($sprint, $cr)),
         ]);
     }
@@ -476,7 +493,8 @@ class SprintScrumController extends Controller
     public function updateRetro(Request $r, Sprint $sprint)
     {
         $cr = $this->compteRendu($sprint, 'retrospective');
-        abort_unless($cr?->estConfirme() ? $r->user()->estAdmin() : $this->redigerRapport($r, $sprint, $cr), 403);
+        abort_unless($cr?->estConfirme() ? $r->user()->estAdmin() : $this->redigerRetro($r, $sprint, $cr), 403);
+        if ($motif = CeremoniesScrum::verrouRetro($sprint)) return back()->with('erreur', $motif);
         $v = $r->validate([
             'date_reunion' => 'nullable|date',
             'heure_debut' => 'nullable|date_format:H:i', 'heure_fin' => 'nullable|date_format:H:i',

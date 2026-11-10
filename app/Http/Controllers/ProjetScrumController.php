@@ -21,7 +21,7 @@ class ProjetScrumController extends Controller
         ])]);
 
         $stories = UserStory::trierParNumero(
-            $projet->userStories()->with(['sprints:id,numero'])->withCount(['taches', 'taches as taches_terminees_count' => fn($t) => $t->where('statut', 'termine')])->get()
+            $projet->userStories()->with(['sprints:id,numero,statut'])->withCount(['taches', 'taches as taches_terminees_count' => fn($t) => $t->where('statut', 'termine')])->get()
         )->values();
         $membresIds = $projet->collaborateurs->where('actif', true)->pluck('user_id');
         $disponibles = User::where('actif', true)->whereNotIn('id', $membresIds)->orderBy('name')->get();
@@ -30,9 +30,17 @@ class ProjetScrumController extends Controller
             'projet' => $projet,
             'stories' => $stories,
             'modules' => $stories->pluck('module')->filter()->unique()->values(),
+            'epics' => $stories->filter(fn($s) => $s->epic)->groupBy(fn($s) => $s->module ?: '')->map(fn($g) => $g->pluck('epic')->unique()->values()),
+            'arbre' => \App\Services\AvancementScrum::arborescence($stories),
+            'bilanProjet' => \App\Services\AvancementScrum::bilan($stories),
+            'tableau' => \App\Services\AvancementScrum::tableauBord($stories, $projet->sprints),
+            // Sprints où cet utilisateur peut puiser : le prochain à préparer d'abord
+            'sprintsCibles' => $projet->sprints->each->setRelation('projet', $projet)->filter(fn($s) => \App\Services\CeremoniesScrum::peutPuiser($u, $s))
+                ->sortBy(fn($s) => [$s->statut === 'planifie' ? 0 : 1, $s->numero])->values(),
             'membres' => $projet->collaborateurs->sortBy([['actif', 'desc'], fn($c) => $c->user?->name])->values(),
             'disponibles' => $disponibles,
             'canEdit' => $u->peutGererProjet($projet->id),
+            'peutAlimenter' => $projet->peutAlimenterBacklog($u),
             'prochainNumero' => UserStory::prochainNumero($projet),
         ]);
     }
@@ -81,10 +89,12 @@ class ProjetScrumController extends Controller
         return [
             'numero' => ['required', 'string', 'max:20', Rule::unique('user_stories')->where('projet_id', $projet->id)->ignore($us?->id)],
             'module' => 'nullable|string|max:150',
+            'epic' => 'nullable|string|max:150',
+            'profil' => 'nullable|string|max:150',
             'intitule' => 'required|string|max:2000',
+            'priorite_moscow' => ['nullable', Rule::in(UserStory::MOSCOW_BACKLOG)],
+            'dor' => 'sometimes|boolean',
             'exigences' => 'nullable|string|max:20000',
-            // Tâches techniques et story points se renseignent au Sprint Planning ;
-            // priorité et statut ne sont plus saisis dans le Product Backlog (statut piloté par les sprints).
             'taches_techniques' => 'sometimes|nullable|string|max:20000',
             'effort_estime' => ['sometimes', 'nullable', 'integer', Rule::in(UserStory::POINTS)],
         ];
@@ -92,7 +102,7 @@ class ProjetScrumController extends Controller
 
     public function storeUserStory(Request $r, Projet $projet)
     {
-        abort_unless($r->user()->peutGererProjet($projet->id), 403);
+        abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
         $v = $this->texteRiche($r->validate($this->reglesStory($projet), ['numero.unique' => 'Ce numéro de user story existe déjà dans le projet.']));
         $us = $projet->userStories()->create($v);
         AuditLog::log('creation_user_story', 'projet', $projet->code, "{$us->numero} - {$us->intitule}");
@@ -102,17 +112,54 @@ class ProjetScrumController extends Controller
     public function updateUserStory(Request $r, UserStory $userStory)
     {
         $projet = $userStory->projet;
-        abort_unless($r->user()->peutGererProjet($projet->id), 403);
+        abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
         $v = $this->texteRiche($r->validate($this->reglesStory($projet, $userStory), ['numero.unique' => 'Ce numéro de user story existe déjà dans le projet.']));
         $userStory->update($v);
         AuditLog::log('modification_user_story', 'projet', $projet->code, "{$userStory->numero} - {$userStory->intitule}");
         return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])->with('succes', "User story {$userStory->numero} mise à jour.");
     }
 
+    /** Statut choisi par le gestionnaire ; avec des tâches, seules la mise en revue et l'acceptation restent possibles. */
+    public function statutUserStory(Request $r, UserStory $userStory)
+    {
+        abort_unless($userStory->projet->peutAlimenterBacklog($r->user()), 403);
+        $v = $r->validate(['statut' => ['required', Rule::in(array_keys(UserStory::STATUTS))]]);
+        if (!in_array($v['statut'], $userStory->statutsPermis(), true)) {
+            return back()->with('erreur', "{$userStory->numero} : le statut est calculé à partir de ses tâches.");
+        }
+        $avant = $userStory->statutLibelle();
+        $userStory->update(['statut' => $v['statut']]);
+        // Le suivi du sprint ouvert reflète le statut choisi
+        $suivi = $userStory->estFinie() ? 'termine' : ($v['statut'] === 'a_faire' ? 'a_faire' : 'en_cours');
+        foreach ($userStory->sprints()->where('sprints.statut', '!=', 'termine')->get() as $sprint) $userStory->sprints()->updateExistingPivot($sprint->id, ['statut_sprint' => $suivi]);
+        AuditLog::log('statut_user_story', 'projet', $userStory->projet->code, "{$userStory->numero} : {$avant} → {$userStory->statutLibelle()}");
+        return back()->with('succes', "{$userStory->numero} : {$userStory->statutLibelle()}.");
+    }
+
+    /** Niveau d'exécution déclaré par un développeur (0 à 100 %, par pas de 10) ; « vider » revient au calcul par les tâches. */
+    public function avancementUserStory(Request $r, UserStory $userStory)
+    {
+        abort_unless(\App\Services\AvancementScrum::peutDeclarer($r->user(), $userStory), 403);
+        $v = $r->validate([
+            'avancement' => ['nullable', 'integer', 'between:0,100', fn($a, $val, $fail) => $val !== null && $val % 10 !== 0 ? $fail("Le niveau d'exécution se déclare par pas de 10 %.") : null],
+            'avancement_note' => 'nullable|string|max:500',
+        ]);
+        $avant = $userStory->avancement;
+        $userStory->update([
+            'avancement' => $v['avancement'] ?? null,
+            'avancement_note' => trim($v['avancement_note'] ?? '') ?: null,
+            'avancement_par' => $r->user()->id,
+            'avancement_le' => now(),
+        ]);
+        \App\Services\AvancementScrum::synchroniser($userStory->id);
+        AuditLog::log('avancement_user_story', 'projet', $userStory->projet->code, "{$userStory->numero} : " . ($avant === null ? 'calculé' : $avant . ' %') . ' → ' . ($userStory->avancement === null ? 'calculé' : $userStory->avancement . ' %') . ($userStory->avancement_note ? " - {$userStory->avancement_note}" : ''));
+        return back()->with('succes', "{$userStory->numero} : niveau d'exécution " . ($userStory->avancement === null ? 'calculé à partir des tâches.' : "déclaré à {$userStory->avancement} %."));
+    }
+
     public function destroyUserStory(Request $r, UserStory $userStory)
     {
         $projet = $userStory->projet;
-        abort_unless($r->user()->peutGererProjet($projet->id), 403);
+        abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         AuditLog::log('suppression_user_story', 'projet', $projet->code, "{$userStory->numero} - Motif : {$r->motif_suppression}");
         $numero = $userStory->numero;
@@ -124,7 +171,7 @@ class ProjetScrumController extends Controller
 
     public function importerBacklog(Request $r, Projet $projet)
     {
-        abort_unless($r->user()->peutGererProjet($projet->id), 403);
+        abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
         $r->validate([
             'fichier' => 'required|file|mimes:xlsx|max:10240',
             'mode' => 'required|in:maj,ajout',

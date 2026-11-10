@@ -1,6 +1,7 @@
 @extends('layouts.app')
-@section('sousTitre', 'Vue stratégique')
+@section('sousTitre', 'Mon espace')
 @section('titre', 'Tableau de bord')
+@include('dashboard._theme')
 @push('styles')
 <style>
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px}
@@ -81,29 +82,18 @@
 </div>
 @endif
 
-@foreach($alertes as $a)
-<div class="alerte {{ $a['type'] }}">
-    @php $icone = match($a['type']) { 'ko' => '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>', 'warn' => '<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', default => '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>' }; @endphp
-    <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $icone !!}</svg>
-    {{ $a['msg'] }}
-</div>
-@endforeach
+@include('dashboard._attention', ['alertes' => $alertes])
 
-<div class="kpis">
-    <div class="kpi"><div class="lbl">Tâches totales</div><div class="val">{{ $total }}</div></div>
-    <div class="kpi"><div class="lbl">Terminées</div><div class="val" style="color:var(--ok)">{{ $terminees }}</div><div class="sub">Cette semaine : {{ $termineesSemaine }}</div></div>
-    <div class="kpi"><div class="lbl">En cours</div><div class="val" style="color:var(--accent)">{{ $enCours }}</div></div>
-    <div class="kpi" @if($enRetard > 0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">En retard</div><div class="val" style="color:{{ $enRetard > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $enRetard }}</div></div>
-    <div class="kpi" @if($bloquees > 0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">Bloqu&eacute;es</div><div class="val" style="color:{{ $bloquees > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $bloquees }}</div></div>
-    <div class="kpi">
-        <div class="lbl">Complétion</div><div class="val">{{ $tauxCompletion }}%</div>
-        <div class="jauge-wrap"><div class="jauge-bar" style="width:{{ $tauxCompletion }}%"></div></div>
-    </div>
-    <div class="kpi" style="background:linear-gradient(135deg,#eff6ff,#fff);border-color:#93c5fd">
-        <div class="lbl">Points livrés</div>
-        <div class="val" style="color:#1d4ed8">{{ $pointsLivres }}</div>
-        <div class="sub">sur {{ $pointsTotalSprint }} pts sprint</div>
-    </div>
+@php
+    $duJour = $mesTachesActives->filter(fn ($t) => \App\Http\Controllers\TacheController::estDuJour($t))->count();
+    $pctPts = $pointsTotalSprint ? (int) round($pointsLivres / $pointsTotalSprint * 100) : 0;
+@endphp
+<div class="kpis kpi-v2">
+    <div class="kpi signal-info"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg>Aujourd'hui</div><div class="val">{{ $duJour }}</div><div class="sub"><a href="{{ route('saisie.index') }}">Saisie</a></div></div>
+    <div class="kpi {{ $enRetard ? 'signal-ko' : '' }}"><x-voyant :niveau="$enRetard ? 'retard' : 'ok'" :titre="$enRetard ? $enRetard . ' tâche(s) en retard' : 'Aucun retard'" :lien="route('taches.index')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En retard</div><div class="val">{{ $enRetard }}</div></div>
+    <div class="kpi {{ $bloquees ? 'signal-warn' : '' }}"><x-voyant :niveau="$bloquees ? 'bloque' : 'ok'" :titre="$bloquees ? $bloquees . ' tâche(s) bloquée(s)' : 'Aucun blocage'" :lien="route('taches.index')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>En cours</div><div class="val">{{ $enCours }}</div>@if($bloquees)<div class="sub">{{ $bloquees }} bloquée(s)</div>@endif</div>
+    <div class="kpi signal-ok"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Terminées</div><div class="val">{{ $terminees }}</div><div class="sub">{{ $termineesSemaine }} cette semaine</div></div>
+    <div class="kpi"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Story points</div><div class="val">{{ $pointsLivres }}<span style="font-size:14px;color:#64748b;font-weight:600"> / {{ $pointsTotalSprint }}</span></div><div class="barre-k"><i style="width:{{ $pctPts }}%"></i></div></div>
 </div>
 
 <div class="grille">
@@ -117,14 +107,13 @@
         @php
             $statutCls = match($t->statut) { 'en_cours' => 'b-ok', 'bloque' => 'b-ko', default => 'b-warn' };
             $prioCls = $t->priorite === 'haute' ? 'color:var(--ko);font-weight:700' : '';
-            $echeanceCls = $t->estEnRetard() ? 'color:var(--ko);font-weight:700' : 'color:var(--gris)';
         @endphp
         <div class="tache-line" data-collapse-item style="gap:8px">
             <div style="flex:1">
                 <a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:#1e293b;font-weight:500">{{ $t->intitule }}</a>
                 <div style="font-size:10.5px;color:var(--gris);margin-top:2px">{{ $t->projet?->libelle ?? '' }} @if($t->priorite === 'haute')&middot; <span style="color:var(--ko);font-weight:600">Haute</span>@endif</div>
             </div>
-            <span style="font-size:11px;{{ $echeanceCls }}">{{ $t->echeance?->format('d/m') ?? '' }}</span>
+            <span style="font-size:11px;color:var(--gris);white-space:nowrap"><x-voyant :tache="$t" /> {{ $t->echeance?->format('d/m') ?? '' }}</span>
             <span class="badge {{ $statutCls }}" style="font-size:10px">{{ $t->labelStatut() }}</span>
         </div>
         @empty
@@ -164,17 +153,7 @@
             <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Progression (4 semaines)
         </h3>
-        <div style="display:flex;align-items:flex-end;gap:12px;height:130px;padding:20px 0 8px">
-            @foreach($tendanceHebdo as $s)
-            @php $h = round(($s['count'] / $tendanceMax) * 80); @endphp
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center">
-                <span style="font-size:12px;font-weight:700;color:var(--bleu);margin-bottom:4px">{{ $s['count'] }}</span>
-                <div style="width:100%;max-width:40px;height:{{ max($h, 4) }}px;background:linear-gradient(180deg,var(--accent),#1a5276);border-radius:6px 6px 0 0"></div>
-                <span style="font-size:10px;color:var(--gris);margin-top:4px">{{ $s['label'] }}</span>
-            </div>
-            @endforeach
-        </div>
-        <div style="font-size:11px;color:var(--gris);text-align:center;margin-top:4px">Tâches terminées par semaine</div>
+        @include('dashboard._tendance', ['series' => $tendanceHebdo, 'max' => $tendanceMax, 'legende' => 'Mes tâches terminées par semaine'])
     </div>
     <div class="panneau">
         <h3>
@@ -235,7 +214,7 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
                     <span style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} - {{ $s->projet->libelle ?? '' }}</span>
                     @if($s->jours_restants !== null)
-                    <span class="badge {{ $s->jours_restants <= 3 ? 'b-ko' : 'b-ok' }}">{{ $s->jours_restants }}j</span>
+                    <span style="font-size:11px;font-weight:600;color:#475569;white-space:nowrap">{{ $s->urgence()['court'] }}</span>
                     @endif
                 </div>
                 <div class="jauge-wrap" style="height:6px"><div class="jauge-bar" style="width:{{ $s->progression ?? 0 }}%"></div></div>

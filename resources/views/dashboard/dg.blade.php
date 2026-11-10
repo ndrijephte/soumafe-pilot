@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('sousTitre', 'Vue Direction Générale')
 @section('titre', 'Tableau de bord - Direction')
+@include('dashboard._theme')
 @push('styles')
 <style>
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
@@ -37,78 +38,59 @@
 <h2>Tableau de bord Direction</h2>
 
 {{-- KPI principaux --}}
-<div class="kpis">
-    <div class="kpi"><div class="lbl">Total t&acirc;ches</div><div class="val">{{ $totalTaches }}</div></div>
-    <div class="kpi"><div class="lbl">Termin&eacute;es</div><div class="val" style="color:var(--ok)">{{ $terminees }}</div><div class="sub">Cette semaine : {{ $termineesSemaine }}</div></div>
-    <div class="kpi"><div class="lbl">En cours</div><div class="val" style="color:var(--accent)">{{ $enCours }}</div></div>
-    <div class="kpi" @if($enRetard > 0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">En retard</div><div class="val" style="color:{{ $enRetard > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $enRetard }}</div></div>
-    <div class="kpi" @if($bloquees > 0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">Bloqu&eacute;es</div><div class="val" style="color:{{ $bloquees > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $bloquees }}</div></div>
-    <div class="kpi">
-        <div class="lbl">Compl&eacute;tion globale</div><div class="val">{{ $tauxGlobal }}%</div>
-        <div class="jauge-wrap" style="height:10px"><div class="jauge-bar" style="width:{{ $tauxGlobal }}%;background:var(--accent)"></div></div>
-    </div>
+@include('dashboard._attention', ['alertes' => $alertes])
+
+{{-- Indicateurs clés --}}
+<div class="kpis kpi-v2">
+    <div class="kpi {{ $enRetard ? 'signal-ko' : '' }}"><x-voyant :niveau="$enRetard ? 'retard' : 'ok'" :titre="$enRetard ? $enRetard . ' tâche(s) en retard' : 'Aucun retard'" :lien="route('taches.pilote')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En retard</div><div class="val">{{ $enRetard }}</div></div>
+    <div class="kpi {{ $bloquees ? 'signal-ko' : '' }}"><x-voyant :niveau="$bloquees ? 'bloque' : 'ok'" :titre="$bloquees ? $bloquees . ' tâche(s) bloquée(s)' : 'Aucun blocage'" :lien="route('taches.pilote', ['statut' => 'bloque'])" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Bloquées</div><div class="val">{{ $bloquees }}</div></div>
+    <div class="kpi {{ $arbitragesEnAttente ? 'signal-ko' : '' }}"><x-voyant :niveau="$arbitragesEnAttente ? 'retard' : 'ok'" :titre="$arbitragesEnAttente ? $arbitragesEnAttente . ' arbitrage(s) en attente' : 'Aucun arbitrage en attente'" :lien="route('arbitrages.index')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/></svg>Arbitrages</div><div class="val">{{ $arbitragesEnAttente }}</div>@if($arbitragesEnAttente)<div class="sub"><a href="{{ route('arbitrages.index') }}">À décider ›</a></div>@endif</div>
+    @if($pointageStats)
+    <div class="kpi signal-info"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Présence du jour</div><div class="val">{{ $pointageStats['tauxPresence'] }} %</div><div class="sub">{{ $pointageStats['presentsJour'] }}/{{ $pointageStats['totalCollabs'] }} présent(s) · <a href="{{ route('pointage.index') }}">Pointage ›</a></div></div>
+    @else
+    <div class="kpi {{ $sansSaisieHier ? 'signal-warn' : '' }}"><x-voyant :niveau="$sansSaisieHier ? 'proche' : 'ok'" :titre="$sansSaisieHier ? $sansSaisieHier . ' collaborateur(s) sans saisie hier' : 'Toutes les saisies sont faites'" :lien="route('saisie.index')" lien-texte="Voir le détail" /><div class="lbl">Sans saisie hier</div><div class="val">{{ $sansSaisieHier }}</div></div>
+    @endif
+    <div class="kpi signal-ok"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Complétion</div><div class="val">{{ $tauxGlobal }} %</div><div class="barre-k"><i style="width:{{ $tauxGlobal }}%"></i></div></div>
 </div>
 
-{{-- Indicateurs secondaires --}}
-<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:22px">
-    <div class="kpi" @if($arbitragesEnAttente > 0) style="background:#fef2f2;border-color:#fecaca" @endif>
-        <div class="lbl">Arbitrages en attente</div>
-        <div class="val" style="color:{{ $arbitragesEnAttente > 0 ? 'var(--ko)' : 'var(--bleu)' }}">{{ $arbitragesEnAttente }}</div>
-        @if($arbitragesEnAttente > 0)<a href="{{ route('arbitrages.index') }}" class="lien">Voir &rarr;</a>@endif
-    </div>
-    <div class="kpi">
-        <div class="lbl">Sans saisie hier</div>
-        <div class="val" style="color:{{ $sansSaisieHier > 0 ? 'var(--warn)' : 'var(--ok)' }}">{{ $sansSaisieHier }}</div>
-    </div>
-    <div class="kpi">
-        <div class="lbl">Collaborateurs actifs</div>
-        <div class="val">{{ $collaborateurs->count() }}</div>
-    </div>
-</div>
-
-{{-- Pointage du jour --}}
-@if($pointageStats)
-<div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:22px">
-    <div class="kpi">
-        <div class="lbl">Présence aujourd'hui</div>
-        <div class="val" style="color:var(--ok)">{{ $pointageStats['tauxPresence'] }}%</div>
-        <div class="sub">{{ $pointageStats['presentsJour'] }} / {{ $pointageStats['totalCollabs'] }}</div>
-    </div>
-    <div class="kpi">
-        <div class="lbl">Retards</div>
-        <div class="val" style="color:{{ $pointageStats['retardsJour'] > 0 ? '#b45309' : 'var(--ok)' }}">{{ $pointageStats['retardsJour'] }}</div>
-    </div>
-    <div class="kpi">
-        <div class="lbl">Absents</div>
-        <div class="val" style="color:{{ $pointageStats['absentsJour'] > 0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $pointageStats['absentsJour'] }}</div>
-    </div>
-    <div class="kpi">
-        <div class="lbl">Non pointés</div>
-        <div class="val">{{ $pointageStats['totalCollabs'] - $pointageStats['presentsJour'] - $pointageStats['absentsJour'] }}</div>
-        <a href="{{ route('pointage.index') }}" class="lien">Détail &rarr;</a>
-    </div>
-</div>
-@endif
-
-{{-- Tendance + Taux livraison --}}
+{{-- Tendance + Performance équipe --}}
 <div class="grille">
-    <div class="panneau">
+    <div class="panneau panneau-tendance">
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Tendance (4 semaines)
         </h3>
-        <div style="display:flex;align-items:flex-end;gap:12px;height:130px;padding:20px 0 8px">
-            @foreach($tendanceHebdo as $s)
-            @php $h = round(($s['count'] / $tendanceMax) * 80); @endphp
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center">
-                <span style="font-size:12px;font-weight:700;color:var(--bleu);margin-bottom:4px">{{ $s['count'] }}</span>
-                <div style="width:100%;max-width:40px;height:{{ max($h, 4) }}px;background:linear-gradient(180deg,var(--accent),#1a5276);border-radius:6px 6px 0 0"></div>
-                <span style="font-size:10px;color:var(--gris);margin-top:4px">{{ $s['label'] }}</span>
-            </div>
-            @endforeach
-        </div>
-        <div style="font-size:11px;color:var(--gris);text-align:center;margin-top:4px">Tâches terminées (global)</div>
+        @include('dashboard._tendance', ['series' => $tendanceHebdo, 'max' => $tendanceMax, 'legende' => 'Tâches terminées par semaine (toute l\'organisation)'])
     </div>
+    @include('dashboard._performance')
+</div>
+
+{{-- Sprints en cours + Livraison des sprints terminés --}}
+<div class="grille">
+    <div class="panneau" @if($sprintsTermines->isEmpty()) style="grid-column:1/-1" @endif>
+        <h3>
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+            Sprints en cours ({{ $sprintsEnCours->count() }})
+        </h3>
+        @forelse($sprintsEnCours as $s)
+        <div class="sprint-item">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                <span style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} - {{ $s->projet->libelle ?? '' }}</span>
+                @if($s->jours_restants !== null)
+                <span style="font-size:11px;font-weight:600;color:#475569;white-space:nowrap">{{ $s->urgence()['court'] }}</span>
+                @endif
+            </div>
+            <div class="jauge-wrap"><div class="jauge-bar" style="width:{{ $s->progression ?? 0 }}%;background:var(--accent)"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:3px">
+                <span style="font-size:10.5px;color:var(--gris)">{{ $s->stats_terminees ?? 0 }}/{{ $s->stats_total ?? 0 }} t&acirc;ches</span>
+                <a href="{{ route('sprints.show', $s) }}" class="lien">D&eacute;tail &rarr;</a>
+            </div>
+        </div>
+        @empty
+        <div style="text-align:center;color:var(--gris);font-size:13px;padding:16px">Aucun sprint en cours.</div>
+        @endforelse
+    </div>
+
     @if($sprintsTermines->count() > 0)
     <div class="panneau">
         <h3>
@@ -127,58 +109,6 @@
         @endforeach
     </div>
     @endif
-</div>
-
-{{-- Sprints en cours + Performance équipe --}}
-<div class="grille">
-    <div class="panneau">
-        <h3>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
-            Sprints en cours ({{ $sprintsEnCours->count() }})
-        </h3>
-        @forelse($sprintsEnCours as $s)
-        <div class="sprint-item">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-                <span style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} - {{ $s->projet->libelle ?? '' }}</span>
-                @if($s->jours_restants !== null)
-                <span class="badge {{ $s->jours_restants <= 3 ? 'b-ko' : 'b-ok' }}">{{ $s->jours_restants }}j</span>
-                @endif
-            </div>
-            <div class="jauge-wrap"><div class="jauge-bar" style="width:{{ $s->progression ?? 0 }}%;background:var(--accent)"></div></div>
-            <div style="display:flex;justify-content:space-between;margin-top:3px">
-                <span style="font-size:10.5px;color:var(--gris)">{{ $s->stats_terminees ?? 0 }}/{{ $s->stats_total ?? 0 }} t&acirc;ches</span>
-                <a href="{{ route('sprints.show', $s) }}" class="lien">D&eacute;tail &rarr;</a>
-            </div>
-        </div>
-        @empty
-        <div style="text-align:center;color:var(--gris);font-size:13px;padding:16px">Aucun sprint en cours.</div>
-        @endforelse
-    </div>
-
-    <div class="panneau">
-        <h3>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            Performance &eacute;quipe
-        </h3>
-        <div data-collapse="5">
-        @foreach($collaborateurs as $c)
-        @php $barColor = $c->taux >= 70 ? 'var(--ok)' : ($c->taux >= 40 ? 'var(--warn)' : 'var(--ko)'); @endphp
-        <div class="membre-line" data-collapse-item>
-            <div class="membre-avatar">{{ mb_strtoupper(mb_substr($c->name,0,1).mb_substr($c->prenom ?? '',0,1)) }}</div>
-            <div style="flex:1">
-                <div style="font-size:13px;font-weight:600">{{ $c->nomComplet() }}</div>
-                <div style="font-size:10.5px;color:var(--gris)">
-                    {{ $c->taches_en_cours }} en cours
-                    @if($c->taches_bloquees > 0)&middot; <span style="color:var(--ko)">{{ $c->taches_bloquees }} bloq.</span>@endif
-                    &middot; {{ $c->taches_terminees }}/{{ $c->taches_total }}
-                </div>
-                <div class="jauge-wrap" style="margin-top:3px;height:4px"><div class="jauge-bar" style="width:{{ $c->taux }}%;background:{{ $barColor }}"></div></div>
-            </div>
-            <span style="font-size:12px;font-weight:700;color:var(--bleu)">{{ $c->taux }}%</span>
-        </div>
-        @endforeach
-        </div>
-    </div>
 </div>
 
 {{-- Tâches bloquées --}}

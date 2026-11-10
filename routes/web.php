@@ -9,6 +9,7 @@ Route::get('/', fn () => redirect()->route('dashboard'));
 Route::middleware(['auth'])->group(function () {
     // M1 - Tableau de bord (US-16/17/18 - aiguillage par rôle)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/performance-equipe', [DashboardController::class, 'performanceEquipe'])->name('dashboard.performance');
 
     // M2 - Activités (US-06, US-07, US-08)
     Route::get('/taches', [TacheController::class, 'index'])->name('taches.index');
@@ -32,11 +33,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/sprints', [SprintController::class, 'index'])->name('sprints.index');
     Route::post('/sprints', [SprintController::class, 'store'])->name('sprints.store');
     Route::get('/sprints/{sprint}', [SprintController::class, 'show'])->name('sprints.show');
+    Route::get('/sprints/{sprint}/planning', [SprintController::class, 'planning'])->name('sprints.planning');
     Route::put('/sprints/{sprint}', [SprintController::class, 'update'])->name('sprints.update');
     Route::post('/sprints/{sprint}/cloturer', [SprintController::class, 'cloturer'])->name('sprints.cloturer');
     Route::post('/sprints/{sprint}/demarrer', [SprintController::class, 'demarrer'])->name('sprints.demarrer');
     Route::post('/sprints/{sprint}/arreter', [SprintController::class, 'arreter'])->name('sprints.arreter');
     Route::get('/api/projets/{projet}/sprints', [SprintController::class, 'parProjet'])->name('api.sprints');
+    Route::post('/sprints/{sprint}/taches/rattacher', [SprintController::class, 'rattacherTaches'])->name('sprints.taches.rattacher');
     Route::post('/sprints/{sprint}/taches', [SprintController::class, 'ajouterTache'])->name('sprints.ajouter-tache');
     Route::put('/sprints/{sprint}/taches/{tache}', [SprintController::class, 'modifierTache'])->name('sprints.modifier-tache');
     Route::delete('/sprints/{sprint}/taches/{tache}', [SprintController::class, 'supprimerTache'])->name('sprints.supprimer-tache');
@@ -47,7 +50,6 @@ Route::middleware(['auth'])->group(function () {
     // Sprint Planning (Scrum) : user stories du sprint, tâche testée
     Route::patch('/sprints/{sprint}/periode', [SprintController::class, 'arbitrerPeriode'])->name('sprints.periode');
     Route::post('/sprints/{sprint}/user-stories', [SprintController::class, 'attacherUserStories'])->name('sprints.user-stories.attacher');
-    Route::patch('/sprints/{sprint}/user-stories/{userStory}', [SprintController::class, 'statutUserStory'])->name('sprints.user-stories.statut');
     Route::patch('/sprints/{sprint}/user-stories/{userStory}/planification', [SprintController::class, 'planifierUserStory'])->name('sprints.user-stories.planifier');
     Route::delete('/sprints/{sprint}/user-stories/{userStory}', [SprintController::class, 'detacherUserStory'])->name('sprints.user-stories.detacher');
     Route::patch('/sprints/{sprint}/taches/{tache}/teste', [SprintController::class, 'basculerTeste'])->name('sprints.taches.teste');
@@ -60,6 +62,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/projets/{projet}/user-stories', [ProjetScrumController::class, 'storeUserStory'])->name('projets.user-stories.store');
     Route::put('/user-stories/{userStory}', [ProjetScrumController::class, 'updateUserStory'])->name('user-stories.update');
     Route::delete('/user-stories/{userStory}', [ProjetScrumController::class, 'destroyUserStory'])->name('user-stories.destroy');
+    Route::patch('/user-stories/{userStory}/statut', [ProjetScrumController::class, 'statutUserStory'])->name('user-stories.statut');
+    Route::patch('/user-stories/{userStory}/avancement', [ProjetScrumController::class, 'avancementUserStory'])->name('user-stories.avancement');
     Route::post('/projets/{projet}/user-stories/import', [ProjetScrumController::class, 'importerBacklog'])->name('projets.backlog.import');
     Route::get('/projets/{projet}/user-stories/modele', [ProjetScrumController::class, 'modeleImport'])->name('projets.backlog.modele');
     Route::get('/projets/{projet}/user-stories/export', [ProjetScrumController::class, 'exporterBacklog'])->name('projets.backlog.export');
@@ -160,6 +164,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/comptes-rendus/{cr}/telecharger', [CompteRenduController::class, 'telecharger'])->name('comptes-rendus.telecharger');
     Route::get('/comptes-rendus/{cr}/imprimer', [CompteRenduController::class, 'imprimer'])->name('comptes-rendus.imprimer');
     Route::delete('/comptes-rendus/{cr}', [CompteRenduController::class, 'destroy'])->name('comptes-rendus.destroy');
+
+    // CR Review Sprint (format review_v1 - document formel)
+    Route::post('/sprints/{sprint}/cr-review', [CompteRenduController::class, 'createReviewSprint'])->name('comptes-rendus.review-sprint.create');
+    Route::get('/comptes-rendus/{cr}/review-sprint', [CompteRenduController::class, 'editReviewSprint'])->name('comptes-rendus.review-sprint.edit');
+    Route::put('/comptes-rendus/{cr}/review-sprint', [CompteRenduController::class, 'updateReviewSprint'])->name('comptes-rendus.review-sprint.update');
+    Route::post('/comptes-rendus/{cr}/review-sprint/confirmer', [CompteRenduController::class, 'confirmerReviewSprint'])->name('comptes-rendus.review-sprint.confirmer');
 
     // Exports xlsx (pilotes : direction, charge_operations, admin)
     Route::get('/exports', [ExportController::class, 'index'])->name('export.index');

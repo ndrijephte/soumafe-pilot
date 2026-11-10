@@ -111,7 +111,7 @@ class FeuilleXlsx
         $x = '';
         foreach (TexteRiche::segments($html) as [$t, $b, $i, $u]) {
             $t = htmlspecialchars(self::propre($t), ENT_XML1 | ENT_QUOTES, 'UTF-8');
-            $x .= '<r><rPr>' . ($b ? '<b/>' : '') . ($i ? '<i/>' : '') . ($u ? '<u/>' : '') . '<sz val="11"/><color rgb="FF334155"/><rFont val="Calibri"/></rPr>'
+            $x .= '<r><rPr>' . ($b ? '<b/>' : '') . ($i ? '<i/>' : '') . ($u ? '<u/>' : '') . '<sz val="11"/><color rgb="FF1F2937"/><rFont val="Calibri"/></rPr>'
                 . "<t xml:space=\"preserve\">{$t}</t></r>";
         }
         return $x ?: '<t></t>';

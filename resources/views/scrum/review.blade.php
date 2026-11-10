@@ -4,9 +4,12 @@
 
 @push('styles')
 <style>
-.col-n{width:8%}.col-t{width:23%}.col-a{width:12%}.col-d{width:8%}.col-du{width:6%}.col-p{width:5%}.col-s{width:12%}.col-o{width:26%}
+.col-n{width:6%}.col-t{width:25%}.col-a{width:12%}.col-d{width:7%}.col-du{width:6%}.col-p{width:5%}.col-s{width:13%}.col-o{width:26%}
+/* Dates et durées en retrait, cadres d'observation compacts */
+.sc-tbl td.ctr{font-size:12px;color:#475569;white-space:nowrap}
 .sc-tbl td.ctr{text-align:center;white-space:nowrap}
-.st-ok{color:#166534;font-weight:700}.st-ko{color:#991b1b;font-weight:700}.st-cours{color:#1d4ed8;font-weight:700}.st-attente{color:#475569;font-weight:700}
+.st-ok,.st-ko,.st-cours,.st-attente{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.st-ok{background:#ecfdf3;color:#166534}.st-ko{background:#fef2f2;color:#991b1b}.st-cours{background:#eff6ff;color:#1d4ed8}.st-attente{background:#f1f5f9;color:#475569}
 .statut-cr{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .grille2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
 .grille4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
@@ -28,7 +31,8 @@
 @endphp
 
 <div class="statut-cr">
-    @if(!$cr)<span class="pill p-attente">Review non commencée</span><span style="font-size:12px;color:var(--gris)">Ajoutez vos observations puis enregistrez.</span>
+    @if($verrou)<span class="pill p-attente">Review fermée</span><span style="font-size:12px;color:var(--gris)">{{ $verrou }}</span>
+    @elseif(!$cr)<span class="pill p-attente">Review non commencée</span><span style="font-size:12px;color:var(--gris)">Ajoutez vos observations puis enregistrez.</span>
     @elseif($valide)<span class="pill p-ok">Review validée</span><span style="font-size:12px;color:var(--gris)">Enregistrée dans les comptes rendus le {{ $cr->updated_at->format('d/m/Y') }}.</span>
         <span style="font-size:12px;color:var(--gris)">Modifiable par un pilote uniquement.</span>
         @if(auth()->user()->estAdmin())<form method="POST" action="{{ route('scrum.rouvrir', [$sprint, 'review_sprint']) }}" style="margin:0">@csrf<button class="btn sm sec">Rouvrir</button></form>@endif
@@ -66,12 +70,17 @@
     @forelse($planning as $bloc)
         @php $m++; @endphp
         <tr class="module"><td colspan="9">Module {{ $m }} : {{ $bloc['module'] }}</td></tr>
+        @php $epicCourant = null; @endphp
         @foreach($bloc['stories'] as $g)
+            @if($g['story']?->epic && $g['story']->epic !== $epicCourant)
+            @php $epicCourant = $g['story']->epic; @endphp
+            <tr class="epic"><td colspan="9">Epic : {{ $epicCourant }}</td></tr>
+            @endif
             @if($us = $g['story'])
             @php $etatUs = \App\Models\UserStory::STATUTS_SPRINT[$us->pivot->statut_sprint ?? ''] ?? $us->statutLibelle(); @endphp
             <tr class="story">
                 <td>{{ $us->numero }}</td>
-                <td colspan="5">{{ $us->intitule }}</td>
+                <td colspan="5">{{ $us->intitule }}<div style="margin-top:3px;font-weight:400">@include('scrum._niveau_us', ['us' => $us, 'taches' => $g['taches']])</div></td>
                 <td class="ctr" title="{{ $us->complexiteStory()['libelle'] ?? 'Non estimée' }}">{{ $us->effort_estime ?: '—' }}</td>
                 <td><span class="pill {{ ($us->pivot->statut_sprint ?? '') === 'termine' ? 'p-ok' : (($us->pivot->statut_sprint ?? '') === 'en_cours' ? 'p-cours' : 'p-attente') }}">{{ $etatUs }}</span></td>
                 <td>@if($canEdit)<x-redaction compact name="observations[us_{{ $us->id }}]" :value="$obs['us_' . $us->id] ?? null" placeholder="Observation sur la story" />@else<x-redaction lecture vide="" :value="$obs['us_' . $us->id] ?? null" />@endif</td>
@@ -148,7 +157,7 @@
 @if($canEdit)
 <div class="barre-actions">
     <button class="btn" name="apres" value="enregistrer">Enregistrer la review</button>
-    <button class="btn sec" name="apres" value="backlog">Enregistrer et ajouter au Product Backlog</button>
+    @if($peutAlimenter)<button class="btn sec" name="apres" value="backlog">Enregistrer et ajouter au Product Backlog</button>@endif
     @if(!$valide && $canGerer)<button type="button" class="btn vert" onclick="document.getElementById('dlg-valider').showModal()">Valider la review…</button>@endif
 </div>
 @endif
@@ -171,9 +180,10 @@
     <h3 style="color:var(--bleu);margin-bottom:8px">Valider la review du sprint {{ $sprint->numero }}</h3>
     <p style="font-size:13px;color:#334155">Enregistrez vos saisies avant de valider.</p>
     <form method="POST" action="{{ route('scrum.review.valider', $sprint) }}">@csrf
+        @php $aAccepter = $sprint->userStories->where('statut', 'terminee')->count(); @endphp
         <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:12px 0 6px;cursor:pointer">
-            <input type="checkbox" name="retour_backlog" value="1" checked style="margin-top:3px">
-            <span>Remettre au backlog les user stories non terminées ({{ $ind['stories'] - $ind['stories_terminees'] }})</span>
+            <input type="checkbox" name="accepter" value="1" @checked($aAccepter) @disabled(!$aAccepter) style="margin-top:3px">
+            <span>Marquer « Acceptées » les user stories terminées ({{ $aAccepter }})</span>
         </label>
         <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:6px 0 12px;cursor:pointer">
             <input type="checkbox" name="ajouter_backlog" value="1" @checked($enAttente) @disabled(!$enAttente) style="margin-top:3px">

@@ -8,9 +8,12 @@ use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasMany};
 class UserStory extends Model
 {
     protected $table = 'user_stories';
-    protected $fillable = ['projet_id', 'numero', 'module', 'intitule', 'exigences', 'taches_techniques', 'priorite', 'statut', 'effort_estime', 'origine'];
+    protected $fillable = ['projet_id', 'numero', 'module', 'intitule', 'exigences', 'taches_techniques', 'priorite', 'statut', 'effort_estime', 'origine', 'criteres_acceptation', 'priorite_moscow', 'points_effort', 'epic', 'profil', 'dor', 'source_cr_id', 'avancement', 'avancement_note', 'avancement_par', 'avancement_le'];
+    protected $casts = ['criteres_acceptation' => 'array', 'avancement_le' => 'datetime', 'dor' => 'boolean'];
 
-    public const STATUTS = ['a_faire' => 'À faire', 'planifiee' => 'Planifiée', 'en_cours' => 'En cours', 'terminee' => 'Terminée'];
+    public const STATUTS = ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'en_revue' => 'En revue', 'terminee' => 'Terminée', 'acceptee' => 'Acceptée', 'bloquee' => 'Bloquée'];
+    /** Stories achevées : terminées, et acceptées par le Product Owner à la Review. */
+    public const FINIES = ['terminee', 'acceptee'];
     public const STATUTS_SPRINT = ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'termine' => 'Terminée'];
 
     public function projet(): BelongsTo { return $this->belongsTo(Projet::class); }
@@ -21,6 +24,12 @@ class UserStory extends Model
     }
 
     public const ORIGINES = ['manuel' => 'Saisie', 'import' => 'Import Excel', 'review' => 'Sprint Review', 'retrospective' => 'Rétrospective'];
+    public const MOSCOW = ['must' => 'Must have', 'should' => 'Should have', 'could' => 'Could have', 'wont' => 'Won\'t have'];
+    /** Priorités proposées au Product Backlog. */
+    public const MOSCOW_BACKLOG = ['must', 'should', 'could'];
+
+    public function sourceCr(): BelongsTo { return $this->belongsTo(CompteRendu::class, 'source_cr_id'); }
+    public function avancementPar(): BelongsTo { return $this->belongsTo(User::class, 'avancement_par'); }
 
     /**
      * Prochain numéro libre : dans un module existant « US a.(b+1) » ; pour un nouveau module « US (a+1).1 » ;
@@ -73,29 +82,30 @@ class UserStory extends Model
 
     public function complexiteStory(): ?array { return self::complexite($this->effort_estime); }
 
-    /**
-     * Statut piloté par les tâches : toutes terminées → terminée ; au moins une
-     * démarrée → en cours. On ne fait que progresser (un statut posé à la main
-     * plus avancé n'est pas rétrogradé).
-     */
+    /** Statut piloté par les tâches, dans les deux sens (une tâche rouverte fait revenir la story « en cours »). */
     public function synchroniserAvecTaches(?int $sprintId = null): void
     {
-        $taches = $this->taches()->get(['id', 'statut', 'sprint_id']);
-        if ($taches->isEmpty()) return;
-        $ordre = ['a_faire' => 0, 'planifiee' => 1, 'en_cours' => 2, 'terminee' => 3];
-        $toutes = $taches->every(fn($t) => $t->statut === 'termine');
-        $demarre = $taches->contains(fn($t) => in_array($t->statut, ['en_cours', 'termine', 'bloque']));
-        $cible = $toutes ? 'terminee' : ($demarre ? 'en_cours' : null);
-        if ($cible && $ordre[$cible] > ($ordre[$this->statut] ?? 0)) $this->update(['statut' => $cible]);
+        \App\Services\AvancementScrum::synchroniser($this->id);
+    }
 
-        // Avancement dans le(s) sprint(s) concerné(s)
-        foreach ($this->sprints()->when($sprintId, fn($q) => $q->whereKey($sprintId))->get() as $sp) {
-            $ts = $taches->where('sprint_id', $sp->id);
-            if ($ts->isEmpty()) continue;
-            $c = $ts->every(fn($t) => $t->statut === 'termine') ? 'termine' : ($ts->contains(fn($t) => in_array($t->statut, ['en_cours', 'termine', 'bloque'])) ? 'en_cours' : null);
-            $o = ['a_faire' => 0, 'en_cours' => 1, 'termine' => 2];
-            if ($c && $o[$c] > ($o[$sp->pivot->statut_sprint] ?? 0)) $this->sprints()->updateExistingPivot($sp->id, ['statut_sprint' => $c]);
-        }
+    /** Stories du backlog où puiser : prêtes (DoR = Oui), non achevées et engagées dans aucun sprint ouvert. */
+    public function scopeDisponibles($q)
+    {
+        return $q->where('dor', true)->whereNotIn('statut', self::FINIES)->whereDoesntHave('sprints', fn($s) => $s->where('sprints.statut', '!=', 'termine'));
+    }
+
+    public function estFinie(): bool { return in_array($this->statut, self::FINIES, true); }
+
+    /** Statuts qu'un gestionnaire peut choisir : avec des tâches, le statut en découle ; la mise en revue et l'acceptation restent des décisions. */
+    public function statutsPermis(): array
+    {
+        $avecTaches = $this->relationLoaded('taches')
+            ? $this->taches->where('statut', '!=', 'reporte')->isNotEmpty()
+            : ($this->taches_count ?? $this->taches()->where('statut', '!=', 'reporte')->count()) > 0;
+        if (!$avecTaches) return array_keys(self::STATUTS);
+        if ($this->estFinie()) return self::FINIES;
+        if ($this->statut === 'bloquee') return ['bloquee'];
+        return $this->statut === 'en_revue' ? ['en_cours', 'en_revue'] : [$this->statut, 'en_revue'];
     }
 
     public function statutLibelle(): string { return self::STATUTS[$this->statut] ?? ucfirst($this->statut); }

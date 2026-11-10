@@ -340,7 +340,10 @@ class ScrumService
         if ($hors->isNotEmpty()) $parModule['Tâches hors user story'][] = ['story' => null, 'taches' => $hors];
 
         $res = [];
-        foreach ($parModule as $module => $groupes) $res[] = ['module' => $module, 'stories' => $groupes];
+        foreach ($parModule as $module => $groupes) {
+            $groupes = collect($groupes)->sortBy(fn($g) => $g['story']?->epic ? '1' . mb_strtolower($g['story']->epic) : '0')->values()->all();
+            $res[] = ['module' => $module, 'stories' => $groupes];
+        }
         return $res;
     }
 

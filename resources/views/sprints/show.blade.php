@@ -23,8 +23,12 @@
 .taches-table th{text-align:left;padding:8px 10px;background:var(--fond);color:var(--gris);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;vertical-align:middle}
 .taches-table td{padding:7px 10px;border-bottom:1px solid var(--bord);vertical-align:middle}
 .taches-table tbody tr[data-row]:hover td{background:#f8fafc}
+.rattacher{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 12px;margin-bottom:10px;background:#f8fafc;border:1px solid var(--bord);border-radius:10px;font-size:12.5px;color:#475569}
+.rattacher select{flex:1 1 280px;min-width:0;max-width:640px;padding:5px 8px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px}
+.rattacher .btn:disabled{opacity:.5;cursor:not-allowed}
+.t-coche,.t-tout{width:15px;height:15px;accent-color:#2e74b5;cursor:pointer;vertical-align:middle}
 .taches-table th.col-duree,.taches-table th.col-pts,.taches-table th.col-edit{text-align:center}
-.col-tache{width:31%}.col-assigne{width:12%}.col-prio{width:9%}.col-debut{width:6%}.col-ech{width:6%}.col-duree{width:6%;text-align:center}.col-pts{width:4%;text-align:center}.col-statut{width:13%}.col-edit{width:13%;text-align:center}
+.col-coche{width:30px}.col-tache{width:30%}.col-assigne{width:12%}.col-prio{width:9%}.col-debut{width:6%}.col-ech{width:6%}.col-duree{width:6%;text-align:center}.col-pts{width:4%;text-align:center}.col-statut{width:13%}.col-edit{width:13%;text-align:center}
 .sc{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .sc b{display:inline-block;min-width:26px;text-align:center;padding:2px 5px;border-radius:6px;font-size:11px}
 .sc-d b{background:#e0f2fe;color:#0369a1}.sc-e b{background:#dbeafe;color:#1d4ed8}.sc-t b{background:#dcfce7;color:#166534}.sc-tt b{background:#166534;color:#fff}
@@ -38,6 +42,7 @@
 .sb-us .txt{flex:1;min-width:220px;font-size:13px}
 .sb-us .mod{display:block;font-size:11px;color:var(--gris)}
 .sb-us .avance{font-size:11.5px;color:var(--gris);white-space:nowrap}
+.sb-us .niv .org{display:none}
 .sb-us select{padding:4px 8px;border:1px solid var(--bord);border-radius:6px;font-size:12px}
 .sb-pts{display:flex;align-items:center;gap:6px}
 .sb-pts select{font-weight:700;color:var(--bleu)}
@@ -66,10 +71,20 @@
 .p-ok{background:#dcfce7;color:var(--ok)}.p-cours{background:#dbeafe;color:var(--accent)}.p-bloque{background:#fee2e2;color:var(--ko)}.p-attente{background:#fef3c7;color:#b45309}
 .prio-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .typ{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-right:4px}.t1{background:#dbeafe;color:#1d4ed8}
-.btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
-.btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+.btn{background:var(--accent);color:#fff;border:none;padding:6px 13px;border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.btn.sec{background:#fff;color:#1f4e79;border:1px solid #cbd5e1}
+.btn.sec:hover{border-color:#93c5fd;background:#f8fbff}
+.btn.contour-ok{background:#fff;color:#15803d;border:1px solid #bbf7d0}.btn.contour-warn{background:#fff;color:#b45309;border:1px solid #fde68a}.btn.contour-ko{background:#fff;color:#b91c1c;border:1px solid #fecaca}
+.btn.contour-ok:hover{background:#f0fdf4}.btn.contour-warn:hover{background:#fffbeb}.btn.contour-ko:hover{background:#fef2f2}
 .btn.sm{padding:5px 12px;font-size:11.5px}
-.actions-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.actions-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.actions-bar .sep{flex:1}
+.menu-cr{position:relative}
+.menu-cr>summary{list-style:none}.menu-cr>summary::-webkit-details-marker{display:none}
+.menu-cr .liste{position:absolute;top:calc(100% + 4px);left:0;z-index:30;min-width:210px;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 10px 24px rgba(15,23,42,.12);padding:4px}
+.menu-cr .liste a,.menu-cr .liste button{display:block;width:100%;text-align:left;padding:7px 10px;border-radius:7px;font-size:12.5px;color:#1f2937;text-decoration:none;background:none;border:none;cursor:pointer;font-family:inherit}
+.menu-cr .liste a:hover,.menu-cr .liste button:hover{background:#f1f5f9}
+.menu-cr .liste small{display:block;color:#64748b;font-size:11px}
 .alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
 .alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
 .alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
@@ -106,7 +121,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 <div class="sprint-header">
     <div>
         <h2>Sprint {{ $sprint->numero }} - {{ $sprint->projet->libelle }}</h2>
-        <div class="crumb"><a href="{{ route('sprints.index') }}" style="color:var(--accent);text-decoration:none">Projets / Sprints</a> &rsaquo; @if($sprint->projet->estVisiblePour(auth()->user()))<a href="{{ route('projets.espace', $sprint->projet) }}" style="color:var(--accent);text-decoration:none">{{ $sprint->projet->libelle }}</a> &rsaquo; @endif Sprint {{ $sprint->numero }}</div>
+        <div class="crumb"><a href="{{ route('sprints.index') }}" style="color:var(--accent);text-decoration:none">Projets / Sprints</a> &rsaquo; @if($sprint->projet->estVisiblePour(auth()->user()))<a href="{{ route('projets.espace', $sprint->projet) }}" style="color:var(--accent);text-decoration:none">{{ $sprint->projet->libelle }}</a> &rsaquo; @endif Sprint {{ $sprint->numero }} &rsaquo; {{ $vue === 'planning' ? 'Sprint Planning' : 'Sprint Backlog' }}</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
         <span class="badge-statut s-{{ $sprint->statut }}">{{ ucfirst(str_replace('_',' ',$sprint->statut)) }}</span>
@@ -120,7 +135,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </div>
 
 @if($sprint->projet->estVisiblePour(auth()->user()))
-@include('scrum._nav', ['sprint' => $sprint, 'actif' => 'planning'])
+@include('scrum._nav', ['sprint' => $sprint, 'actif' => $vue])
 @endif
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
@@ -176,23 +191,44 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 
 @if($canEdit)
 <div class="actions-bar">
+    @if($vue === 'planning' && $sprint->statut !== 'termine')
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Ajouter une t&acirc;che</button>
     <button class="btn sec" onclick="document.getElementById('dlg-import').showModal()">Importer (.xlsx)</button>
+    @endif
+    @if(in_array($sprint->statut, ['en_cours', 'termine']))
+    @php $crReview = \App\Models\CompteRendu::where('sprint_id', $sprint->id)->where('type', 'review_sprint')->where('format', 'review_v1')->first(); @endphp
+    <details class="menu-cr">
+        <summary class="btn sec">Comptes rendus &#9662;</summary>
+        <div class="liste">
+            <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint', 'sprint_id' => $sprint->id]) }}">CR Démo<small>Démonstration des livrables</small></a>
+            @if($crReview)
+            <a href="{{ route('comptes-rendus.review-sprint.edit', $crReview) }}">CR Review Sprint<small>Document formel ({{ ['brouillon' => 'brouillon', 'en_revision' => 'en relecture', 'confirme' => 'confirmé'][$crReview->statut] ?? $crReview->statut }})</small></a>
+            @elseif(auth()->user()->estAdmin() || auth()->user()->peutGererProjet($sprint->projet_id))
+            <form method="POST" action="{{ route('comptes-rendus.review-sprint.create', $sprint) }}" style="margin:0" onsubmit="return confirm('Créer le compte rendu formel de la Review ? Il sera pré-rempli depuis la Review du sprint.')">@csrf
+                <button>CR Review Sprint<small>Créer le document formel</small></button>
+            </form>
+            @endif
+        </div>
+    </details>
+    @endif
+    <span class="sep"></span>
     @if($sprint->statut === 'planifie')
     <form method="POST" action="{{ route('sprints.demarrer', $sprint) }}" style="margin:0" onsubmit="return confirm('Démarrer ce sprint ? Les tâches deviendront exécutables par les collaborateurs.')">
         @csrf
-        <button class="btn" style="background:var(--ok)">D&eacute;marrer le sprint</button>
+        <button class="btn contour-ok">D&eacute;marrer le sprint</button>
     </form>
     @endif
     @if($sprint->statut === 'en_cours')
-    <button class="btn" style="background:var(--warn);color:#fff" onclick="document.getElementById('dlg-arreter').showModal()">Arr&ecirc;ter le sprint</button>
+    <button class="btn contour-warn" onclick="document.getElementById('dlg-arreter').showModal()">Arr&ecirc;ter</button>
+    @php $manque = \App\Services\CeremoniesScrum::manquantsCloture($sprint); @endphp
+    @if($manque && auth()->user()->estPilote())
+    <button class="btn contour-ko" onclick="document.getElementById('dlg-cloture').showModal()" title="{{ ucfirst(implode(' et ', $manque)) }} non validée(s) : motif obligatoire">Cl&ocirc;turer le sprint</button>
+    @else
     <form method="POST" action="{{ route('sprints.cloturer', $sprint) }}" style="margin:0" onsubmit="return confirm('Clôturer ce sprint ? Les tâches non terminées seront marquées en retard.')">
         @csrf
-        <button class="btn" style="background:var(--ko)">Cl&ocirc;turer le sprint</button>
+        <button class="btn contour-ko" @if($manque) disabled style="opacity:.5;cursor:not-allowed" title="Validez d'abord {{ implode(' et ', $manque) }}, ou demandez à un pilote." @endif>Cl&ocirc;turer le sprint</button>
     </form>
     @endif
-    @if(in_array($sprint->statut, ['en_cours', 'termine']))
-    <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint', 'sprint_id' => $sprint->id]) }}" class="btn" style="background:#059669;color:#fff">CR D&eacute;mo</a>
     @endif
 </div>
 @endif
@@ -205,12 +241,14 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:10px 14px;font-size:13px;color:#475569;margin-bottom:12px">
     <strong>Sprint termin&eacute;</strong> - consultation uniquement.
     @if($sprint->justification_arret)
-    <br>Motif d'arr&ecirc;t : <em>{{ $sprint->justification_arret }}</em>
+    <br>{{ $sprint->arrete_le ? "Motif d'arrêt" : 'Motif de clôture' }} : <em>{{ $sprint->justification_arret }}</em>
     @endif
 </div>
 @endif
 
 {{-- ═══ ÉQUIPE DU SPRINT : dynamique (arrivées en cours de projet, retraits propres au sprint) ═══ --}}
+{{-- ═══ Onglet Sprint Backlog : équipe et user stories ═══ --}}
+@if($vue === 'backlog' || !$voitProjet)
 @if($voitProjet)
 @php $editEquipe = $canEdit && $sprint->statut !== 'termine'; @endphp
 <div class="carte" style="margin-bottom:16px">
@@ -270,11 +308,13 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </div>
 @endif
 
+@include('scrum._actions_retro', ['sprint' => $sprint, 'enTache' => $canEdit && $sprint->statut !== 'termine'])
+
 {{-- ═══ SPRINT BACKLOG : user stories retenues ═══ --}}
 <div class="carte" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         <h3 style="font-size:14px;color:var(--bleu);margin:0">Sprint Backlog - user stories du sprint <span class="pill p-attente">{{ $storiesSprint->count() }}</span></h3>
-        @if($canEdit && $sprint->statut !== 'termine')
+        @if($peutPuiser)
         <button class="btn sm sec" onclick="document.getElementById('dlg-stories').showModal()" @disabled($backlogDispo->isEmpty()) title="{{ $backlogDispo->isEmpty() ? 'Aucune user story disponible dans le backlog' : '' }}">+ User stories du backlog</button>
         @endif
     </div>
@@ -290,8 +330,10 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         @php $tUs = $sprint->taches->where('user_story_id', $us->id); @endphp
         <div class="sb-us">
             <span class="num">{{ $us->numero }}</span>
-            <span class="txt">{{ $us->intitule }}@if($us->module)<span class="mod">{{ $us->module }}</span>@endif</span>
-            <span class="avance">{{ $tUs->where('statut', 'termine')->count() }}/{{ $tUs->count() }} t&acirc;che(s) termin&eacute;e(s)</span>
+            <span class="txt">{{ $us->intitule }}<span class="mod">{{ collect([$us->epic, $us->module, $us->profil])->filter()->join(' · ') }}</span></span>
+            @if($us->priorite_moscow)<span class="cx cx-aucune" title="Priorité MoSCoW">{{ \App\Models\UserStory::MOSCOW[$us->priorite_moscow] ?? $us->priorite_moscow }}</span>@endif
+            <span class="cx {{ $us->dor ? 'cx-simple' : 'cx-aucune' }}" title="Definition of Ready">DoR {{ $us->dor ? 'Oui' : 'Non' }}</span>
+            <span class="avance">@include('scrum._niveau_us', ['us' => $us, 'taches' => $tUs])<small style="display:block;color:#94a3b8;font-size:10.5px;margin-top:2px">{{ $tUs->where('statut', 'termine')->count() }}/{{ $tUs->count() }} tâche(s) terminée(s)</small></span>
             @php $cx = $us->complexiteStory(); @endphp
             @if($canEdit && $sprint->statut !== 'termine')
             <form method="POST" action="{{ route('sprints.user-stories.planifier', [$sprint, $us]) }}" class="sb-pts" style="margin:0" title="Story points (complexité estimée)">@csrf @method('PATCH')
@@ -302,17 +344,22 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
                 <span class="cx cx-{{ $cx['cle'] ?? 'aucune' }}" title="{{ $cx['aide'] ?? 'Story non estimée' }}">{{ $cx['libelle'] ?? 'Non estimée' }}</span>
             </form>
             <button type="button" class="btn sm sec" onclick='ouvrirTachesUs(@json(route('sprints.user-stories.planifier', [$sprint, $us])), @json($us->numero), @json(\App\Services\TexteRiche::html($us->taches_techniques)))' title="Tâches techniques de la user story (Sprint Backlog)">T&acirc;ches techniques{{ $us->taches_techniques ? ' (' . count(array_filter(preg_split('/\R/', \App\Services\TexteRiche::texte($us->taches_techniques)))) . ')' : '' }}</button>
-            <form method="POST" action="{{ route('sprints.user-stories.statut', [$sprint, $us]) }}" style="margin:0">@csrf @method('PATCH')
-                <select name="statut_sprint" onchange="this.form.submit()">
-                    @foreach(\App\Models\UserStory::STATUTS_SPRINT as $k => $l)<option value="{{ $k }}" @selected($us->pivot->statut_sprint === $k)>{{ $l }}</option>@endforeach
-                </select>
-            </form>
+            @include('scrum._statut_us', ['us' => $us, 'peutAlimenter' => $peutAlimenter])
             <form method="POST" action="{{ route('sprints.user-stories.detacher', [$sprint, $us]) }}" style="margin:0" onsubmit="return confirm('Retirer {{ $us->numero }} du sprint ? Elle retourne au backlog ; ses tâches restent dans le sprint.')">@csrf @method('DELETE')
                 <button class="btn-edit-row" style="color:var(--ko)" title="Retirer du sprint">&#10005;</button>
             </form>
             @else
             <span class="cx cx-{{ $cx['cle'] ?? 'aucune' }}" title="{{ $cx['aide'] ?? '' }}">{{ $us->effort_estime ? $us->effort_estime . ' pts · ' . $cx['libelle'] : 'Non estimée' }}</span>
-            <span class="pill {{ $us->pivot->statut_sprint === 'termine' ? 'p-ok' : ($us->pivot->statut_sprint === 'en_cours' ? 'p-cours' : 'p-attente') }}">{{ \App\Models\UserStory::STATUTS_SPRINT[$us->pivot->statut_sprint] ?? $us->pivot->statut_sprint }}</span>
+            @if($sprint->statut === 'termine')
+            <span class="pill {{ $us->pivot->statut_sprint === 'termine' ? 'p-ok' : ($us->pivot->statut_sprint === 'en_cours' ? 'p-cours' : 'p-attente') }}" title="Statut à la clôture du sprint">{{ \App\Models\UserStory::STATUTS_SPRINT[$us->pivot->statut_sprint] ?? $us->pivot->statut_sprint }}</span>
+            @else
+            @include('scrum._statut_us', ['us' => $us, 'peutAlimenter' => $peutAlimenter])
+            @endif
+            @if($peutPuiser)
+            <form method="POST" action="{{ route('sprints.user-stories.detacher', [$sprint, $us]) }}" style="margin:0" onsubmit="return confirm('Retirer {{ $us->numero }} du sprint ? Elle retourne au backlog.')">@csrf @method('DELETE')
+                <button class="btn-edit-row" style="color:var(--ko)" title="Retirer du sprint">&#10005;</button>
+            </form>
+            @endif
             @endif
         </div>
         @endforeach
@@ -320,6 +367,10 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     @endif
 </div>
 
+@endif
+
+{{-- ═══ Onglet Sprint Planning : tâches ═══ --}}
+@if($vue === 'planning' || !$voitProjet)
 @if($totalTaches > 0)
 <div class="filtre-bar">
     <input type="text" id="fNom" placeholder="Rechercher une t&acirc;che..." oninput="filtrerSprint()">
@@ -357,9 +408,25 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </div>
 <div class="carte" style="overflow-x:auto">
 <h3 style="font-size:14px;color:var(--bleu);margin:0 0 10px;display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> T&acirc;ches du sprint</h3>
+@if($peutRattacher)
+<form method="POST" id="f-rattacher" class="rattacher" action="{{ route('sprints.taches.rattacher', $sprint) }}">@csrf
+    <span>T&acirc;ches coch&eacute;es :</span>
+    <select name="user_story_id" aria-label="User story">
+        <optgroup label="User stories du sprint">
+            @foreach($storiesSprint as $us)<option value="{{ $us->id }}">{{ $us->numero }} - {{ \Illuminate\Support\Str::limit($us->intitule, 90) }}</option>@endforeach
+        </optgroup>
+        <optgroup label="Product Backlog (DoR = Oui)">
+            @foreach($backlogDispo as $us)<option value="{{ $us->id }}">{{ $us->numero }} - {{ \Illuminate\Support\Str::limit($us->intitule, 90) }}</option>@endforeach
+        </optgroup>
+        <option value="">Aucune (hors user story)</option>
+    </select>
+    <button class="btn sm" id="ratt-btn" disabled>Rattacher <span id="ratt-nb"></span></button>
+</form>
+@endif
 <table class="taches-table">
 <thead>
     <tr>
+        @if($peutRattacher)<th class="col-coche"><input type="checkbox" class="t-tout" id="t-tout" title="Tout cocher (tâches affichées)" aria-label="Cocher toutes les tâches affichées"></th>@endif
         <th class="col-tache">T&acirc;che</th>
         <th class="col-assigne">Assign&eacute;</th>
         <th class="col-prio">Prio.</th>
@@ -373,7 +440,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </thead>
 <tbody>
 @php
-    $nbCol = 8 + ($canEdit && $sprint->statut !== 'termine' ? 1 : 0);
+    $nbCol = 8 + ($canEdit && $sprint->statut !== 'termine' ? 1 : 0) + ($peutRattacher ? 1 : 0);
     // Regroupement par user story (ordre du Sprint Backlog), puis tâches hors story
     $ordreUs = $storiesSprint->pluck('id')->flip();
     $groupes = $sprint->taches->groupBy(fn($t) => $t->user_story_id ?: 0)
@@ -387,6 +454,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 @foreach($tachesGroupe->sortBy([['date_debut', 'asc'], ['echeance', 'asc']]) as $t)
 @php $sc = $t->codeScrum(); @endphp
 <tr data-row data-us="{{ $t->user_story_id ?: 'aucune' }}" data-nom="{{ strtolower($t->intitule) }}" data-user="{{ $t->user_id }}" data-prio="{{ $t->priorite }}" data-statut="{{ $t->statut }}" @if($sprint->statut !== 'en_cours') style="opacity:0.55" @endif>
+    @if($peutRattacher)<td style="text-align:center"><input type="checkbox" class="t-coche" form="f-rattacher" name="taches[]" value="{{ $t->id }}" aria-label="Sélectionner {{ $t->intitule }}"></td>@endif
     <td>
         <span class="typ t1">T1</span>
         <a href="{{ route('taches.show', $t) }}" class="tache-nom">{{ $t->intitule }}</a>
@@ -397,7 +465,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <span class="prio-dot" style="background:{{ $pCouleur }}"></span><span style="font-size:11.5px">{{ ucfirst($t->priorite) }}</span>
     </td>
     <td style="font-size:12px;color:#475569">{{ $t->date_debut?->format('d/m') ?? '—' }}</td>
-    <td style="font-size:12px;color:#475569">{{ $t->echeance?->format('d/m') ?? '—' }}</td>
+    <td style="font-size:12px;color:#475569;white-space:nowrap"><x-voyant :tache="$t" /> {{ $t->echeance?->format('d/m') ?? '-' }}</td>
     <td style="text-align:center;font-size:12px">{{ $t->dureeJours() ?: '—' }}</td>
     <td style="text-align:center;font-weight:600;font-size:12px">{{ $t->points ?? '—' }}</td>
     <td><span class="sc {{ $sc['classe'] }}" title="{{ $sc['libelle'] }} - statut : {{ $t->labelStatut() }}"><b>{{ $sc['code'] }}</b>{{ $sc['code'] === 'ER' ? preg_replace('/\D+/', '', $sc['libelle']) . ' j' : ($sc['code'] === 'TT' ? 'Testé' : $sc['libelle']) }}</span></td>
@@ -422,6 +490,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 @endforeach
 </tbody>
 </table>
+</div>
 @else
 <div class="vide">
     <p>Aucune t&acirc;che dans ce sprint.</p>
@@ -430,11 +499,44 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     @endif
 </div>
 @endif
-</div>
+@endif
+
+{{-- Dialog Sprint Backlog : puiser dans le Product Backlog (gestionnaire et équipe du projet) --}}
+@if($peutPuiser)
+<dialog id="dlg-stories">
+    <h3 style="color:var(--bleu);margin-bottom:4px">Ajouter des user stories au sprint</h3>
+    <div style="font-size:12px;color:var(--gris);margin-bottom:10px">User stories prêtes (DoR = Oui), non achevées, engagées dans aucun sprint ouvert.</div>
+    <form method="POST" action="{{ route('sprints.user-stories.attacher', $sprint) }}">@csrf
+        <div class="liste-coche">
+            @foreach($backlogDispo as $us)
+            <label><input type="checkbox" name="user_stories[]" value="{{ $us->id }}"><span><strong style="color:var(--accent)">{{ $us->numero }}</strong> {{ $us->intitule }}@if($us->module)<span style="display:block;font-size:11px;color:var(--gris)">{{ $us->module }}</span>@endif<span style="display:block;font-size:11px;color:var(--gris)">{{ collect([\App\Models\UserStory::MOSCOW[$us->priorite_moscow] ?? null, $us->effort_estime ? $us->effort_estime . ' pts' : null, 'DoR ' . ($us->dor ? 'Oui' : 'Non')])->filter()->join(' · ') }}</span></span></label>
+            @endforeach
+        </div>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Ajouter au sprint</button>
+        </div>
+    </form>
+</dialog>
+@endif
 
 @if($canEdit)
 {{-- Dialog arrêt anticipé --}}
 @if($sprint->statut === 'en_cours')
+@if(($manque ?? []) && auth()->user()->estPilote())
+<dialog id="dlg-cloture">
+    <h3 style="color:var(--ko);margin-bottom:4px">Cl&ocirc;turer le sprint {{ $sprint->numero }}</h3>
+    <p style="font-size:13px;color:#334155;margin:0 0 10px">{{ ucfirst(implode(' et ', $manque)) }} : non validée(s). Les t&acirc;ches non termin&eacute;es seront marqu&eacute;es en retard et leurs user stories retourneront au Product Backlog.</p>
+    <form method="POST" action="{{ route('sprints.cloturer', $sprint) }}">@csrf
+        <label for="motif-cloture" style="font-size:12px;font-weight:600;color:#334155">Motif <span style="color:var(--ko)">*</span></label>
+        <textarea id="motif-cloture" name="motif_cloture" rows="3" required minlength="5" maxlength="1000" style="width:100%;margin-top:4px;padding:8px;border:1px solid var(--bord);border-radius:8px;font:inherit;font-size:13px" placeholder="Ex. : démonstration reportée à la demande du client"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn contour-ko">Cl&ocirc;turer avec ce motif</button>
+        </div>
+    </form>
+</dialog>
+@endif
 <dialog id="dlg-arreter">
     <h3 style="color:var(--ko);margin-bottom:4px">Arr&ecirc;ter le sprint</h3>
     @if($sprint->date_fin->isFuture())
@@ -513,28 +615,10 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </form>
 </dialog>
 
-{{-- Dialog Sprint Backlog : choisir des user stories du Product Backlog --}}
-@if($sprint->statut !== 'termine')
-<dialog id="dlg-stories">
-    <h3 style="color:var(--bleu);margin-bottom:4px">Ajouter des user stories au sprint</h3>
-    <div style="font-size:12px;color:var(--gris);margin-bottom:10px">User stories du backlog disponibles.</div>
-    <form method="POST" action="{{ route('sprints.user-stories.attacher', $sprint) }}">@csrf
-        <div class="liste-coche">
-            @foreach($backlogDispo as $us)
-            <label><input type="checkbox" name="user_stories[]" value="{{ $us->id }}"><span><strong style="color:var(--accent)">{{ $us->numero }}</strong> {{ $us->intitule }}@if($us->module)<span style="display:block;font-size:11px;color:var(--gris)">{{ $us->module }}@if($us->effort_estime) · {{ $us->effort_estime }} story pts @endif</span>@endif</span></label>
-            @endforeach
-        </div>
-        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
-            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
-            <button class="btn">Ajouter au sprint</button>
-        </div>
-    </form>
-</dialog>
-@endif
 
 {{-- Dialog import xlsx --}}
 <dialog id="dlg-import">
-    <h3 style="color:var(--bleu);margin-bottom:4px">Importer des t&acirc;ches (.xlsx)</h3>
+    <h3 style="color:var(--bleu);margin-bottom:4px">Importer le Sprint Planning (.xlsx)</h3>
     <div style="font-size:12px;color:var(--gris);margin-bottom:14px;line-height:1.6">
         <p style="margin-bottom:8px">Les t&acirc;ches seront rattach&eacute;es au <strong>Sprint {{ $sprint->numero }}</strong>.</p>
         <div style="background:var(--fond);border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px">
@@ -554,10 +638,16 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
                     <tr><td style="padding:3px 6px;border:1px solid var(--bord)">5</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Date d&eacute;but</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">28/07/2026</td></tr>
                     <tr><td style="padding:3px 6px;border:1px solid var(--bord)">6</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Points</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">3</td></tr>
                     <tr><td style="padding:3px 6px;border:1px solid var(--bord)">7</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Projet</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">CROU Connect</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">8</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">User story</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">US 1.2 - En tant que…</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">9</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Module</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">Gestion des paiements</td></tr>
+                    <tr><td style="padding:3px 6px;border:1px solid var(--bord)">10</td><td style="padding:3px 6px;border:1px solid var(--bord);font-weight:600">Epic</td><td style="padding:3px 6px;border:1px solid var(--bord)">Non</td><td style="padding:3px 6px;border:1px solid var(--bord)">Paiement en ligne</td></tr>
                 </tbody>
             </table>
             <div style="margin-top:6px;font-size:10.5px;color:#64748b">
-                &bull; L'en-t&ecirc;te doit se trouver en <strong>ligne 1</strong> du fichier.<br>
+                &bull; La ligne d'en-t&ecirc;te est d&eacute;tect&eacute;e automatiquement (premi&egrave;re ligne contenant &laquo; T&acirc;che &raquo; ou &laquo; Intitul&eacute; &raquo;).<br>
+                &bull; <strong>User story</strong> : num&eacute;ro (&laquo; US 1.2 &raquo;) ou intitul&eacute;. Une story absente du Product Backlog y est cr&eacute;&eacute;e avec son module et son epic ; toutes sont rattach&eacute;es au sprint.<br>
+                &bull; Le <strong>Sprint Planning export&eacute;</strong> (archive Scrum) se r&eacute;importe tel quel : lignes &laquo; MODULE &raquo;, &laquo; Epic &raquo;, &laquo; US x.y &raquo; et leurs t&acirc;ches.<br>
+                &bull; Sans &eacute;ch&eacute;ance, une t&acirc;che prend la date de fin du sprint.<br>
                 &bull; L'ordre des colonnes est <strong>libre</strong> - le syst&egrave;me reconna&icirc;t les noms.<br>
                 &bull; Si &laquo; Assign&eacute; &agrave; &raquo; ne correspond &agrave; aucun collaborateur, la ligne sera ignor&eacute;e.<br>
                 &bull; Si &laquo; Projet &raquo; est vide, le projet du sprint sera utilis&eacute;.
@@ -677,6 +767,23 @@ function ouvrirTachesUs(action, numero, texte){
     Redaction.definir('taches_techniques', texte || '');
     d.showModal();
 }
+// Rattachement en lot : compteur et « tout cocher » limité aux tâches affichées
+(function(){
+    const tout = document.getElementById('t-tout'), btn = document.getElementById('ratt-btn');
+    if (!tout || !btn) return;
+    const maj = () => {
+        const n = document.querySelectorAll('.t-coche:checked').length;
+        btn.disabled = !n;
+        document.getElementById('ratt-nb').textContent = n ? '(' + n + ')' : '';
+    };
+    document.addEventListener('change', e => {
+        if (e.target === tout) document.querySelectorAll('[data-row]').forEach(tr => {
+            if (tr.style.display !== 'none') tr.querySelector('.t-coche').checked = tout.checked;
+        });
+        if (e.target === tout || e.target.classList.contains('t-coche')) maj();
+    });
+})();
+
 function filtrerSprint(){
     const nom=document.getElementById('fNom').value.toLowerCase();
     const user=document.getElementById('fAssigne').value;

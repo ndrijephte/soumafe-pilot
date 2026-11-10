@@ -88,7 +88,6 @@
     @php
         $statutCls = match($t->statut) { 'termine' => 'b-ok', 'en_cours' => 'b-ok', 'bloque' => 'b-ko', 'a_valider' => 'b-blue', default => 'b-warn' };
         $prioCls = match($t->priorite) { 'haute' => 'color:var(--ko);font-weight:700', 'basse' => 'color:var(--gris)', default => '' };
-        $retard = $t->estEnRetard();
     @endphp
     <tr>
         <td><a href="{{ route('taches.show', $t) }}" class="lien">{{ \Illuminate\Support\Str::limit($t->intitule, 45) }}</a></td>
@@ -97,7 +96,7 @@
         <td><span class="badge b-gris">{{ $t->type }}</span></td>
         <td style="{{ $prioCls }};font-size:12px">{{ ucfirst($t->priorite) }}</td>
         <td style="font-size:11px;color:var(--gris)">{{ $t->date_debut?->format('d/m') ?? '—' }}</td>
-        <td style="font-size:11px;{{ $retard ? 'color:var(--ko);font-weight:700' : 'color:var(--gris)' }}">{{ $t->echeance?->format('d/m') ?? '—' }}@if($retard) ⚠@endif</td>
+        <td style="font-size:11px;color:var(--gris);white-space:nowrap"><x-voyant :tache="$t" /> {{ $t->echeance?->format('d/m') ?? '-' }}</td>
         <td><span class="badge {{ $statutCls }}">{{ $t->labelStatut() }}</span></td>
     </tr>
     @empty

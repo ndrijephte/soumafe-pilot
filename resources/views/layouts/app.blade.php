@@ -10,6 +10,7 @@
     <style>
         :root{--bleu:#1F4E79;--accent:#2E74B5;--fond:#F4F7FB;--carte:#fff;--gris:#64748b;--ok:#16a34a;--warn:#f59e0b;--ko:#dc2626;--bord:#e2e8f0}
         *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Calibri,sans-serif}
+        dialog{margin:auto}
         .btn-collapse{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;padding:8px 0;margin-top:6px;border:none;background:transparent;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;transition:background .15s}
         .btn-collapse:hover{background:#eff4fb}
         .btn-collapse .bc-icon{font-size:9px}
@@ -27,7 +28,7 @@
         .ic{flex:none}
         .bas-barre{margin-top:auto;border-top:1px solid rgba(255,255,255,.15);padding-top:8px}
         .reduire{opacity:.85}
-        main{margin-left:230px;flex:1;padding:22px 26px;min-width:0;overflow-x:hidden}
+        main{margin-left:230px;flex:1;padding:22px 26px;min-width:0;overflow-x:clip}
         .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px}
         .recherche{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--bord);border-radius:8px;padding:0 12px;color:var(--gris);flex:1;max-width:380px}
         .recherche input{border:none;outline:none;padding:8px 0;width:100%;font-size:13px}
@@ -273,7 +274,7 @@ chargerNotifs();setInterval(chargerNotifs,60000);
 {{-- Collapse/Expand global --}}
 <script>
 (function(){
-    document.querySelectorAll('[data-collapse]').forEach(function(wrap){
+    window.replierListes = function(racine){ racine.querySelectorAll('[data-collapse]').forEach(function(wrap){
         var max = parseInt(wrap.dataset.collapse) || 5;
         var items = wrap.querySelectorAll('[data-collapse-item]');
         if(items.length <= max) return;
@@ -298,7 +299,8 @@ chargerNotifs();setInterval(chargerNotifs,60000);
                 : '<span class="bc-icon">&#9660;</span> Voir tout (' + items.length + ')';
         });
         wrap.appendChild(btn);
-    });
+    }); };
+    window.replierListes(document);
 
     // Collapse pour les tableaux (tbody)
     document.querySelectorAll('table[data-collapse-table]').forEach(function(table){

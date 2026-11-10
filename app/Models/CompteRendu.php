@@ -15,6 +15,7 @@ class CompteRendu extends Model
         'type', 'titre', 'sprint_id', 'redacteur_id', 'designe_par', 'president_id',
         'date_reunion', 'heure_debut', 'heure_fin', 'lieu', 'statut',
         'donnees_json', 'fichier_path',
+        'format', 'assigne_a', 'fichier_joint',
     ];
 
     protected $casts = [
@@ -27,8 +28,20 @@ class CompteRendu extends Model
     public function designePar(): BelongsTo { return $this->belongsTo(User::class, 'designe_par'); }
     public function president(): BelongsTo { return $this->belongsTo(User::class, 'president_id'); }
     public function sprint(): BelongsTo { return $this->belongsTo(Sprint::class); }
+    public function assigneA(): BelongsTo { return $this->belongsTo(User::class, 'assigne_a'); }
+    public function userStories() { return $this->hasMany(UserStory::class, 'source_cr_id'); }
 
     /* --- Helpers --- */
+
+    /** CR du module Scrum (Review, Rétrospective saisies dans le sprint) : exclut le CR formel de Review (review_v1). */
+    public function scopeDuModuleScrum($q)
+    {
+        return $q->where(fn ($w) => $w->whereNull('format')->orWhere('format', '!=', 'review_v1'));
+    }
+
+    public function estEnRevision(): bool { return $this->statut === 'en_revision'; }
+    /** CR Review Sprint au format wizard structuré. */
+    public function estReviewV1(): bool { return $this->type === 'review_sprint' && $this->format === 'review_v1'; }
 
     public function estBrouillon(): bool { return $this->statut === 'brouillon'; }
     public function estConfirme(): bool { return $this->statut === 'confirme'; }

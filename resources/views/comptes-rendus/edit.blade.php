@@ -21,7 +21,8 @@
 .section.validated .section-head{background:#F0FDF4}
 /* Tables */
 .tbl{width:100%;border-collapse:collapse;font-size:.85rem}
-.tbl th{background:var(--bleu,#1F4E79);color:#fff;padding:8px 10px;text-align:left;font-weight:600}
+.tbl th{background:var(--fond,#f1f5f9);color:#475569;padding:8px 10px;text-align:left;font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e2e8f0}
+.tbl tbody tr:hover td{background:#f8fafc}
 .tbl td{padding:8px 10px;border-bottom:1px solid #e5e7eb}
 .tbl input[type=text],.tbl select{width:100%;padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem}
 .chk{width:18px;height:18px;cursor:pointer;accent-color:var(--bleu,#1F4E79)}
@@ -82,7 +83,14 @@
 .odj-item .num{position:absolute;left:14px;top:20px;background:var(--bleu,#1F4E79);color:#fff;font-size:.78rem;font-weight:700;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .odj-item textarea{padding:10px 14px;font-size:.92rem;border-radius:8px;border:1px solid #d1d5db;font-family:inherit}
 /* Bottom bar */
-.cr-bottom{display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0}
+.cr-bottom{position:sticky;bottom:0;z-index:20;display:flex;gap:12px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:24px;padding:12px 16px;background:rgba(255,255,255,.96);backdrop-filter:blur(4px);border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 -6px 18px rgba(15,23,42,.06)}
+/* Sommaire des sections */
+.cr-sommaire{position:sticky;top:0;z-index:15;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 14px;padding:8px 10px;background:rgba(244,247,251,.96);backdrop-filter:blur(4px);border:1px solid #e2e8f0;border-radius:12px}
+.cr-sommaire a{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:.78rem;font-weight:600;color:#475569;text-decoration:none;background:#fff;border:1px solid #e2e8f0}
+.cr-sommaire a:hover{border-color:#93c5fd;color:#1f4e79}
+.cr-sommaire a i{width:7px;height:7px;border-radius:50%;background:#cbd5e1}
+.cr-sommaire a.ok i{background:#16a34a}
+#cr-form .section{scroll-margin-top:64px}
 .cr-bottom .btn-retour{padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:500;text-decoration:none;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;transition:all .15s}
 .cr-bottom .btn-retour:hover{background:#e2e8f0;color:#334155}
 .cr-bottom .btn-save{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--accent,#2E74B5);border:none;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(46,116,181,.2)}
@@ -170,6 +178,9 @@
         @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
     </div>
     @endif
+
+    {{-- Sommaire : accès direct aux sections, pastille verte quand la section est validée --}}
+    <nav class="cr-sommaire" id="cr-sommaire" aria-label="Sections du compte rendu"></nav>
 
     <form method="POST" action="{{ route('comptes-rendus.update', $cr) }}" id="cr-form">
         @csrf @method('PUT')
@@ -464,6 +475,29 @@
 </div>
 
 <script>
+/* Sommaire construit depuis les sections de la page */
+(function () {
+    const nav = document.getElementById('cr-sommaire');
+    if (!nav) return;
+    const maj = () => {
+        nav.innerHTML = '';
+        document.querySelectorAll('#cr-form .section[data-sect]').forEach(sec => {
+            const titre = sec.querySelector('.section-head h3')?.textContent.trim();
+            if (!titre || sec.dataset.sect === 'mise-en-forme') return;
+            if (!sec.id) sec.id = 'sect-' + sec.dataset.sect;
+            const a = document.createElement('a');
+            a.href = '#' + sec.id;
+            a.className = sec.classList.contains('validated') ? 'ok' : '';
+            a.innerHTML = '<i></i>' + titre.replace(/^\d+\.\s*/, '');
+            a.addEventListener('click', e => { e.preventDefault(); sec.classList.remove('collapsed'); sec.scrollIntoView({behavior: 'smooth', block: 'start'}); });
+            nav.appendChild(a);
+        });
+    };
+    document.addEventListener('DOMContentLoaded', maj);
+    // Les pastilles suivent la validation des sections
+    new MutationObserver(maj).observe(document.getElementById('cr-form'), {subtree: true, attributes: true, attributeFilter: ['class']});
+})();
+
 let odjIdx = {{ count($donnees['ordre_du_jour'] ?? []) }};
 let decIdx = {{ count($donnees['decisions'] ?? []) }};
 const collabs = @json($collaborateurs->map(fn($c) => $c->nomComplet())->values());
@@ -837,7 +871,7 @@ function renderBloc(bloc, secEl){
     const div = document.createElement('div');
     div.className = 'be-bloc'; div.dataset.id = bloc.id; div.dataset.type = bloc.type;
 
-    const typeLabels = {texte:'Texte',tableau_taches:'Tableau des tâches',score:'Score global',actions:'Actions à mener',reference:'Référence',note:'Note'};
+    const typeLabels = {texte:'Texte',tableau_stories:'Avancement des user stories',tableau_taches:'Tableau des tâches',score:'Score global',actions:'Actions à mener',reference:'Référence',note:'Note'};
     const typeLbl = typeLabels[bloc.type] || bloc.type;
 
     let headHtml = `<div class="be-bloc-head"><span class="be-handle" title="Déplacer">&#9776;</span><span class="be-type-lbl">${typeLbl}</span>`;
@@ -850,12 +884,24 @@ function renderBloc(bloc, secEl){
         bodyHtml += beRichToolbar(edId);
         bodyHtml += `<div class="rich-editor" contenteditable="true" id="${edId}" data-bloc-id="${bloc.id}" style="text-align:justify">${bloc.contenu||''}</div>`;
     }
+    else if(bloc.type === 'tableau_stories'){
+        const sts = BE_DONNEES.stories || [];
+        let grp = null;
+        bodyHtml += '<div style="font-size:.75rem;color:#64748b;margin-bottom:6px">Repris du sprint à la création du compte rendu : Module › Epic › User story, niveau d\'exécution (déclaré par les développeurs ou calculé depuis les tâches).</div>';
+        bodyHtml += '<table class="tbl"><thead><tr><th>Module › Epic</th><th>User story</th><th style="width:110px">Exécution</th><th style="width:70px">Tâches</th><th style="width:50px">Pts</th><th style="width:90px">Statut</th></tr></thead><tbody>';
+        sts.forEach(st => {
+            const ctx = st.module + (st.epic ? ' › ' + st.epic : '');
+            bodyHtml += `<tr><td style="color:#475569;font-size:.78rem">${ctx !== grp ? ctx : ''}</td><td><strong>${st.numero||''}</strong> ${st.intitule||''}</td><td><strong>${st.niveau||0} %</strong>${st.origine === 'declare' ? ' <small style="color:#2e74b5">déclaré</small>' : ''}</td><td style="text-align:center">${st.taches_terminees||0}/${st.taches||0}</td><td style="text-align:center">${st.points ?? '-'}</td><td>${st.statut||''}</td></tr>`;
+            grp = ctx;
+        });
+        bodyHtml += '</tbody></table>';
+    }
     else if(bloc.type === 'tableau_taches'){
         const taches = BE_DONNEES.taches || [];
         bodyHtml += '<table class="tbl"><thead><tr><th>Tâche</th><th style="width:50px">Pts</th><th>Attribution</th><th style="width:70px">Réalisée</th><th>Observation</th></tr></thead><tbody>';
         taches.forEach((t,i) => {
             const chk = (t.termine == true || t.termine == 1 || t.termine === '1') ? 'checked' : '';
-            bodyHtml += `<tr data-tache-idx="${i}"><td>${t.tache||''}</td><td style="text-align:center">${t.points||1}</td><td>${t.attribution||''}</td><td style="text-align:center"><input type="checkbox" class="chk be-tache-chk" data-idx="${i}" ${chk}></td><td><input type="text" class="be-tache-obs" data-idx="${i}" value="${(t.observation||'').replace(/"/g,'&quot;')}"></td></tr>`;
+            bodyHtml += `<tr data-tache-idx="${i}"><td>${t.tache||''}${t.us ? `<small style="display:block;color:#64748b;font-size:.72rem">${t.us}${t.us_contexte ? ' · ' + t.us_contexte : ''}</small>` : ''}</td><td style="text-align:center">${t.points||1}</td><td>${t.attribution||''}</td><td style="text-align:center"><input type="checkbox" class="chk be-tache-chk" data-idx="${i}" ${chk}></td><td><input type="text" class="be-tache-obs" data-idx="${i}" value="${(t.observation||'').replace(/"/g,'&quot;')}"></td></tr>`;
         });
         bodyHtml += '</tbody></table>';
     }
@@ -1076,6 +1122,7 @@ function beSerialize(){
         score_pourcent: BE_DONNEES.score_pourcent || 0,
         score_manuel: !!BE_DONNEES.score_manuel,
         par_dev: BE_DONNEES.par_dev || [],
+        stories: BE_DONNEES.stories || [],
         taches: [],
         modules: []
     };
@@ -1085,7 +1132,7 @@ function beSerialize(){
         const chk = document.querySelector(`.be-tache-chk[data-idx="${i}"]`);
         const obs = document.querySelector(`.be-tache-obs[data-idx="${i}"]`);
         data.taches.push({
-            tache: t.tache, points: t.points, attribution: t.attribution, statut: t.statut,
+            tache: t.tache, points: t.points, attribution: t.attribution, statut: t.statut, us: t.us || null, us_contexte: t.us_contexte || null,
             termine: chk ? chk.checked : (t.termine || false),
             observation: obs ? obs.value : (t.observation || '')
         });

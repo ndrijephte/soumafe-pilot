@@ -2,7 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{AuditLog, CompteRendu, NotificationApp, Projet, Sprint, Tache, User, UserStory, Blocage, Evenement};
-use App\Services\{MailService, ScrumService};
+use App\Services\{MailService, RapportReview, ScrumService};
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -70,8 +70,8 @@ class CompteRenduController extends Controller
             'heure_fin'     => 'nullable|string|max:10',
             'titre'         => 'required|string|max:255',
             'lieu'          => 'nullable|string|max:255',
-            'sprint_id'     => 'nullable|exists:sprints,id',
-        ]);
+            'sprint_id'     => 'required_if:type,demo_sprint|nullable|exists:sprints,id',
+        ], ['sprint_id.required_if' => 'Choisissez le sprint du rapport de review : ses user stories et ses tâches en sont reprises.']);
 
         try {
             $cr = CompteRendu::create([
@@ -115,6 +115,14 @@ class CompteRenduController extends Controller
                 );
             }
 
+            // CR Démo : les développeurs du sprint complètent leurs tâches
+            if ($cr->type === 'demo_sprint' && $cr->sprint && Schema::hasTable('notifications_app')) {
+                foreach (ScrumService::membres($cr->sprint)->reject(fn($m) => $m->estPilote() || (int) $m->id === (int) $v['redacteur_id']) as $m) {
+                    NotificationApp::create(['user_id' => $m->id, 'type' => 'designation_cr', 'lu' => false, 'canal' => 'in_app',
+                        'contenu' => "Rapport de review du sprint {$cr->sprint->numero} ouvert : complétez la colonne « Réalisée » et l'observation de vos tâches.",
+                        'lien' => route('comptes-rendus.edit', $cr)]);
+                }
+            }
             return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rédacteur désigné. Le formulaire est pré-rempli.');
         } catch (\Throwable $e) {
             return redirect()->back()->withInput()->withErrors(['erreur' => $e->getMessage()]);
@@ -122,21 +130,43 @@ class CompteRenduController extends Controller
     }
 
     /* ===== ÉDITION ===== */
+    /**
+     * CR Démo en brouillon : un développeur de l'équipe du sprint (ni pilote ni rédacteur) le complète en partie,
+     * la colonne « Réalisée » et l'observation de ses propres tâches. Le pilote rédige le reste et valide.
+     */
+    /**
+     * Brouillon : pilote ou rédacteur. Rapport de review en relecture : pilote ou relecteur (responsable du projet).
+     * Confirmé : pilote (le DOCX est régénéré).
+     */
+    private function peutModifier(User $u, CompteRendu $cr): bool
+    {
+        if ($u->estPilote()) return true;
+        if ($cr->estConfirme()) return false;
+        if ($cr->type === 'demo_sprint' && $cr->estEnRevision()) return RapportReview::estRelecteur($u, $cr);
+        return (int) $cr->redacteur_id === (int) $u->id;
+    }
+
+    private function contributeurDemo(User $u, CompteRendu $cr): bool
+    {
+        if ($cr->type !== 'demo_sprint' || !$cr->estBrouillon() || !$cr->sprint || $u->estPilote() || (int) $cr->redacteur_id === (int) $u->id) return false;
+        return ScrumService::membres($cr->sprint)->contains('id', $u->id);
+    }
+
     public function edit(Request $r, CompteRendu $cr)
     {
         if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         $user = $r->user();
-        if ($cr->estConfirme()) {
-            abort_unless($user->estAdmin(), 403);
-        } else {
-            abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
-        }
+        $contributeur = $this->contributeurDemo($user, $cr);
+        abort_unless($this->peutModifier($user, $cr) || $contributeur, 403);
 
         $collaborateurs = User::where('actif', true)
             ->orWhereIn('id', array_filter([$cr->redacteur_id, $cr->president_id]))
             ->orderBy('name')->get();
         $projets = Projet::where('statut', 'actif')->orderBy('libelle')->get();
+        // Rapport sans sprint (créé avant que le sprint soit obligatoire) : le pilote peut en rattacher un
+        $sprintsRattachables = $cr->type === 'demo_sprint' && !$cr->sprint_id && $user->estPilote()
+            ? Sprint::with('projet')->whereIn('statut', ['en_cours', 'termine'])->orderByDesc('date_debut')->get() : collect();
         $donnees = $cr->getDonnees();
 
         // Garantir que la liste de présence existe pour les réunions
@@ -148,8 +178,49 @@ class CompteRenduController extends Controller
         }
 
         $cr->load(['redacteur', 'president', 'sprint']);
+        if ($cr->type === 'demo_sprint') $donnees = $this->libellesDemo($donnees);
 
-        return view('comptes-rendus.edit', compact('cr', 'collaborateurs', 'projets', 'donnees', 'user'));
+        $peutConfirmer = $cr->type === 'demo_sprint' ? $user->estPilote() : ($user->estPilote() || $cr->redacteur_id === $user->id);
+        // Rapport de review : circuit (rédaction, relecture, validation), contributions des développeurs, indicateurs
+        $circuit = $cr->type === 'demo_sprint' ? [
+            'relecteurs' => RapportReview::relecteurs($cr),
+            'relecteur' => RapportReview::estRelecteur($user, $cr),
+            'contributions' => RapportReview::contributions($cr),
+            'indicateurs' => RapportReview::indicateurs($donnees, $cr->sprint),
+            'verdicts' => RapportReview::VERDICTS,
+        ] : null;
+        return view('comptes-rendus.edit', compact('cr', 'collaborateurs', 'projets', 'donnees', 'user', 'contributeur', 'peutConfirmer', 'sprintsRattachables', 'circuit'));
+    }
+
+    /** Contribution d'un développeur au CR Démo : « Réalisée » et observation de ses tâches, rien d'autre. */
+    private function contribuerDemo(Request $r, CompteRendu $cr, User $user)
+    {
+        $envoi = json_decode((string) $r->input('bloc_data'), true)['taches'] ?? [];
+        $d = $cr->getDonnees();
+        $n = 0;
+        foreach ($d['taches'] ?? [] as $i => $t) {
+            if (!RapportReview::tacheDe($t, $user)) continue;
+            // Même ligne, même intitulé : la tâche n'a pas été déplacée entre-temps
+            $e = $envoi[$i] ?? null;
+            if (!is_array($e) || ($e['tache'] ?? null) !== ($t['tache'] ?? null)) continue;
+            $d['taches'][$i]['termine'] = filter_var($e['termine'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $d['taches'][$i]['observation'] = mb_substr(trim(strip_tags((string) ($e['observation'] ?? ''))), 0, 500);
+            $n++;
+        }
+        if (empty($d['score_manuel'])) $d = array_merge($d, $this->calculerScoreDemo($d['taches'] ?? []));
+        if ($n) $d['contributions'][$user->id] = now()->format('d/m/Y H:i');
+        $cr->setDonnees($d);
+        $cr->save();
+        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', $n ? "Vos {$n} tâche(s) sont enregistrées. Le rédacteur complète le rapport, puis le transmet pour relecture." : 'Aucune de vos tâches dans ce compte rendu.');
+    }
+
+    /** CR Démo : état actuel du sprint (stories, tâches) pour actualiser les tableaux de l'éditeur. */
+    public function sprintActuel(Request $r, CompteRendu $cr)
+    {
+        abort_unless($cr->type === 'demo_sprint' && $cr->sprint_id, 404);
+        abort_unless($r->user()->estPilote() || (int) $cr->redacteur_id === (int) $r->user()->id, 403);
+        $frais = $this->preRemplirDemo($cr->sprint_id);
+        return response()->json(['stories' => $frais['stories'], 'taches' => $frais['taches']]);
     }
 
     public function update(Request $r, CompteRendu $cr)
@@ -157,31 +228,91 @@ class CompteRenduController extends Controller
         if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum()) return redirect($cr->lienScrum() ?? route('comptes-rendus.index'));
         $user = $r->user();
-        // Brouillon : pilote ou rédacteur. Confirmé : admin uniquement.
-        if ($cr->estConfirme()) {
-            abort_unless($user->estAdmin(), 403);
-        } else {
-            abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
-        }
+        if ($this->contributeurDemo($user, $cr)) return $this->contribuerDemo($r, $cr, $user);
+        abort_unless($this->peutModifier($user, $cr), 403);
 
         /* ---- Demo sprint : bloc editor JSON ---- */
         if (!$cr->estReunion() && $r->filled('bloc_data')) {
             $donnees = json_decode($r->input('bloc_data'), true) ?: [];
             // Sanitiser le HTML dans les blocs texte et reference
             if (!empty($donnees['modules'])) {
+                // Parcours par référence : sans « ?? » (qui parcourrait une copie et perdrait le nettoyage)
                 foreach ($donnees['modules'] as &$mod) {
-                    foreach ($mod['sections'] ?? [] as &$sec) {
-                        foreach ($sec['blocs'] ?? [] as &$blc) {
+                    $mod['sections'] = is_array($mod['sections'] ?? null) ? $mod['sections'] : [];
+                    foreach ($mod['sections'] as &$sec) {
+                        $sec['blocs'] = is_array($sec['blocs'] ?? null) ? $sec['blocs'] : [];
+                        foreach ($sec['blocs'] as &$blc) {
                             if (in_array($blc['type'] ?? '', ['texte', 'reference']) && isset($blc['contenu'])) {
                                 $blc['contenu'] = $this->sanitizeHtml($blc['contenu']);
+                            }
+                            // Couleur, largeur, fonctionnalité ; sous-titre et commentaire en texte simple
+                            $blc['couleur'] = array_key_exists($blc['couleur'] ?? '', self::BLOC_COULEURS) ? $blc['couleur'] : null;
+                            $blc['largeur'] = ($blc['largeur'] ?? '') === 'demi' ? 'demi' : null;
+                            $blc['module'] = isset($blc['module']) ? (mb_substr(trim(strip_tags((string) $blc['module'])), 0, 150) ?: null) : null;
+                            $court = fn($v, $max = 300) => mb_substr(trim(strip_tags((string) ($v ?? ''))), 0, $max);
+                            if (($blc['type'] ?? '') === 'verdict') {
+                                $blc['verdict'] = array_key_exists($blc['verdict'] ?? '', RapportReview::VERDICTS) ? $blc['verdict'] : '';
+                                $blc['contenu'] = $this->sanitizeHtml((string) ($blc['contenu'] ?? ''));
+                            }
+                            if (($blc['type'] ?? '') === 'tableau_backlog') {
+                                $blc['items'] = array_values(array_filter(array_map(fn($it) => [
+                                    'user_story_id' => (int) ($it['user_story_id'] ?? 0) ?: null,
+                                    'numero' => $court($it['numero'] ?? '', 30), 'module' => $court($it['module'] ?? '', 150), 'intitule' => $court($it['intitule'] ?? '', 2000),
+                                    'moscow' => array_key_exists($it['moscow'] ?? '', UserStory::MOSCOW) ? $it['moscow'] : '',
+                                    'points' => is_numeric($it['points'] ?? null) ? (int) $it['points'] : null,
+                                ], array_filter(is_array($blc['items'] ?? null) ? $blc['items'] : [], 'is_array')), fn($it) => $it['intitule'] !== ''));
+                            }
+                            if (($blc['type'] ?? '') === 'validation') {
+                                $blc['items'] = array_values(array_filter(array_map(fn($it) => [
+                                    'role' => $court($it['role'] ?? '', 100), 'nom' => $court($it['nom'] ?? '', 150),
+                                    'date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($it['date'] ?? '')) ? $it['date'] : '',
+                                ], array_filter(is_array($blc['items'] ?? null) ? $blc['items'] : [], 'is_array')), fn($it) => $it['role'] . $it['nom'] !== ''));
+                            }
+                            if (($blc['type'] ?? '') === 'sous_titre') $blc['texte'] = mb_substr(trim(strip_tags((string) ($blc['texte'] ?? ''))), 0, 200);
+                            if (($blc['type'] ?? '') === 'commentaire') {
+                                $blc['contenu'] = mb_substr(trim(strip_tags((string) ($blc['contenu'] ?? ''))), 0, 3000);
+                                $blc['auteur'] = mb_substr(trim(strip_tags((string) ($blc['auteur'] ?? ''))), 0, 150) ?: $user->nomComplet();
+                                $blc['date'] = preg_match('#^\d{2}/\d{2}/\d{4}$#', (string) ($blc['date'] ?? '')) ? $blc['date'] : now()->format('d/m/Y');
                             }
                         }
                     }
                 }
                 unset($mod, $sec, $blc);
             }
-            // Avancement des stories : repris du sprint à la création, conservé tel quel
-            $donnees['stories'] = $donnees['stories'] ?? ($cr->getDonnees()['stories'] ?? []);
+            // Tableaux : rien n'est figé, les lignes saisies (ou actualisées depuis le sprint) sont reprises nettoyées
+            $txt = fn($v, $max = 500) => mb_substr(trim(strip_tags((string) ($v ?? ''))), 0, $max);
+            $donnees['stories'] = array_values(array_map(fn($x) => [
+                'id' => (int) ($x['id'] ?? 0) ?: null, 'numero' => $txt($x['numero'] ?? '', 30), 'intitule' => $txt($x['intitule'] ?? '', 2000),
+                'module' => $txt($x['module'] ?? '', 150), 'epic' => $txt($x['epic'] ?? '', 150) ?: null,
+                'niveau' => max(0, min(100, (int) ($x['niveau'] ?? 0))), 'origine' => $txt($x['origine'] ?? '', 20),
+                'points' => is_numeric($x['points'] ?? null) ? (int) $x['points'] : null, 'statut' => $txt($x['statut'] ?? '', 40),
+                'taches' => (int) ($x['taches'] ?? 0), 'taches_terminees' => (int) ($x['taches_terminees'] ?? 0),
+            ], array_filter(is_array($donnees['stories'] ?? null) ? $donnees['stories'] : [], 'is_array')));
+            $donnees['taches'] = array_values(array_map(fn($t) => [
+                'tache_id' => (int) ($t['tache_id'] ?? 0) ?: null, 'user_id' => (int) ($t['user_id'] ?? 0) ?: null,
+                'tache' => $txt($t['tache'] ?? '', 1000), 'points' => max(0, (int) ($t['points'] ?? 1)), 'attribution' => $txt($t['attribution'] ?? '', 150),
+                'statut' => $txt($t['statut'] ?? '', 30), 'termine' => filter_var($t['termine'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'observation' => $txt($t['observation'] ?? ''), 'us' => $txt($t['us'] ?? '', 30) ?: null, 'us_contexte' => $txt($t['us_contexte'] ?? '', 300) ?: null,
+                'module' => $txt($t['module'] ?? '', 150) ?: null,
+            ], array_filter(is_array($donnees['taches'] ?? null) ? $donnees['taches'] : [], fn($t) => is_array($t) && trim($t['tache'] ?? '') !== '')));
+            $donnees['objectif'] = $cr->getDonnees()['objectif'] ?? $cr->sprint?->objectif;
+            // Libellés des fonctionnalités importées du backlog : reformulés par le pilote, pour ce rapport
+            $anciens = $cr->getDonnees()['libelles_modules'] ?? [];
+            if ($user->estPilote()) {
+                $connus = collect($donnees['stories'] ?? [])->pluck('module')->merge(collect($donnees['taches'] ?? [])->map(fn($t) => self::moduleTache($t)))->filter()->unique()->all();
+                $libs = [];
+                foreach (is_array($donnees['libelles_modules'] ?? null) ? $donnees['libelles_modules'] : [] as $orig => $lib) {
+                    $lib = mb_substr(trim(strip_tags((string) $lib)), 0, 150);
+                    if (in_array($orig, $connus, true) && $lib !== '' && $lib !== $orig) $libs[$orig] = $lib;
+                }
+                $donnees['libelles_modules'] = $libs;
+            } else {
+                $donnees['libelles_modules'] = $anciens;
+            }
+            // Tenus par le serveur : contributions des développeurs, relecture, tâches de suivi déjà créées
+            foreach (['contributions', 'relecture', 'suivi'] as $k) {
+                if (isset($cr->getDonnees()[$k])) $donnees[$k] = $cr->getDonnees()[$k]; else unset($donnees[$k]);
+            }
             $score = $this->calculerScoreDemo($donnees['taches'] ?? []);
             if (!empty($donnees['score_manuel'])) {
                 $pts = max(0, (int) ($donnees['points_realises'] ?? 0));
@@ -209,17 +340,41 @@ class CompteRenduController extends Controller
                 $donnees['annotations'] = array_values(array_filter($donnees['annotations'], fn($a) => !empty($a['contenu']) && !empty($a['type'])));
             }
         }
+        $palette = implode(',', array_column(self::COULEURS, 1));
         $mef = $r->validate([
-            'mise_en_forme'   => 'nullable|array',
-            'mise_en_forme.*' => 'nullable|numeric|between:8,36',
+            'mise_en_forme' => 'nullable|array',
+            'mise_en_forme.titre' => 'nullable|numeric|between:8,36', 'mise_en_forme.section' => 'nullable|numeric|between:8,36',
+            'mise_en_forme.sous_titre' => 'nullable|numeric|between:8,36', 'mise_en_forme.texte' => 'nullable|numeric|between:8,36',
+            'mise_en_forme.couleur_section' => "nullable|in:{$palette}", 'mise_en_forme.couleur_sous_titre' => "nullable|in:{$palette}",
+            'mise_en_forme.police' => 'nullable|in:' . implode(',', array_keys(self::POLICES)),
+            'mise_en_forme.entete' => 'nullable|string|max:150', 'mise_en_forme.pied' => 'nullable|string|max:150',
+            'mise_en_forme.num_page' => 'nullable|boolean', 'mise_en_forme.logo' => 'nullable|boolean',
         ])['mise_en_forme'] ?? null;
         if (is_array($mef)) {
             $donnees['mise_en_forme'] = array_map(fn($v) => $v === null || $v === '' ? null : (float) $v,
-                array_intersect_key($mef, array_flip(['titre', 'section', 'sous_titre', 'texte'])));
+                array_intersect_key($mef, array_flip(['titre', 'section', 'sous_titre', 'texte'])))
+                + array_map(fn($v) => $v ?: null, array_intersect_key($mef, array_flip(['couleur_section', 'couleur_sous_titre', 'police'])))
+                // En-tête et pied de page : textes libres (vides = textes par défaut), numéro de page et logo affichés par défaut
+                + array_map(fn($v) => trim((string) $v) ?: null, array_intersect_key($mef, array_flip(['entete', 'pied'])))
+                + array_map(fn($v) => (bool) $v, array_intersect_key($mef, array_flip(['num_page', 'logo'])));
         } elseif (isset($cr->getDonnees()['mise_en_forme'])) {
             $donnees['mise_en_forme'] = $cr->getDonnees()['mise_en_forme'];
         }
         $cr->setDonnees($donnees);
+        // Rattachement d'un sprint à un rapport qui n'en avait pas : tableaux, score et Sprint Goal repris du sprint
+        if ($cr->type === 'demo_sprint' && !$cr->sprint_id && $user->estPilote() && $r->filled('sprint_id')) {
+            $sprintId = (int) $r->validate(['sprint_id' => 'exists:sprints,id'])['sprint_id'];
+            $cr->sprint_id = $sprintId;
+            $frais = $this->preRemplirDemo($sprintId);
+            $d = $cr->getDonnees();
+            foreach (['sprint', 'objectif', 'projet', 'date_debut', 'date_fin', 'taches', 'stories', 'total_points', 'points_realises', 'score_pourcent', 'par_dev'] as $k) $d[$k] = $frais[$k];
+            $d['score_manuel'] = false;
+            $aDesTableaux = collect($d['modules'] ?? [])->flatMap(fn($m) => collect($m['sections'] ?? [])->flatMap(fn($s) => collect($s['blocs'] ?? [])->pluck('type')))
+                ->intersect(['tableau_stories', 'tableau_taches'])->isNotEmpty();
+            if (!$aDesTableaux) $d['modules'] = $frais['modules'];
+            $d['format'] = 'blocs_v1';
+            $cr->setDonnees($d);
+        }
         $cr->titre = $r->input('titre', $cr->titre);
         $cr->lieu = $r->input('lieu', $cr->lieu);
         $cr->heure_debut = $r->input('heure_debut', $cr->heure_debut);
@@ -266,12 +421,59 @@ class CompteRenduController extends Controller
         if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum()) return redirect($cr->lienScrum() ?? route('comptes-rendus.index'));
         $user = $r->user();
-        abort_unless($user->estPilote() || $cr->redacteur_id === $user->id, 403);
+        // Le rapport de review est validé par le pilote, après relecture ; les autres comptes rendus, par un pilote ou leur rédacteur
+        abort_unless($user->estPilote() || ($cr->type !== 'demo_sprint' && $cr->redacteur_id === $user->id), 403);
+        if ($cr->estConfirme()) return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu déjà validé.');
+        if ($cr->type === 'demo_sprint' && !$cr->estEnRevision()) {
+            return redirect()->route('comptes-rendus.edit', $cr)->withErrors(['erreur' => "Le rapport se valide après relecture : transmettez-le d'abord au responsable du projet."]);
+        }
 
+        $suites = '';
         try {
-            $cr->statut = 'confirme';
-            $cr->fichier_path = null;
-            $cr->save();
+            if ($cr->type === 'demo_sprint') {
+                // Validation & clôture : rédacteur, relecteur et pilote qui valide inscrits s'ils ne l'étaient pas
+                $d = $cr->getDonnees();
+                $relu = $d['relecture']['par'] ?? null;
+                foreach ($d['modules'] ?? [] as $mi => $m) foreach ($m['sections'] ?? [] as $si => $sec) foreach ($sec['blocs'] ?? [] as $bi => $b) {
+                    if (($b['type'] ?? '') !== 'validation') continue;
+                    foreach ($b['items'] ?? [] as $ii => $it) {
+                        $role = mb_strtolower($it['role'] ?? '');
+                        $remplir = match (true) {
+                            str_contains($role, 'valid') => [$user->nomComplet(), today()->toDateString()],
+                            str_contains($role, 'relu') && $relu => [$relu, $d['relecture']['le'] ?? today()->toDateString()],
+                            str_contains($role, 'rédig') => [$cr->redacteur?->nomComplet(), $cr->date_reunion->toDateString()],
+                            default => null,
+                        };
+                        if ($remplir && trim($it['nom'] ?? '') === '') {
+                            $d['modules'][$mi]['sections'][$si]['blocs'][$bi]['items'][$ii]['nom'] = $remplir[0] ?? '';
+                            $d['modules'][$mi]['sections'][$si]['blocs'][$bi]['items'][$ii]['date'] = $remplir[1];
+                        }
+                    }
+                }
+                // Suites : nouvelles user stories au Product Backlog, décisions en tâches suivies (une seule fois, tout ou rien)
+                [$us, $taches] = \Illuminate\Support\Facades\DB::transaction(function () use ($cr, &$d) {
+                    $us = RapportReview::versBacklog($cr, $d);
+                    $taches = RapportReview::versSuivi($cr, $d);
+                    $cr->setDonnees($d);
+                    $cr->statut = 'confirme';
+                    $cr->fichier_path = null;
+                    $cr->save();
+                    return [$us, $taches];
+                });
+                $suites = ($us ? " {$us} user story(s) ajoutée(s) au Product Backlog." : '') . ($taches ? " {$taches} tâche(s) de suivi créée(s) pour les décisions." : '');
+                AuditLog::log('validation_rapport_review', 'sprint', ($cr->sprint?->projet?->code ?? '') . ' S' . ($cr->sprint?->numero ?? ''), trim($suites) ?: 'Rapport de review validé');
+                // La Review des développeurs s'ouvre : chaque membre du sprint est prévenu
+                if ($cr->sprint) {
+                    foreach (ScrumService::membres($cr->sprint)->reject(fn($m) => (int) $m->id === (int) $user->id) as $m) {
+                        RapportReview::notifier($m->id, "Rapport de review du sprint {$cr->sprint->numero} validé : la Review des développeurs est ouverte.", route('scrum.review', $cr->sprint));
+                    }
+                }
+            }
+            if (!$cr->estConfirme()) {
+                $cr->statut = 'confirme';
+                $cr->fichier_path = null;
+                $cr->save();
+            }
             $this->genererDocx($cr);
 
             if (Schema::hasTable('notifications_app')) {
@@ -320,16 +522,65 @@ class CompteRenduController extends Controller
                 }
             }
 
-            return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu confirmé et DOCX généré.');
+            return redirect()->route('comptes-rendus.show', $cr)->with('ok', ($cr->type === 'demo_sprint' ? 'Rapport de review validé et DOCX généré.' : 'Compte rendu confirmé et DOCX généré.') . $suites);
         } catch (\Throwable $e) {
             return redirect()->back()->withErrors(['erreur' => 'Erreur DOCX : ' . $e->getMessage()]);
         }
     }
 
+    /** Rapport de review : le rédacteur (ou un pilote) le transmet au responsable du projet pour relecture. */
+    public function transmettre(Request $r, CompteRendu $cr)
+    {
+        $user = $r->user();
+        abort_unless($cr->type === 'demo_sprint' && $cr->estBrouillon(), 404);
+        abort_unless($user->estPilote() || (int) $cr->redacteur_id === (int) $user->id, 403);
+        $d = $cr->getDonnees();
+        $d['relecture'] = ['transmis_par' => $user->nomComplet(), 'transmis_le' => now()->format('d/m/Y H:i')];
+        $cr->setDonnees($d);
+        $cr->statut = 'en_revision';
+        $cr->save();
+        $relecteurs = RapportReview::relecteurs($cr);
+        foreach ($relecteurs->reject(fn($u) => (int) $u->id === (int) $user->id) as $u) {
+            RapportReview::notifier($u->id, "Rapport de review du sprint {$cr->sprint?->numero} transmis pour relecture par {$user->nomComplet()}.", route('comptes-rendus.edit', $cr));
+        }
+        $manquants = collect(RapportReview::contributions($cr))->whereNull('le')->map(fn($c) => $c['user']->nomComplet());
+        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rapport transmis pour relecture à ' . ($relecteurs->map->nomComplet()->join(', ') ?: 'un pilote') . '.'
+            . ($manquants->isNotEmpty() ? ' Sans contribution de : ' . $manquants->join(', ') . '.' : ''));
+    }
+
+    /** Relecture : le relecteur (ou un pilote) consigne sa relecture, ou renvoie le rapport au rédacteur avec un motif. */
+    public function relire(Request $r, CompteRendu $cr)
+    {
+        $user = $r->user();
+        abort_unless($cr->type === 'demo_sprint' && $cr->estEnRevision(), 404);
+        abort_unless($user->estPilote() || RapportReview::estRelecteur($user, $cr), 403);
+        $v = $r->validate(['decision' => 'required|in:relu,renvoi', 'motif' => 'required_if:decision,renvoi|nullable|string|max:2000'],
+            ['motif.required_if' => "Indiquez au rédacteur ce qu'il faut reprendre."]);
+        $d = $cr->getDonnees();
+        if ($v['decision'] === 'renvoi') {
+            $d['relecture'] = ['renvoi' => ['par' => $user->nomComplet(), 'le' => now()->format('d/m/Y H:i'), 'motif' => trim($v['motif'])]];
+            $cr->setDonnees($d);
+            $cr->statut = 'brouillon';
+            $cr->save();
+            if ((int) $cr->redacteur_id !== (int) $user->id) {
+                RapportReview::notifier($cr->redacteur_id, "Rapport de review du sprint {$cr->sprint?->numero} renvoyé par {$user->nomComplet()} : {$v['motif']}", route('comptes-rendus.edit', $cr));
+            }
+            return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rapport renvoyé au rédacteur.');
+        }
+        $d['relecture']['par'] = $user->nomComplet();
+        $d['relecture']['le'] = today()->toDateString();
+        $cr->setDonnees($d);
+        $cr->save();
+        foreach (User::where('actif', true)->get()->filter(fn($u) => $u->estPilote() && (int) $u->id !== (int) $user->id) as $p) {
+            RapportReview::notifier($p->id, "Rapport de review du sprint {$cr->sprint?->numero} relu par {$user->nomComplet()} : prêt à valider.", route('comptes-rendus.edit', $cr));
+        }
+        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Relecture consignée. Le pilote peut valider le rapport.');
+    }
+
     /* ===== SUPPRESSION ===== */
     public function destroy(Request $r, CompteRendu $cr)
     {
-        abort_unless($cr->estConfirme() ? $r->user()->estAdmin() : $r->user()->estPilote(), 403);
+        abort_unless($r->user()->estPilote(), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5']);
 
         // Supprimer le fichier DOCX associé
@@ -351,6 +602,7 @@ class CompteRenduController extends Controller
         $user = $r->user();
         $donnees = $cr->getDonnees();
         $cr->load(['redacteur', 'designePar', 'president', 'sprint']);
+        if ($cr->type === 'demo_sprint') $donnees = $this->libellesDemo($donnees);
         return view('comptes-rendus.show', compact('cr', 'donnees', 'user'));
     }
 
@@ -422,6 +674,53 @@ class CompteRenduController extends Controller
         ];
     }
 
+    /**
+     * Structure par défaut du rapport de Review Sprint, en 8 parties ; tout reste modifiable et déplaçable dans l'éditeur.
+     * $backlog : user stories issues de la Review de l'équipe (ajustements du Product Backlog).
+     */
+    /**
+     * Plan du rapport de review. Chaque fonctionnalité démontrée porte le verdict du client et ses retours ;
+     * les indicateurs se calculent depuis le rapport ; les user stories et les décisions passent au suivi à la validation.
+     */
+    private static function structureRapport(array $stories, array $taches, ?Sprint $sprint = null): array
+    {
+        $fonct = collect($stories)->pluck('module')->merge(collect($taches)->map(fn($t) => self::moduleTache($t)))
+            ->filter()->unique()->sortBy(fn($m) => $m === self::HORS_US ? 1 : 0)->values();
+        $demontres = $fonct->map(fn($m, $i) => ['id' => "sec_d{$i}", 'titre' => $m, 'blocs' => array_values(array_filter([
+            $m !== self::HORS_US ? ['id' => "blc_dv{$i}", 'type' => 'verdict', 'verdict' => '', 'contenu' => ''] : null,
+            $m !== self::HORS_US ? ['id' => "blc_ds{$i}", 'type' => 'tableau_stories', 'module' => $m] : null,
+            ['id' => "blc_dt{$i}", 'type' => 'tableau_taches', 'module' => $m],
+        ]))])->all();
+        $num = $sprint?->numero;
+        $txt = fn($id, $c = '') => ['id' => $id, 'type' => 'texte', 'contenu' => $c];
+        return [
+            ['id' => 'mod_1', 'titre' => 'Objectifs de la Sprint Review', 'objectif' => '', 'sections' => [
+                ['id' => 'sec_1b', 'titre' => '', 'blocs' => [$txt('blc_1b', '<p>Présenter au client les fonctionnalités réalisées' . ($num ? " au cours du sprint {$num}" : '') . ', recueillir son appréciation et ajuster le Product Backlog en conséquence.</p>')]],
+            ]],
+            ['id' => 'mod_2', 'titre' => 'Fonctionnalités démontrées & appréciation du client', 'objectif' => '', 'sections' => $demontres ?: [
+                ['id' => 'sec_d0', 'titre' => 'Tâches réalisées', 'blocs' => [['id' => 'blc_dt0', 'type' => 'tableau_taches']]],
+            ]],
+            ['id' => 'mod_3', 'titre' => 'Indicateurs de performance du sprint', 'objectif' => '', 'sections' => [
+                ['id' => 'sec_3', 'titre' => '', 'blocs' => [['id' => 'blc_3', 'type' => 'indicateurs'], $txt('blc_3b')]],
+            ]],
+            ['id' => 'mod_4', 'titre' => 'User stories issues de la Sprint Review', 'objectif' => 'Nouvelles user stories demandées par le client : elles rejoignent le Product Backlog à la validation du rapport.', 'sections' => [
+                ['id' => 'sec_4', 'titre' => '', 'blocs' => [['id' => 'blc_4', 'type' => 'tableau_backlog', 'items' => []]]],
+            ]],
+            ['id' => 'mod_5', 'titre' => 'Décisions & prochaines étapes', 'objectif' => '', 'sections' => [
+                ['id' => 'sec_5a', 'titre' => 'Décisions', 'blocs' => [['id' => 'blc_5a', 'type' => 'actions', 'items' => []]]],
+                ['id' => 'sec_5b', 'titre' => 'Prochaines étapes', 'blocs' => [$txt('blc_5b')]],
+            ]],
+            ['id' => 'mod_6', 'titre' => 'Validation & clôture officielle', 'objectif' => '', 'sections' => [
+                ['id' => 'sec_6', 'titre' => '', 'blocs' => [['id' => 'blc_6', 'type' => 'validation', 'items' => [
+                    ['role' => 'Rédigé par', 'nom' => '', 'date' => ''],
+                    ['role' => 'Relu par (responsable du projet)', 'nom' => '', 'date' => ''],
+                    ['role' => 'Validé par (pilote)', 'nom' => '', 'date' => ''],
+                    ['role' => 'Représentant du client', 'nom' => '', 'date' => ''],
+                ]]]],
+            ]],
+        ];
+    }
+
     private function preRemplirDemo(int $sprintId): array
     {
         $sprint = Sprint::with('projet')->findOrFail($sprintId);
@@ -441,11 +740,13 @@ class CompteRenduController extends Controller
             $termine = in_array($t->statut, ['termine', 'clos']);
             if ($termine) $pointsRealises += $pts;
             $lignes[] = [
+                'tache_id' => $t->id, 'user_id' => $t->user_id,
                 'tache' => $t->intitule, 'points' => $pts,
                 'attribution' => $t->user?->nomComplet() ?? '-', 'statut' => $t->statut,
-                'termine' => $termine, 'observation' => $t->qualification ?? '',
+                'termine' => $termine, 'observation' => Tache::libelleQualification($t->qualification),
                 'us' => $t->userStory?->numero,
                 'us_contexte' => $t->userStory ? trim(($t->userStory->module ?: '') . ($t->userStory->epic ? ' › ' . $t->userStory->epic : '')) : null,
+                'module' => $t->userStory ? (trim((string) $t->userStory->module) ?: 'Sans module') : self::HORS_US,
             ];
         }
 
@@ -462,6 +763,7 @@ class CompteRenduController extends Controller
         return [
             'format' => 'blocs_v1',
             'sprint' => "Sprint {$sprint->numero}",
+            'objectif' => $sprint->objectif,
             'projet' => $sprint->projet?->libelle ?? '—',
             'date_debut' => $sprint->date_debut?->format('d/m/Y'),
             'date_fin' => $sprint->date_fin?->format('d/m/Y'),
@@ -470,40 +772,7 @@ class CompteRenduController extends Controller
             'total_points' => $totalPoints, 'points_realises' => $pointsRealises,
             'score_pourcent' => $scorePct,
             'par_dev' => $parDev,
-            'modules' => [
-                [
-                    'id' => 'mod_1', 'titre' => 'Résultats du sprint',
-                    'objectif' => 'Présenter les livrables et le score du sprint',
-                    'sections' => [
-                        [
-                            'id' => 'sec_1', 'titre' => $stories ? 'Avancement et tâches réalisées' : 'Tâches réalisées',
-                            'blocs' => array_values(array_filter([
-                                $stories ? ['id' => 'blc_0', 'type' => 'tableau_stories'] : null,
-                                ['id' => 'blc_1', 'type' => 'tableau_taches'],
-                                ['id' => 'blc_2', 'type' => 'score'],
-                            ])),
-                        ],
-                    ],
-                ],
-                [
-                    'id' => 'mod_2', 'titre' => 'Analyse et prochaines étapes',
-                    'objectif' => 'Évaluer la performance et planifier la suite',
-                    'sections' => [
-                        [
-                            'id' => 'sec_2', 'titre' => 'Actions à mener',
-                            'blocs' => [
-                                ['id' => 'blc_3', 'type' => 'actions', 'items' => []],
-                            ],
-                        ],
-                        [
-                            'id' => 'sec_3', 'titre' => 'Note pour le sprint suivant',
-                            'blocs' => [
-                                ['id' => 'blc_4', 'type' => 'texte', 'contenu' => ''],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
+            'modules' => self::structureRapport($stories, $lignes, $sprint),
         ];
     }
 
@@ -521,53 +790,24 @@ class CompteRenduController extends Controller
         $gestionnaire = $projet && $u->peutGererProjet($projet->id);
         $redacteur = (int) $cr->redacteur_id === (int) $u->id;
         if ($cr->estConfirme()) {
-            if ($u->estAdmin()) return 'edition';
+            if ($u->estPilote()) return 'edition';
             return $u->estPilote() || $gestionnaire || $redacteur || ($projet && $projet->estVisiblePour($u)) ? 'lecture' : null;
         }
         if ($cr->estEnRevision()) {
-            if ($u->estAdmin() || $gestionnaire) return 'edition';
+            if ($u->estPilote() || $gestionnaire) return 'edition';
             return $u->estPilote() || $redacteur ? 'lecture' : null;
         }
-        if ($u->estAdmin() || $gestionnaire || $redacteur) return 'edition';
+        if ($u->estPilote() || $gestionnaire || $redacteur) return 'edition';
         return $u->estPilote() ? 'lecture' : null;
     }
 
     /** Valider (relecture) puis confirmer : responsable du projet ou pilote. */
     private function peutValiderReview(User $u, CompteRendu $cr): bool
     {
-        return !$cr->estConfirme() && ($u->estAdmin() || ($cr->sprint && $u->peutGererProjet($cr->sprint->projet_id)));
+        return !$cr->estConfirme() && ($u->estPilote() || ($cr->sprint && $u->peutGererProjet($cr->sprint->projet_id)));
     }
 
-    /** Créer (ou rouvrir) le CR Review Sprint depuis la page du sprint. */
-    public function createReviewSprint(Request $r, Sprint $sprint)
-    {
-        $user = $r->user();
-        abort_unless($user->estAdmin() || $user->peutGererProjet($sprint->projet_id), 403);
-
-        $existant = CompteRendu::where('sprint_id', $sprint->id)
-            ->where('type', 'review_sprint')->where('format', 'review_v1')->first();
-        if ($existant) return redirect()->route('comptes-rendus.review-sprint.edit', $existant);
-
-        // Règle du planning des réunions : le scribe du jour rédige les rapports
-        $redacteurId = \App\Services\RedacteurDuJour::id(today(), $sprint->projet_id) ?? $user->id;
-        $cr = CompteRendu::create([
-            'type'         => 'review_sprint',
-            'format'       => 'review_v1',
-            'titre'        => "CR Review Sprint {$sprint->numero} - {$sprint->projet->libelle}",
-            'sprint_id'    => $sprint->id,
-            'redacteur_id' => $redacteurId,
-            'designe_par'  => $user->id,
-            'date_reunion' => today(),
-            'statut'       => 'brouillon',
-        ]);
-        $cr->setDonnees($this->preRemplirReviewSprint($sprint));
-        $cr->save();
-        AuditLog::log('creation_cr', 'comptes_rendus', $cr->titre, 'CR Review Sprint créé - rédacteur : ' . (User::find($redacteurId)?->nomComplet() ?? '-'));
-
-        return redirect()->route('comptes-rendus.review-sprint.edit', $cr)->with('ok', 'CR Review Sprint créé et pré-rempli depuis la Review du sprint.');
-    }
-
-    /** Édition (ou consultation) du CR Review Sprint. */
+    /** Édition (ou consultation) d'un CR Review Sprint existant (format d'origine). */
     public function editReviewSprint(Request $r, CompteRendu $cr)
     {
         abort_unless($cr->estReviewV1(), 404);
@@ -627,7 +867,7 @@ class CompteRenduController extends Controller
             'titre' => $v['titre'], 'date_reunion' => $v['date_reunion'], 'lieu' => $v['lieu'] ?? null,
             'heure_debut' => $v['heure_debut'] ?? null, 'heure_fin' => $v['heure_fin'] ?? null,
         ]);
-        if (($user->estAdmin() || ($cr->sprint && $user->peutGererProjet($cr->sprint->projet_id))) && !empty($v['redacteur_id'])) {
+        if (($user->estPilote() || ($cr->sprint && $user->peutGererProjet($cr->sprint->projet_id))) && !empty($v['redacteur_id'])) {
             $cr->redacteur_id = (int) $v['redacteur_id'];
         }
 
@@ -727,79 +967,6 @@ class CompteRenduController extends Controller
         ];
     }
 
-    /** Pré-remplissage depuis le sprint et sa Review (module Scrum) : objectif, modules, observations, synthèse, décisions. */
-    private function preRemplirReviewSprint(Sprint $sprint): array
-    {
-        $sprint->load(['projet', 'taches.userStory']);
-        $review = CompteRendu::where('sprint_id', $sprint->id)->where('type', 'review_sprint')->duModuleScrum()->first()?->getDonnees() ?? [];
-        $obsScrum = $review['observations'] ?? [];
-        $brut = fn($html) => trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['<br>', '</li>', '</div>'], ' ', (string) $html)), ENT_QUOTES, 'UTF-8')));
-
-        $presences = ScrumService::membres($sprint)->map(fn($u) => [
-            'nom' => $u->nomComplet(), 'fonction' => $u->titre_poste ?: $u->roleLibelle(), 'present' => true,
-        ])->values()->toArray();
-
-        // Modules livrés : groupes Module › Epic des user stories du sprint (niveau d'exécution déclaré ou calculé),
-        // puis les tâches hors user story ; observations reprises de la Review Scrum
-        $lignesUs = collect(\App\Services\AvancementScrum::lignesSprint($sprint));
-        $modules = $lignesUs->groupBy(fn($l) => $l['module'] . ($l['epic'] ? ' › ' . $l['epic'] : ''))
-            ->map(function ($groupe, $nom) use ($sprint, $obsScrum, $brut) {
-                $moy = (int) round($groupe->avg('niveau'));
-                $finies = $groupe->where('niveau', '>=', 100)->count();
-                $obs = $sprint->taches->whereIn('user_story_id', $groupe->pluck('id'))->map(fn($t) => isset($obsScrum[$t->id]) ? $brut($obsScrum[$t->id]) : null)->filter()->unique()->join(' ; ');
-                return [
-                    'nom' => $nom,
-                    'statut' => $finies === $groupe->count() ? 'livre' : ($moy > 0 ? 'partiel' : 'non_livre'),
-                    'observation' => mb_substr("{$finies}/{$groupe->count()} user story(s) terminée(s) · exécution moyenne {$moy} %" . ($obs ? " - {$obs}" : ''), 0, 2000),
-                ];
-            })->values();
-        $hors = $sprint->taches->whereNull('user_story_id')->whereNotIn('statut', ['reporte']);
-        if ($hors->isNotEmpty()) {
-            $faites = $hors->where('statut', 'termine')->count();
-            $obs = $hors->map(fn($t) => isset($obsScrum[$t->id]) ? $brut($obsScrum[$t->id]) : null)->filter()->unique()->join(' ; ');
-            $modules->push(['nom' => 'Tâches hors user story', 'statut' => $faites === $hors->count() ? 'livre' : ($faites > 0 ? 'partiel' : 'non_livre'),
-                'observation' => mb_substr("{$faites}/{$hors->count()} tâche(s) réalisée(s)" . ($obs ? " - {$obs}" : ''), 0, 2000)]);
-        }
-        $modules = $modules->all();
-        $niveaux = $lignesUs->keyBy('id');
-
-        $usBdd = $sprint->userStories()->get()->map(fn($us) => [
-            'us_id'       => $us->id,
-            'numero'      => $us->numero,
-            'intitule'    => $us->intitule,
-            'module'      => $us->module ?: '',
-            'moscow'      => $us->priorite_moscow ?: 'should',
-            'criteres'    => $us->criteres_acceptation ?: [['given' => '', 'when' => '', 'then' => '', 'statut' => 'na']],
-            'verdict'     => $us->pivot->statut_sprint === 'termine' ? 'acceptee' : 'partielle',
-            'observation' => '',
-            'niveau'      => $niveaux[$us->id]['niveau'] ?? 0,
-            'niveau_origine' => $niveaux[$us->id]['origine'] ?? 'calcule',
-            'epic'        => $us->epic,
-        ])->values()->toArray();
-
-        // Décisions de la Review Scrum : une ligne par élément de liste
-        $decisions = [];
-        if (!empty($review['decisions'])) {
-            preg_match_all('/<li[^>]*>(.*?)<\/li>/is', $review['decisions'], $li);
-            foreach (($li[1] ?: [$review['decisions']]) as $item) {
-                if (($t = $brut($item)) !== '') $decisions[] = ['action' => mb_substr($t, 0, 2000), 'responsables' => [], 'priorite' => '', 'echeance' => ''];
-            }
-        }
-
-        return [
-            'format'           => 'review_v1',
-            'objectif'         => $sprint->objectif,
-            'presences'        => $presences,
-            'modules_livres'   => $modules,
-            'user_stories_bdd' => $usBdd,
-            'feedback'         => ['client' => null, 'positifs' => [], 'ameliorations' => []],
-            'kpis'             => ScrumService::indicateurs($sprint),
-            'decisions'        => $decisions,
-            'signatures'       => [],
-            'conclusion'       => $review['synthese'] ?? null,
-        ];
-    }
-
     /** À la confirmation : critères d'acceptation et priorité MoSCoW reportés sur les user stories du backlog. */
     private function syncUserStoriesBdd(array $usBdd): void
     {
@@ -822,6 +989,7 @@ class CompteRenduController extends Controller
     {
         $donnees = $cr->getDonnees();
         $this->miseEnForme = $donnees['mise_en_forme'] ?? [];
+        $this->sprintDocx = $cr->sprint;
         $dir = storage_path('app/comptes-rendus');
         if (!is_dir($dir)) mkdir($dir, 0755, true);
 
@@ -843,7 +1011,7 @@ class CompteRenduController extends Controller
     private function genererDocxReunion(CompteRendu $cr, array $d, string $path): void
     {
         $logoPath = public_path('images/logo_soumafe.png');
-        $hasLogo = file_exists($logoPath);
+        $hasLogo = file_exists($logoPath) && ($this->miseEnForme['logo'] ?? true);
         $cr->load(['redacteur', 'president', 'sprint.projet']);
 
         $redacteur = $cr->redacteur;
@@ -876,8 +1044,8 @@ class CompteRenduController extends Controller
             ['Heure début', $cr->heure_debut ?? '—'],
             ['Heure fin', $cr->heure_fin ?? '—'],
             ['Lieu', $cr->lieu ?? '—'],
-            ['Président de séance', $president],
-            ['Rédacteur', $redNom],
+            ['Présidée par', $president],
+            ['Rédigé par', $redNom],
         ]);
         $xml .= $this->p('');
 
@@ -958,10 +1126,18 @@ class CompteRenduController extends Controller
         $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null, $headerLine);
     }
 
+    /** CR Démo : qualifications des tâches en libellés (« en_retard » → « Réalisée en retard »). */
+    private function libellesDemo(array $d): array
+    {
+        foreach ($d['taches'] ?? [] as $i => $t) $d['taches'][$i]['observation'] = Tache::libelleQualification($t['observation'] ?? '');
+        return $d;
+    }
+
     private function genererDocxDemo(CompteRendu $cr, array $d, string $path): void
     {
+        $d = $this->libellesDemo($d);
         $logoPath = public_path('images/logo_soumafe.png');
-        $hasLogo = file_exists($logoPath);
+        $hasLogo = file_exists($logoPath) && ($this->miseEnForme['logo'] ?? true);
         $cr->load(['redacteur', 'president', 'sprint.projet']);
 
         $redacteur = $cr->redacteur;
@@ -971,30 +1147,33 @@ class CompteRenduController extends Controller
         $sprintLabel = ($d['sprint'] ?? null) ?: ($cr->sprint ? "Sprint {$cr->sprint->numero}" : 'Sprint');
         $d['date_debut'] = ($d['date_debut'] ?? null) ?: $cr->sprint?->date_debut?->format('d/m/Y');
         $d['date_fin'] = ($d['date_fin'] ?? null) ?: $cr->sprint?->date_fin?->format('d/m/Y');
-        $headerLine = "SOUMAFÊ - {$projetNom} | Compte rendu de démonstration - {$sprintLabel}";
+        $headerLine = "SOUMAFÊ  —  {$projetNom}  —  Rapport de Review Sprint\t{$sprintLabel}  |  " . $cr->date_reunion->format('d F Y');
+        $footerLine = "Confidentiel  —  Usage interne";
 
         $xml = $this->docxHeader();
 
-        if ($hasLogo) $xml .= $this->docxImage($logoPath, 1500000, 1050000);
-
-        // Titre dans bloc bleu
-        $xml .= $this->titreBloc('COMPTE RENDU DE DÉMONSTRATION');
-        $xml .= $this->titreBloc($sprintLabel, 22);
-        $xml .= $this->p('');
-
-        // Encadré rédacteur
+        // Bannière professionnelle avec logo intégré + auteur/date dans la cellule droite
         $redLigne = "Rédigé par : {$redNom}";
-        if ($redTitre) $redLigne .= " - {$redTitre}, SOUMAFÊ";
-        $xml .= $this->encadre($redLigne);
+        if ($redTitre) $redLigne .= " — {$redTitre}, SOUMAFÊ";
+        $xml .= $this->docxBannerTable(
+            "Opérations & Projets — SOUMAFÊ",
+            "RAPPORT DE REVIEW SPRINT",
+            "{$sprintLabel} — {$projetNom}",
+            $redLigne,
+            "Date : " . $cr->date_reunion->format('d F Y')
+        );
         $xml .= $this->p('');
 
-        // Tableau résumé projet
-        $xml .= $this->docxInfoTable([
+        // Table résumé (Volet / Résultat) avec en-tête bleu
+        $periode = $d['date_debut'] && $d['date_fin'] ? "Du {$d['date_debut']} au {$d['date_fin']}" : '—';
+        $scoreTxt = ($d['points_realises'] ?? 0) . '/' . ($d['total_points'] ?? 0) . ' pts (' . ($d['score_pourcent'] ?? 0) . '%)';
+        $xml .= $this->docxResumeTable(['Volet', 'Résultat'], [
             ['Projet', $projetNom],
             ['Sprint', $sprintLabel],
-            ['Période', $d['date_debut'] && $d['date_fin'] ? "Du {$d['date_debut']} au {$d['date_fin']}" : '-'],
-            ['Date démonstration', $cr->date_reunion->format('d/m/Y')],
-            ['Score global', ($d['points_realises'] ?? 0) . '/' . ($d['total_points'] ?? 0) . ' pts (' . ($d['score_pourcent'] ?? 0) . '%)'],
+            ['Période', $periode],
+            ['Date de la review', $cr->date_reunion->format('d/m/Y')],
+            ['Score global', $scoreTxt],
+            ...(($goal = trim((string) ($d['objectif'] ?? $cr->sprint?->objectif ?? ''))) ? [['Sprint Goal', $goal]] : []),
         ]);
         $xml .= $this->p('');
 
@@ -1012,56 +1191,110 @@ class CompteRenduController extends Controller
         $this->ecrireDocx($path, $xml, $hasLogo ? $logoPath : null, $headerLine);
     }
 
-    /** Génération DOCX blocs_v1 : modules > sections > blocs */
+    /** Génération DOCX blocs_v1 : modules > sections > blocs — rendu élégant */
     private function genererDocxDemoBlocs(array $d): string
     {
         $xml = '';
         $taches = $d['taches'] ?? [];
 
-        foreach ($d['modules'] as $mi => $mod) {
-            $modNum = $mi + 1;
-            $modTitre = mb_strtoupper($mod['titre'] ?? "Module {$modNum}");
-            $xml .= $this->titreSection((string)$modNum, $modTitre);
+        // Palette de couleurs par module (rotation)
+        $palettes = [
+            ['titre' => '2E75B6', 'sousTitre' => '1F3864', 'header' => '1F3864', 'encadreBg' => 'D5E8F0', 'encadreBorder' => '2E75B6', 'bilanBg' => 'E2EFDA', 'bilanBorder' => '375623', 'kpiBg1' => 'D5E8F0', 'kpiBg2' => 'E2EFDA'],
+            ['titre' => '0D6E6E', 'sousTitre' => '0D6E6E', 'header' => '0D6E6E', 'encadreBg' => 'E0F2F2', 'encadreBorder' => '0D6E6E', 'bilanBg' => 'E0F2F2', 'bilanBorder' => '0D6E6E', 'kpiBg1' => 'E0F2F2', 'kpiBg2' => 'E2EFDA'],
+            ['titre' => '7B2D8E', 'sousTitre' => '5B1F6E', 'header' => '5B1F6E', 'encadreBg' => 'F0E6F6', 'encadreBorder' => '7B2D8E', 'bilanBg' => 'F0E6F6', 'bilanBorder' => '7B2D8E', 'kpiBg1' => 'F0E6F6', 'kpiBg2' => 'E2EFDA'],
+            ['titre' => 'C55A11', 'sousTitre' => 'C55A11', 'header' => 'C55A11', 'encadreBg' => 'FCE4D6', 'encadreBorder' => 'C55A11', 'bilanBg' => 'FCE4D6', 'bilanBorder' => 'C55A11', 'kpiBg1' => 'FCE4D6', 'kpiBg2' => 'FFF2CC'],
+        ];
 
-            // Objectif du module
+        $indRapport = RapportReview::indicateurs($d, $this->sprintDocx);
+        foreach (RapportReview::modulesVisibles($d) as $mi => $mod) {
+            $modNum = $mi + 1;
+            $pal = $palettes[$mi % count($palettes)];
+            $modTitre = $mod['titre'] ?? "Module {$modNum}";
+
+            // Titre de module avec couleur spécifique
+            $xml .= $this->demoTitre((string)$modNum, $modTitre);
+
+            // Objectif du module en encadré table coloré
             if (!empty($mod['objectif'])) {
-                $xml .= $this->encadre($mod['objectif']);
+                $xml .= $this->docxEncadreTable($mod['objectif'], $pal['encadreBg'], $pal['encadreBorder'], $pal['sousTitre']);
                 $xml .= $this->p('');
             }
 
             foreach ($mod['sections'] ?? [] as $si => $sec) {
                 $secNum = "{$modNum}." . ($si + 1);
                 if (!empty($sec['titre'])) {
-                    $xml .= $this->sousTitre($secNum, $sec['titre']);
+                    $xml .= $this->demoSousTitre($secNum, $sec['titre'], $this->miseEnForme['couleur_sous_titre'] ?? $pal['sousTitre'], 'FFFFFF', null, 'section');
                 }
 
+                $k = 0;
                 foreach ($sec['blocs'] ?? [] as $bloc) {
                     $type = $bloc['type'] ?? '';
+                    [, $cBg, $cBd] = self::BLOC_COULEURS[$bloc['couleur'] ?? ''] ?? [null, 'F8FAFC', $pal['encadreBorder']];
 
-                    if ($type === 'texte' && !empty($bloc['contenu'])) {
+                    if ($type === 'verdict') {
+                        if ([$vLib, $vC, $vB] = RapportReview::VERDICTS[$bloc['verdict'] ?? ''] ?? null) {
+                            $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+                            $xml .= '<w:p><w:pPr><w:keepNext/><w:spacing w:before="60" w:after="100"/></w:pPr>'
+                                . "<w:r><w:rPr>{$rpr}<w:b/><w:caps/><w:color w:val=\"1F4E79\"/><w:sz w:val=\"18\"/></w:rPr><w:t xml:space=\"preserve\">Verdict du client   </w:t></w:r>"
+                                . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"{$vC}\"/><w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$vB}\"/><w:sz w:val=\"22\"/></w:rPr><w:t xml:space=\"preserve\"> " . htmlspecialchars($vLib, ENT_XML1, 'UTF-8') . " </w:t></w:r></w:p>";
+                        }
+                        if (trim(strip_tags($bloc['contenu'] ?? '')) !== '') $xml .= $this->htmlToOoxml($bloc['contenu'], "{$secNum}.");
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'indicateurs') {
+                        $xml .= $this->docxKpiCards(array_map(fn($c) => ['valeur' => $c[0], 'label' => $c[1], 'detail' => $c[2], 'bg' => 'EAF2FB', 'couleur' => '1F4E79', 'sz' => 32],
+                            RapportReview::cartes($indRapport)));
+                        $xml .= $this->p('');
+                        if (count($indRapport['par_dev']) > 1) {
+                            $xml .= $this->docxTableMultiAlt(['Développeur', 'Réalisé', 'Engagé', '%'], array_map(fn($dv) => [
+                                $dv['nom'], $dv['realise'] . ' pts', $dv['total'] . ' pts', $dv['pourcent'] . ' %',
+                            ], $indRapport['par_dev']), [4200, 1800, 1800, 1800], $pal['header'], 'F2F2F2');
+                            $xml .= $this->p('');
+                        }
+
+                    } elseif ($type === 'sous_titre' && trim($bloc['texte'] ?? '') !== '') {
+                        $k++;
+                        $xml .= $this->demoSousTitre("{$secNum}.{$k}", $bloc['texte'], !empty($bloc['couleur']) ? $cBd : $pal['sousTitre'], 'FFFFFF', max(18, $this->mefSz('sous_titre', 24) - 2), 'sous_titre');
+
+                    } elseif ($type === 'commentaire' && trim($bloc['contenu'] ?? '') !== '') {
+                        $xml .= $this->docxEncadreTable($bloc['contenu'], $cBg, $cBd, $cBd, 'Commentaire - ' . ($bloc['auteur'] ?? '') . ', ' . ($bloc['date'] ?? ''));
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'texte' && !empty($bloc['contenu']) && !empty($bloc['couleur'])) {
+                        // Texte coloré : encadré de la couleur choisie
+                        $xml .= $this->docxEncadreTable(trim(html_entity_decode(strip_tags(str_replace(['<br>', '</p>', '</div>', '</li>'], "\n", $bloc['contenu'])), ENT_QUOTES, 'UTF-8')), $cBg, $cBd, $cBd);
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'texte' && !empty($bloc['contenu'])) {
                         $xml .= $this->htmlToOoxml($bloc['contenu'], "{$secNum}.");
                         $xml .= $this->p('');
 
-                    } elseif ($type === 'tableau_stories' && !empty($d['stories'])) {
+                    } elseif ($type === 'tableau_stories' && ($lignesSt = self::lignesModule($d['stories'] ?? [], $bloc['module'] ?? null, false))) {
                         $rows = [];
                         $groupe = null;
-                        foreach ($d['stories'] as $st) {
-                            $ctx = $st['module'] . ($st['epic'] ? ' › ' . $st['epic'] : '');
-                            $rows[] = [$ctx !== $groupe ? $ctx : '', ($st['numero'] ?? '') . ' - ' . ($st['intitule'] ?? ''), ($st['niveau'] ?? 0) . ' %' . (($st['origine'] ?? '') === 'declare' ? ' (déclaré)' : ''),
+                        foreach ($lignesSt as $st) {
+                            $ctx = self::libelleModule($d, $st['module']) . ($st['epic'] ? ' > ' . $st['epic'] : '');
+                            $rows[] = [$ctx !== $groupe ? $ctx : '', ($st['numero'] ?? '') . ' - ' . ($st['intitule'] ?? ''), ($st['niveau'] ?? 0) . ' %' . (($st['origine'] ?? '') === 'declare' ? ' (declare)' : ''),
                                 ($st['taches_terminees'] ?? 0) . '/' . ($st['taches'] ?? 0), (string) ($st['points'] ?? '-'), $st['statut'] ?? ''];
                             $groupe = $ctx;
                         }
-                        $xml .= $this->docxTableMultiAlt(['Module › Epic', 'User story', 'Exécution', 'Tâches', 'Pts', 'Statut'], $rows, [2000, 3600, 1200, 900, 600, 1300]);
+                        $xml .= $this->docxTableMultiAlt(['Module > Epic', 'User story', 'Execution', 'Taches', 'Pts', 'Statut'], $rows, [2000, 3600, 1200, 900, 600, 1300], $pal['header'], 'F2F2F2');
                         $xml .= $this->p('');
 
-                    } elseif ($type === 'tableau_taches' && !empty($taches)) {
+                    } elseif ($type === 'tableau_taches' && ($lignesT = self::lignesModule($taches, $bloc['module'] ?? null, true))) {
+                        foreach (self::groupesTaches($lignesT, $bloc['module'] ?? null) as $grpNom => $grpLignes) {
+                        if ($grpNom !== '') {
+                            $xml .= '<w:p><w:pPr><w:keepNext/><w:pBdr><w:bottom w:val="dotted" w:sz="4" w:space="2" w:color="9FBFE0"/></w:pBdr><w:spacing w:before="160" w:after="80"/></w:pPr>'
+                                . '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/><w:b/><w:color w:val="2E75B6"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr>'
+                                . '<w:t xml:space="preserve">' . htmlspecialchars(self::libelleModule($d, (string) $grpNom), ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+                        }
                         $taskRows = [];
-                        foreach ($taches as $ti => $t) {
+                        foreach ($grpLignes as $ti => $t) {
                             $termine = !empty($t['termine']);
-                            $statut = $termine ? 'Terminé' : (($t['statut'] ?? '') ? ([ 'a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'a_valider' => 'À valider', 'termine' => 'Terminé', 'reporte' => 'Reporté' ][$t['statut']] ?? ucfirst(str_replace('_', ' ', $t['statut']))) : 'En cours');
+                            $statut = $termine ? 'Termine' : (($t['statut'] ?? '') ? ([ 'a_faire' => 'A faire', 'en_cours' => 'En cours', 'bloque' => 'Bloque', 'a_valider' => 'A valider', 'termine' => 'Termine', 'reporte' => 'Reporte' ][$t['statut']] ?? ucfirst(str_replace('_', ' ', $t['statut']))) : 'En cours');
                             $taskRows[] = [
                                 (string)($ti + 1),
-                                (!empty($t['us']) ? $t['us'] . ' · ' : '') . ($t['tache'] ?? ''),
+                                (!empty($t['us']) ? $t['us'] . ' - ' : '') . ($t['tache'] ?? ''),
                                 (string)($t['points'] ?? 1),
                                 $t['attribution'] ?? '—',
                                 $statut,
@@ -1069,28 +1302,39 @@ class CompteRenduController extends Controller
                             ];
                         }
                         $xml .= $this->docxTableMultiAlt(
-                            ['N°', 'Tâche', 'PTS', 'Attribution', 'Statut', 'Observation'],
-                            $taskRows, [500, 3200, 600, 1600, 1200, 2500]
+                            ['N', 'Tache', 'PTS', 'Attribution', 'Statut', 'Observation'],
+                            $taskRows, [500, 3200, 600, 1600, 1200, 2500], $pal['header'], 'F2F2F2'
                         );
                         $xml .= $this->p('');
+                        }
 
                     } elseif ($type === 'score') {
                         $scorePct = $d['score_pourcent'] ?? 0;
                         $appreciation = $scorePct >= 90 ? 'Excellent' : ($scorePct >= 75 ? 'Bon' : ($scorePct >= 50 ? 'Acceptable' : 'Insuffisant'));
-                        $xml .= $this->bilanBloc(
-                            'Résultat global',
-                            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) - {$appreciation}",
-                            $scorePct >= 75 ? 'F0F7ED' : ($scorePct >= 50 ? 'FFF8E1' : 'FEECEC'),
-                            $scorePct >= 75 ? '2E8B57' : ($scorePct >= 50 ? 'E6A817' : 'CC3333')
+
+                        // KPI cards pour le score
+                        $xml .= $this->docxKpiCards([
+                            ['valeur' => ($d['points_realises'] ?? 0) . '/' . ($d['total_points'] ?? 0), 'label' => 'Points realises', 'bg' => $pal['kpiBg1'], 'couleur' => $pal['sousTitre']],
+                            ['valeur' => "{$scorePct}%", 'label' => 'Score global', 'bg' => $scorePct >= 75 ? 'E2EFDA' : ($scorePct >= 50 ? 'FFF2CC' : 'FFDAD6'), 'couleur' => $scorePct >= 75 ? '375623' : ($scorePct >= 50 ? 'C55A11' : 'C00000')],
+                            ['valeur' => $appreciation, 'label' => 'Appreciation', 'bg' => $pal['kpiBg2'], 'couleur' => $pal['sousTitre']],
+                        ]);
+                        $xml .= $this->p('');
+
+                        $bilanBg = $scorePct >= 75 ? 'E2EFDA' : ($scorePct >= 50 ? 'FFF2CC' : 'FFDAD6');
+                        $bilanClr = $scorePct >= 75 ? '375623' : ($scorePct >= 50 ? 'C55A11' : 'C00000');
+                        $xml .= $this->docxEncadreTable(
+                            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) — {$appreciation}",
+                            $bilanBg, $bilanClr, $bilanClr, 'Resultat global'
                         );
-                        // Score par développeur si disponible
+
+                        // Score par développeur
                         if (!empty($d['par_dev'])) {
                             $devScoreRows = array_map(fn($dev) => [
                                 $dev['nom'], (string)$dev['realise'], (string)$dev['total'], $dev['pourcent'] . '%',
                             ], $d['par_dev']);
                             $xml .= $this->docxTableMultiAlt(
-                                ['Développeur', 'Réalisé', 'Total', '%'],
-                                $devScoreRows, [3600, 2000, 2000, 2000]
+                                ['Collaborateur', 'Realise', 'Total', '%'],
+                                $devScoreRows, [3600, 2000, 2000, 2000], '2E75B6', 'F2F2F2'
                             );
                         }
                         $xml .= $this->p('');
@@ -1099,22 +1343,36 @@ class CompteRenduController extends Controller
                         $actRows = [];
                         foreach ($bloc['items'] as $ai => $act) {
                             $rAct = $act['responsables'] ?? [];
+                            $prio = $act['priorite'] ?? '—';
                             $actRows[] = [
                                 (string)($ai + 1),
                                 $act['action'] ?? '',
                                 implode(', ', $rAct) ?: '—',
-                                $act['echeance'] ?? '—',
+                                $prio,
+                                !empty($act['echeance']) && strtotime($act['echeance']) ? Carbon::parse($act['echeance'])->format('d/m/Y') : '—',
                             ];
                         }
                         $xml .= $this->docxTableMultiAlt(
-                            ['N°', 'Action', 'Responsable(s)', 'Échéance'],
-                            $actRows, [500, 4500, 2600, 2000]
+                            ['N', 'Action', 'Responsable(s)', 'Priorite', 'Echeance'],
+                            $actRows, [500, 3600, 2000, 1200, 2300], '1F3864', 'F2F2F2'
                         );
                         $xml .= $this->p('');
 
                     } elseif ($type === 'reference' && !empty($bloc['contenu'])) {
                         $refType = $bloc['ref_type'] ?? 'remarque';
                         $xml .= $this->blocAnnote($refType, strip_tags($bloc['contenu']));
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'tableau_backlog' && !empty($bloc['items'])) {
+                        $xml .= $this->docxTableMultiAlt(['N°', 'Module', 'User story', 'Priorité', 'Pts'], array_map(fn($it) => [
+                            $it['numero'] ?: '-', $it['module'] ?: '-', $it['intitule'], UserStory::MOSCOW[$it['moscow'] ?? ''] ?? '-', (string) ($it['points'] ?? '-'),
+                        ], $bloc['items']), [900, 1800, 4500, 1400, 600], $pal['header'], 'F2F2F2');
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'validation' && !empty($bloc['items'])) {
+                        $xml .= $this->docxTableMultiAlt(['Qualité', 'Nom', 'Date', 'Signature'], array_map(fn($it) => [
+                            $it['role'], $it['nom'] ?: '', $it['date'] ? Carbon::parse($it['date'])->format('d/m/Y') : '', '',
+                        ], $bloc['items']), [2600, 3000, 1600, 2000], $pal['header'], 'F2F2F2');
                         $xml .= $this->p('');
                     }
                 }
@@ -1124,45 +1382,64 @@ class CompteRenduController extends Controller
         return $xml;
     }
 
-    /** Génération DOCX ancien format (backward compat) */
+    /** Génération DOCX ancien format — rendu élégant fidèle au modèle de référence */
     private function genererDocxDemoLegacy(array $d): string
     {
         $xml = '';
         $annotations = $d['annotations'] ?? [];
+        $taches = $d['taches'] ?? [];
+        $totalTaches = count($taches);
+        $tachesTerminees = count(array_filter($taches, fn($t) => !empty($t['termine'])));
+        $tachesEnCours = $totalTaches - $tachesTerminees;
+        $scorePct = $d['score_pourcent'] ?? 0;
 
-        // === SECTION 1: CONTEXTE ===
-        $xml .= $this->titreSection('1', 'CONTEXTE DE LA DÉMONSTRATION');
+        // ═══════ SECTION 1 : CONTEXTE DE LA DÉMONSTRATION ═══════
+        $xml .= $this->demoTitre('1', 'Contexte de la démonstration');
 
-        $xml .= $this->sousTitre('1.1', 'Sprint Goal');
+        // 1.1 Sprint Goal
+        $xml .= $this->demoSousTitre('1.1', 'Sprint Goal', '1F3864', 'D5E8F0');
         if (!empty($d['note_sprint'])) {
-            $xml .= $this->encadre(strip_tags($d['note_sprint']));
+            $xml .= $this->docxEncadreTable(strip_tags($d['note_sprint']), 'D5E8F0', '2E75B6', '1F3864', 'Objectif du sprint');
         } else {
-            $xml .= $this->encadre('(À renseigner)');
+            $xml .= $this->docxEncadreTable('(A renseigner)', 'D5E8F0', '2E75B6', '1F3864', 'Objectif du sprint');
         }
         $xml .= $this->p('');
 
-        $xml .= $this->sousTitre('1.2', 'Indicateurs clés');
-        $totalTaches = count($d['taches'] ?? []);
-        $tachesTerminees = count(array_filter($d['taches'] ?? [], fn($t) => !empty($t['termine'])));
-        $tachesEnCours = $totalTaches - $tachesTerminees;
-        $xml .= $this->docxTableMultiAlt(
-            ['Tâches totales', 'Terminées', 'En cours', 'Points totaux', 'Score'],
-            [[(string)$totalTaches, (string)$tachesTerminees, (string)$tachesEnCours, (string)($d['total_points'] ?? 0), ($d['score_pourcent'] ?? 0) . '%']],
-            [1920, 1920, 1920, 1920, 1920]
-        );
+        // 1.2 Structure du sprint
+        $xml .= $this->demoSousTitre('1.2', 'Structure du sprint', '1F3864', 'D5E8F0');
+        $structureInfo = "Ce sprint comporte {$totalTaches} tâches pour un total de " . ($d['total_points'] ?? 0) . " points.";
+        if (!empty($d['date_debut']) && !empty($d['date_fin'])) {
+            $structureInfo .= " Période : du {$d['date_debut']} au {$d['date_fin']}.";
+        }
+        $xml .= $this->docxEncadreTable($structureInfo, 'F2F2F2', '1F3864', '1F3864');
+        $xml .= $this->p('');
+
+        // KPI cards indicateurs clés
+        $xml .= $this->docxKpiCards([
+            ['valeur' => (string)$totalTaches, 'label' => 'Tâches totales', 'bg' => 'D5E8F0', 'couleur' => '1F3864'],
+            ['valeur' => "{$scorePct}%", 'label' => 'Taux de réalisation', 'bg' => 'E2EFDA', 'couleur' => '375623'],
+            ['valeur' => (string)$tachesTerminees, 'label' => 'Terminées', 'bg' => 'D5E8F0', 'couleur' => '1F3864'],
+            ['valeur' => $tachesEnCours > 0 ? (string)$tachesEnCours : '0', 'label' => 'En cours / restantes', 'bg' => $tachesEnCours > 0 ? 'FFF2CC' : 'E2EFDA', 'couleur' => $tachesEnCours > 0 ? 'C55A11' : '375623'],
+        ]);
         $xml .= $this->p('');
         $xml .= $this->insererAnnotations($annotations, '1');
 
-        // === SECTION 2: RÉSULTATS PAR TÂCHE ===
-        $xml .= $this->titreSection('2', 'RÉSULTATS PAR TÂCHE');
+        // ═══════ SECTION 2 : RÉSULTATS DU SPRINT ═══════
+        $xml .= $this->demoTitre('2', 'Résultats du sprint');
+
+        // Encadré intro phase (table 1x1)
+        $xml .= $this->docxEncadreTable("Détail des résultats par collaborateur — {$tachesTerminees} tâches terminées sur {$totalTaches}.", 'F2F2F2', '2E75B6', '2E75B6');
+        $xml .= $this->p('');
+
+        // Regrouper par développeur
         $parDev = [];
-        foreach ($d['taches'] ?? [] as $t) {
+        foreach ($taches as $t) {
             $dev = $t['attribution'] ?? '—';
             $parDev[$dev][] = $t;
         }
         $subNum = 1;
         foreach ($parDev as $devNom => $tachesDev) {
-            $xml .= $this->sousTitre("2.{$subNum}", $devNom);
+            $xml .= $this->demoSousTitre("2.{$subNum}", $devNom, '1F3864', 'D5E8F0');
             $devRows = [];
             $devTotal = 0;
             $devRealise = 0;
@@ -1171,68 +1448,117 @@ class CompteRenduController extends Controller
                 $devTotal += $pts;
                 $termine = !empty($t['termine']);
                 if ($termine) $devRealise += $pts;
-                $statut = $termine ? 'Terminé' : (($t['statut'] ?? '') ? ([ 'a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'a_valider' => 'À valider', 'termine' => 'Terminé', 'reporte' => 'Reporté' ][$t['statut']] ?? ucfirst(str_replace('_', ' ', $t['statut']))) : 'En cours');
-                $devRows[] = [(string)($i + 1), $t['tache'] ?? '', $devNom, (string)$pts, $statut, $t['observation'] ?? ''];
+                $statut = $termine ? 'Termine' : (($t['statut'] ?? '') ? ([ 'a_faire' => 'A faire', 'en_cours' => 'En cours', 'bloque' => 'Bloque', 'a_valider' => 'A valider', 'termine' => 'Termine', 'reporte' => 'Reporte' ][$t['statut']] ?? ucfirst(str_replace('_', ' ', $t['statut']))) : 'En cours');
+                $devRows[] = [(string)($i + 1), $t['tache'] ?? '', (!empty($t['us']) ? $t['us'] : '—'), (string)$pts, $statut, $t['observation'] ?? ''];
             }
             $xml .= $this->docxTableMultiAlt(
-                ['N°', 'Tâche', 'Attribution', 'PTS', 'Statut', 'Observation'],
-                $devRows, [500, 3200, 1600, 600, 1200, 2500]
+                ['N', 'Tache', 'User Story', 'PTS', 'Statut', 'Observation'],
+                $devRows, [500, 3000, 1600, 600, 1200, 2700], '1F3864', 'F4F7FB'
             );
             $devPct = $devTotal > 0 ? round($devRealise / $devTotal * 100) : 0;
-            $xml .= $this->bilanBloc(
-                "Bilan - {$devNom}",
+            $devBilanBg = $devPct >= 80 ? 'E2EFDA' : ($devPct >= 50 ? 'FFF2CC' : 'FFDAD6');
+            $devBilanClr = $devPct >= 80 ? '375623' : ($devPct >= 50 ? 'C55A11' : 'C00000');
+            $xml .= $this->docxEncadreTable(
                 "Score : {$devRealise}/{$devTotal} pts ({$devPct}%)",
-                $devPct >= 80 ? 'F0F7ED' : ($devPct >= 50 ? 'FFF8E1' : 'FEECEC'),
-                $devPct >= 80 ? '2E8B57' : ($devPct >= 50 ? 'E6A817' : 'CC3333')
+                $devBilanBg, $devBilanClr, $devBilanClr, "Bilan — {$devNom}"
             );
             $xml .= $this->p('');
             $subNum++;
         }
         $xml .= $this->insererAnnotations($annotations, '2');
 
-        // === SECTION 3: ÉVALUATION GLOBALE ===
-        $xml .= $this->titreSection('3', 'ÉVALUATION GLOBALE DU SPRINT');
-        $scorePct = $d['score_pourcent'] ?? 0;
+        // ═══════ SECTION 3 : ÉVALUATION GLOBALE ═══════
+        $xml .= $this->demoTitre('3', 'Evaluation globale du sprint');
+
         $appreciation = $scorePct >= 90 ? 'Excellent' : ($scorePct >= 75 ? 'Bon' : ($scorePct >= 50 ? 'Acceptable' : 'Insuffisant'));
-        $xml .= $this->bilanBloc(
-            'Résultat global',
-            "Score : " . ($d['points_realises'] ?? 0) . "/" . ($d['total_points'] ?? 0) . " pts ({$scorePct}%) - Appréciation : {$appreciation}",
-            $scorePct >= 75 ? 'F0F7ED' : ($scorePct >= 50 ? 'FFF8E1' : 'FEECEC'),
-            $scorePct >= 75 ? '2E8B57' : ($scorePct >= 50 ? 'E6A817' : 'CC3333')
+
+        // Points forts (vert — table encadré)
+        $pointsForts = [];
+        if ($scorePct >= 75) $pointsForts[] = "Taux de realisation eleve : {$scorePct}%";
+        if ($tachesTerminees > 0) $pointsForts[] = "{$tachesTerminees} tache(s) terminee(s) avec succes";
+        $xml .= $this->docxEncadreTable(
+            !empty($pointsForts) ? implode(' | ', $pointsForts) : "Appreciation globale : {$appreciation}",
+            'E2EFDA', '375623', '375623', 'Points forts'
         );
-        if (!empty($d['par_dev'])) {
+        $xml .= $this->p('');
+
+        // Points à corriger (orange — table encadré)
+        if ($scorePct < 100) {
+            $aCorrection = [];
+            if ($tachesEnCours > 0) $aCorrection[] = "{$tachesEnCours} tache(s) non terminee(s)";
+            if ($scorePct < 75) $aCorrection[] = "Score sous le seuil acceptable ({$scorePct}%)";
+            if (!empty($aCorrection)) {
+                $xml .= $this->docxEncadreTable(
+                    implode(' | ', $aCorrection),
+                    'FCE4D6', 'C55A11', 'C55A11', 'Points a corriger'
+                );
+                $xml .= $this->p('');
+            }
+        }
+
+        // Score critique (rouge — table encadré)
+        if ($scorePct < 50) {
+            $xml .= $this->docxEncadreTable(
+                "Le score de {$scorePct}% est insuffisant. Des mesures correctives urgentes sont necessaires.",
+                'FFDAD6', 'C00000', 'C00000', 'Observation critique'
+            );
             $xml .= $this->p('');
-            $xml .= $this->sousTitre('3.1', 'Score par développeur');
+        }
+
+        // Score par développeur
+        if (!empty($d['par_dev'])) {
+            $xml .= $this->demoSousTitre('3.1', 'Score par collaborateur', '1F3864', 'D5E8F0');
             $devScoreRows = array_map(fn($dev) => [
                 $dev['nom'], (string)$dev['realise'], (string)$dev['total'], $dev['pourcent'] . '%',
             ], $d['par_dev']);
             $xml .= $this->docxTableMultiAlt(
-                ['Développeur', 'Réalisé', 'Total', '%'],
-                $devScoreRows, [3600, 2000, 2000, 2000]
+                ['Collaborateur', 'Realise', 'Total', '%'],
+                $devScoreRows, [3600, 2000, 2000, 2000], '2E75B6', 'F2F2F2'
             );
+            $xml .= $this->p('');
         }
+
+        // Rappel méthodologique (table encadré)
+        $xml .= $this->docxEncadreTable(
+            "La demonstration de sprint est une ceremonie Scrum visant a presenter les increments realises au Product Owner et aux parties prenantes. Les fonctionnalites non terminees sont reportees au sprint suivant.",
+            'F2F2F2', '1F3864', '1F3864', 'Rappel'
+        );
         $xml .= $this->p('');
         $xml .= $this->insererAnnotations($annotations, '3');
 
-        // === SECTION 4: PROCHAINES ÉTAPES ===
-        $xml .= $this->titreSection('4', 'PROCHAINES ÉTAPES');
+        // ═══════ SECTION 4 : PROCHAINES ÉTAPES ═══════
+        $xml .= $this->demoTitre('4', 'Prochaines etapes');
+
         if (!empty($d['prochaines_etapes'])) {
+            // Couleurs alternées pour les étapes numérotées
+            $etapeColors = [
+                ['numBg' => '375623', 'numColor' => 'FFFFFF', 'bodyBg' => 'E2EFDA', 'bodyColor' => '375623'],
+                ['numBg' => 'C00000', 'numColor' => 'FFFFFF', 'bodyBg' => 'FFDAD6', 'bodyColor' => 'C00000'],
+                ['numBg' => 'C55A11', 'numColor' => 'FFFFFF', 'bodyBg' => 'FCE4D6', 'bodyColor' => 'C55A11'],
+                ['numBg' => '2E75B6', 'numColor' => 'FFFFFF', 'bodyBg' => 'D5E8F0', 'bodyColor' => '2E75B6'],
+                ['numBg' => '1F3864', 'numColor' => 'FFFFFF', 'bodyBg' => 'D5E8F0', 'bodyColor' => '1F3864'],
+            ];
             foreach ($d['prochaines_etapes'] as $i => $etape) {
                 $num = $i + 1;
                 $label = is_array($etape) ? ($etape['titre'] ?? $etape['action'] ?? '') : (string)$etape;
                 $desc = is_array($etape) ? ($etape['description'] ?? '') : '';
-                $xml .= $this->p("{$num}. {$label}", true);
-                if ($desc) $xml .= $this->p("   {$desc}");
+                $prio = is_array($etape) ? ($etape['priorite'] ?? '') : '';
+                // Couleur par priorité si définie, sinon rotation
+                $colors = $prio ? $this->etapeCouleurs($prio) : $etapeColors[$i % count($etapeColors)];
+                $xml .= $this->docxEtapeCard($num, $label, $desc, $colors['numBg'], $colors['numColor'], $colors['bodyBg'], $colors['bodyColor']);
+                $xml .= $this->p('');
             }
         } else {
-            $xml .= $this->p('(À définir)');
+            $xml .= $this->p('(A definir)');
         }
-        $xml .= $this->p('');
         $xml .= $this->insererAnnotations($annotations, '4');
 
-        // === SECTION 5: PLAN D'ACTIONS ===
-        $xml .= $this->titreSection('5', "PLAN D'ACTIONS");
+        // ═══════ SECTION 5 : PLAN D'ACTIONS ═══════
+        $xml .= $this->demoTitre('5', "Plan d'actions");
+
         if (!empty($d['actions_a_mener'])) {
+            $xml .= $this->docxEncadreTable("Actions identifiees lors de la demonstration — " . count($d['actions_a_mener']) . " action(s).", 'F2F2F2', '1F3864', '1F3864');
+            $xml .= $this->p('');
             $actRows = [];
             foreach ($d['actions_a_mener'] as $i => $a) {
                 $rAct = $a['responsables'] ?? (isset($a['responsable']) && $a['responsable'] ? [$a['responsable']] : []);
@@ -1240,21 +1566,21 @@ class CompteRenduController extends Controller
                 $actRows[] = [(string)($i + 1), $a['action'] ?? '', implode(', ', $rAct), $prio, $a['echeance'] ?? ''];
             }
             $xml .= $this->docxTableMultiAlt(
-                ['N°', 'Action', 'Responsable(s)', 'Priorité', 'Échéance'],
-                $actRows, [500, 3800, 2000, 1200, 2100]
+                ['N', 'Action', 'Responsable(s)', 'Priorite', 'Echeance'],
+                $actRows, [500, 3800, 2000, 1200, 2100], '1F3864', 'F2F2F2'
             );
         } else {
-            $xml .= $this->p('(À compléter)');
+            $xml .= $this->p('(A completer)');
         }
         $xml .= $this->p('');
         $xml .= $this->insererAnnotations($annotations, '5');
 
-        // === SECTION 6: CONCLUSION ===
-        $xml .= $this->titreSection('6', 'CONCLUSION');
+        // ═══════ SECTION 6 : CONCLUSION ═══════
+        $xml .= $this->demoTitre('6', 'Conclusion');
         if (!empty($d['conclusion'])) {
             $xml .= $this->htmlToOoxml($d['conclusion'], '6.');
         } else {
-            $xml .= $this->encadre('(À renseigner)');
+            $xml .= $this->docxEncadreTable('(A renseigner)', 'F2F2F2', '1F3864', '1F3864');
         }
         $xml .= $this->insererAnnotations($annotations, '6');
 
@@ -1268,7 +1594,7 @@ class CompteRenduController extends Controller
     private function genererDocxReviewSprint(CompteRendu $cr, array $d, string $path): void
     {
         $logoPath = public_path('images/logo_soumafe.png');
-        $hasLogo = file_exists($logoPath);
+        $hasLogo = file_exists($logoPath) && ($this->miseEnForme['logo'] ?? true);
         $cr->load(['redacteur', 'sprint.projet']);
 
         $redacteur = $cr->redacteur;
@@ -1644,14 +1970,16 @@ class CompteRenduController extends Controller
     {
         $escaped = htmlspecialchars("{$num}. " . mb_strtoupper($text, 'UTF-8'), ENT_XML1, 'UTF-8');
         return '<w:p><w:pPr>'
+            . '<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="2" w:color="' . ($this->miseEnForme['couleur_section'] ?? '2E74B5') . '"/></w:pBdr>'
+            . '<w:shd w:val="clear" w:color="auto" w:fill="E3EEF9"/>'
             . '<w:spacing w:before="240" w:after="120" w:line="360" w:lineRule="auto"/>'
+            . '<w:ind w:left="60" w:right="60"/>'
             . '<w:jc w:val="left"/>'
             . '</w:pPr>'
             . '<w:r><w:rPr>'
             . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
-            . '<w:b/><w:caps/><w:color w:val="1F4E79"/>'
+            . '<w:b/><w:caps/><w:color w:val="' . ($this->miseEnForme['couleur_section'] ?? '1F4E79') . '"/>'
             . '<w:sz w:val="' . $this->mefSz('section', 26) . '"/><w:szCs w:val="' . $this->mefSz('section', 26) . '"/>'
-            . '<w:u w:val="single"/>'
             . '</w:rPr>'
             . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
     }
@@ -1824,6 +2152,275 @@ class CompteRenduController extends Controller
         return $xml;
     }
 
+    // ──────────── Helpers spécifiques rapport de démonstration élégant ────────────
+
+    /** Titre de section du rapport de review : fond bleu clair, trait bas bleu */
+    private function demoTitre(string $num, string $text): string
+    {
+        $numE = htmlspecialchars("{$num}. ", ENT_XML1, 'UTF-8');
+        $txtE = htmlspecialchars(mb_strtoupper($text, 'UTF-8'), ENT_XML1, 'UTF-8');
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+        return '<w:p><w:pPr>'
+            . '<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="2" w:color="' . ($this->miseEnForme['couleur_section'] ?? '2E74B5') . '"/></w:pBdr>'
+            . '<w:shd w:val="clear" w:color="auto" w:fill="E3EEF9"/>'
+            . '<w:spacing w:before="300" w:after="120" w:line="360" w:lineRule="auto"/>'
+            . '<w:ind w:left="60" w:right="60"/>'
+            . '</w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"" . ($this->miseEnForme['couleur_section'] ?? '1F4E79') . "\"/><w:sz w:val=\"{$this->mefSz('section', 32)}\"/><w:szCs w:val=\"{$this->mefSz('section', 32)}\"/></w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$numE}</w:t></w:r>"
+            . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"" . ($this->miseEnForme['couleur_section'] ?? '1F4E79') . "\"/><w:sz w:val=\"{$this->mefSz('section', 32)}\"/><w:szCs w:val=\"{$this->mefSz('section', 32)}\"/></w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$txtE}</w:t></w:r></w:p>";
+    }
+
+    /** Sous-titre style rapport démo (12pt bold, couleur + fond paramétrable) */
+    private function demoSousTitre(string $num, string $text, string $color = '1F3864', string $bg = 'D5E8F0', ?int $sz = null, string $souligne = ''): string
+    {
+        $escaped = htmlspecialchars("{$num} {$text}", ENT_XML1, 'UTF-8');
+        return '<w:p><w:pPr>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bg}\"/>"
+            . ($souligne === 'section' ? '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="2" w:color="9FBFE0"/></w:pBdr>' : '')
+            . ($souligne === 'sous_titre' ? '<w:pBdr><w:bottom w:val="dotted" w:sz="4" w:space="2" w:color="9FBFE0"/></w:pBdr>' : '')
+            . '<w:spacing w:before="200" w:after="80" w:line="360" w:lineRule="auto"/>'
+            . '</w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . "<w:b/><w:color w:val=\"{$color}\"/>"
+            . '<w:sz w:val="' . ($sz ?? $this->mefSz('sous_titre', 24)) . '"/><w:szCs w:val="' . ($sz ?? $this->mefSz('sous_titre', 24)) . '"/>'
+            . '</w:rPr>'
+            . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
+    }
+
+    /** Bannière en-tête fidèle au document référence : logo gauche + infos droite */
+    private function docxBannerTable(string $dept, string $titre, string $sousTitre, string $auteur = '', string $date = ''): string
+    {
+        $e = fn($s) => htmlspecialchars($s, ENT_XML1, 'UTF-8');
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+        $noBorders = '<w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>';
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9600" w:type="dxa"/>'
+            . "<w:tblBorders>{$noBorders}</w:tblBorders></w:tblPr>";
+        // Cellule gauche : fond bleu foncé + LOGO embarqué
+        $logoCx = 1200000; $logoCy = 840000;
+        $logoDrawing = '<w:drawing>'
+            . '<wp:inline distT="0" distB="0" distL="0" distR="0">'
+            . "<wp:extent cx=\"{$logoCx}\" cy=\"{$logoCy}\"/>"
+            . '<wp:effectExtent l="0" t="0" r="0" b="0"/>'
+            . '<wp:docPr id="2" name="BannerLogo"/>'
+            . '<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>'
+            . '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+            . '<pic:pic><pic:nvPicPr><pic:cNvPr id="2" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr>'
+            . '<pic:blipFill><a:blip r:embed="rId10"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+            . "<pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"{$logoCx}\" cy=\"{$logoCy}\"/></a:xfrm>"
+            . '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
+            . '</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>';
+
+        $xml .= '<w:tr><w:trPr><w:trHeight w:val="1400" w:hRule="atLeast"/></w:trPr>'
+            . '<w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/>'
+            . '<w:shd w:val="clear" w:color="auto" w:fill="1F3864"/>'
+            . '<w:vAlign w:val="center"/></w:tcPr>'
+            . '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0" w:before="0"/></w:pPr>'
+            . (($this->miseEnForme['logo'] ?? true) ? "<w:r>{$logoDrawing}</w:r>" : '') . '</w:p></w:tc>';
+        // Cellule droite : fond bleu vif + dept, titre, sprint, auteur, date
+        $xml .= '<w:tc><w:tcPr><w:tcW w:w="7200" w:type="dxa"/>'
+            . '<w:shd w:val="clear" w:color="auto" w:fill="0070C0"/>'
+            . '<w:vAlign w:val="center"/></w:tcPr>';
+        // Ligne département
+        $xml .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0" w:before="0"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:color w:val=\"D6E4F0\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$e($dept)}</w:t></w:r></w:p>";
+        // Ligne titre principal (36pt bold blanc)
+        $xml .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0" w:before="0"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"FFFFFF\"/><w:sz w:val=\"{$this->mefSz('titre', 36)}\"/><w:szCs w:val=\"{$this->mefSz('titre', 36)}\"/></w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$e($titre)}</w:t></w:r></w:p>";
+        // Ligne sous-titre sprint (22pt bold blanc)
+        $xml .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0" w:before="0"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"FFFFFF\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$e($sousTitre)}</w:t></w:r></w:p>";
+        // Ligne auteur (D6E4F0)
+        if ($auteur) {
+            $xml .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0" w:before="0"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:color w:val=\"D6E4F0\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+                . "<w:t xml:space=\"preserve\">{$e($auteur)}</w:t></w:r></w:p>";
+        }
+        // Ligne date (D6E4F0)
+        if ($date) {
+            $xml .= '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0" w:before="0"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:color w:val=\"D6E4F0\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+                . "<w:t xml:space=\"preserve\">{$e($date)}</w:t></w:r></w:p>";
+        }
+        $xml .= '</w:tc></w:tr></w:tbl>';
+        return $xml;
+    }
+
+    /** Ligne de KPI cards (tableau 1 ligne, N colonnes colorées, grand chiffre + label) */
+    private function docxKpiCards(array $cards): string
+    {
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+        $n = count($cards);
+        if ($n === 0) return '';
+        $w = intdiv(9600, $n);
+        $noBorders = '<w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideV w:val="single" w:sz="8" w:space="0" w:color="FFFFFF"/>';
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9600" w:type="dxa"/>'
+            . "<w:tblBorders>{$noBorders}</w:tblBorders></w:tblPr><w:tr>";
+        foreach ($cards as $c) {
+            $val = htmlspecialchars((string)($c['valeur'] ?? ''), ENT_XML1, 'UTF-8');
+            $lab = htmlspecialchars((string)($c['label'] ?? ''), ENT_XML1, 'UTF-8');
+            $bg = $c['bg'] ?? 'D5E8F0';
+            $color = $c['couleur'] ?? '1F3864';
+            $sz = (int) ($c['sz'] ?? 48);
+            $det = trim((string) ($c['detail'] ?? ''));
+            $detXml = $det === '' ? '' : '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="60" w:before="0"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:color w:val=\"64748B\"/><w:sz w:val=\"16\"/><w:szCs w:val=\"16\"/></w:rPr>"
+                . '<w:t xml:space="preserve">' . htmlspecialchars($det, ENT_XML1, 'UTF-8') . '</w:t></w:r></w:p>';
+            $xml .= "<w:tc><w:tcPr><w:tcW w:w=\"{$w}\" w:type=\"dxa\"/>"
+                . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bg}\"/>"
+                . '<w:vAlign w:val="center"/></w:tcPr>'
+                . '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0" w:before="60"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"{$color}\"/><w:sz w:val=\"{$sz}\"/><w:szCs w:val=\"{$sz}\"/></w:rPr>"
+                . "<w:t xml:space=\"preserve\">{$val}</w:t></w:r></w:p>"
+                . '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="' . ($det === '' ? 60 : 0) . '" w:before="0"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"2E74B5\"/><w:sz w:val=\"16\"/><w:szCs w:val=\"16\"/></w:rPr>"
+                . "<w:t xml:space=\"preserve\">{$lab}</w:t></w:r></w:p>{$detXml}</w:tc>";
+        }
+        return $xml . '</w:tr></w:tbl>';
+    }
+
+    /** Card étape numérotée (numéro coloré à gauche + titre + description à droite) */
+    private function docxEtapeCard(int $num, string $titre, string $desc, string $numBg, string $numColor, string $bodyBg, string $bodyColor): string
+    {
+        $e = fn($s) => htmlspecialchars($s, ENT_XML1, 'UTF-8');
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+        $noBorders = '<w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:left w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>';
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9600" w:type="dxa"/>'
+            . "<w:tblBorders>{$noBorders}</w:tblBorders></w:tblPr>"
+            . '<w:tr><w:tc><w:tcPr><w:tcW w:w="800" w:type="dxa"/>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$numBg}\"/>"
+            . '<w:vAlign w:val="center"/></w:tcPr>'
+            . '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0" w:before="0"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"{$numColor}\"/><w:sz w:val=\"32\"/><w:szCs w:val=\"32\"/></w:rPr>"
+            . "<w:t>{$num}</w:t></w:r></w:p></w:tc>";
+        $xml .= '<w:tc><w:tcPr><w:tcW w:w="8800" w:type="dxa"/>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bodyBg}\"/>"
+            . '<w:vAlign w:val="center"/></w:tcPr>'
+            . '<w:p><w:pPr><w:spacing w:after="0" w:before="60"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"{$bodyColor}\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$e($titre)}</w:t></w:r></w:p>";
+        if ($desc) {
+            $xml .= '<w:p><w:pPr><w:spacing w:after="60" w:before="0"/><w:jc w:val="both"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:color w:val=\"404040\"/><w:sz w:val=\"20\"/><w:szCs w:val=\"20\"/></w:rPr>"
+                . "<w:t xml:space=\"preserve\">{$e($desc)}</w:t></w:r></w:p>";
+        }
+        $xml .= '</w:tc></w:tr></w:tbl>';
+        return $xml;
+    }
+
+    /** Table résumé avec en-tête coloré (ex: Volet/Résultat) */
+    private function docxResumeTable(array $headers, array $rows, string $headerBg = '2E75B6'): string
+    {
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+        $n = count($headers);
+        if ($n === 0) return '';
+        $w = intdiv(9600, $n);
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9600" w:type="dxa"/><w:tblBorders>' . $this->borders() . '</w:tblBorders></w:tblPr>';
+        // En-tête
+        $xml .= '<w:tr><w:trPr><w:tblHeader/></w:trPr>';
+        foreach ($headers as $h) {
+            $e = htmlspecialchars($h, ENT_XML1, 'UTF-8');
+            $xml .= "<w:tc><w:tcPr><w:tcW w:w=\"{$w}\" w:type=\"dxa\"/>"
+                . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$headerBg}\"/></w:tcPr>"
+                . '<w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"FFFFFF\"/><w:sz w:val=\"20\"/><w:szCs w:val=\"20\"/></w:rPr>"
+                . "<w:t xml:space=\"preserve\">{$e}</w:t></w:r></w:p></w:tc>";
+        }
+        $xml .= '</w:tr>';
+        // Lignes alternées
+        foreach ($rows as $ri => $row) {
+            $bg = ($ri % 2 === 1) ? 'F2F2F2' : 'FFFFFF';
+            $xml .= '<w:tr>';
+            foreach ($row as $val) {
+                $e = htmlspecialchars((string)$val, ENT_XML1, 'UTF-8');
+                $xml .= "<w:tc><w:tcPr><w:tcW w:w=\"{$w}\" w:type=\"dxa\"/>"
+                    . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bg}\"/></w:tcPr>"
+                    . '<w:p><w:pPr><w:jc w:val="left"/></w:pPr>'
+                    . "<w:r><w:rPr>{$rpr}<w:sz w:val=\"20\"/><w:szCs w:val=\"20\"/><w:color w:val=\"404040\"/></w:rPr>"
+                    . "<w:t xml:space=\"preserve\">{$e}</w:t></w:r></w:p></w:tc>";
+            }
+            $xml .= '</w:tr>';
+        }
+        return $xml . '</w:tbl>';
+    }
+
+    /** Encadré table 1x1 avec bordure gauche épaisse (fidèle au document référence) */
+    private function docxEncadreTable(string $text, string $bgColor = 'F2F2F2', string $borderColor = '1F3864', string $labelColor = '1F3864', string $label = ''): string
+    {
+        $rpr = '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>';
+        $noBorders = '<w:top w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:bottom w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:right w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>';
+        $xml = '<w:tbl><w:tblPr><w:tblW w:w="9600" w:type="dxa"/><w:tblBorders>'
+            . '<w:top w:val="single" w:sz="4" w:space="0" w:color="' . self::teinte($borderColor) . '"/>'
+            . "<w:left w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"" . self::teinte($borderColor) . "\"/>"
+            . "<w:bottom w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"" . self::teinte($borderColor) . "\"/>"
+            . "<w:right w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"" . self::teinte($borderColor) . "\"/>"
+            . '<w:insideH w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '<w:insideV w:val="none" w:sz="0" w:space="0" w:color="auto"/>'
+            . '</w:tblBorders></w:tblPr>';
+        $xml .= '<w:tr><w:tc><w:tcPr><w:tcW w:w="9600" w:type="dxa"/>'
+            . "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"{$bgColor}\"/></w:tcPr>";
+        if ($label) {
+            $labelE = htmlspecialchars($label, ENT_XML1, 'UTF-8');
+            $xml .= '<w:p><w:pPr><w:spacing w:after="40" w:before="60"/></w:pPr>'
+                . "<w:r><w:rPr>{$rpr}<w:b/><w:color w:val=\"{$labelColor}\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+                . "<w:t xml:space=\"preserve\">{$labelE}</w:t></w:r></w:p>";
+        }
+        $textE = htmlspecialchars($text, ENT_XML1, 'UTF-8');
+        $xml .= '<w:p><w:pPr><w:spacing w:after="60" w:before="40"/><w:jc w:val="both"/></w:pPr>'
+            . "<w:r><w:rPr>{$rpr}<w:color w:val=\"404040\"/><w:sz w:val=\"22\"/><w:szCs w:val=\"22\"/></w:rPr>"
+            . "<w:t xml:space=\"preserve\">{$textE}</w:t></w:r></w:p>";
+        $xml .= '</w:tc></w:tr></w:tbl>';
+        return $xml;
+    }
+
+    /** Paragraphe auteur/date style rapport démo (11pt gris, justifié) */
+    private function demoAuteur(string $text): string
+    {
+        $escaped = htmlspecialchars($text, ENT_XML1, 'UTF-8');
+        return '<w:p><w:pPr><w:jc w:val="both"/><w:spacing w:before="40" w:after="40"/></w:pPr>'
+            . '<w:r><w:rPr>'
+            . '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>'
+            . '<w:color w:val="404040"/><w:sz w:val="22"/><w:szCs w:val="22"/>'
+            . '</w:rPr>'
+            . "<w:t xml:space=\"preserve\">{$escaped}</w:t></w:r></w:p>";
+    }
+
+    /** Couleurs par priorité pour les cards d'étapes */
+    private function etapeCouleurs(string $priorite): array
+    {
+        return match (mb_strtolower($priorite)) {
+            'critique', 'urgente' => ['numBg' => 'C00000', 'numColor' => 'FFFFFF', 'bodyBg' => 'FFDAD6', 'bodyColor' => 'C00000'],
+            'haute'               => ['numBg' => 'C55A11', 'numColor' => 'FFFFFF', 'bodyBg' => 'FCE4D6', 'bodyColor' => 'C55A11'],
+            'moyenne'             => ['numBg' => '2E75B6', 'numColor' => 'FFFFFF', 'bodyBg' => 'D5E8F0', 'bodyColor' => '2E75B6'],
+            'basse'               => ['numBg' => '375623', 'numColor' => 'FFFFFF', 'bodyBg' => 'E2EFDA', 'bodyColor' => '375623'],
+            default               => ['numBg' => '1F3864', 'numColor' => 'FFFFFF', 'bodyBg' => 'D5E8F0', 'bodyColor' => '1F3864'],
+        };
+    }
+
     /** Insérer les annotations ciblant une section donnée */
     private function insererAnnotations(array $annotations, string $section): string
     {
@@ -1837,17 +2434,17 @@ class CompteRenduController extends Controller
     }
 
     /** Table avec lignes alternées et largeurs personnalisables */
-    private function docxTableMultiAlt(array $headers, array $rows, ?array $widths = null): string
+    private function docxTableMultiAlt(array $headers, array $rows, ?array $widths = null, string $headerBg = '1F4E79', string $altBg = 'F4F7FB'): string
     {
         $n = count($headers);
         $totalW = 9600;
         $defaultW = intdiv($totalW, $n);
         $xml = "<w:tbl><w:tblPr><w:tblW w:w=\"{$totalW}\" w:type=\"dxa\"/><w:tblBorders>" . $this->borders() . '</w:tblBorders></w:tblPr>';
         $xml .= '<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>';
-        foreach ($headers as $i => $h) $xml .= $this->cell($h, true, '1F4E79', 'FFFFFF', $widths[$i] ?? $defaultW);
+        foreach ($headers as $i => $h) $xml .= $this->cell($h, true, $headerBg, 'FFFFFF', $widths[$i] ?? $defaultW);
         $xml .= '</w:tr>';
         foreach ($rows as $ri => $r) {
-            $bg = ($ri % 2 === 1) ? 'F4F7FB' : null;
+            $bg = ($ri % 2 === 1) ? $altBg : null;
             $xml .= '<w:tr>';
             foreach ($r as $ci => $c) $xml .= $this->cell((string)$c, false, $bg, null, $widths[$ci] ?? $defaultW);
             $xml .= '</w:tr>';
@@ -1876,7 +2473,7 @@ class CompteRenduController extends Controller
     }
 
     /** Générer le XML du footer (pied de page avec numéro) */
-    private function genDocxFooterXml(string $line = 'Confidentiel - Usage interne'): string
+    private function genDocxFooterXml(string $line = 'Confidentiel - Usage interne', bool $numPage = true): string
     {
         $escaped = htmlspecialchars($line, ENT_XML1, 'UTF-8');
         $rpr = '<w:rPr>'
@@ -1890,10 +2487,10 @@ class CompteRenduController extends Controller
             . '<w:pBdr><w:top w:val="single" w:sz="4" w:space="1" w:color="1F4E79"/></w:pBdr>'
             . '<w:jc w:val="center"/>'
             . '</w:pPr>'
-            . "<w:r>{$rpr}<w:t xml:space=\"preserve\">{$escaped} - Page </w:t></w:r>"
-            . "<w:r>{$rpr}<w:fldChar w:fldCharType=\"begin\"/></w:r>"
-            . "<w:r>{$rpr}<w:instrText xml:space=\"preserve\"> PAGE </w:instrText></w:r>"
-            . "<w:r>{$rpr}<w:fldChar w:fldCharType=\"end\"/></w:r>"
+            . "<w:r>{$rpr}<w:t xml:space=\"preserve\">{$escaped}" . ($numPage ? ($escaped !== '' ? ' - ' : '') . 'Page ' : '') . "</w:t></w:r>"
+            . ($numPage ? "<w:r>{$rpr}<w:fldChar w:fldCharType=\"begin\"/></w:r>"
+                . "<w:r>{$rpr}<w:instrText xml:space=\"preserve\"> PAGE </w:instrText></w:r>"
+                . "<w:r>{$rpr}<w:fldChar w:fldCharType=\"end\"/></w:r>" : '')
             . '</w:p></w:ftr>';
     }
 
@@ -1904,6 +2501,8 @@ class CompteRenduController extends Controller
     private int $ooxmlInterligne = 360;
     /** Tailles choisies dans « Mise en forme du document » (pt), null = défaut */
     private array $miseEnForme = [];
+    /** Sprint du rapport en cours de génération (indicateurs : comparaison au sprint précédent). */
+    private ?Sprint $sprintDocx = null;
 
     private function mefSz(string $cle, int $defautDemiPt): int
     {
@@ -1924,6 +2523,71 @@ class CompteRenduController extends Controller
     }
 
     /** Couleurs de texte de l'éditeur (classe tc-N) : sobres, lisibles à l'impression. */
+    /** Couleurs de bloc du rapport : [libellé, fond, bordure], hexadécimal sans « # ». */
+    public const BLOC_COULEURS = [
+        'bleu' => ['Bleu', 'EFF6FF', '2E74B5'], 'vert' => ['Vert', 'F0FDF4', '15803D'], 'ambre' => ['Ambre', 'FFFBEB', 'B45309'],
+        'rouge' => ['Rouge', 'FEF2F2', 'B91C1C'], 'violet' => ['Violet', 'F5F3FF', '7E22CE'], 'gris' => ['Gris', 'F8FAFC', '64748B'],
+    ];
+    public const HORS_US = 'Hors user story';
+
+    /** Polices proposées pour le rendu (PDF et Word) : [libellé, famille CSS]. Segoe UI par défaut. */
+    public const POLICES = [
+        'segoe'   => ['Segoe UI', "'Segoe UI',system-ui,-apple-system,Arial,sans-serif"],
+        'calibri' => ['Calibri', "Calibri,Carlito,'Segoe UI',Arial,sans-serif"],
+        'arial'   => ['Arial', "Arial,Helvetica,sans-serif"],
+        'verdana' => ['Verdana', "Verdana,Geneva,sans-serif"],
+        'times'   => ['Times New Roman', "'Times New Roman',Times,serif"],
+        'georgia' => ['Georgia', "Georgia,'Times New Roman',serif"],
+        'cambria' => ['Cambria', "Cambria,Caladea,Georgia,serif"],
+    ];
+
+    /** Police de rendu d'un document : [libellé Word, famille CSS]. */
+    public static function police(array $miseEnForme): array
+    {
+        return self::POLICES[$miseEnForme['police'] ?? ''] ?? self::POLICES['segoe'];
+    }
+
+    /** Teinte claire d'une couleur (mélange avec le blanc) : bordure légère des blocs colorés. */
+    public static function teinte(string $hex, float $part = 0.35): string
+    {
+        $hex = ltrim($hex, '#');
+        return implode('', array_map(fn($c) => sprintf('%02X', (int) round(255 - (255 - hexdec($c)) * $part)), str_split(substr($hex . '000000', 0, 6), 2)));
+    }
+
+    /** Fonctionnalité (module) d'une tâche du rapport. */
+    /** Libellé d'une fonctionnalité dans le rapport : reformulation du pilote, sinon le nom importé du backlog. */
+    public static function libelleModule(array $d, ?string $module): string
+    {
+        return (string) (($d['libelles_modules'] ?? [])[$module ?? ''] ?? $module);
+    }
+
+    public static function moduleTache(array $t): string
+    {
+        if (!empty($t['module'])) return $t['module'];
+        return !empty($t['us_contexte']) ? explode(' › ', $t['us_contexte'])[0] : self::HORS_US;
+    }
+
+    /** Lignes d'un tableau limitées à une fonctionnalité (toutes si $module est vide). */
+    public static function lignesModule(array $lignes, ?string $module, bool $taches): array
+    {
+        if (!$module) return $lignes;
+        return array_filter($lignes, fn($l) => ($taches ? self::moduleTache($l) : ($l['module'] ?? '')) === $module);
+    }
+
+    /**
+     * Tâches regroupées par fonctionnalité (ordre d'apparition, « Hors user story » en dernier).
+     * Un seul groupe sans libellé quand le tableau est déjà filtré ou ne couvre qu'une fonctionnalité.
+     */
+    public static function groupesTaches(array $lignes, ?string $module): array
+    {
+        $lignes = array_values($lignes);
+        if ($module) return ['' => $lignes];
+        $g = [];
+        foreach ($lignes as $t) $g[self::moduleTache($t)][] = $t;
+        if (isset($g[self::HORS_US])) { $h = $g[self::HORS_US]; unset($g[self::HORS_US]); $g[self::HORS_US] = $h; }
+        return count($g) > 1 ? $g : ['' => $lignes];
+    }
+
     public const COULEURS = [
         1 => ['Noir', '1E293B'], 2 => ['Gris', '64748B'], 3 => ['Bleu foncé', '1F4E79'], 4 => ['Bleu', '2E74B5'],
         5 => ['Vert', '15803D'], 6 => ['Orange', 'C2410C'], 7 => ['Rouge', 'B91C1C'], 8 => ['Violet', '7E22CE'],
@@ -2193,6 +2857,12 @@ class CompteRenduController extends Controller
     private function ecrireDocx(string $path, string $documentXml, ?string $logoPath = null, string $headerLine = '', string $footerLine = 'Confidentiel - Usage interne'): void
     {
         if (file_exists($path)) unlink($path);
+        // Police de rendu choisie (Segoe UI par défaut) : remplace la police de base dans tout le document
+        $police = htmlspecialchars(self::police($this->miseEnForme)[0], ENT_XML1, 'UTF-8');
+        $documentXml = str_replace('Times New Roman', $police, $documentXml);
+        // En-tête et pied de page réglés dans le document (sinon textes par défaut)
+        $headerLine = $this->miseEnForme['entete'] ?? $headerLine;
+        $footerLine = $this->miseEnForme['pied'] ?? $footerLine;
         $zip = new \ZipArchive();
         $zip->open($path, \ZipArchive::CREATE);
 
@@ -2203,8 +2873,8 @@ class CompteRenduController extends Controller
         }
 
         // Header & Footer XML parts
-        $zip->addFromString('word/header1.xml', $this->genDocxHeaderXml($headerLine));
-        $zip->addFromString('word/footer1.xml', $this->genDocxFooterXml($footerLine));
+        $zip->addFromString('word/header1.xml', str_replace('Times New Roman', $police, $this->genDocxHeaderXml($headerLine)));
+        $zip->addFromString('word/footer1.xml', str_replace('Times New Roman', $police, $this->genDocxFooterXml($footerLine, $this->miseEnForme['num_page'] ?? true)));
 
         $zip->addFromString('[Content_Types].xml',
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -2244,7 +2914,7 @@ class CompteRenduController extends Controller
             . ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
             . '<w:docDefaults>'
             .   '<w:rPrDefault><w:rPr>'
-            .     '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/>'
+            .     "<w:rFonts w:ascii=\"{$police}\" w:hAnsi=\"{$police}\" w:eastAsia=\"{$police}\" w:cs=\"{$police}\"/>"
             .     '<w:sz w:val="24"/><w:szCs w:val="24"/>'
             .     '<w:lang w:val="fr-FR" w:eastAsia="fr-FR" w:bidi="ar-SA"/>'
             .   '</w:rPr></w:rPrDefault>'
@@ -2258,7 +2928,7 @@ class CompteRenduController extends Controller
             .   '<w:qFormat/>'
             .   '<w:pPr><w:spacing w:line="360" w:lineRule="auto"/><w:jc w:val="both"/></w:pPr>'
             .   '<w:rPr>'
-            .     '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/>'
+            .     "<w:rFonts w:ascii=\"{$police}\" w:hAnsi=\"{$police}\" w:eastAsia=\"{$police}\" w:cs=\"{$police}\"/>"
             .     '<w:sz w:val="24"/><w:szCs w:val="24"/>'
             .   '</w:rPr>'
             . '</w:style>'

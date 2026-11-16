@@ -58,11 +58,47 @@ class Sprint extends Model
     /** Sprint Backlog : user stories retenues pour ce sprint. */
     public function userStories(): BelongsToMany
     {
-        return $this->belongsToMany(UserStory::class, 'sprint_user_stories')->withPivot('statut_sprint')->withTimestamps();
+        return $this->belongsToMany(UserStory::class, 'sprint_user_stories')->withPivot('statut_sprint', 'instantane', 'fige_le')->withTimestamps();
+    }
+
+    /**
+     * Clôture : chaque story du Sprint Backlog est figée telle qu'elle est (intitulé, fonctionnalité, epic, points…).
+     * Le sprint se lit ensuite à travers cet instantané, quelles que soient les évolutions du Product Backlog.
+     */
+    public function figerBacklog(): int
+    {
+        $stories = $this->userStories()->get();
+        foreach ($stories as $us) {
+            $valeurs = collect(UserStory::CHAMPS_FIGES)->mapWithKeys(fn($c) => [$c => $us->valeurActuelle($c)])->all();
+            $valeurs['effort_estime'] = $valeurs['effort_estime'] === null ? null : (int) $valeurs['effort_estime'];
+            $valeurs['statut'] = $us->statut;
+            $this->userStories()->updateExistingPivot($us->id, ['instantane' => json_encode($valeurs, JSON_UNESCAPED_UNICODE), 'fige_le' => now()]);
+        }
+        $this->unsetRelation('userStories');
+        return $stories->count();
     }
     /** Ajustements d'équipe propres au sprint (ajouts hors équipe projet, retraits). */
     public function equipeAjustements(): HasMany { return $this->hasMany(SprintEquipe::class); }
     public function dailyScrums(): HasMany { return $this->hasMany(DailyScrum::class)->orderBy('numero_jour'); }
+
+    /**
+     * Objectif du sprint découpé en objectifs distincts (un par ligne, ou séparés par « ; »),
+     * pour un affichage en liste. Un objectif d'un seul tenant reste un seul élément.
+     * @return string[]
+     */
+    public function objectifs(): array
+    {
+        return self::decouperObjectif($this->objectif);
+    }
+
+    public static function decouperObjectif(?string $texte): array
+    {
+        $parts = preg_split('/\r?\n|;/u', (string) $texte);
+        return array_values(array_filter(array_map(function ($p) {
+            $p = trim(preg_replace('/\s+/u', ' ', str_replace("\u{00A0}", ' ', $p)), " \t-•·.");
+            return $p === '' ? '' : mb_strtoupper(mb_substr($p, 0, 1)) . mb_substr($p, 1);
+        }, $parts)));
+    }
 
     /** Durée du sprint en jours travaillés (horaires paramétrables). */
     public function dureeJours(): int
@@ -70,10 +106,6 @@ class Sprint extends Model
         return Tache::joursOuvres($this->date_debut, $this->date_fin);
     }
 
-    /**
-     * Points engagés : somme des story points des user stories du Sprint Backlog
-     * (repli sur l'engagement saisi si aucune story n'est estimée).
-     */
     /**
      * Urgence du sprint pour le voyant : échéance de fin, en jours ouvrés.
      * @return array{niveau: string, libelle: string, court: string}
@@ -89,6 +121,10 @@ class Sprint extends Model
         return ['niveau' => $j <= 2 ? 'proche' : ($j <= 5 ? 'semaine' : 'ok'), 'libelle' => "{$j} jour(s) ouvré(s) restant(s), fin le {$fin}", 'court' => "{$j} j restant(s)"];
     }
 
+    /**
+     * Points engagés : somme des story points des user stories du Sprint Backlog
+     * (repli sur l'engagement saisi si aucune story n'est estimée). Sprint clôturé : points figés à la clôture.
+     */
     public function pointsEngages(): int
     {
         $pts = (int) $this->userStories->sum('effort_estime');

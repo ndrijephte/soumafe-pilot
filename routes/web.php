@@ -34,6 +34,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sprints', [SprintController::class, 'store'])->name('sprints.store');
     Route::get('/sprints/{sprint}', [SprintController::class, 'show'])->name('sprints.show');
     Route::get('/sprints/{sprint}/planning', [SprintController::class, 'planning'])->name('sprints.planning');
+    Route::get('/sprints/{sprint}/planning/modele', [SprintController::class, 'modelePlanning'])->name('sprints.planning.modele');
     Route::put('/sprints/{sprint}', [SprintController::class, 'update'])->name('sprints.update');
     Route::post('/sprints/{sprint}/cloturer', [SprintController::class, 'cloturer'])->name('sprints.cloturer');
     Route::post('/sprints/{sprint}/demarrer', [SprintController::class, 'demarrer'])->name('sprints.demarrer');
@@ -61,7 +62,9 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/projets/{projet}/collaborateurs/{collaborateur}/retirer', [ProjetScrumController::class, 'retirerCollaborateur'])->name('projets.collaborateurs.retirer');
     Route::post('/projets/{projet}/user-stories', [ProjetScrumController::class, 'storeUserStory'])->name('projets.user-stories.store');
     Route::put('/user-stories/{userStory}', [ProjetScrumController::class, 'updateUserStory'])->name('user-stories.update');
+    Route::post('/projets/{projet}/epics/renommer', [ProjetScrumController::class, 'renommerEpic'])->name('projets.epics.renommer');
     Route::delete('/user-stories/{userStory}', [ProjetScrumController::class, 'destroyUserStory'])->name('user-stories.destroy');
+    Route::patch('/user-stories/{userStory}/restaurer', [ProjetScrumController::class, 'restaurerUserStory'])->name('user-stories.restaurer');
     Route::patch('/user-stories/{userStory}/statut', [ProjetScrumController::class, 'statutUserStory'])->name('user-stories.statut');
     Route::patch('/user-stories/{userStory}/avancement', [ProjetScrumController::class, 'avancementUserStory'])->name('user-stories.avancement');
     Route::post('/projets/{projet}/user-stories/import', [ProjetScrumController::class, 'importerBacklog'])->name('projets.backlog.import');
@@ -82,6 +85,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/daily-scrum/{daily}/publier', [SprintScrumController::class, 'publierDaily'])->name('scrum.d.publier');
     Route::post('/daily-scrum/{daily}/depublier', [SprintScrumController::class, 'depublierDaily'])->name('scrum.d.depublier');
     Route::delete('/daily-scrum/{daily}', [SprintScrumController::class, 'destroyDaily'])->name('scrum.d.destroy');
+    Route::get('/sprints/{sprint}/demo', [SprintScrumController::class, 'demo'])->name('scrum.demo');
     Route::get('/sprints/{sprint}/review', [SprintScrumController::class, 'review'])->name('scrum.review');
     Route::put('/sprints/{sprint}/review', [SprintScrumController::class, 'updateReview'])->name('scrum.review.update');
     Route::post('/sprints/{sprint}/review/valider', [SprintScrumController::class, 'validerReview'])->name('scrum.review.valider');
@@ -156,17 +160,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/comptes-rendus', [CompteRenduController::class, 'index'])->name('comptes-rendus.index');
     Route::get('/comptes-rendus/creer', [CompteRenduController::class, 'create'])->name('comptes-rendus.create');
     Route::post('/comptes-rendus/designer', [CompteRenduController::class, 'designer'])->name('comptes-rendus.designer');
+    Route::get('/comptes-rendus/{cr}/sprint-actuel', [CompteRenduController::class, 'sprintActuel'])->name('comptes-rendus.sprint-actuel');
     Route::get('/comptes-rendus/scribe-du-jour', [CompteRenduController::class, 'scribe'])->name('comptes-rendus.scribe');
     Route::get('/comptes-rendus/{cr}', [CompteRenduController::class, 'show'])->name('comptes-rendus.show');
     Route::get('/comptes-rendus/{cr}/editer', [CompteRenduController::class, 'edit'])->name('comptes-rendus.edit');
     Route::put('/comptes-rendus/{cr}', [CompteRenduController::class, 'update'])->name('comptes-rendus.update');
     Route::post('/comptes-rendus/{cr}/confirmer', [CompteRenduController::class, 'confirmer'])->name('comptes-rendus.confirmer');
+    Route::post('/comptes-rendus/{cr}/transmettre', [CompteRenduController::class, 'transmettre'])->name('comptes-rendus.transmettre');
+    Route::post('/comptes-rendus/{cr}/relire', [CompteRenduController::class, 'relire'])->name('comptes-rendus.relire');
     Route::get('/comptes-rendus/{cr}/telecharger', [CompteRenduController::class, 'telecharger'])->name('comptes-rendus.telecharger');
     Route::get('/comptes-rendus/{cr}/imprimer', [CompteRenduController::class, 'imprimer'])->name('comptes-rendus.imprimer');
     Route::delete('/comptes-rendus/{cr}', [CompteRenduController::class, 'destroy'])->name('comptes-rendus.destroy');
 
     // CR Review Sprint (format review_v1 - document formel)
-    Route::post('/sprints/{sprint}/cr-review', [CompteRenduController::class, 'createReviewSprint'])->name('comptes-rendus.review-sprint.create');
     Route::get('/comptes-rendus/{cr}/review-sprint', [CompteRenduController::class, 'editReviewSprint'])->name('comptes-rendus.review-sprint.edit');
     Route::put('/comptes-rendus/{cr}/review-sprint', [CompteRenduController::class, 'updateReviewSprint'])->name('comptes-rendus.review-sprint.update');
     Route::post('/comptes-rendus/{cr}/review-sprint/confirmer', [CompteRenduController::class, 'confirmerReviewSprint'])->name('comptes-rendus.review-sprint.confirmer');

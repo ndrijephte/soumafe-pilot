@@ -419,6 +419,10 @@ class DashboardController extends Controller
         // Sprint dont la date de fin est passée mais non clôturé : ses tâches restent actives (et en retard)
         $echus = Sprint::with('projet')->where('statut', 'en_cours')->whereDate('date_fin', '<', today())->orderBy('date_fin')->get();
         if ($echus->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $echus->count() . ' sprint(s) échu(s) non clôturé(s) : ' . $echus->map(fn($s) => ($s->projet->code ?: $s->projet->libelle) . ' Sprint ' . $s->numero . ' (fin ' . $s->date_fin->format('d/m') . ')')->join(', ') . '. À clôturer pour archiver leurs tâches.'];
+        // Sprints clôturés depuis moins de deux mois dont les rapports (CR Démo, Review, Rétrospective) restent à finaliser
+        $sansRapports = Sprint::with('projet')->where('statut', 'termine')->whereDate('date_fin', '>=', today()->subMonths(2))->orderBy('date_fin')->get()
+            ->map(fn($s) => [$s, \App\Services\CeremoniesScrum::rapportsManquants($s)])->filter(fn($x) => $x[1]);
+        if ($sansRapports->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => 'Rapports à finaliser : ' . $sansRapports->map(fn($x) => ($x[0]->projet->code ?: $x[0]->projet->libelle) . ' Sprint ' . $x[0]->numero . ' (' . implode(', ', $x[1]) . ')')->join(' ; ') . '.'];
         $aArbitrer = Sprint::whereDate('date_fin', '>=', today()->subMonths(3))->get()->filter->arbitragePeriodeRequis();
         if ($aArbitrer->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $aArbitrer->count() . " sprint(s) à cheval sur deux périodes d'exercice : arbitrage requis (" . $aArbitrer->map(fn($s) => 'Sprint ' . $s->numero)->join(', ') . ').'];
 

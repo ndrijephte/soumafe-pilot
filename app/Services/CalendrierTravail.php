@@ -69,17 +69,37 @@ final class CalendrierTravail
         return self::estJourSpecial($date) || (self::estJourTravaille($date) && !self::estFerie($date));
     }
 
-    /** Heure d'arrivée attendue (« 08:00 »). */
+    /** Heure d'arrivée attendue ce jour-là (« 08:00 ») : horaire propre au jour de la semaine, sinon général. */
     public static function heureArrivee(CarbonInterface|string|null $date = null): string
     {
-        return self::regle($date)->arrivee();
+        $d = Carbon::parse($date ?? today());
+        return self::regle($d)->arrivee($d->dayOfWeekIso);
     }
 
-    /** Heure de départ attendue (« 18:00 »). */
+    /** Heure de départ attendue ce jour-là (« 18:00 »). */
     public static function heureDepart(CarbonInterface|string|null $date = null): string
     {
-        return self::regle($date)->depart();
+        $d = Carbon::parse($date ?? today());
+        return self::regle($d)->depart($d->dayOfWeekIso);
     }
+
+    /** Heure au-delà de laquelle une arrivée est un retard : heure de début + tolérance. */
+    public static function limiteRetard(CarbonInterface|string|null $date = null): Carbon
+    {
+        $d = Carbon::parse($date ?? today());
+        return Carbon::parse(self::heureArrivee($d))->addMinutes((int) self::regle($d)->tolerance_arrivee);
+    }
+
+    /** Heure avant laquelle un départ est anticipé : heure de fin - tolérance. */
+    public static function limiteDepartAnticipe(CarbonInterface|string|null $date = null): Carbon
+    {
+        $d = Carbon::parse($date ?? today());
+        return Carbon::parse(self::heureDepart($d))->subMinutes((int) self::regle($d)->tolerance_depart);
+    }
+
+    /** Heures des traitements automatiques en vigueur aujourd'hui (contrôle de saisie, Daily Scrum). */
+    public static function heureControleSaisie(): string { return self::regle()->heureControleSaisie(); }
+    public static function heureDailyAuto(): string { return self::regle()->heureDailyAuto(); }
 
     /** Nombre de jours ouvrés entre deux dates incluses. */
     public static function joursOuvres(CarbonInterface|string $debut, CarbonInterface|string $fin): int

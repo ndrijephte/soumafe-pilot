@@ -13,24 +13,24 @@
 .fg .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .cr-tabs{display:flex;gap:0;margin-bottom:24px;border-radius:10px;overflow:hidden;border:1px solid #d1d5db}
 .cr-tabs a{flex:1;text-align:center;padding:10px 16px;font-size:.85rem;font-weight:600;text-decoration:none;transition:background .15s,color .15s;color:#64748b;background:#f8fafc}
-.cr-tabs a.active{background:var(--bleu,#1F4E79);color:#fff}
+.cr-tabs a.active{background:var(--accent,#2E74B5);color:#fff}
 .cr-tabs a:not(.active):hover{background:#e2e8f0}
 .cr-bar{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid #f1f5f9}
 .cr-bar .btn-annuler{padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:500;text-decoration:none;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;transition:background .15s}
 .cr-bar .btn-annuler:hover{background:#e2e8f0;color:#334155}
-.cr-bar .btn-creer{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--bleu,#1F4E79);border:none;cursor:pointer;transition:background .15s;box-shadow:0 1px 3px rgba(31,78,121,.2)}
-.cr-bar .btn-creer:hover{background:var(--accent,#2E74B5)}
+.cr-bar .btn-creer{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--accent,#1F4E79);border:none;cursor:pointer;transition:background .15s;box-shadow:0 1px 3px rgba(31,78,121,.2)}
+.cr-bar .btn-creer:hover{background:#245f96}
 @media(max-width:600px){.cr-form{padding:18px 14px;border-radius:10px}.fg .row2{grid-template-columns:1fr}.cr-tabs a{padding:8px 10px;font-size:.78rem}.cr-bar{flex-direction:column}.cr-bar .btn-annuler,.cr-bar .btn-creer{width:100%;text-align:center;justify-content:center}}
 </style>
 
 <div class="cr-form">
     <div class="cr-tabs">
         <a href="{{ route('comptes-rendus.create', ['type' => 'reunion_ordinaire']) }}" class="{{ $type !== 'demo_sprint' ? 'active' : '' }}">Réunion</a>
-        <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="{{ $type === 'demo_sprint' ? 'active' : '' }}">Démo sprint</a>
+        <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="{{ $type === 'demo_sprint' ? 'active' : '' }}">Rapport de review</a>
     </div>
 
     <h2>Désigner le rédacteur</h2>
-    <div class="cr-sub">{{ $type === 'demo_sprint' ? 'Démonstration sprint' : 'Compte rendu de réunion' }}</div>
+    <div class="cr-sub">{{ $type === 'demo_sprint' ? 'Rapport de Review Sprint' : 'Compte rendu de réunion' }}</div>
 
     @if($errors->any())
     <div style="background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:.85rem">
@@ -44,7 +44,7 @@
         <div class="fg">
             <label>Titre</label>
             <input name="titre" value="{{ old('titre', match($type) {
-                'demo_sprint' => 'Démonstration sprint',
+                'demo_sprint' => 'Rapport de Review Sprint',
                 default => 'Réunion du ' . now()->format('d/m/Y'),
             }) }}" required>
         </div>
@@ -113,7 +113,7 @@
         </div>
         <div class="fg">
             <label>Sprint</label>
-            <select name="sprint_id" id="sprint-select">
+            <select name="sprint_id" id="sprint-select" required>
                 <option value="">— Choisir —</option>
                 @foreach($sprints as $s)
                 <option value="{{ $s->id }}" data-projet="{{ $s->projet_id }}" @selected(old('sprint_id', $sprintId) == $s->id)>

@@ -60,7 +60,7 @@ $moscowOpts = \App\Models\UserStory::MOSCOW;
 .btn-add:hover{background:#e2e8f0}
 .btn-rm{background:none;border:none;color:#dc2626;cursor:pointer;font-size:1.1rem;padding:2px 6px}
 .btn-act{text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border-radius:8px;font-size:.88rem;font-weight:600;cursor:pointer;border:none;transition:all .15s}
-.btn-save{background:var(--bleu,#1F4E79);color:#fff}.btn-save:hover{background:#163d5e}
+.btn-save{background:var(--accent,#2E74B5);color:#fff}.btn-save:hover{background:#163d5e}
 .btn-confirm{background:#16a34a;color:#fff}.btn-confirm:hover{background:#15803d}
 .btn-dl{background:#2E74B5;color:#fff}.btn-dl:hover{background:#1F4E79}
 .btn-back{background:#f1f5f9;color:#475569;border:1px solid #d1d5db}.btn-back:hover{background:#e2e8f0}
@@ -149,7 +149,7 @@ $moscowOpts = \App\Models\UserStory::MOSCOW;
         <div style="font-size:.88rem;color:#64748b;white-space:pre-line">{{ $donnees['objectif'] ?? $sprint->objectif }}</div>
     </div>
     @endif
-    @if ($peutValider || $user->estAdmin())
+    @if ($peutValider || $user->estPilote())
     <div class="fg">
         <label>R&eacute;dacteur</label>
         <select name="redacteur_id" {{ $estLecture ? 'disabled' : '' }}>

@@ -8,8 +8,95 @@ use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasMany};
 class UserStory extends Model
 {
     protected $table = 'user_stories';
-    protected $fillable = ['projet_id', 'numero', 'module', 'intitule', 'exigences', 'taches_techniques', 'priorite', 'statut', 'effort_estime', 'origine', 'criteres_acceptation', 'priorite_moscow', 'points_effort', 'epic', 'profil', 'dor', 'source_cr_id', 'avancement', 'avancement_note', 'avancement_par', 'avancement_le'];
-    protected $casts = ['criteres_acceptation' => 'array', 'avancement_le' => 'datetime', 'dor' => 'boolean'];
+    protected $fillable = ['projet_id', 'numero', 'module', 'intitule', 'exigences', 'taches_techniques', 'priorite', 'statut', 'effort_estime', 'origine', 'criteres_acceptation', 'priorite_moscow', 'points_effort', 'epic', 'profil', 'dor', 'source_cr_id', 'avancement', 'avancement_note', 'avancement_par', 'avancement_le', 'archivee_le', 'archive_motif'];
+    protected $casts = ['criteres_acceptation' => 'array', 'avancement_le' => 'datetime', 'dor' => 'boolean', 'contenu_modifie_le' => 'datetime', 'archivee_le' => 'datetime'];
+
+    /** Contenu suivi : sa modification est datée et signalée aux développeurs d'un sprint en cours. */
+    public const CHAMPS_SUIVIS = [
+        'numero' => 'N°', 'intitule' => 'Intitulé', 'exigences' => 'Exigences', 'module' => 'Fonctionnalité', 'epic' => 'Epic / Module',
+        'profil' => 'Profil', 'priorite_moscow' => 'MoSCoW', 'effort_estime' => 'Story points', 'dor' => 'DoR',
+    ];
+    /** Valeurs conservées à la clôture d'un sprint (instantané du Sprint Backlog). */
+    public const CHAMPS_FIGES = ['numero', 'intitule', 'module', 'epic', 'profil', 'priorite_moscow', 'effort_estime'];
+
+    /** Signalement des modifications aux développeurs (désactivé pendant un traitement groupé, qui signale une seule fois). */
+    public static bool $signaler = true;
+
+    protected static function booted(): void
+    {
+        static::updating(function (self $us) {
+            $champs = array_intersect_key(self::CHAMPS_SUIVIS, $us->getDirty());
+            if (!$champs) return;
+            $us->contenu_modifie_le = now();
+            $us->contenu_modifie_champs = implode(', ', $champs);
+        });
+        static::updated(function (self $us) {
+            if (self::$signaler && $us->wasChanged('contenu_modifie_le')) self::signalerModifications(collect([$us]));
+        });
+    }
+
+    /**
+     * Dans un sprint clôturé, la story se lit telle qu'elle était à la clôture (instantané du pivot) :
+     * points engagés, vélocité, archives et rapports restent stables si le Product Backlog évolue.
+     */
+    public function getAttribute($key)
+    {
+        if (in_array($key, self::CHAMPS_FIGES, true) && ($fige = $this->instantaneSprint()) !== null && array_key_exists($key, $fige)) {
+            return $fige[$key];
+        }
+        return parent::getAttribute($key);
+    }
+
+    /** Instantané de clôture, quand la story est lue à travers un sprint figé. */
+    public function instantaneSprint(): ?array
+    {
+        if (!$this->relationLoaded('pivot')) return null;
+        $brut = $this->getRelation('pivot')?->getAttributes()['instantane'] ?? null;
+        return $brut ? (json_decode($brut, true) ?: null) : null;
+    }
+
+    /** Valeurs actuelles de la story, hors instantané. */
+    public function valeurActuelle(string $champ) { return parent::getAttribute($champ); }
+
+    /** Modifiée après son entrée dans un sprint en cours (contenu, pas le statut). */
+    public function modifieeDansSprint(Sprint $sprint): bool
+    {
+        if (!$this->contenu_modifie_le || $sprint->statut !== 'en_cours') return false;
+        $depuis = $sprint->date_debut->copy()->startOfDay();
+        $entree = $this->relationLoaded('pivot') ? $this->getRelation('pivot')?->created_at : null;
+        if ($entree && $entree->gt($depuis)) $depuis = $entree;
+        return $this->contenu_modifie_le->gt($depuis);
+    }
+
+    /**
+     * Prévient les développeurs qui ont des tâches non terminées sur ces stories dans un sprint en cours
+     * (une notification par développeur et par sprint).
+     */
+    public static function signalerModifications(\Illuminate\Support\Collection $stories): void
+    {
+        $ids = $stories->pluck('id')->filter()->unique();
+        if ($ids->isEmpty() || !\Illuminate\Support\Facades\Schema::hasTable('notifications_app')) return;
+        $sprints = Sprint::where('statut', 'en_cours')->whereHas('userStories', fn($q) => $q->whereIn('user_stories.id', $ids))->get();
+        foreach ($sprints as $sp) {
+            $taches = Tache::where('sprint_id', $sp->id)->whereIn('user_story_id', $ids)->whereNotNull('user_id')
+                ->whereNotIn('statut', ['termine', 'reporte'])->get(['user_id', 'user_story_id']);
+            foreach ($taches->groupBy('user_id') as $userId => $lot) {
+                if ((int) $userId === auth()->id()) continue;
+                $concernees = $stories->whereIn('id', $lot->pluck('user_story_id')->unique());
+                $quoi = $concernees->count() === 1
+                    ? "La user story {$concernees->first()->numero} a été modifiée dans le Product Backlog (" . ($concernees->first()->contenu_modifie_champs ?: 'contenu') . ')'
+                    : 'Les user stories ' . $concernees->pluck('numero')->join(', ', ' et ') . ' ont été modifiées dans le Product Backlog';
+                NotificationApp::create([
+                    'user_id' => $userId, 'type' => 'story_modifiee', 'lu' => false, 'canal' => 'in_app',
+                    'contenu' => "Sprint {$sp->numero} : {$quoi}. Vérifiez vos tâches.",
+                    'lien' => route('sprints.show', $sp),
+                ]);
+            }
+        }
+    }
+
+    public function estArchivee(): bool { return $this->archivee_le !== null; }
+    public function scopeActives($q) { return $q->whereNull('user_stories.archivee_le'); }
 
     public const STATUTS = ['a_faire' => 'À faire', 'en_cours' => 'En cours', 'en_revue' => 'En revue', 'terminee' => 'Terminée', 'acceptee' => 'Acceptée', 'bloquee' => 'Bloquée'];
     /** Stories achevées : terminées, et acceptées par le Product Owner à la Review. */
@@ -20,7 +107,7 @@ class UserStory extends Model
     public function taches(): HasMany { return $this->hasMany(Tache::class); }
     public function sprints(): BelongsToMany
     {
-        return $this->belongsToMany(Sprint::class, 'sprint_user_stories')->withPivot('statut_sprint')->withTimestamps();
+        return $this->belongsToMany(Sprint::class, 'sprint_user_stories')->withPivot('statut_sprint', 'fige_le')->withTimestamps();
     }
 
     public const ORIGINES = ['manuel' => 'Saisie', 'import' => 'Import Excel', 'review' => 'Sprint Review', 'retrospective' => 'Rétrospective'];
@@ -91,7 +178,7 @@ class UserStory extends Model
     /** Stories du backlog où puiser : prêtes (DoR = Oui), non achevées et engagées dans aucun sprint ouvert. */
     public function scopeDisponibles($q)
     {
-        return $q->where('dor', true)->whereNotIn('statut', self::FINIES)->whereDoesntHave('sprints', fn($s) => $s->where('sprints.statut', '!=', 'termine'));
+        return $q->whereNull('user_stories.archivee_le')->where('dor', true)->whereNotIn('statut', self::FINIES)->whereDoesntHave('sprints', fn($s) => $s->where('sprints.statut', '!=', 'termine'));
     }
 
     public function estFinie(): bool { return in_array($this->statut, self::FINIES, true); }

@@ -159,7 +159,7 @@ class PointageController extends Controller
 
         // Motif obligatoire si départ avant l'heure de fin en vigueur
         $hDepart = Carbon::parse($now);
-        if ($hDepart->lt(Carbon::parse(\App\Services\CalendrierTravail::heureDepart())) && !$r->filled('motif_depart')) {
+        if ($hDepart->lt(\App\Services\CalendrierTravail::limiteDepartAnticipe()) && !$r->filled('motif_depart')) {
             return redirect()->route('pointage.index')
                 ->with('demande_motif_depart_avant', $pointage->id);
         }

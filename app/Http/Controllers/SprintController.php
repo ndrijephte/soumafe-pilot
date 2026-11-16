@@ -46,6 +46,14 @@ class SprintController extends Controller
     }
 
     /** Page détail d'un sprint : tâches, import, ajout. */
+    /** Modèle d'import du Sprint Planning, propre au sprint (user stories proposables, équipe). */
+    public function modelePlanning(Request $r, Sprint $sprint)
+    {
+        abort_unless($sprint->projet->estVisiblePour($r->user()), 403);
+        $nom = 'MODELE_SPRINT_PLANNING_' . \Illuminate\Support\Str::upper(\Illuminate\Support\Str::slug($sprint->projet->code ?: $sprint->projet->libelle, '_')) . "_S{$sprint->numero}.xlsx";
+        return \App\Services\ArchiveScrum::modelePlanning($sprint)->telecharger($nom);
+    }
+
     /** Sprint Planning : les tâches du sprint. */
     public function planning(Request $r, Sprint $sprint)
     {
@@ -197,18 +205,7 @@ class SprintController extends Controller
     {
         abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
         if ($sprint->statut !== 'en_cours') return back()->with('erreur', $sprint->statut === 'termine' ? 'Ce sprint est déjà clôturé.' : "Ce sprint n'a pas démarré.");
-        // Review et Rétrospective précèdent la clôture ; à défaut, un pilote tranche selon les réalités, motif obligatoire
-        $motif = null;
-        if ($manque = \App\Services\CeremoniesScrum::manquantsCloture($sprint)) {
-            if (!$r->user()->estPilote()) {
-                return back()->with('erreur', 'Clôture impossible : validez d\'abord ' . implode(' et ', $manque) . ', ou demandez à un pilote de clôturer avec un motif.');
-            }
-            $motif = trim((string) $r->validate(['motif_cloture' => 'required|string|min:5|max:1000'], [
-                'motif_cloture.required' => 'Le motif est obligatoire pour clôturer sans ' . implode(' ni ', $manque) . ' validée(s).',
-                'motif_cloture.min' => 'Précisez le motif (5 caractères au moins).',
-            ])['motif_cloture']);
-        }
-
+        // La clôture ouvre les rapports : démonstration (CR Démo), Review, puis Rétrospective
         $cloture = new ClotureService();
         $taches = $sprint->taches()->whereIn('statut', ['a_faire', 'en_cours', 'bloque', 'termine'])->get();
 
@@ -231,9 +228,9 @@ class SprintController extends Controller
             }
         }
 
-        $sprint->update(['statut' => 'termine', 'justification_arret' => $motif]);
-        if ($motif) \App\Models\AuditLog::log('cloture_motivee', 'sprints', "Sprint #{$sprint->numero}", 'Sans ' . implode(' ni ', $manque) . ' validée(s) - Motif : ' . $motif);
+        $sprint->update(['statut' => 'termine']);
         $retournees = $this->retourBacklog($sprint);
+        $sprint->figerBacklog();
 
         // Résumé
         $pointsLivres = $sprint->pointsLivres();
@@ -266,6 +263,7 @@ class SprintController extends Controller
             'arrete_le' => now(),
         ]);
         $retournees = $this->retourBacklog($sprint);
+        $sprint->figerBacklog();
 
         // Notifier le responsable projet
         if ($sprint->projet?->responsable_projet_id) {
@@ -576,7 +574,7 @@ class SprintController extends Controller
                     $numero = trim($this->chercher($row, ['n°', 'n', 'no', 'num', 'numero', 'numéro']) ?? '');
                     $colStory = trim($this->chercher($row, ['user_story', 'user story', 'story', 'us']) ?? '');
                     $colModule = trim($this->chercher($row, ['module', 'module_/_fonctionnalité', 'fonctionnalité', 'fonctionnalite']) ?? '');
-                    $colEpic = trim($this->chercher($row, ['epic']) ?? '');
+                    $colEpic = trim($this->chercher($row, ['epic', 'epic_module', 'epic_/_module', 'epic/module']) ?? '');
                     $intitule = trim($this->chercher($row, ['intitulé', 'intitule', 'tâche', 'tache', 'tâches', 'taches', 'libellé', 'libelle']) ?? '');
                     $points = trim($this->chercher($row, ['points', 'story_points', 'pts']) ?? '');
 
@@ -799,6 +797,11 @@ class SprintController extends Controller
         if (is_numeric($val) && (int) $val > 30000 && (int) $val < 80000) {
             $timestamp = \Carbon\Carbon::createFromDate(1899, 12, 30)->addDays((int) $val);
             return $timestamp->format('Y-m-d');
+        }
+        // Date française jj/mm/aaaa (ou jj-mm-aaaa, jj.mm.aa) : jour avant mois, jamais l'ordre américain
+        if (preg_match('#^\s*(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})\s*$#', $val, $m)) {
+            $annee = strlen($m[3]) === 2 ? 2000 + (int) $m[3] : (int) $m[3];
+            return checkdate((int) $m[2], (int) $m[1], $annee) ? sprintf('%04d-%02d-%02d', $annee, $m[2], $m[1]) : null;
         }
         try {
             return \Carbon\Carbon::parse($val)->format('Y-m-d');

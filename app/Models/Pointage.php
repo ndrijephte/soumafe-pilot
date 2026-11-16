@@ -42,8 +42,9 @@ class Pointage extends Model
         $arrivee = $this->heure_arrivee ? Carbon::parse($this->heure_arrivee) : null;
         $depart  = $this->heure_depart ? Carbon::parse($this->heure_depart) : null;
 
-        $limiteArrivee = Carbon::parse(CalendrierTravail::heureArrivee($this->date ?? today()));
-        $limiteDepart  = Carbon::parse(CalendrierTravail::heureDepart($this->date ?? today()));
+        // Horaires du jour (propres au jour de la semaine le cas échéant), tolérances comprises
+        $limiteArrivee = CalendrierTravail::limiteRetard($this->date ?? today());
+        $limiteDepart  = CalendrierTravail::limiteDepartAnticipe($this->date ?? today());
 
         $retard   = $arrivee && $arrivee->gt($limiteArrivee);
         $sortiTot = $depart && $depart->lt($limiteDepart);
@@ -55,13 +56,14 @@ class Pointage extends Model
         return 'present';
     }
 
-    /** Durée de présence en heures (décimal) */
+    /** Durée de présence en heures (décimal), pause déjeuner en vigueur déduite */
     public function dureeHeures(): ?float
     {
         if (!$this->heure_arrivee || !$this->heure_depart) return null;
         $a = Carbon::parse($this->heure_arrivee);
         $d = Carbon::parse($this->heure_depart);
-        return round($d->diffInMinutes($a) / 60, 2);
+        $pause = CalendrierTravail::regle($this->date ?? today())->pauseDans($a->format('H:i'), $d->format('H:i'));
+        return round(max(0, abs($d->diffInMinutes($a)) - $pause) / 60, 2);
     }
 
     /** Durée formatée Xh Ymin */

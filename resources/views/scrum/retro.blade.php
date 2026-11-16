@@ -25,7 +25,7 @@
     @elseif(!$cr)<span class="pill p-attente">Rétrospective non commencée</span>
     @elseif($valide)<span class="pill p-ok">Rétrospective validée</span>
         <span style="font-size:12px;color:var(--gris)">Modifiable par un pilote uniquement.</span>
-        @if(auth()->user()->estAdmin())<form method="POST" action="{{ route('scrum.rouvrir', [$sprint, 'retrospective']) }}" style="margin:0">@csrf<button class="btn sm sec">Rouvrir</button></form>@endif
+        @if(auth()->user()->estPilote())<form method="POST" action="{{ route('scrum.rouvrir', [$sprint, 'retrospective']) }}" style="margin:0">@csrf<button class="btn sm sec">Rouvrir</button></form>@endif
     @else<span class="pill p-warn">Brouillon</span>@endif
     <span style="font-size:12px;color:var(--gris)">Rédigée par les développeurs de l'équipe ; les actions seront reprises au sprint suivant.</span>
 </div>

@@ -14,6 +14,18 @@ class Tache extends Model
         'qualification', 'effort_volontaire', 'justification_requise', 'user_story_id', 'teste'];
     protected $casts = ['date_debut' => 'date', 'echeance' => 'date', 'date_fin_reelle' => 'date', 'teste' => 'boolean'];
 
+    /** Qualification posée à la clôture (ClotureService, SprintController::cloturer). */
+    public const QUALIFICATIONS = [
+        'a_temps' => 'Réalisée à temps', 'anticipee' => 'Réalisée en avance', 'en_retard' => 'Réalisée en retard',
+        'non_termine_sprint' => 'Non terminée au sprint', 'non_planifiee' => 'Non planifiée',
+    ];
+
+    /** Libellé d'une qualification ; un texte libre est rendu tel quel. */
+    public static function libelleQualification(?string $v): string
+    {
+        return self::QUALIFICATIONS[$v ?? ''] ?? (string) $v;
+    }
+
     /** Module Scrum : l'avancement des tâches fait progresser la user story (backlog + sprint). */
     protected static function booted(): void
     {

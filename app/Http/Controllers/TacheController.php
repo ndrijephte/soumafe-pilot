@@ -39,10 +39,17 @@ class TacheController extends Controller
             ->groupBy('statut')
             ->map->values();
 
-        // À faire : les tâches du jour en tête (même définition que la saisie quotidienne), puis les autres
-        if (isset($taches['a_faire']) && $affichage !== 'archives') {
-            [$duJour, $autres] = $taches['a_faire']->partition(fn ($t) => self::estDuJour($t));
-            $taches['a_faire'] = $duJour->concat($autres)->values();
+        // À faire : ordre croissant (échéance la plus proche d'abord) ; les tâches du jour en tête
+        // (même définition que la saisie quotidienne), puis les autres
+        if (isset($taches['a_faire'])) {
+            $taches['a_faire'] = $taches['a_faire']->sortBy([
+                fn ($a, $b) => self::dateActivite($a)->format('Y-m-d') <=> self::dateActivite($b)->format('Y-m-d'),
+                fn ($a, $b) => $a->id <=> $b->id,
+            ])->values();
+            if ($affichage !== 'archives') {
+                [$duJour, $autres] = $taches['a_faire']->partition(fn ($t) => self::estDuJour($t));
+                $taches['a_faire'] = $duJour->concat($autres)->values();
+            }
         }
 
         return view('taches.index', [

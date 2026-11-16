@@ -67,8 +67,8 @@
 @endif
 @if($daily->estPublie())
 <div class="alerte ok" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <span><strong>Rapport publié</strong> le {{ $daily->publie_le->format('d/m/Y à H:i') }} par {{ $daily->publiePar?->nomComplet() ?? '—' }}.@if(auth()->user()->estAdmin()) Modifiable par un pilote uniquement.@endif</span>
-    @if(auth()->user()->estAdmin())<form method="POST" action="{{ $daily->url('depublier') }}" style="margin:0 0 0 auto" onsubmit="return confirm('Retirer la publication et remettre ce Daily en brouillon ?')">@csrf<button class="btn sm sec">Remettre en brouillon</button></form>@endif
+    <span><strong>Rapport publié</strong> le {{ $daily->publie_le->format('d/m/Y à H:i') }} par {{ $daily->publiePar?->nomComplet() ?? '—' }}.@if(auth()->user()->estPilote()) Modifiable par un pilote uniquement.@endif</span>
+    @if(auth()->user()->estPilote())<form method="POST" action="{{ $daily->url('depublier') }}" style="margin:0 0 0 auto" onsubmit="return confirm('Retirer la publication et remettre ce Daily en brouillon ?')">@csrf<button class="btn sm sec">Remettre en brouillon</button></form>@endif
 </div>
 @elseif($daily->estSoumis())
 <div class="alerte info" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">

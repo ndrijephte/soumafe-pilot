@@ -35,10 +35,10 @@
     @elseif(!$cr)<span class="pill p-attente">Review non commencée</span><span style="font-size:12px;color:var(--gris)">Ajoutez vos observations puis enregistrez.</span>
     @elseif($valide)<span class="pill p-ok">Review validée</span><span style="font-size:12px;color:var(--gris)">Enregistrée dans les comptes rendus le {{ $cr->updated_at->format('d/m/Y') }}.</span>
         <span style="font-size:12px;color:var(--gris)">Modifiable par un pilote uniquement.</span>
-        @if(auth()->user()->estAdmin())<form method="POST" action="{{ route('scrum.rouvrir', [$sprint, 'review_sprint']) }}" style="margin:0">@csrf<button class="btn sm sec">Rouvrir</button></form>@endif
+        @if(auth()->user()->estPilote())<form method="POST" action="{{ route('scrum.rouvrir', [$sprint, 'review_sprint']) }}" style="margin:0">@csrf<button class="btn sm sec">Rouvrir</button></form>@endif
     @else<span class="pill p-warn">Brouillon</span>@endif
-    <span style="font-size:12px;color:var(--gris)">Rédacteur : <strong style="color:#1e293b">{{ $redacteur?->nomComplet() ?? '—' }}</strong> (scribe du jour au planning des réunions)</span>
-    @if($crDemo)<a href="{{ route('comptes-rendus.show', $crDemo) }}" class="btn sm sec" style="margin-left:auto" title="Compte rendu de démonstration rédigé dans le module Comptes rendus">CR Démo du {{ $crDemo->date_reunion->format('d/m/Y') }} ({{ $crDemo->estConfirme() ? 'confirmé' : 'brouillon' }})</a>@endif
+    <span style="font-size:12px;color:var(--gris)">Chaque développeur commente ses tâches et ses user stories ; le gestionnaire du projet complète la synthèse et valide.</span>
+    @if($crDemo)<a href="{{ route('comptes-rendus.show', $crDemo) }}" class="btn sm sec" style="margin-left:auto" title="Rapport de Review Sprint rédigé dans le module Comptes rendus">Rapport de review ({{ $crDemo->estConfirme() ? 'validé' : 'brouillon' }})</a>@endif
 </div>
 
 <div class="indic">
@@ -54,10 +54,10 @@
 <form method="POST" action="{{ route('scrum.review.update', $sprint) }}">@csrf @method('PUT')
 <div class="carte" style="margin-bottom:14px">
     <div class="grille4">
-        <div class="champ"><label>Date de la review</label>@if($canEdit)<input type="date" name="date_reunion" value="{{ ($cr?->date_reunion ?? ($sprint->date_fin->lt(today()) ? $sprint->date_fin : today()))->toDateString() }}">@else<div>{{ $cr?->date_reunion?->format('d/m/Y') ?? '—' }}</div>@endif</div>
-        <div class="champ"><label>Heure début</label>@if($canEdit)<input type="time" name="heure_debut" value="{{ $cr?->heure_debut }}">@else<div>{{ $cr?->heure_debut ?? '—' }}</div>@endif</div>
-        <div class="champ"><label>Heure fin</label>@if($canEdit)<input type="time" name="heure_fin" value="{{ $cr?->heure_fin }}">@else<div>{{ $cr?->heure_fin ?? '—' }}</div>@endif</div>
-        <div class="champ"><label>Lieu</label>@if($canEdit)<input name="lieu" value="{{ $cr?->lieu }}" maxlength="255">@else<div>{{ $cr?->lieu ?? '—' }}</div>@endif</div>
+        <div class="champ"><label>Date de la review</label>@if($editGeneral)<input type="date" name="date_reunion" value="{{ ($cr?->date_reunion ?? ($sprint->date_fin->lt(today()) ? $sprint->date_fin : today()))->toDateString() }}">@else<div>{{ $cr?->date_reunion?->format('d/m/Y') ?? '—' }}</div>@endif</div>
+        <div class="champ"><label>Heure début</label>@if($editGeneral)<input type="time" name="heure_debut" value="{{ $cr?->heure_debut }}">@else<div>{{ $cr?->heure_debut ?? '—' }}</div>@endif</div>
+        <div class="champ"><label>Heure fin</label>@if($editGeneral)<input type="time" name="heure_fin" value="{{ $cr?->heure_fin }}">@else<div>{{ $cr?->heure_fin ?? '—' }}</div>@endif</div>
+        <div class="champ"><label>Lieu</label>@if($editGeneral)<input name="lieu" value="{{ $cr?->lieu }}" maxlength="255">@else<div>{{ $cr?->lieu ?? '—' }}</div>@endif</div>
     </div>
 </div>
 
@@ -83,7 +83,7 @@
                 <td colspan="5">{{ $us->intitule }}<div style="margin-top:3px;font-weight:400">@include('scrum._niveau_us', ['us' => $us, 'taches' => $g['taches']])</div></td>
                 <td class="ctr" title="{{ $us->complexiteStory()['libelle'] ?? 'Non estimée' }}">{{ $us->effort_estime ?: '—' }}</td>
                 <td><span class="pill {{ ($us->pivot->statut_sprint ?? '') === 'termine' ? 'p-ok' : (($us->pivot->statut_sprint ?? '') === 'en_cours' ? 'p-cours' : 'p-attente') }}">{{ $etatUs }}</span></td>
-                <td>@if($canEdit)<x-redaction compact name="observations[us_{{ $us->id }}]" :value="$obs['us_' . $us->id] ?? null" placeholder="Observation sur la story" />@else<x-redaction lecture vide="" :value="$obs['us_' . $us->id] ?? null" />@endif</td>
+                <td>@if($canEdit && in_array('us_' . $us->id, $modifiables, true))<x-redaction compact name="observations[us_{{ $us->id }}]" :value="$obs['us_' . $us->id] ?? null" placeholder="Observation sur la story" />@else<x-redaction lecture vide="" :value="$obs['us_' . $us->id] ?? null" />@endif</td>
             </tr>
             @endif
             @foreach($g['taches']->values() as $i => $t)
@@ -97,7 +97,7 @@
                 <td class="ctr">{{ $t->date_debut && $t->echeance ? $t->dureeJours() : '—' }}</td>
                 <td class="ctr"></td>
                 <td><span class="st-{{ $cls }}">{{ $lib }}</span> <span class="scc {{ $code['classe'] }}" title="{{ $code['libelle'] }}">{{ $code['code'] }}</span></td>
-                <td>@if($canEdit)<x-redaction compact name="observations[{{ $t->id }}]" :value="$obs[$t->id] ?? null" />@else<x-redaction lecture vide="" :value="$obs[$t->id] ?? null" />@endif</td>
+                <td>@if($canEdit && in_array((string) $t->id, $modifiables, true))<x-redaction compact name="observations[{{ $t->id }}]" :value="$obs[$t->id] ?? null" />@else<x-redaction lecture vide="" :value="$obs[$t->id] ?? null" />@endif</td>
             </tr>
             @endforeach
         @endforeach
@@ -109,18 +109,18 @@
 </div>
 
 <div class="carte grille2" style="margin-top:14px">
-    <div class="champ"><label>Synthèse de la démonstration</label>
-        @if($canEdit)<x-redaction name="synthese" :value="$donnees['synthese'] ?? null" :hauteur="110" placeholder="Ce qui a été présenté, retours du Product Owner / client…" />@else<x-redaction lecture :value="$donnees['synthese'] ?? null" />@endif
+    <div class="champ"><label>Synthèse du sprint</label>
+        @if($editGeneral)<x-redaction name="synthese" :value="$donnees['synthese'] ?? null" :hauteur="110" placeholder="Ce qui a été réalisé, difficultés rencontrées…" />@else<x-redaction lecture :value="$donnees['synthese'] ?? null" />@endif
     </div>
     <div class="champ"><label>Décisions / suite à donner</label>
-        @if($canEdit)<x-redaction name="decisions" :value="$donnees['decisions'] ?? null" :hauteur="110" placeholder="Priorités du prochain sprint, arbitrages…" />@else<x-redaction lecture :value="$donnees['decisions'] ?? null" />@endif
+        @if($editGeneral)<x-redaction name="decisions" :value="$donnees['decisions'] ?? null" :hauteur="110" placeholder="Priorités du prochain sprint, arbitrages…" />@else<x-redaction lecture :value="$donnees['decisions'] ?? null" />@endif
     </div>
 </div>
 
 {{-- La Sprint Review alimente le Product Backlog --}}
 <div class="carte" style="margin-top:14px">
     <h3 class="bloc-titre"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Ajustements du Product Backlog</h3>
-    <p class="bloc-aide">Nouvelles user stories issues de la démonstration, ajoutées au Product Backlog.</p>
+    <p class="bloc-aide">Nouvelles user stories issues de la review, ajoutées au Product Backlog.</p>
     <div style="overflow-x:auto">
     <table class="sc-tbl" id="t-backlog">
         <thead><tr><th class="col-bm">Module</th><th class="col-bi">User story</th><th class="col-be">Exigences fonctionnelles</th><th class="col-bs">Backlog</th>@if($canEdit)<th class="col-bx"></th>@endif</tr></thead>
@@ -180,6 +180,10 @@
     <h3 style="color:var(--bleu);margin-bottom:8px">Valider la review du sprint {{ $sprint->numero }}</h3>
     <p style="font-size:13px;color:#334155">Enregistrez vos saisies avant de valider.</p>
     <form method="POST" action="{{ route('scrum.review.valider', $sprint) }}">@csrf
+        <div style="font-size:12px;font-weight:700;color:var(--gris);text-transform:uppercase;margin:12px 0 6px">Objectif du sprint{{ $sprint->objectif ? ' : ' : '' }}<span style="text-transform:none;font-weight:400;font-style:italic">{{ $sprint->objectif }}</span></div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px">
+            @foreach(\App\Services\CeremoniesScrum::OBJECTIF as $k => $lib)<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="radio" name="objectif" value="{{ $k }}" required @checked(($donnees['bilan']['objectif'] ?? '') === $k)> {{ $lib }}</label>@endforeach
+        </div>
         @php $aAccepter = $sprint->userStories->where('statut', 'terminee')->count(); @endphp
         <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:12px 0 6px;cursor:pointer">
             <input type="checkbox" name="accepter" value="1" @checked($aAccepter) @disabled(!$aAccepter) style="margin-top:3px">

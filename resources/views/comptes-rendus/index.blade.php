@@ -5,16 +5,16 @@
 <style>
 .cr-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:12px}
 .cr-header h2{font-size:1.5rem;font-weight:700;color:var(--bleu,#1F4E79);margin:0}
-.btn-cr-new{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;color:#fff;background:var(--bleu,#1F4E79);transition:background .15s}
-.btn-cr-new:hover{background:var(--accent,#2E74B5)}
-.btn-cr-new.sec{background:#fff;color:var(--bleu,#1F4E79);border:1px solid #bfdbfe}
+.btn-cr-new{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:8px;font-size:.82rem;font-weight:600;text-decoration:none;color:#fff;background:var(--accent,#1F4E79);transition:background .15s}
+.btn-cr-new:hover{background:#245f96}
+.btn-cr-new.sec{background:#fff;color:var(--accent,#2E74B5);border:1px solid #bfdbfe}
 .btn-cr-new.sec:hover{background:#EFF4FB}
 /* Filtres : une ligne sobre */
 .cr-filtres{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end;margin-bottom:12px}
 .cr-filtres label{display:block;font-size:10.5px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
 .cr-filtres select,.cr-filtres input{width:100%;box-sizing:border-box;height:34px;padding:0 10px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;background:#fff}
 .cr-filtres .acts{display:flex;gap:6px}
-.btn-filter{height:34px;padding:0 14px;border-radius:8px;font-size:12.5px;font-weight:600;color:#fff;background:var(--bleu,#1F4E79);border:none;cursor:pointer}
+.btn-filter{height:34px;padding:0 14px;border-radius:8px;font-size:12.5px;font-weight:600;color:#fff;background:var(--accent,#2E74B5);border:none;cursor:pointer}
 .btn-reset{height:34px;display:inline-flex;align-items:center;padding:0 12px;border-radius:8px;font-size:12.5px;color:#64748b;background:#fff;border:1px solid var(--bord);text-decoration:none}
 /* Tableau (modèle Pointage) */
 .cr-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -35,6 +35,9 @@
 .cr-acts a{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;color:#475569;border:1px solid transparent;text-decoration:none}
 .cr-acts a:hover{background:#eef4fb;border-color:#bfdbfe;color:#2e74b5}
 .cr-acts svg{width:15px;height:15px}
+.cr-acts form{margin:0;display:inline-flex}
+.cr-acts button{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;color:#94a3b8;border:1px solid transparent;background:none;cursor:pointer;padding:0}
+.cr-acts button:hover{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
 .empty-state{text-align:center;padding:40px 20px;color:#94a3b8;font-size:.9rem}
 @media(max-width:900px){.cr-filtres{grid-template-columns:1fr 1fr}.cr-filtres .acts{grid-column:1/-1}.cr-filtres .acts .btn-filter{flex:1}.cr-tbl .col-red,.cr-tbl .col-type{display:none}}
 @media(max-width:600px){.cr-header{flex-direction:column;align-items:flex-start}.cr-tbl .col-statut{display:none}.cr-tbl td,.cr-tbl th{padding:7px 6px}}
@@ -43,6 +46,7 @@
     $ic = fn($d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' . $d . '</svg>';
     $icVoir = $ic('<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>');
     $icEditer = $ic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>');
+    $icSuppr = $ic('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>');
     $icDocx = $ic('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/>');
     $icExcel = $ic('<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>');
     $statuts = ['brouillon' => 'Brouillon', 'en_revision' => 'En relecture', 'confirme' => 'Confirmé'];
@@ -53,7 +57,7 @@
     @if($user->estPilote())
     <div style="display:flex;gap:8px;flex-wrap:wrap">
         <a href="{{ route('comptes-rendus.create', ['type' => 'reunion_ordinaire']) }}" class="btn-cr-new">+ Réunion</a>
-        <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="btn-cr-new sec">+ Démo</a>
+        <a href="{{ route('comptes-rendus.create', ['type' => 'demo_sprint']) }}" class="btn-cr-new sec">+ Rapport de review</a>
     </div>
     @endif
 </div>
@@ -65,7 +69,7 @@
             <option value="">Tous</option>
             <option value="reunion_ordinaire" @selected(request('type')==='reunion_ordinaire')>Réunion ordinaire</option>
             <option value="reunion_extraordinaire" @selected(request('type')==='reunion_extraordinaire')>Réunion extraordinaire</option>
-            <option value="demo_sprint" @selected(request('type')==='demo_sprint')>Démonstration sprint</option>
+            <option value="demo_sprint" @selected(request('type')==='demo_sprint')>Rapport de Review Sprint</option>
             <option value="review_sprint" @selected(request('type')==='review_sprint')>Review de sprint</option>
             <option value="retrospective" @selected(request('type')==='retrospective')>Rétrospective</option>
         </select>
@@ -104,8 +108,8 @@
         $formel = $cr->estReviewV1();
         $lien = $cr->estScrum() && !$formel ? $cr->lienScrum() : route('comptes-rendus.show', $cr);
         $gestionnaire = $cr->sprint && $user->peutGererProjet($cr->sprint->projet_id);
-        $editable = !$cr->estScrum() && ($cr->estBrouillon() ? ($user->estPilote() || $cr->redacteur_id === $user->id) : $user->estAdmin());
-        if ($formel) $editable = $cr->estConfirme() ? $user->estAdmin() : ($user->estAdmin() || $gestionnaire || (!$cr->estEnRevision() && $cr->redacteur_id === $user->id));
+        $editable = !$cr->estScrum() && ($cr->estBrouillon() ? ($user->estPilote() || $cr->redacteur_id === $user->id) : $user->estPilote());
+        if ($formel) $editable = $cr->estConfirme() ? $user->estPilote() : ($user->estPilote() || $gestionnaire || (!$cr->estEnRevision() && $cr->redacteur_id === $user->id));
         $contexte = $cr->sprint ? ($cr->sprint->projet?->libelle . ' · Sprint ' . $cr->sprint->numero) : ($cr->lieu ?: null);
     @endphp
     <tr>
@@ -125,6 +129,13 @@
                 @endif
                 @if($cr->estScrum() && !$formel && $cr->sprint_id)
                 <a href="{{ route('scrum.archive', $cr->sprint_id) }}" title="Archive Scrum du sprint (Excel)">{!! $icExcel !!}</a>
+                @endif
+                @if($user->estPilote())
+                <form method="POST" action="{{ route('comptes-rendus.destroy', $cr) }}" onsubmit="return demanderMotifSuppression(this,'ce compte rendu')">
+                    @csrf @method('DELETE')
+                    <input type="hidden" name="motif_suppression" class="motif-suppr-input">
+                    <button type="submit" title="Supprimer">{!! $icSuppr !!}</button>
+                </form>
                 @endif
             </div>
         </td>

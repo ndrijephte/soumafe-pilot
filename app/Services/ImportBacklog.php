@@ -6,14 +6,15 @@ use Illuminate\Support\Str;
 
 /**
  * Import d'un Product Backlog depuis un fichier Excel (structure LEVRY ou export SOUMAFE).
- * Colonnes reconnues par leur en-tête : N°, Epic, Module / Fonctionnalité, Profil / Acteur, User Story,
+ * Colonnes reconnues par leur en-tête : N°, Epic / Module (ou Epic), Fonctionnalité (ou Module / Fonctionnalité), Profil / Acteur, User Story,
  * Priorité MoSCoW, Story points, DoR, Statut, Exigences fonctionnelles, Tâches.
  */
 class ImportBacklog
 {
     private const COLONNES = [
-        'module' => ['module', 'fonctionnalite'],
+        // « Epic / Module » avant « module » : l'en-tête contient les deux mots et désigne l'epic
         'epic' => ['epic'],
+        'module' => ['module', 'fonctionnalite'],
         'intitule' => ['user story', 'user stories', 'intitule', 'besoin'],
         'exigences' => ['exigence', 'critere'],
         'taches' => ['tache'],
@@ -25,6 +26,8 @@ class ImportBacklog
     ];
 
     public array $rapport = ['crees' => 0, 'maj' => 0, 'ignores' => 0, 'onglet' => null, 'remarques' => []];
+    /** Stories dont le contenu a changé : signalées en une fois aux développeurs du sprint en cours. */
+    public array $modifiees = [];
 
     public function __construct(private Projet $projet) {}
 
@@ -81,7 +84,13 @@ class ImportBacklog
                 if ($mode !== 'maj') { $this->rapport['ignores']++; continue; }
                 // Le statut du fichier ne prime pas sur celui que calculent les tâches
                 if ($s['statut'] && !$us->taches()->exists()) $donnees['statut'] = $s['statut'];
+                // Texte riche identique au fichier : inchangé (pas de fausse modification signalée au sprint)
+                foreach (['exigences', 'taches_techniques'] as $k) {
+                    if (isset($donnees[$k]) && trim(TexteRiche::texte($donnees[$k])) === trim(TexteRiche::texte($us->$k))) unset($donnees[$k]);
+                }
                 $us->update($donnees);
+                if ($us->wasChanged('contenu_modifie_le')) $this->modifiees[] = $us;
+                if ($us->estArchivee()) $this->remarque("{$us->numero} : user story archivée, mise à jour sans revenir au Product Backlog (Restaurer pour la réintégrer).");
                 $this->rapport['maj']++;
             } else {
                 $this->projet->userStories()->create($donnees + ['priorite' => 'moyenne', 'statut' => $s['statut'] ?: 'a_faire', 'origine' => 'import']);

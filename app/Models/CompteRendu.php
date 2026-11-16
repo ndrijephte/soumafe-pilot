@@ -59,7 +59,7 @@ class CompteRendu extends Model
         return match ($this->type) {
             'reunion_ordinaire'      => 'Réunion ordinaire (hebdomadaire)',
             'reunion_extraordinaire' => 'Réunion extraordinaire (stratégique)',
-            'demo_sprint'            => 'Démonstration sprint',
+            'demo_sprint'            => 'Rapport de Review Sprint',
             'review_sprint'          => 'Review de sprint',
             'retrospective'          => 'Rétrospective de sprint',
             default                  => ucfirst(str_replace('_', ' ', $this->type)),
@@ -71,7 +71,7 @@ class CompteRendu extends Model
         return match ($this->type) {
             'reunion_ordinaire'      => 'Réunion ordinaire',
             'reunion_extraordinaire' => 'Réunion extraordinaire',
-            'demo_sprint'            => 'Démo sprint',
+            'demo_sprint'            => 'Rapport de review',
             'review_sprint'          => 'Review sprint',
             'retrospective'          => 'Rétrospective',
             default                  => ucfirst(str_replace('_', ' ', $this->type)),

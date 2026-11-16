@@ -33,6 +33,9 @@
 .module-corps{padding:10px 14px 4px}
 .epic-titre{display:grid;grid-template-columns:minmax(0,1fr) auto 110px;gap:12px;align-items:center;margin:6px 0 8px;padding:6px 0 6px 10px;border-left:3px solid #93c5fd}
 .epic-titre .nom{font-size:14.5px;font-weight:700;color:#1f4e79}
+.epic-titre .ren{background:none;border:none;padding:2px 4px;margin-left:6px;color:#94a3b8;cursor:pointer;vertical-align:middle;border-radius:5px;opacity:0;transition:opacity .15s}
+.epic-titre:hover .ren,.epic-titre .ren:focus-visible{opacity:1}
+.epic-titre .ren:hover{color:#2e74b5;background:#eef4fb}
 .epic-titre .nom small{font-weight:700;color:#2e74b5;text-transform:uppercase;letter-spacing:.4px;font-size:11px;margin-right:8px}
 .prog{height:6px;background:#e5eaf1;border-radius:6px;overflow:hidden}.prog>i{display:block;height:100%;background:#2e74b5;border-radius:6px}
 .prog.fini>i{background:#16a34a}
@@ -48,7 +51,16 @@
 .pb-tbl .c-coche{width:30px}.pb-tbl .c-id{width:72px}.pb-tbl .c-profil{width:118px}.pb-tbl .c-moscow{width:98px}.pb-tbl .c-pts{width:44px}.pb-tbl .c-dor{width:48px}.pb-tbl .c-statut{width:108px}.pb-tbl .c-exec{width:176px}.pb-tbl .c-act{width:60px}
 .pb-tbl th{text-align:left;padding:8px;font-size:12px;font-weight:700;color:#12355b;background:#e8f0f9;border-bottom:2px solid #bfd3ea;border-right:1px solid #d3e0ef;white-space:nowrap}
 .pb-tbl th:last-child{border-right:0}
-.pb-tbl td{padding:8px;border-bottom:1px solid #e2e8f0;border-right:1px solid #eef2f7;vertical-align:top;overflow-wrap:anywhere}
+.pb-tbl td{padding:8px;border-bottom:1px solid #e2e8f0;border-right:1px solid #eef2f7;vertical-align:middle;overflow-wrap:anywhere}
+.pb-tbl th{vertical-align:middle}
+/* Colonnes courtes centrées (case, ID, MoSCoW, points, DoR, statut, exécution, actions) ; profil et user story à gauche */
+@media(min-width:901px){
+.pb-tbl th:nth-child(1),.pb-tbl th:nth-child(2),.pb-tbl th:nth-child(n+5),
+.pb-tbl td:nth-child(1),.pb-tbl td:nth-child(2),.pb-tbl td:nth-child(n+5){text-align:center}
+.pb-tbl td.td-exec>*{margin-left:auto;margin-right:auto}
+.pb-tbl td.td-act{text-align:center}
+.pb-tbl td.td-act form,.pb-tbl td.td-act .ico{vertical-align:middle}
+}
 .pb-tbl td:last-child{border-right:0}
 .pb-tbl tbody tr:hover td{background:#f8fafc}
 .us-num{font-weight:700;color:var(--accent);white-space:nowrap}
@@ -64,6 +76,19 @@
 .td-act{white-space:nowrap}.td-act form{display:inline}
 .ico{background:none;border:0;padding:3px;color:#64748b;cursor:pointer;border-radius:5px;vertical-align:middle}.ico:hover{background:#eef4fb;color:var(--accent)}.ico.ko:hover{background:#fef2f2;color:var(--ko)}
 .td-coche{text-align:center}
+.ico:disabled{opacity:.35;cursor:not-allowed}.ico:disabled:hover{background:none;color:#64748b}
+.archives-us{background:#fff;border:1px solid var(--bord);border-radius:12px;margin-top:6px}
+.archives-us>summary{cursor:pointer;padding:11px 14px;font-size:13px;font-weight:600;color:#475569;list-style:none;display:flex;align-items:center;gap:8px}
+.archives-us>summary::-webkit-details-marker{display:none}
+.archives-us>summary::before{content:'';width:6px;height:6px;border-right:2px solid #94a3b8;border-bottom:2px solid #94a3b8;transform:rotate(-45deg);transition:transform .15s}
+.archives-us[open]>summary::before{transform:rotate(45deg)}
+.archives-us>summary .nb{background:#f1f5f9;color:#64748b;border-radius:10px;padding:1px 8px;font-size:11px}
+.archives-us>summary small{font-weight:400;color:var(--gris);margin-left:auto}
+.arch-tbl{width:100%;border-collapse:collapse;font-size:12.5px;border-top:1px solid var(--bord)}
+.arch-tbl th{padding:7px 10px;font-size:11.5px;font-weight:700;color:#12355b;background:#f3f7fc;text-align:center;border-bottom:1px solid #d3e0ef}
+.arch-tbl td{padding:8px 10px;border-bottom:1px solid #eef2f7;vertical-align:middle;text-align:center;color:#475569}
+.arch-tbl tr:last-child td{border-bottom:0}
+.arch-tbl .g{text-align:left}.arch-tbl .us-txt{color:#64748b}
 @media(max-width:900px){
 .pb-tbl,.pb-tbl tbody{display:block}.pb-tbl thead,.pb-tbl colgroup{display:none}
 .pb-tbl tr.us{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 0;border-bottom:1px solid var(--bord)}
@@ -125,7 +150,7 @@ dialog textarea{resize:vertical}
 {{-- ═══════════ PRODUCT BACKLOG ═══════════ --}}
 <div class="ep-panel" id="ep-backlog">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-        <div style="font-size:12.5px;color:var(--gris)">User stories du produit, regroupées par module.</div>
+        <div style="font-size:12.5px;color:var(--gris)">User stories du produit, regroupées par fonctionnalité.</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
             @if($peutAlimenter)
             <button class="btn sec" onclick="document.getElementById('dlg-import').showModal()">Importer (.xlsx)</button>
@@ -142,7 +167,7 @@ dialog textarea{resize:vertical}
     @else
     @include('projets._tableau_backlog', ['bilan' => $bilanProjet, 'tableau' => $tableau])
     <div class="filtre">
-        <select id="fb-module" onchange="filtrerBacklog()"><option value="">Tous les modules</option>@foreach($modules as $m)<option>{{ $m }}</option>@endforeach</select>
+        <select id="fb-module" onchange="filtrerBacklog()"><option value="">Toutes les fonctionnalités</option>@foreach($modules as $m)<option>{{ $m }}</option>@endforeach</select>
         <select id="fb-statut" onchange="filtrerBacklog()"><option value="">Tous les statuts</option>@foreach(\App\Models\UserStory::STATUTS as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select>
         <select id="fb-moscow" onchange="filtrerBacklog()"><option value="">Toutes priorités</option>@foreach(\App\Models\UserStory::MOSCOW_BACKLOG as $k)<option value="{{ $k }}">{{ \App\Models\UserStory::MOSCOW[$k] }}</option>@endforeach</select>
         <select id="fb-dor" onchange="filtrerBacklog()"><option value="">DoR : tous</option><option value="1">DoR : Oui</option><option value="0">DoR : Non</option></select>
@@ -164,7 +189,7 @@ dialog textarea{resize:vertical}
     @php $module = $noeud['module']; $bm = $noeud['bilan']; @endphp
     <div class="module-bloc" data-module="{{ $module === 'Sans module' ? '' : $module }}">
         <div class="module-titre">
-            <span class="nom">{{ $module }}</span>
+            <span class="nom">{{ $module === 'Sans module' ? 'Sans fonctionnalité' : $module }}</span>
             <span class="stats">{{ $bm['stories_terminees'] }}/{{ $bm['stories'] }} stories @if($bm['points']) · {{ $bm['points_faits'] }}/{{ $bm['points'] }} pts @endif</span>
             <span style="display:flex;align-items:center"><span class="prog {{ $bm['pct'] >= 100 ? 'fini' : '' }}" style="flex:1"><i style="width:{{ $bm['pct'] }}%"></i></span><span class="pct">{{ $bm['pct'] }} %</span></span>
         </div>
@@ -173,7 +198,7 @@ dialog textarea{resize:vertical}
         @if($ep['epic'])
         @php $be = $ep['bilan']; @endphp
         <div class="epic-titre" data-epic>
-            <span class="nom"><small>Epic</small>{{ $ep['epic'] }}</span>
+            <span class="nom"><small>Epic / Module</small>{{ $ep['epic'] }}@if($peutAlimenter)<button type="button" class="ren" data-module="{{ $module === 'Sans module' ? '' : $module }}" data-epic="{{ $ep['epic'] }}" onclick="ouvrirEpic(this.dataset.module, this.dataset.epic)" title="Modifier la formulation de cet epic" aria-label="Modifier la formulation de l'epic {{ $ep['epic'] }}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>@endif</span>
             <span class="stats">{{ $be['stories_terminees'] }}/{{ $be['stories'] }} stories @if($be['points']) · {{ $be['points_faits'] }}/{{ $be['points'] }} pts @endif</span>
             <span style="display:flex;align-items:center"><span class="prog {{ $be['pct'] >= 100 ? 'fini' : '' }}" style="flex:1"><i style="width:{{ $be['pct'] }}%"></i></span><span class="pct">{{ $be['pct'] }} %</span></span>
         </div>
@@ -209,9 +234,21 @@ dialog textarea{resize:vertical}
                     @if($peutAlimenter)
                     @php $usJs = $us->only(['id', 'numero', 'module', 'epic', 'profil', 'intitule', 'priorite_moscow', 'effort_estime', 'dor']) + ['exigences' => \App\Services\TexteRiche::html($us->exigences)]; @endphp
                     <button type="button" class="ico" onclick='ouvrirStory(@json($usJs))' title="Modifier {{ $us->numero }}" aria-label="Modifier {{ $us->numero }}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+                    @php
+                        $spEnCours = $us->sprints->firstWhere('statut', 'en_cours');
+                        $spClos = $us->sprints->where('statut', 'termine')->pluck('numero')->sort()->join(', ');
+                    @endphp
+                    @if($spEnCours)
+                    <button type="button" class="ico ko" disabled title="Engagée dans le Sprint {{ $spEnCours->numero }} en cours : retirez-la d'abord du Sprint Backlog" aria-label="Suppression impossible : {{ $us->numero }} est engagée dans le Sprint {{ $spEnCours->numero }} en cours"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                    @elseif($spClos !== '')
+                    <form method="POST" action="{{ route('user-stories.destroy', $us) }}" style="margin:0" data-msg="{{ $us->numero }} a été engagée dans le Sprint {{ $spClos }}. Elle sera archivée : retirée du Product Backlog, mais conservée dans l'historique du sprint." onsubmit="return confirm(this.dataset.msg) && demanderMotifSuppression(this,'cette user story')">@csrf @method('DELETE')
+                        <input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="ico ko" title="Archiver {{ $us->numero }} (engagée dans le Sprint {{ $spClos }})" aria-label="Archiver {{ $us->numero }}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></svg></button>
+                    </form>
+                    @else
                     <form method="POST" action="{{ route('user-stories.destroy', $us) }}" style="margin:0" onsubmit="return demanderMotifSuppression(this,'cette user story')">@csrf @method('DELETE')
                         <input type="hidden" name="motif_suppression" class="motif-suppr-input"><button class="ico ko" title="Supprimer {{ $us->numero }}" aria-label="Supprimer {{ $us->numero }}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </form>
+                    @endif
                     @endif
                 </td>
             </tr>
@@ -222,6 +259,30 @@ dialog textarea{resize:vertical}
         </div>
     </div>
     @endforeach
+    @endif
+    @if($archivees->isNotEmpty())
+    <details class="archives-us">
+        <summary>User stories archivées <span class="nb">{{ $archivees->count() }}</span><small>Hors Product Backlog, conservées dans l'historique de leurs sprints</small></summary>
+        <div style="overflow-x:auto">
+        <table class="arch-tbl">
+            <thead><tr><th style="width:72px">ID</th><th class="g">User Story</th><th style="width:90px">Sprint(s)</th><th style="width:96px">Archivée le</th><th class="g" style="width:28%">Motif</th>@if($peutAlimenter)<th style="width:96px"></th>@endif</tr></thead>
+            <tbody>
+            @foreach($archivees as $us)
+            <tr>
+                <td class="us-num">{{ $us->numero }}</td>
+                <td class="g"><span class="us-txt">{{ $us->intitule }}</span><span class="us-meta">@if($us->module || $us->epic)<span>{{ collect([$us->module, $us->epic])->filter()->join(' › ') }}</span>@endif</span></td>
+                <td>{{ $us->sprints->pluck('numero')->sort()->join(', ') ?: '-' }}</td>
+                <td>{{ $us->archivee_le->format('d/m/Y') }}</td>
+                <td class="g">{{ $us->archive_motif }}</td>
+                @if($peutAlimenter)
+                <td><form method="POST" action="{{ route('user-stories.restaurer', $us) }}" style="margin:0">@csrf @method('PATCH')<button class="btn sm sec" title="Remettre {{ $us->numero }} dans le Product Backlog">Restaurer</button></form></td>
+                @endif
+            </tr>
+            @endforeach
+            </tbody>
+        </table>
+        </div>
+    </details>
     @endif
 </div>
 
@@ -328,9 +389,25 @@ dialog textarea{resize:vertical}
 @endif
 
 @if($peutAlimenter)
+@if($peutAlimenter)
+<dialog id="dlg-epic" style="width:480px">
+    <h3 style="color:var(--bleu);margin:0 0 4px">Modifier la formulation de l'epic</h3>
+    <p id="ep-portee" style="font-size:12.5px;color:var(--gris);margin:0 0 6px"></p>
+    <form method="POST" action="{{ route('projets.epics.renommer', $projet) }}">@csrf
+        <input type="hidden" name="module" id="ep-module"><input type="hidden" name="ancien" id="ep-ancien">
+        <label>Epic / Module</label>
+        <input name="nouveau" id="ep-nouveau" required maxlength="150">
+        <p style="font-size:11.5px;color:var(--gris);margin:6px 0 0">La nouvelle formulation s'applique à toutes les user stories de cet epic, dans le Product Backlog comme dans les sprints.</p>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Enregistrer</button>
+        </div>
+    </form>
+</dialog>
+@endif
 <dialog id="dlg-import">
     <h3 style="color:var(--bleu);margin-bottom:6px">Importer un Product Backlog (.xlsx)</h3>
-    <p style="font-size:12.5px;color:#334155;margin-bottom:6px">Colonnes lues : <strong>N°, Epic, Module, Profil / Acteur, User Story, Priorité MoSCoW, Story points, DoR, Statut, Exigences</strong>.</p>
+    <p style="font-size:12.5px;color:#334155;margin-bottom:6px">Colonnes lues : <strong>N°, Epic / Module, Fonctionnalité, Profil / Acteur, User Story, Priorité MoSCoW, Story points, DoR, Statut, Exigences</strong>.</p>
     <p style="font-size:12px;margin-bottom:4px"><a href="{{ route('projets.backlog.modele', $projet) }}" style="color:var(--accent);font-weight:600">⤓ Télécharger le modèle d'import</a></p>
     <form method="POST" action="{{ route('projets.backlog.import', $projet) }}" enctype="multipart/form-data">@csrf
         <label>Fichier Excel <span class="req">*</span></label>
@@ -353,11 +430,11 @@ dialog textarea{resize:vertical}
         <input type="hidden" name="story_id" id="st-id">
         <div class="form-row">
             <div><label>Numéro <span class="req">*</span></label><input name="numero" id="st-numero" required maxlength="20" placeholder="US 1.1"></div>
-            <div><label>Module / fonctionnalité</label><input name="module" id="st-module" maxlength="150" list="st-modules" placeholder="Ex : Gestion des rôles et utilisateurs">
+            <div><label>Fonctionnalité</label><input name="module" id="st-module" maxlength="150" list="st-modules" placeholder="Ex : Gestion des rôles et utilisateurs">
                 <datalist id="st-modules">@foreach($modules as $m)<option value="{{ $m }}">@endforeach</datalist></div>
         </div>
         <div class="form-row">
-            <div><label>Epic</label><input name="epic" id="st-epic" maxlength="150" list="st-epics" placeholder="Ex : Paiement en ligne">
+            <div><label>Epic / Module</label><input name="epic" id="st-epic" maxlength="150" list="st-epics" placeholder="Ex : Paiement en ligne">
                 <datalist id="st-epics"></datalist></div>
             <div><label>Profil / Acteur</label><input name="profil" id="st-profil" maxlength="150" list="st-profils" placeholder="Ex : Gestionnaire">
                 <datalist id="st-profils">@foreach($stories->pluck('profil')->filter()->unique() as $pf)<option value="{{ $pf }}">@endforeach</datalist></div>
@@ -440,6 +517,13 @@ document.addEventListener('change', e => {
     const t = document.getElementById('st-intitule');
     if (!t.value.trim()) t.value = 'En tant que ' + e.target.value.trim() + ', je veux … afin de …';
 });
+function ouvrirEpic(module, epic){
+    document.getElementById('ep-module').value = module;
+    document.getElementById('ep-ancien').value = epic;
+    const n = document.getElementById('ep-nouveau'); n.value = epic;
+    document.getElementById('ep-portee').textContent = 'Fonctionnalité : ' + (module || 'Sans fonctionnalité');
+    document.getElementById('dlg-epic').showModal(); n.select();
+}
 function ouvrirStory(us){
     const f = document.getElementById('form-story');
     f.reset();

@@ -20,15 +20,19 @@ class ProjetScrumController extends Controller
             'taches', 'dailyScrums', 'taches as taches_terminees_count' => fn($t) => $t->where('statut', 'termine'),
         ])]);
 
-        $stories = UserStory::trierParNumero(
+        $toutes = UserStory::trierParNumero(
             $projet->userStories()->with(['sprints:id,numero,statut'])->withCount(['taches', 'taches as taches_terminees_count' => fn($t) => $t->where('statut', 'termine')])->get()
         )->values();
+        // Les stories archivées restent dans l'historique des sprints, hors du Product Backlog
+        [$archivees, $stories] = $toutes->partition(fn($us) => $us->estArchivee());
+        $stories = $stories->values();
         $membresIds = $projet->collaborateurs->where('actif', true)->pluck('user_id');
         $disponibles = User::where('actif', true)->whereNotIn('id', $membresIds)->orderBy('name')->get();
 
         return view('projets.espace', [
             'projet' => $projet,
             'stories' => $stories,
+            'archivees' => $archivees->sortByDesc('archivee_le')->values(),
             'modules' => $stories->pluck('module')->filter()->unique()->values(),
             'epics' => $stories->filter(fn($s) => $s->epic)->groupBy(fn($s) => $s->module ?: '')->map(fn($g) => $g->pluck('epic')->unique()->values()),
             'arbre' => \App\Services\AvancementScrum::arborescence($stories),
@@ -109,6 +113,37 @@ class ProjetScrumController extends Controller
         return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])->with('succes', "User story {$us->numero} ajoutée au backlog.");
     }
 
+    /**
+     * Reformulation d'un epic : le nouveau libellé s'applique à toutes les user stories de l'epic
+     * dans sa fonctionnalité (un libellé déjà utilisé dans la fonctionnalité regroupe les deux epics).
+     */
+    public function renommerEpic(Request $r, Projet $projet)
+    {
+        abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
+        $v = $r->validate([
+            'module' => 'nullable|string|max:150',
+            'ancien' => 'required|string|max:150',
+            'nouveau' => 'required|string|max:150',
+        ], ['nouveau.required' => "Indiquez la nouvelle formulation de l'epic."]);
+        $nouveau = trim(preg_replace('/\s+/u', ' ', $v['nouveau']));
+        if ($nouveau === $v['ancien']) return back()->with('succes', 'Formulation inchangée.');
+        $module = trim((string) ($v['module'] ?? ''));
+        $requete = $projet->userStories()->where('epic', $v['ancien'])
+            ->where(fn($q) => $module === '' ? $q->whereNull('module')->orWhere('module', '') : $q->where('module', $module));
+        $fusion = $projet->userStories()->where('epic', $nouveau)
+            ->where(fn($q) => $module === '' ? $q->whereNull('module')->orWhere('module', '') : $q->where('module', $module))->exists();
+        // Story par story : la modification est datée et signalée en une fois aux développeurs du sprint en cours
+        $concernees = $requete->get();
+        $n = $concernees->count();
+        if (!$n) return back()->with('erreur', "Epic introuvable : la page n'était peut-être plus à jour.");
+        UserStory::$signaler = false;
+        try { $concernees->each->update(['epic' => $nouveau]); } finally { UserStory::$signaler = true; }
+        UserStory::signalerModifications($concernees);
+        AuditLog::log('renommage_epic', 'projet', $projet->code, ($module !== '' ? "{$module} › " : '') . "« {$v['ancien']} » → « {$nouveau} » ({$n} user story(s))");
+        return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])
+            ->with('succes', "Epic reformulé : « {$nouveau} » ({$n} user story(s))." . ($fusion ? ' Il rejoint l\'epic du même nom déjà présent dans la fonctionnalité.' : ''));
+    }
+
     public function updateUserStory(Request $r, UserStory $userStory)
     {
         $projet = $userStory->projet;
@@ -160,11 +195,43 @@ class ProjetScrumController extends Controller
     {
         $projet = $userStory->projet;
         abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
-        $r->validate(['motif_suppression' => 'required|string|min:5']);
-        AuditLog::log('suppression_user_story', 'projet', $projet->code, "{$userStory->numero} - Motif : {$r->motif_suppression}");
+        $r->validate(['motif_suppression' => 'required|string|min:5|max:500']);
         $numero = $userStory->numero;
-        $userStory->delete(); // les tâches restent, détachées de la story
-        return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])->with('succes', "User story {$numero} supprimée.");
+        $retour = redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog']);
+
+        // Engagée dans un sprint en cours (Sprint Backlog ou tâches) : on ne la retire pas du sprint en douce
+        $enCours = $userStory->sprints()->where('sprints.statut', 'en_cours')->first()
+            ?? \App\Models\Sprint::where('statut', 'en_cours')->whereHas('taches', fn($t) => $t->where('user_story_id', $userStory->id))->first();
+        if ($enCours) {
+            return $retour->with('erreur', "{$numero} est engagée dans le Sprint {$enCours->numero} en cours : retirez-la d'abord du Sprint Backlog (ses tâches restent au planning), ou attendez la clôture du sprint.");
+        }
+
+        // Déjà passée par un sprint clôturé : archivée, pour que l'historique du sprint reste complet
+        $clos = $userStory->sprints()->where('sprints.statut', 'termine')->pluck('numero')
+            ->merge(\App\Models\Sprint::where('statut', 'termine')->whereHas('taches', fn($t) => $t->where('user_story_id', $userStory->id))->pluck('numero'))
+            ->unique()->sort()->values();
+        if ($clos->isNotEmpty()) {
+            $userStory->update(['archivee_le' => now(), 'archive_motif' => $r->motif_suppression]);
+            $planifies = $userStory->sprints()->where('sprints.statut', 'planifie')->pluck('sprints.id');
+            if ($planifies->isNotEmpty()) $userStory->sprints()->detach($planifies->all());
+            AuditLog::log('archivage_user_story', 'projet', $projet->code, "{$numero} - Motif : {$r->motif_suppression}");
+            return $retour->with('succes', "User story {$numero} archivée : elle a été engagée dans le Sprint " . $clos->join(', ', ' et ') . ", dont l'historique la conserve. Elle ne figure plus dans le Product Backlog.");
+        }
+
+        AuditLog::log('suppression_user_story', 'projet', $projet->code, "{$numero} - Motif : {$r->motif_suppression}");
+        $userStory->delete(); // jamais engagée (ou seulement dans un sprint planifié) : suppression définitive
+        return $retour->with('succes', "User story {$numero} supprimée.");
+    }
+
+    /** Une story archivée revient dans le Product Backlog. */
+    public function restaurerUserStory(Request $r, UserStory $userStory)
+    {
+        $projet = $userStory->projet;
+        abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
+        if (!$userStory->estArchivee()) return back();
+        $userStory->update(['archivee_le' => null, 'archive_motif' => null]);
+        AuditLog::log('restauration_user_story', 'projet', $projet->code, $userStory->numero);
+        return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])->with('succes', "User story {$userStory->numero} restaurée dans le Product Backlog.");
     }
 
     /* ─── Import / export Excel du Product Backlog ─── */
@@ -177,11 +244,16 @@ class ProjetScrumController extends Controller
             'mode' => 'required|in:maj,ajout',
         ], ['fichier.mimes' => 'Le fichier doit être au format .xlsx (Excel).']);
 
+        $import = new ImportBacklog($projet);
+        UserStory::$signaler = false;
         try {
-            $rapport = DB::transaction(fn() => (new ImportBacklog($projet))->importer($r->file('fichier')->getRealPath(), $r->mode));
+            $rapport = DB::transaction(fn() => $import->importer($r->file('fichier')->getRealPath(), $r->mode));
         } catch (\Throwable $e) {
             return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])->withErrors(['fichier' => 'Import impossible : ' . $e->getMessage()]);
+        } finally {
+            UserStory::$signaler = true;
         }
+        UserStory::signalerModifications(collect($import->modifiees));
         AuditLog::log('import_backlog', 'projet', $projet->code, "Onglet {$rapport['onglet']} : {$rapport['crees']} créée(s), {$rapport['maj']} mise(s) à jour, {$rapport['ignores']} ignorée(s)");
         return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])
             ->with('succes', "Import de l'onglet « {$rapport['onglet']} » : {$rapport['crees']} user story(s) créée(s), {$rapport['maj']} mise(s) à jour, {$rapport['ignores']} ignorée(s).")

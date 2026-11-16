@@ -1,4 +1,4 @@
-{{-- Déroulement du sprint : étapes, état, prochaine étape et règles (App\Services\CeremoniesScrum). Paramètres : $sprint, $actif (backlog|planning|daily|review|retro) --}}
+{{-- Déroulement du sprint : étapes, état, prochaine étape et règles (App\Services\CeremoniesScrum). Paramètres : $sprint, $actif (backlog|planning|daily|demo|review|retro) --}}
 @once
 @push('styles')
 <style>
@@ -40,7 +40,7 @@
     @if($voitProjet)
     <a class="onglet transversal" href="{{ route('projets.espace', [$sprint->projet, 'onglet' => 'backlog']) }}" title="Toutes les user stories du projet, tous sprints confondus">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
-        Product Backlog <span class="nb">{{ $sprint->projet->userStories()->count() }}</span>
+        Product Backlog <span class="nb">{{ $sprint->projet->userStories()->actives()->count() }}</span>
     </a>
     <span class="sep-nav" aria-hidden="true"></span>
     @endif
@@ -48,8 +48,9 @@
     <a class="onglet {{ $actif === 'planning' ? 'actif' : '' }}" href="{{ route('sprints.planning', $sprint) }}" title="{{ $etats['planning'][1] }}"><span class="etat {{ $etats['planning'][0] }}"></span><span class="rang">2</span> Sprint Planning <span class="nb">{{ $sprint->taches()->count() }}</span></a>@endif
     <a class="onglet {{ $actif === 'daily' ? 'actif' : '' }}" href="{{ route('scrum.dailies', $sprint) }}" title="{{ $etats['daily'][1] }}"><span class="etat {{ $etats['daily'][0] }}"></span><span class="rang">3</span> Daily Scrum <span class="nb">{{ $sprint->dailyScrums()->count() }}</span></a>
     @if($voitProjet)
-    <a class="onglet {{ $actif === 'review' ? 'actif' : '' }}" href="{{ route('scrum.review', $sprint) }}" title="{{ $etats['review'][1] }}"><span class="etat {{ $etats['review'][0] }}"></span><span class="rang">4</span> Review</a>
-    <a class="onglet {{ $actif === 'retro' ? 'actif' : '' }}" href="{{ route('scrum.retro', $sprint) }}" title="{{ $etats['retro'][1] }}"><span class="etat {{ $etats['retro'][0] }}"></span><span class="rang">5</span> Rétrospective</a>
+    <a class="onglet {{ $actif === 'demo' ? 'actif' : '' }}" href="{{ route('scrum.demo', $sprint) }}" title="{{ $etats['demo'][1] }}"><span class="etat {{ $etats['demo'][0] }}"></span><span class="rang">4</span> Rapport de review</a>
+    <a class="onglet {{ $actif === 'review' ? 'actif' : '' }}" href="{{ route('scrum.review', $sprint) }}" title="{{ $etats['review'][1] }}"><span class="etat {{ $etats['review'][0] }}"></span><span class="rang">5</span> Review équipe</a>
+    <a class="onglet {{ $actif === 'retro' ? 'actif' : '' }}" href="{{ route('scrum.retro', $sprint) }}" title="{{ $etats['retro'][1] }}"><span class="etat {{ $etats['retro'][0] }}"></span><span class="rang">6</span> Rétrospective</a>
     <a class="export" href="{{ route('scrum.archive', $sprint) }}" title="Product Backlog, Sprint Backlog, Sprint Planning, Dailies, Review et Rétrospective dans un classeur Excel">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exporter archive Scrum

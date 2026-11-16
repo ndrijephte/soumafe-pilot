@@ -6,7 +6,7 @@
 <style>
 @page{size:A4;margin:20mm 18mm 22mm 18mm}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:{!! \App\Http\Controllers\CompteRenduController::police($cr->getDonnees()['mise_en_forme'] ?? [])[1] !!};font-size:11pt;color:#1e293b;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:720px;margin:0 auto;padding:30px 20px}
 @media print{.page{padding:0;max-width:none}.no-print{display:none!important}}
 
@@ -19,14 +19,24 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
 .header .sous{font-size:10pt;color:#475569;margin-top:2px}
 
 /* Infos */
-.info-tbl{width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10pt}
-.info-tbl td{padding:5px 10px;border:1px solid #d1d5db}
-.info-tbl td:first-child{background:#f0f5fa;color:#1F4E79;font-weight:600;width:140px}
+.info-tbl{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:18px;font-size:10pt;border:1px solid #cfdeee;border-radius:6px;overflow:hidden}
+.info-tbl td{padding:6px 12px;border-bottom:1px solid #e3ecf6}
+.info-tbl tr:last-child td{border-bottom:none}
+.info-tbl td:first-child{background:linear-gradient(90deg,#E3EEF9,#EEF4FB);color:#1F4E79;font-weight:600;width:150px;border-right:1px solid #cfdeee}
+/* Tableau signalétique du rapport : même disposition que l'éditeur (libellé / valeur sur deux colonnes) */
+.info-tbl.syno td{vertical-align:middle}
+.info-tbl.syno td.lib{background:linear-gradient(90deg,#E3EEF9,#EEF4FB);color:#1F4E79;font-weight:600;width:130px;white-space:nowrap;border-right:1px solid #cfdeee;border-left:1px solid #cfdeee}
+.info-tbl.syno td.lib:first-child{border-left:none}
+.info-tbl.syno td:first-child{width:130px}
+.info-tbl.syno .gris{color:#64748b}
+.grp-tache{font-size:10pt;font-weight:700;color:#2E74B5;margin:10px 0 0;padding-bottom:2px;border-bottom:1px dotted #9FBFE0;page-break-after:avoid}
+.grp-tache + .tbl{margin-top:5px}
 
 /* Sections */
 .section{margin-bottom:16px;display:flow-root}
-.section h2{font-size:12pt;color:#1F4E79;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:8px;padding:6px 10px;background:linear-gradient(90deg,#EFF4FB,transparent);border-left:3px solid #2E74B5}
-.section h3{font-size:11pt;color:#2E74B5;font-weight:600;margin:10px 0 6px}
+/* Grands titres : dégradé bleu clair sobre, angles droits, trait bas bleu */
+.section h2{font-size:12pt;color:#1F4E79;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;padding:7px 12px 6px;background:linear-gradient(180deg,#EAF2FB,#DCE9F7);border-bottom:2px solid #2E74B5;page-break-after:avoid}
+.section h3{font-size:11pt;color:#2E74B5;font-weight:600;margin:12px 0 6px;padding-bottom:3px;border-bottom:1px solid #9FBFE0}
 .section .contenu{font-size:10.5pt;line-height:1.6;padding:0 10px;overflow-wrap:break-word;word-break:break-word;max-width:100%;text-align:justify}
 .section .contenu ul,.section .contenu ol{margin:4px 0 8px 20px;padding-left:24px}
 .section .contenu ul{list-style:disc outside}
@@ -58,12 +68,16 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
 .section .contenu h1,.section .contenu h2,.section .contenu h3{text-transform:uppercase;color:#1F4E79;font-weight:700;margin:10px 0 6px}
 
 /* Tableaux */
-.tbl{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:10pt}
-.tbl th{background:#1F4E79;color:#fff;padding:6px 8px;text-align:left;font-weight:600;font-size:9.5pt;text-transform:uppercase;letter-spacing:.3px}
-.tbl td{padding:5px 8px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+.tbl{width:100%;border-collapse:separate;border-spacing:0;margin:8px 0 14px;font-size:10pt;border:1px solid #cfdeee;border-radius:6px;overflow:hidden}
+.tbl th{background:linear-gradient(180deg,#2E74B5,#1F4E79);color:#fff;padding:7px 9px;text-align:left;font-weight:600;font-size:9pt;text-transform:uppercase;letter-spacing:.4px;border-right:1px solid rgba(255,255,255,.14)}
+.tbl th:last-child{border-right:none}
+.tbl td{padding:6px 9px;border-bottom:1px solid #e3ecf6;vertical-align:middle}
 .tbl th{vertical-align:middle}
-.tbl tr:nth-child(even) td{background:#f8fafc}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr:nth-child(even) td{background:#F4F8FC}
+.tbl tr{page-break-inside:avoid}
 .tbl .num{text-align:center;width:35px;color:#64748b;font-weight:600}
+.tbl th.num{color:#fff}
 .tbl .present{color:#1F4E79;font-weight:600}
 .tbl .absent{color:#93B4D6;font-weight:600}
 .tbl .ok{color:#059669;font-weight:700;text-align:center}
@@ -84,39 +98,83 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
 .print-bar .btn-retour{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4)}
 @media print{.print-bar{display:none}body{padding-top:0}}
 @media screen{body{padding-top:52px;background:#f1f5f9}}
+/* Aperçu intégré à la page de consultation : la feuille seule, sans barre */
+@media screen{body.apercu{padding:18px 0 28px;background:#eef2f7}body.apercu .page{background:#fff;max-width:794px;padding:56px 64px;box-shadow:0 2px 14px rgba(15,23,42,.12);border-radius:2px}}
+.blocs{display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:10px}
+.blocs .bloc{width:100%;min-width:0}
+.blocs .bloc.demi{width:calc(50% - 7px)}
+.blocs .bloc:empty{display:none}
+.bloc h4{font-size:10.5pt;color:#2E74B5;margin:4px 0 2px;padding-bottom:2px;border-bottom:1px dotted #9FBFE0}
+.commentaire .com-tete{font-size:8.5pt;color:#64748b;font-weight:700;margin-bottom:2px}
+.commentaire{font-size:10pt}
+.verdict{display:flex;align-items:center;gap:8px;margin:2px 0 6px}
+.verdict-lib{font-size:8.5pt;font-weight:700;color:#1F4E79;text-transform:uppercase;letter-spacing:.4px}
+.verdict-val{display:inline-block;padding:2px 12px;border-radius:999px;font-size:9.5pt;font-weight:700;border:1px solid}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:6px 0 10px}
+.kpi{background:linear-gradient(180deg,#F5F9FE,#EAF2FB);border:1px solid #dbe7f5;border-radius:6px;padding:7px 10px;page-break-inside:avoid}
+.kpi .v{font-size:14pt;font-weight:800;color:#1F4E79}
+.kpi .l{font-size:8pt;font-weight:700;color:#2E74B5;text-transform:uppercase;letter-spacing:.3px}
+.kpi .d{font-size:8pt;color:#64748b;margin-top:1px}
 </style>
 @php $mef = $cr->getDonnees()['mise_en_forme'] ?? []; @endphp
 <style>
+@if($mef['num_page'] ?? true)@page{@bottom-right{content:"Page " counter(page) " / " counter(pages);font-size:8pt;color:#94a3b8}}@endif
 @if(!empty($mef['titre'])).header h1{font-size:{{ (float) $mef['titre'] }}pt}@endif
 @if(!empty($mef['section'])).section h2{font-size:{{ (float) $mef['section'] }}pt}@endif
 @if(!empty($mef['sous_titre'])).section h3{font-size:{{ (float) $mef['sous_titre'] }}pt}@endif
+@if(!empty($mef['couleur_section'])).section h2{color:#{{ $mef['couleur_section'] }};border-bottom-color:#{{ $mef['couleur_section'] }}}@endif
+@if(!empty($mef['couleur_sous_titre'])).section h3{color:#{{ $mef['couleur_sous_titre'] }}}@endif
 @if(!empty($mef['texte'])).section .contenu{font-size:{{ (float) $mef['texte'] }}pt}.tbl,.info-tbl{font-size:{{ round((float) $mef['texte'] * 0.95, 2) }}pt}.tbl th{font-size:{{ round((float) $mef['texte'] * 0.9, 2) }}pt}@endif
 </style>
 </head>
-<body>
+@php $apercu = request()->boolean('apercu'); @endphp
+<body class="{{ $apercu ? 'apercu' : '' }}">
 
+@unless($apercu)
 <div class="print-bar no-print">
     <button class="btn-print" onclick="window.print()">Imprimer / Enregistrer PDF</button>
     <a href="{{ route('comptes-rendus.show', $cr) }}" class="btn-retour">Retour</a>
 </div>
+@endunless
 
 <div class="page">
     {{-- EN-TÊTE --}}
     <div class="header">
         @php $logoPath = public_path('images/white_logo_v.png'); @endphp
-        @if(file_exists($logoPath))
+        @if(file_exists($logoPath) && ($mef['logo'] ?? true))
         <div class="logo-cercle"><img src="data:image/png;base64,{{ base64_encode(file_get_contents($logoPath)) }}" alt="SOUMAFÊ"></div>
         @endif
-        <div class="societe">SOUMAFÊ - Pilotage des opérations</div>
+        <div class="societe">{{ $mef['entete'] ?? 'SOUMAFÊ - Pilotage des opérations' }}</div>
         @if($cr->estReunion())
         <h1>Compte rendu de {{ $cr->type === 'reunion_ordinaire' ? 'réunion ordinaire' : 'réunion extraordinaire' }}</h1>
         @else
-        <h1>Compte rendu de démonstration sprint</h1>
+        <h1>Rapport de Review Sprint</h1>
         @endif
         <div class="sous">{{ $cr->titre }}</div>
     </div>
 
     {{-- INFORMATIONS --}}
+    @if($cr->type === 'demo_sprint')
+    @php $spI = $cr->sprint; $dI = $cr->getDonnees(); $goalI = trim((string) ($dI['objectif'] ?? $spI?->objectif ?? '')); @endphp
+    <table class="info-tbl syno">
+        <tr><td class="lib">Sprint</td><td>@if($spI)<strong>Sprint {{ $spI->numero }}</strong> · {{ $spI->projet?->libelle }} <span class="gris">· du {{ $spI->date_debut->format('d/m/Y') }} au {{ $spI->date_fin->format('d/m/Y') }}</span>@else — @endif</td>
+            <td class="lib">Score</td><td><strong>{{ $dI['score_pourcent'] ?? 0 }} %</strong> <span class="gris">· {{ $dI['points_realises'] ?? 0 }}/{{ $dI['total_points'] ?? 0 }} pts</span></td></tr>
+        <tr><td class="lib">Sprint Goal</td><td colspan="3">@include('comptes-rendus._objectifs', ['texte' => $goalI])</td></tr>
+        <tr><td class="lib">Date de la review</td><td>{{ $cr->date_reunion->format('d/m/Y') }}</td>
+            <td class="lib">Horaires</td><td>{{ $cr->heure_debut ? substr($cr->heure_debut, 0, 5) : '—' }}{{ $cr->heure_fin ? ' → ' . substr($cr->heure_fin, 0, 5) : '' }}</td></tr>
+        <tr><td class="lib">Lieu</td><td>{{ $cr->lieu ?: '—' }}</td>
+            <td class="lib">Rédacteur</td><td>{{ $cr->redacteur?->nomComplet() ?? '—' }}</td></tr>
+    </table>
+    @elseif($cr->estReunion())
+    <table class="info-tbl syno">
+        <tr><td class="lib">Date</td><td>{{ $cr->date_reunion->format('d/m/Y') }}</td>
+            <td class="lib">Type de réunion</td><td>{{ $cr->type === 'reunion_extraordinaire' ? 'Réunion extraordinaire' : 'Réunion ordinaire' }}</td></tr>
+        <tr><td class="lib">Présidée par</td><td>{{ $cr->president?->nomComplet() ?? '—' }}</td>
+            <td class="lib">Rédigé par</td><td>{{ $cr->redacteur?->nomComplet() ?? '—' }}</td></tr>
+        <tr><td class="lib">Horaires</td><td>{{ $cr->heure_debut ? substr($cr->heure_debut, 0, 5) : '—' }}{{ $cr->heure_fin ? ' → ' . substr($cr->heure_fin, 0, 5) : '' }}</td>
+            <td class="lib">Lieu</td><td>{{ $cr->lieu ?: '—' }}</td></tr>
+    </table>
+    @else
     <table class="info-tbl">
         <tr><td>Date</td><td>{{ $cr->date_reunion->format('d/m/Y') }}</td></tr>
         <tr><td>Horaires</td><td>{{ $cr->heure_debut ?? '—' }} - {{ $cr->heure_fin ?? '—' }}</td></tr>
@@ -129,7 +187,11 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
         @if($cr->sprint)
         <tr><td>Sprint</td><td>Sprint {{ $cr->sprint->numero }} - {{ $cr->sprint->projet?->libelle ?? '' }}</td></tr>
         @endif
+        @if($cr->type === 'demo_sprint' && ($goalInfo = trim((string) ($cr->getDonnees()['objectif'] ?? $cr->sprint?->objectif ?? ''))))
+        <tr><td>Sprint Goal</td><td>@include('comptes-rendus._objectifs', ['texte' => $goalInfo])</td></tr>
+        @endif
     </table>
+    @endif
 
     @php $d = $cr->getDonnees(); @endphp
 
@@ -221,7 +283,9 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
             'bonne_pratique' => ['Bonne pratique', '#E0F2FE', '#0288D1'], 'blocage' => ['Blocage', '#FEECEC', '#CC3333'],
         ];
         @endphp
-        @foreach($d['modules'] as $mi => $mod)
+        {{-- Seules les parties renseignées sont imprimées (numérotation continue) --}}
+        @php $indRapport = \App\Services\RapportReview::indicateurs($d, $cr->sprint); @endphp
+        @foreach(\App\Services\RapportReview::modulesVisibles($d) as $mi => $mod)
         <div class="section">
             <h2>{{ $mi + 1 }}. {{ $mod['titre'] ?? 'Module' }}</h2>
             @if(!empty($mod['objectif']))
@@ -232,72 +296,127 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
                 @if(!empty($sec['titre']))
                 <h3>{{ $mi + 1 }}.{{ $si + 1 }}. {{ $sec['titre'] }}</h3>
                 @endif
-
+                @php $k = 0; @endphp
+                <div class="blocs">
                 @foreach($sec['blocs'] ?? [] as $bloc)
-                    @if($bloc['type'] === 'texte' && !empty($bloc['contenu']))
-                    <div class="contenu" style="margin-bottom:8px;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
-                    @elseif($bloc['type'] === 'tableau_stories' && !empty($d['stories']))
-                        <table class="tbl" style="margin-bottom:10px">
-                            <thead><tr><th>Module › Epic</th><th>User story</th><th style="width:120px">Exécution</th><th style="width:70px;text-align:center">Tâches</th><th style="width:50px;text-align:center">Pts</th><th style="width:90px">Statut</th></tr></thead>
+                    @php
+                        $coul = \App\Http\Controllers\CompteRenduController::BLOC_COULEURS[$bloc['couleur'] ?? ''] ?? null;
+                        $styleBloc = $coul ? "background:#{$coul[1]};border:1px solid #" . \App\Http\Controllers\CompteRenduController::teinte($coul[2]) . ";padding:8px 12px;border-radius:6px" : '';
+                        $lignesSt = \App\Http\Controllers\CompteRenduController::lignesModule($d['stories'] ?? [], $bloc['module'] ?? null, false);
+                        $lignesT = \App\Http\Controllers\CompteRenduController::lignesModule($d['taches'] ?? [], $bloc['module'] ?? null, true);
+                    @endphp
+                    <div class="bloc {{ ($bloc['largeur'] ?? '') === 'demi' ? 'demi' : '' }}" style="{{ $styleBloc }}">
+                    @if($bloc['type'] === 'verdict')
+                        @php [$vLib, $vC, $vB] = \App\Services\RapportReview::VERDICTS[$bloc['verdict'] ?? ''] ?? [null, '', '']; @endphp
+                        @if($vLib)<div class="verdict"><span class="verdict-lib">Verdict du client</span><span class="verdict-val" style="color:#{{ $vC }};background:#{{ $vB }};border-color:#{{ \App\Http\Controllers\CompteRenduController::teinte($vC) }}">{{ $vLib }}</span></div>@endif
+                        @if(trim(strip_tags($bloc['contenu'] ?? '')) !== '')<div class="contenu" style="--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>@endif
+                    @elseif($bloc['type'] === 'indicateurs')
+                        <div class="kpis">
+                            @foreach(\App\Services\RapportReview::cartes($indRapport) as [$kv, $kl, $kd])
+                            <div class="kpi"><div class="v">{{ $kv }}</div><div class="l">{{ $kl }}</div>@if($kd)<div class="d">{{ $kd }}</div>@endif</div>
+                            @endforeach
+                        </div>
+                        @if(count($indRapport['par_dev']) > 1)
+                        <table class="tbl">
+                            <thead><tr><th>Développeur</th><th style="width:90px;text-align:center">Réalisé</th><th style="width:90px;text-align:center">Engagé</th><th style="width:70px;text-align:center">%</th></tr></thead>
+                            <tbody>@foreach($indRapport['par_dev'] as $dv)<tr><td>{{ $dv['nom'] }}</td><td style="text-align:center">{{ $dv['realise'] }} pts</td><td style="text-align:center">{{ $dv['total'] }} pts</td><td style="text-align:center;font-weight:700">{{ $dv['pourcent'] }} %</td></tr>@endforeach</tbody>
+                        </table>
+                        @endif
+                    @elseif($bloc['type'] === 'sous_titre' && trim($bloc['texte'] ?? '') !== '')
+                        @php $k++; @endphp
+                        <h4 style="{{ $coul ? 'color:#' . $coul[2] : '' }}">{{ $mi + 1 }}.{{ $si + 1 }}.{{ $k }}. {{ $bloc['texte'] }}</h4>
+                    @elseif($bloc['type'] === 'commentaire' && trim($bloc['contenu'] ?? '') !== '')
+                        <div class="commentaire" style="{{ $coul ? '' : 'background:#f8fafc;border:1px solid #dfe5ec;padding:8px 12px;border-radius:6px' }}">
+                            <div class="com-tete">Commentaire · {{ $bloc['auteur'] ?? '' }} · {{ $bloc['date'] ?? '' }}</div>
+                            <div style="white-space:pre-line">{{ $bloc['contenu'] }}</div>
+                        </div>
+                    @elseif($bloc['type'] === 'texte' && !empty($bloc['contenu']))
+                        <div class="contenu" style="--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
+                    @elseif($bloc['type'] === 'tableau_stories' && $lignesSt)
+                        <table class="tbl">
+                            <thead><tr>@unless($bloc['module'] ?? null)<th>Module › Epic</th>@endunless<th>User story</th><th style="width:110px">Exécution</th><th style="width:58px;text-align:center">Tâches</th><th style="width:40px;text-align:center">Pts</th><th style="width:80px">Statut</th></tr></thead>
                             <tbody>
                             @php $grp = null; @endphp
-                            @foreach($d['stories'] as $st)
-                            @php $ctx = $st['module'] . ($st['epic'] ? ' › ' . $st['epic'] : ''); @endphp
+                            @foreach($lignesSt as $st)
+                            @php $ctx = \App\Http\Controllers\CompteRenduController::libelleModule($d, $st['module'] ?? '') . (($st['epic'] ?? null) ? ' › ' . $st['epic'] : ''); @endphp
                             <tr>
-                                <td style="color:#475569;font-size:.8rem">{{ $ctx !== $grp ? $ctx : '' }}</td>
-                                <td><strong>{{ $st['numero'] }}</strong> {{ $st['intitule'] }}</td>
-                                <td><span style="display:inline-block;width:46px;height:5px;background:#e5eaf1;border-radius:5px;vertical-align:middle;overflow:hidden"><span style="display:block;height:100%;width:{{ $st['niveau'] }}%;background:{{ $st['niveau'] >= 100 ? '#16a34a' : '#2e74b5' }}"></span></span> <strong>{{ $st['niveau'] }} %</strong>@if(($st['origine'] ?? '') === 'declare')<small style="color:#2e74b5"> déclaré</small>@endif</td>
-                                <td style="text-align:center">{{ $st['taches_terminees'] }}/{{ $st['taches'] }}</td>
+                                @unless($bloc['module'] ?? null)<td style="color:#475569;font-size:.8rem">{{ $ctx !== $grp ? $ctx : '' }}</td>@endunless
+                                <td><strong>{{ $st['numero'] ?? '' }}</strong> {{ $st['intitule'] ?? '' }}@if(($bloc['module'] ?? null) && !empty($st['epic']))<div style="font-size:8.5pt;color:#64748b">{{ $st['epic'] }}</div>@endif</td>
+                                <td><span style="display:inline-block;width:40px;height:5px;background:#e5eaf1;border-radius:5px;vertical-align:middle;overflow:hidden"><span style="display:block;height:100%;width:{{ $st['niveau'] ?? 0 }}%;background:{{ ($st['niveau'] ?? 0) >= 100 ? '#16a34a' : '#2e74b5' }}"></span></span> <strong>{{ $st['niveau'] ?? 0 }} %</strong></td>
+                                <td style="text-align:center">{{ $st['taches_terminees'] ?? 0 }}/{{ $st['taches'] ?? 0 }}</td>
                                 <td style="text-align:center">{{ $st['points'] ?? '-' }}</td>
-                                <td>{{ $st['statut'] }}</td>
+                                <td>{{ $st['statut'] ?? '' }}</td>
                             </tr>
                             @php $grp = $ctx; @endphp
                             @endforeach
                             </tbody>
                         </table>
-                        @elseif($bloc['type'] === 'tableau_taches' && !empty($d['taches']))
-                    <table class="tbl">
-                        <thead><tr><th class="num">N°</th><th>Tâche</th><th style="width:40px;text-align:center">Pts</th><th>Attribution</th><th style="width:40px;text-align:center">État</th><th>Observation</th></tr></thead>
-                        <tbody>
-                        @foreach($d['taches'] as $i => $t)
-                        <tr>
-                            <td class="num">{{ $i + 1 }}</td>
-                            <td>{{ $t['tache'] }}@if(!empty($t['us']))<div style="font-size:8.5pt;color:#64748b">{{ $t['us'] }}{{ $t['us_contexte'] ? ' · ' . $t['us_contexte'] : '' }}</div>@endif</td>
-                            <td style="text-align:center">{{ $t['points'] }}</td>
-                            <td>{{ $t['attribution'] }}</td>
-                            <td class="{{ ($t['termine'] ?? false) ? 'ok' : 'ko' }}">{!! ($t['termine'] ?? false) ? '&#10003;' : '&#10007;' !!}</td>
-                            <td style="font-size:9.5pt;color:#64748b">{{ $t['observation'] ?? '' }}</td>
-                        </tr>
+                    @elseif($bloc['type'] === 'tableau_taches' && $lignesT)
+                        @foreach(\App\Http\Controllers\CompteRenduController::groupesTaches($lignesT, $bloc['module'] ?? null) as $grpNom => $grpLignes)
+                        @if($grpNom !== '')<div class="grp-tache">{{ \App\Http\Controllers\CompteRenduController::libelleModule($d, $grpNom) }}</div>@endif
+                        <table class="tbl">
+                            <thead><tr><th class="num">N°</th><th>Tâche</th><th style="width:36px;text-align:center">Pts</th><th style="width:135px">Attribution</th><th style="width:40px;text-align:center">État</th><th style="width:135px">Observation</th></tr></thead>
+                            <tbody>
+                            @foreach($grpLignes as $i => $t)
+                            <tr>
+                                <td class="num">{{ $i + 1 }}</td>
+                                <td>{{ $t['tache'] }}@if(!empty($t['us']))<div style="font-size:8.5pt;color:#64748b">{{ $t['us'] }}</div>@endif</td>
+                                <td style="text-align:center">{{ $t['points'] }}</td>
+                                <td>{{ $t['attribution'] }}</td>
+                                <td class="{{ ($t['termine'] ?? false) ? 'ok' : 'ko' }}">{!! ($t['termine'] ?? false) ? '&#10003;' : '&#10007;' !!}</td>
+                                <td style="font-size:9.5pt;color:#64748b">{{ \App\Models\Tache::libelleQualification($t['observation'] ?? '') }}</td>
+                            </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
                         @endforeach
-                        </tbody>
-                    </table>
                     @elseif($bloc['type'] === 'score')
-                    <div class="score-box">
-                        <div class="val">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }}</div>
-                        <div class="lab">Score global - {{ $d['score_pourcent'] ?? 0 }}%</div>
-                    </div>
+                        <div class="score-box">
+                            <div class="val">{{ $d['points_realises'] ?? 0 }} / {{ $d['total_points'] ?? 0 }}</div>
+                            <div class="lab">Score global - {{ $d['score_pourcent'] ?? 0 }}%</div>
+                        </div>
                     @elseif($bloc['type'] === 'actions' && !empty($bloc['items']))
-                    <table class="tbl">
-                        <thead><tr><th class="num">N°</th><th>Action</th><th>Responsable(s)</th><th style="width:90px">Échéance</th></tr></thead>
-                        <tbody>
-                        @foreach($bloc['items'] as $ai => $act)
-                        <tr>
-                            <td class="num">{{ $ai + 1 }}</td>
-                            <td>{{ $act['action'] ?? '' }}</td>
-                            <td>{{ implode(', ', $act['responsables'] ?? []) ?: '—' }}</td>
-                            <td>{{ ($act['echeance'] ?? '') ?: '—' }}</td>
-                        </tr>
-                        @endforeach
-                        </tbody>
-                    </table>
+                        <table class="tbl">
+                            <thead><tr><th class="num">N°</th><th>Action</th><th>Responsable(s)</th><th style="width:90px">Échéance</th></tr></thead>
+                            <tbody>
+                            @foreach($bloc['items'] as $ai => $act)
+                            <tr>
+                                <td class="num">{{ $ai + 1 }}</td>
+                                <td>{{ $act['action'] ?? '' }}</td>
+                                <td>{{ implode(', ', $act['responsables'] ?? []) ?: '—' }}</td>
+                                <td>{{ !empty($act['echeance']) && strtotime($act['echeance']) ? \Carbon\Carbon::parse($act['echeance'])->format('d/m/Y') : '—' }}</td>
+                            </tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                    @elseif($bloc['type'] === 'tableau_backlog' && !empty($bloc['items']))
+                        <table class="tbl">
+                            <thead><tr><th style="width:70px">N°</th><th style="width:22%">Module</th><th>User story</th><th style="width:90px">Priorité</th><th style="width:36px;text-align:center">Pts</th></tr></thead>
+                            <tbody>
+                            @foreach($bloc['items'] as $it)
+                            <tr><td>{{ ($it['numero'] ?? '') ?: '—' }}</td><td>{{ ($it['module'] ?? '') ?: '—' }}</td><td>{{ $it['intitule'] ?? '' }}</td><td>{{ \App\Models\UserStory::MOSCOW[$it['moscow'] ?? ''] ?? '—' }}</td><td style="text-align:center">{{ $it['points'] ?? '—' }}</td></tr>
+                            @endforeach
+                            </tbody>
+                        </table>
+                    @elseif($bloc['type'] === 'validation' && !empty($bloc['items']))
+                        <table class="tbl">
+                            <thead><tr><th style="width:30%">Qualité</th><th>Nom</th><th style="width:90px">Date</th><th style="width:28%">Signature</th></tr></thead>
+                            <tbody>
+                            @foreach($bloc['items'] as $it)
+                            <tr style="height:42px"><td>{{ $it['role'] ?? '' }}</td><td>{{ $it['nom'] ?? '' }}</td><td>{{ !empty($it['date']) ? \Carbon\Carbon::parse($it['date'])->format('d/m/Y') : '' }}</td><td></td></tr>
+                            @endforeach
+                            </tbody>
+                        </table>
                     @elseif($bloc['type'] === 'reference' && !empty($bloc['contenu']))
-                    @php [$rLabel, $rBg, $rBorder] = $refStyles[$bloc['ref_type'] ?? 'remarque'] ?? $refStyles['remarque']; @endphp
-                    <div style="background:{{ $rBg }};border-radius:6px;padding:8px 12px;margin:6px 0 10px">
-                        <div style="font-weight:700;color:{{ $rBorder }};font-size:9.5pt;margin-bottom:3px;text-transform:uppercase">{{ $rLabel }}</div>
-                        <div class="contenu" style="padding:0;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
-                    </div>
+                        @php [$rLabel, $rBg, $rBorder] = $refStyles[$bloc['ref_type'] ?? 'remarque'] ?? $refStyles['remarque']; @endphp
+                        <div style="background:{{ $rBg }};border:1px solid #{{ \App\Http\Controllers\CompteRenduController::teinte($rBorder) }};border-radius:6px;padding:8px 12px">
+                            <div style="font-weight:700;color:{{ $rBorder }};font-size:9.5pt;margin-bottom:3px;text-transform:uppercase">{{ $rLabel }}</div>
+                            <div class="contenu" style="padding:0;--num-prefix:'{{ $mi + 1 }}.{{ $si + 1 }}.'">{!! $bloc['contenu'] !!}</div>
+                        </div>
                     @endif
+                    </div>
                 @endforeach
+                </div>
             @endforeach
         </div>
         @endforeach
@@ -317,7 +436,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
                     <td style="text-align:center">{{ $t['points'] }}</td>
                     <td>{{ $t['attribution'] }}</td>
                     <td class="{{ ($t['termine'] ?? false) ? 'ok' : 'ko' }}">{!! ($t['termine'] ?? false) ? '&#10003;' : '&#10007;' !!}</td>
-                    <td style="font-size:9.5pt;color:#64748b">{{ $t['observation'] ?? '' }}</td>
+                    <td style="font-size:9.5pt;color:#64748b">{{ \App\Models\Tache::libelleQualification($t['observation'] ?? '') }}</td>
                 </tr>
                 @endforeach
                 </tbody>
@@ -379,7 +498,7 @@ body{font-family:'Times New Roman',Times,serif;font-size:11pt;color:#1e293b;line
 
     {{-- PIED DE PAGE --}}
     <div class="footer">
-        <span>SOUMAFÊ - Document généré le {{ now()->format('d/m/Y à H:i') }}</span>
+        <span>{{ $mef['pied'] ?? 'SOUMAFÊ - Document généré le ' . now()->format('d/m/Y à H:i') }}</span>
         <span>{{ $cr->estConfirme() ? 'Document confirmé' : 'Brouillon' }}</span>
     </div>
 </div>

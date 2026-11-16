@@ -4,7 +4,8 @@ namespace App\Services;
 use App\Models\{CompteRendu, Sprint, User};
 
 /**
- * Déroulement d'un sprint : Sprint Backlog → Sprint Planning → Daily Scrum → Review → Rétrospective → clôture → sprint suivant.
+ * Déroulement d'un sprint : Sprint Backlog → Sprint Planning → Daily Scrum → clôture → séance de review (démonstration au client)
+ * → rapport de Review Sprint (rédaction, relecture, validation) → Review des développeurs (archive Excel) → Rétrospective.
  * Source unique des règles : les contrôleurs les appliquent, les écrans les affichent.
  */
 class CeremoniesScrum
@@ -15,10 +16,15 @@ class CeremoniesScrum
         ['Sprint Backlog', "Avant le démarrage ; ajustable pendant le sprint, figé à la clôture", "Les développeurs y puisent avant le démarrage ; le gestionnaire l'ajuste ensuite", "User stories prêtes (DoR = Oui) engagées pour le sprint."],
         ['Sprint Planning', "Avant le démarrage ; ajustable pendant le sprint, figé à la clôture", 'Gestionnaire du projet', "Tâches attribuées et datées, rattachées aux user stories. Au moins une tâche pour démarrer."],
         ['Daily Scrum', 'Chaque jour travaillé, tant que le sprint est en cours', 'Créé par un pilote ou automatiquement ; rédigé et publié par le scribe du jour', 'Rapport visible de tous une fois publié.'],
-        ['Review', 'Dès le démarrage, tenue en fin de sprint', 'Rédigée par le scribe ou le gestionnaire ; validée par le gestionnaire', 'Réalisation par tâche et ajustements du Product Backlog. Le CR Review Sprint (DOCX) en est le document formel.'],
-        ['Rétrospective', 'Dès le démarrage du sprint', "Rédigée par les développeurs de l'équipe ; validée par le gestionnaire", "Ce qui a marché ou non, causes, actions d'amélioration, reprises au sprint suivant. N'alimente pas le Product Backlog."],
-        ['Clôture', 'Review et Rétrospective validées ; à défaut, sur décision motivée', 'Gestionnaire du projet ; sans ces validations, un pilote, motif obligatoire', "Sprint figé ; les user stories non terminées retournent au Product Backlog. Un arrêt motivé reste possible à tout moment."],
+        ['Clôture', 'Fin du sprint ; un arrêt motivé reste possible à tout moment', 'Pilote ou gestionnaire du projet', "Exécution figée ; les user stories non terminées retournent au Product Backlog. Les rapports suivent."],
+        ['Séance de review', 'Après la clôture', "L'équipe démontre au client les fonctionnalités du sprint ; le pilote prépare le rapport (date, lieu, rédacteur)", "Démonstration, appréciation du client par fonctionnalité, nouvelles demandes."],
+        ['Rapport de review', 'Après la séance de review', "Rédigé par le pilote (ou le rédacteur désigné), complété par les développeurs sur leurs tâches ; relu par le responsable du projet ; validé par le pilote", "Le rapport de Review Sprint : verdict du client par fonctionnalité, indicateurs, nouvelles user stories et décisions. À la validation, les user stories rejoignent le Product Backlog et les décisions deviennent des tâches suivies."],
+        ['Review des développeurs', 'Après la validation du rapport de review', "Chaque développeur commente ses tâches et ses user stories ; le gestionnaire du projet complète la synthèse et valide", "Réalisation par tâche, observations, ajustements du Product Backlog (reprend les user stories du rapport). Consignée dans l'archive Excel."],
+        ['Rétrospective', 'Après la validation de la Review des développeurs', "Rédigée par les développeurs de l'équipe ; validée par le gestionnaire", "Ce qui a marché ou non, causes, actions d'amélioration, reprises au sprint suivant. N'alimente pas le Product Backlog."],
     ];
+
+    /** Atteinte de l'objectif du sprint, déclarée à la validation de la Review. */
+    public const OBJECTIF = ['oui' => 'Atteint', 'partiel' => 'Partiellement atteint', 'non' => 'Non atteint'];
 
     private static function compteRendu(Sprint $sprint, string $type): ?CompteRendu
     {
@@ -33,6 +39,17 @@ class CeremoniesScrum
     public static function retroValidee(Sprint $sprint): bool
     {
         return (bool) self::compteRendu($sprint, 'retrospective')?->estConfirme();
+    }
+
+    /** Rapport de Review Sprint (compte rendu « demo_sprint »), le plus récent. */
+    public static function crDemo(Sprint $sprint): ?CompteRendu
+    {
+        return CompteRendu::where('sprint_id', $sprint->id)->where('type', 'demo_sprint')->latest('date_reunion')->latest('id')->first();
+    }
+
+    public static function demoConfirmee(Sprint $sprint): bool
+    {
+        return (bool) self::crDemo($sprint)?->estConfirme();
     }
 
     /** Chaque verrou renvoie le motif du refus, ou null si l'action est permise. */
@@ -58,15 +75,20 @@ class CeremoniesScrum
         };
     }
 
+    /** La Review des développeurs suit le rapport de review : elle s'ouvre une fois le rapport validé. */
     public static function verrouReview(Sprint $sprint): ?string
     {
-        return $sprint->statut === 'planifie' ? "La Review s'ouvre au démarrage du sprint." : null;
+        if ($sprint->statut !== 'termine') return "La Review des développeurs s'ouvre après la clôture du sprint et la validation du rapport de review.";
+        // Sprints antérieurs au circuit actuel : une Review déjà entamée reste accessible
+        if (!self::demoConfirmee($sprint) && !self::compteRendu($sprint, 'review_sprint')) return "La Review des développeurs s'ouvre une fois le rapport de review validé.";
+        return null;
     }
 
+    /** La Rétrospective clôt le cycle : elle s'ouvre une fois la Review validée. */
     public static function verrouRetro(Sprint $sprint): ?string
     {
-        // Elle qualifie la collaboration pendant l'exécution : ouverte dès le démarrage, sans attendre la Review
-        return $sprint->statut === 'planifie' ? "La Rétrospective s'ouvre au démarrage du sprint." : null;
+        if ($sprint->statut !== 'termine') return "La Rétrospective s'ouvre après la clôture du sprint et la validation de la Review.";
+        return self::reviewValidee($sprint) ? null : "La Rétrospective s'ouvre une fois la Review validée.";
     }
 
     /**
@@ -82,12 +104,14 @@ class CeremoniesScrum
         return $lignes ? ['sprint_id' => $precedent->id, 'numero' => $precedent->numero, 'valide' => $cr->estConfirme(), 'lignes' => $lignes] : null;
     }
 
-    /** @return string[] étapes qui manquent avant de pouvoir clôturer */
-    public static function manquantsCloture(Sprint $sprint): array
+    /** @return string[] rapports d'un sprint clôturé qui restent à confirmer ou valider */
+    public static function rapportsManquants(Sprint $sprint): array
     {
+        if ($sprint->statut !== 'termine') return [];
         return array_values(array_filter([
-            self::reviewValidee($sprint) ? null : 'la Review',
-            self::retroValidee($sprint) ? null : 'la Rétrospective',
+            self::demoConfirmee($sprint) ? null : 'Rapport de review',
+            self::reviewValidee($sprint) ? null : 'Review',
+            self::retroValidee($sprint) ? null : 'Rétrospective',
         ]));
     }
 
@@ -99,10 +123,13 @@ class CeremoniesScrum
             if (isset($cr[$type])) return $cr[$type] === 'confirme' ? ['ok', 'Validée'] : ($verrou ? ['', $verrou] : ['brouillon', 'Brouillon']);
             return $verrou ? ['', $verrou] : ['cours', 'À mener'];
         };
+        $demo = self::crDemo($sprint);
         return [
             'backlog' => $sprint->userStories()->exists() ? ['ok', 'User stories engagées'] : ($sprint->statut === 'planifie' ? ['cours', 'À préparer'] : ['', 'Aucune user story']),
             'planning' => $sprint->taches()->exists() ? ['ok', 'Tâches planifiées'] : ($sprint->statut === 'planifie' ? ['cours', 'À préparer'] : ['', 'Aucune tâche']),
             'daily' => match ($sprint->statut) { 'en_cours' => ['cours', 'En cours'], 'planifie' => ['', self::verrouDaily($sprint)], default => ['ok', 'Terminé'] },
+            'demo' => $demo ? ($demo->estConfirme() ? ['ok', 'Rapport validé'] : ($demo->estEnRevision() ? ['brouillon', 'Rapport en relecture'] : ['brouillon', 'Rapport en rédaction']))
+                : ($sprint->statut === 'termine' ? ['cours', 'À mener'] : ['', 'Le rapport de review suit la clôture du sprint.']),
             'review' => $rapport('review_sprint', self::verrouReview($sprint)),
             'retro' => $rapport('retrospective', self::verrouRetro($sprint)),
         ];
@@ -116,15 +143,17 @@ class CeremoniesScrum
                 ? ['démarrer le sprint', route('sprints.show', $sprint)]
                 : ['ajouter les tâches au Sprint Planning, puis démarrer le sprint', route('sprints.planning', $sprint)];
         }
-        if ($sprint->statut === 'termine') {
-            return [$sprint->arrete_le ? 'sprint arrêté le ' . $sprint->arrete_le->format('d/m/Y') . '.' : 'sprint clôturé.', null];
-        }
-        if (!self::reviewValidee($sprint)) {
+        if ($sprint->statut === 'en_cours') {
             return $sprint->date_fin->gte(today())
-                ? ['tenir les Daily Scrum jusqu\'au ' . $sprint->date_fin->format('d/m') . ', puis valider la Review', route('scrum.dailies', $sprint)]
-                : ['valider la Review', route('scrum.review', $sprint)];
+                ? ['tenir les Daily Scrum jusqu\'au ' . $sprint->date_fin->format('d/m') . ', puis clôturer le sprint', route('scrum.dailies', $sprint)]
+                : ['clôturer le sprint', route('sprints.show', $sprint)];
         }
-        if (!self::retroValidee($sprint)) return ['valider la Rétrospective', route('scrum.retro', $sprint)];
-        return ['clôturer le sprint', route('sprints.show', $sprint)];
+        $demo = self::crDemo($sprint);
+        if (!$demo) return ['tenir la séance de review avec le client, puis préparer le rapport de review', route('scrum.demo', $sprint)];
+        if ($demo->estBrouillon()) return ['rédiger le rapport de review (contributions des développeurs), puis le transmettre pour relecture', route('scrum.demo', $sprint)];
+        if ($demo->estEnRevision()) return ['relire puis valider le rapport de review', route('scrum.demo', $sprint)];
+        if (!self::reviewValidee($sprint)) return ['compléter et valider la Review des développeurs', route('scrum.review', $sprint)];
+        if (!self::retroValidee($sprint)) return ['rédiger et valider la Rétrospective', route('scrum.retro', $sprint)];
+        return [($sprint->arrete_le ? 'sprint arrêté le ' . $sprint->arrete_le->format('d/m/Y') : 'sprint clôturé') . ', rapports complets.', null];
     }
 }

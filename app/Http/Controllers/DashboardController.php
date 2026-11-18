@@ -50,25 +50,8 @@ class DashboardController extends Controller
         $enRetard = Tache::where('user_id', $userId)->enRetard()->count();
         $tauxCompletion = $total > 0 ? round(($terminees / $total) * 100) : 0;
 
-        $alertes = [];
-        if ($enRetard > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$enRetard} tâche(s) en retard."];
-        if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s)."];
-
-        $aSaisiAujourdhui = Tache::where('user_id', $userId)->whereDate('date_debut', today())->exists();
+        // Les blocs du tableau de bord portent les signaux (voyants) et mènent au détail
         $estJourOuvre = (\App\Services\CalendrierTravail::estJourTravaille(today()) || (Schema::hasTable('jours_ouvrables_speciaux') && \App\Models\JourOuvrableSpecial::where('date', today()->toDateString())->exists())) && !JourFerie::whereDate('date', today())->exists();
-        if (!$aSaisiAujourdhui && $estJourOuvre) {
-            $alertes[] = ['type' => 'info', 'msg' => 'Aucune tâche saisie aujourd\'hui.'];
-        }
-
-        // Alertes objectifs
-        if (Schema::hasTable('objectifs')) {
-            $objUser = Objectif::where('user_id', $userId)->where('avancement', '<', 100)->get();
-            foreach ($objUser as $obj) {
-                foreach ($obj->alertes() as $al) {
-                    $alertes[] = ['type' => $al['type'] === 'retard' ? 'ko' : 'warn', 'msg' => "[Obj] {$al['msg']} - {$obj->libelle}"];
-                }
-            }
-        }
 
         $termineesSemaine = Tache::where('user_id', $userId)->where('statut', 'termine')
             ->whereBetween('date_fin_reelle', [today()->startOfWeek(), today()->endOfWeek()])->count();
@@ -167,7 +150,7 @@ class DashboardController extends Controller
 
         return view('dashboard.index', compact(
             'tachesDuJour', 'total', 'terminees', 'enCours', 'bloquees',
-            'enRetard', 'tauxCompletion', 'alertes', 'termineesSemaine', 'assiduite',
+            'enRetard', 'tauxCompletion', 'termineesSemaine', 'assiduite',
             'estResponsable', 'projetData', 'mesTachesActives',
             'pointsLivres', 'pointsTotalSprint', 'tendanceHebdo', 'tendanceMax',
             'parPriorite', 'totalPrio', 'monPointage', 'pointageActif'
@@ -363,14 +346,8 @@ class DashboardController extends Controller
             $pointageStats = compact('totalCollabs', 'presentsJour', 'retardsJour', 'absentsJour', 'tauxPresence');
         }
 
-        $alertes = [];
-        if ($enRetard > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$enRetard} tâche(s) en retard."];
-        $echus = Sprint::with('projet')->where('statut', 'en_cours')->whereDate('date_fin', '<', today())->orderBy('date_fin')->get();
-        if ($echus->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $echus->count() . ' sprint(s) échu(s) non clôturé(s) : ' . $echus->map(fn($s) => ($s->projet->code ?: $s->projet->libelle) . ' Sprint ' . $s->numero . ' (fin ' . $s->date_fin->format('d/m') . ')')->join(', ') . '.'];
-        if ($arbitragesEnAttente > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$arbitragesEnAttente} arbitrage(s) en attente de décision."];
-
         return view('dashboard.dg', compact(
-            'alertes', 'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
+            'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
             'termineesSemaine', 'arbitragesEnAttente', 'sansSaisieHier',
             'sprintsEnCours', 'topBloquees', 'parProjet', 'evenements',
             'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'performance',
@@ -393,8 +370,6 @@ class DashboardController extends Controller
         $termineesSemaine = Tache::where('statut', 'termine')
             ->whereBetween('date_fin_reelle', [today()->startOfWeek(), today()->endOfWeek()])->count();
 
-        // Alertes
-        $alertes = [];
         $hier = today()->subDay();
         $sansSaisieHier = 0;
         if (\App\Services\CalendrierTravail::estJourTravaille($hier) && !JourFerie::whereDate('date', $hier)->exists()) {
@@ -412,30 +387,6 @@ class DashboardController extends Controller
             }
             $sansSaisieHier = max(0, $totalActifs - count(array_unique($idsCouverts)));
         }
-        if ($sansSaisieHier > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$sansSaisieHier} collaborateur(s) sans saisie hier."];
-        if ($bloquees > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$bloquees} tâche(s) bloquée(s) sur tous les projets."];
-        if ($enRetard > 0) $alertes[] = ['type' => 'warn', 'msg' => "{$enRetard} tâche(s) en retard."];
-        // Sprints à cheval sur deux périodes d'exercice (05 → 04) en attente d'arbitrage
-        // Sprint dont la date de fin est passée mais non clôturé : ses tâches restent actives (et en retard)
-        $echus = Sprint::with('projet')->where('statut', 'en_cours')->whereDate('date_fin', '<', today())->orderBy('date_fin')->get();
-        if ($echus->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $echus->count() . ' sprint(s) échu(s) non clôturé(s) : ' . $echus->map(fn($s) => ($s->projet->code ?: $s->projet->libelle) . ' Sprint ' . $s->numero . ' (fin ' . $s->date_fin->format('d/m') . ')')->join(', ') . '. À clôturer pour archiver leurs tâches.'];
-        // Sprints clôturés depuis moins de deux mois dont les rapports (CR Démo, Review, Rétrospective) restent à finaliser
-        $sansRapports = Sprint::with('projet')->where('statut', 'termine')->whereDate('date_fin', '>=', today()->subMonths(2))->orderBy('date_fin')->get()
-            ->map(fn($s) => [$s, \App\Services\CeremoniesScrum::rapportsManquants($s)])->filter(fn($x) => $x[1]);
-        if ($sansRapports->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => 'Rapports à finaliser : ' . $sansRapports->map(fn($x) => ($x[0]->projet->code ?: $x[0]->projet->libelle) . ' Sprint ' . $x[0]->numero . ' (' . implode(', ', $x[1]) . ')')->join(' ; ') . '.'];
-        $aArbitrer = Sprint::whereDate('date_fin', '>=', today()->subMonths(3))->get()->filter->arbitragePeriodeRequis();
-        if ($aArbitrer->isNotEmpty()) $alertes[] = ['type' => 'warn', 'msg' => $aArbitrer->count() . " sprint(s) à cheval sur deux périodes d'exercice : arbitrage requis (" . $aArbitrer->map(fn($s) => 'Sprint ' . $s->numero)->join(', ') . ').'];
-
-        // Alertes objectifs (DG)
-        if (Schema::hasTable('objectifs')) {
-            $objRetard = Objectif::where('avancement', '<', 100)->get();
-            $countRetard = 0;
-            foreach ($objRetard as $obj) {
-                if ($obj->date_echeance && $obj->date_echeance->isPast()) $countRetard++;
-            }
-            if ($countRetard > 0) $alertes[] = ['type' => 'ko', 'msg' => "{$countRetard} objectif(s) en retard d'échéance."];
-        }
-
         $arbitragesEnAttente = ArbitrageT3::where('decision', 'en_attente')->count();
 
         // Auto-fix ENUM si pas encore migré
@@ -543,7 +494,7 @@ class DashboardController extends Controller
 
         return view('dashboard.pilote', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
-            'termineesSemaine', 'alertes', 'sansSaisieHier', 'arbitragesEnAttente',
+            'termineesSemaine', 'sansSaisieHier', 'arbitragesEnAttente',
             'sprintsEnCours', 'collaborateurs', 'performance', 'topBloquees', 'tachesEnRetard',
             'parProjet', 'evenements', 'mesTachesActives', 'aValider',
             'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines', 'monPointage', 'pointageActif'

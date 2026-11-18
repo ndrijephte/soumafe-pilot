@@ -2,7 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{AuditLog, NotificationApp, Projet, ProjetCollaborateur, User, UserStory};
-use App\Services\{ArchiveScrum, ImportBacklog, TexteRiche};
+use App\Services\{ArchiveScrum, ImportBacklog, ImportConsolide, TexteRiche};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -271,6 +271,39 @@ class ProjetScrumController extends Controller
         abort_unless($projet->estVisiblePour($r->user()), 403);
         $projet->load('responsable');
         return ArchiveScrum::backlog($projet)->telecharger('PRODUCT_BACKLOG_' . Str::upper(Str::slug($projet->code ?: $projet->libelle, '_')) . '_' . now()->format('Ymd') . '.xlsx');
+    }
+
+    /** Import consolidé : fichier multi-onglets couvrant N sprints. */
+    public function importerConsolide(Request $r, Projet $projet)
+    {
+        abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
+        $r->validate([
+            'fichier' => 'required|file|mimes:xlsx|max:51200',
+        ], ['fichier.mimes' => 'Le fichier doit être au format .xlsx (Excel).']);
+
+        try {
+            $import = new ImportConsolide($projet);
+            $rapport = $import->importer($r->file('fichier')->getRealPath());
+        } catch (\Throwable $e) {
+            return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])->withErrors(['fichier' => 'Import consolidé impossible : ' . $e->getMessage()]);
+        }
+
+        $resume = collect([
+            $rapport['sprints_crees'] ? "{$rapport['sprints_crees']} sprint(s) créé(s)" : null,
+            $rapport['stories_crees'] ? "{$rapport['stories_crees']} user story(s) créée(s)" : null,
+            $rapport['stories_maj'] ? "{$rapport['stories_maj']} user story(s) mise(s) à jour" : null,
+            $rapport['stories_engagees'] ? "{$rapport['stories_engagees']} engagement(s) en Sprint Backlog" : null,
+            $rapport['taches_crees'] ? "{$rapport['taches_crees']} tâche(s) créée(s)" : null,
+            $rapport['dailys_crees'] ? "{$rapport['dailys_crees']} daily(s) créé(s)" : null,
+            $rapport['reviews_crees'] ? "{$rapport['reviews_crees']} review(s)" : null,
+            $rapport['retros_crees'] ? "{$rapport['retros_crees']} rétrospective(s)" : null,
+        ])->filter()->implode(', ') ?: 'aucun élément nouveau (déjà importé)';
+
+        AuditLog::log('import_consolide', 'projet', $projet->code, $resume);
+
+        return redirect()->route('projets.espace', [$projet, 'onglet' => 'sprints'])
+            ->with('succes', "Import consolidé terminé : {$resume}.")
+            ->with('erreurs_import', $rapport['erreurs']);
     }
 
     /* ─── Outils ─── */

@@ -49,7 +49,7 @@
     </select>
     <select name="statut" onchange="this.form.submit()">
         <option value="">— Statut —</option>
-        @foreach(['a_faire' => 'À faire', 'en_cours' => 'En cours', 'bloque' => 'Bloqué', 'a_valider' => 'À valider', 'termine' => 'Terminé'] as $k => $v)
+        @foreach(['a_faire' => 'À faire', 'en_cours' => 'En cours', 'en_retard' => 'En retard', 'bloque' => 'Bloqué', 'a_valider' => 'À valider', 'termine' => 'Terminé'] as $k => $v)
         <option value="{{ $k }}" {{ ($filtres['statut'] ?? '') == $k ? 'selected' : '' }}>{{ $v }}</option>
         @endforeach
     </select>

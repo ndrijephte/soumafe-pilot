@@ -168,6 +168,12 @@ dialog textarea{min-height:70px;resize:vertical}
 <div class="section">
     <h3><svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Journal d'activité ({{ $tache->commentaires->count() }})</h3>
     <div class="carte" style="padding:10px 16px">
+        @if($tache->sprint_id)
+        <div style="display:flex;align-items:center;gap:8px;margin:2px 0 8px;padding:7px 11px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;color:#475569">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#2e74b5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            Ce journal et les blocages alimentent l'observation de la tâche dans le rapport de review du Sprint {{ $tache->sprint?->numero }} : précisez ce qui a été fait, ce qui a freiné, ce qui reste.
+        </div>
+        @endif
         @forelse($tache->commentaires->sortByDesc('created_at') as $c)
         @php
             $ctx = $c->contexte ? (\App\Models\Commentaire::CONTEXTES[$c->contexte] ?? null) : null;
@@ -185,7 +191,7 @@ dialog textarea{min-height:70px;resize:vertical}
         @endforelse
 
         <form method="POST" action="{{ route('commentaires.store', $tache) }}" class="form-inline">@csrf
-            <textarea name="contenu" placeholder="Ajouter un commentaire…" required></textarea>
+            <textarea name="contenu" placeholder="{{ $tache->sprint_id ? 'Ajouter un commentaire (repris dans le rapport de review)…' : 'Ajouter un commentaire…' }}" required></textarea>
             <button class="btn" style="align-self:flex-end">Envoyer</button>
         </form>
     </div>

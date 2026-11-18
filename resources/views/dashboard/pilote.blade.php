@@ -81,16 +81,14 @@
 </div>
 @endif
 
-{{-- Alertes --}}
-@include('dashboard._attention', ['alertes' => $alertes])
 
 {{-- Indicateurs clés --}}
 <div class="kpis kpi-v2">
-    <div class="kpi {{ $enRetard ? 'signal-ko' : '' }}"><x-voyant :niveau="$enRetard ? 'retard' : 'ok'" :titre="$enRetard ? $enRetard . ' tâche(s) en retard' : 'Aucun retard'" :lien="route('taches.pilote')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En retard</div><div class="val">{{ $enRetard }}</div></div>
-    <div class="kpi {{ $bloquees ? 'signal-ko' : '' }}"><x-voyant :niveau="$bloquees ? 'bloque' : 'ok'" :titre="$bloquees ? $bloquees . ' tâche(s) bloquée(s)' : 'Aucun blocage'" :lien="route('taches.pilote', ['statut' => 'bloque'])" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Bloquées</div><div class="val">{{ $bloquees }}</div></div>
-    <div class="kpi {{ $aValider->count() ? 'signal-info' : '' }}"><x-voyant :niveau="$aValider->count() ? 'semaine' : 'ok'" :titre="$aValider->count() ? $aValider->count() . ' tâche(s) à valider' : 'Rien à valider'" :lien="route('taches.pilote')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>À valider</div><div class="val">{{ $aValider->count() }}</div></div>
-    <div class="kpi {{ $sansSaisieHier ? 'signal-warn' : '' }}"><x-voyant :niveau="$sansSaisieHier ? 'proche' : 'ok'" :titre="$sansSaisieHier ? $sansSaisieHier . ' collaborateur(s) sans saisie hier' : 'Toutes les saisies sont faites'" :lien="route('saisie.index')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Sans saisie hier</div><div class="val">{{ $sansSaisieHier }}</div><div class="sub"><a href="{{ route('saisie.index') }}">Relancer</a></div></div>
-    <div class="kpi signal-ok"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Complétion</div><div class="val">{{ $tauxGlobal }} %</div><div class="barre-k"><i style="width:{{ $tauxGlobal }}%"></i></div></div>
+    <div class="kpi {{ $enRetard ? 'signal-ko' : '' }}"><x-voyant :niveau="$enRetard ? 'retard' : 'ok'" :titre="$enRetard ? $enRetard . ' tâche(s) en retard' : 'Aucun retard'" :lien="route('taches.pilote')" lien-texte="Voir le détail" /><x-detail :href="route('taches.pilote', ['statut' => 'en_retard'])" titre="tâches en retard" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En retard</div><div class="val">{{ $enRetard }}</div></div>
+    <div class="kpi {{ $bloquees ? 'signal-ko' : '' }}"><x-voyant :niveau="$bloquees ? 'bloque' : 'ok'" :titre="$bloquees ? $bloquees . ' tâche(s) bloquée(s)' : 'Aucun blocage'" :lien="route('taches.pilote', ['statut' => 'bloque'])" lien-texte="Voir le détail" /><x-detail :href="route('taches.pilote', ['statut' => 'bloque'])" titre="tâches bloquées" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Bloquées</div><div class="val">{{ $bloquees }}</div></div>
+    <div class="kpi {{ $aValider->count() ? 'signal-info' : '' }}"><x-voyant :niveau="$aValider->count() ? 'semaine' : 'ok'" :titre="$aValider->count() ? $aValider->count() . ' tâche(s) à valider' : 'Rien à valider'" :lien="route('taches.pilote')" lien-texte="Voir le détail" /><x-detail :href="route('taches.pilote', ['statut' => 'a_valider'])" titre="tâches à valider" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>À valider</div><div class="val">{{ $aValider->count() }}</div></div>
+    <div class="kpi {{ $sansSaisieHier ? 'signal-warn' : '' }}"><x-voyant :niveau="$sansSaisieHier ? 'proche' : 'ok'" :titre="$sansSaisieHier ? $sansSaisieHier . ' collaborateur(s) sans saisie hier' : 'Toutes les saisies sont faites'" :lien="route('saisie.index')" lien-texte="Voir le détail" /><x-detail :href="route('saisie.index')" titre="saisies des collaborateurs" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Sans saisie hier</div><div class="val">{{ $sansSaisieHier }}</div><div class="sub"><a href="{{ route('saisie.index') }}">Relancer</a></div></div>
+    <div class="kpi signal-ok"><x-detail :href="route('reporting.index')" titre="reporting" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Complétion</div><div class="val">{{ $tauxGlobal }} %</div><div class="barre-k"><i style="width:{{ $tauxGlobal }}%"></i></div></div>
 </div>
 
 {{-- Tâches à valider --}}
@@ -99,6 +97,7 @@
     <h3 style="color:#1d4ed8">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         T&acirc;ches &agrave; valider ({{ $aValider->count() }})
+        <x-detail :href="route('taches.pilote', ['statut' => 'a_valider'])" titre="tâches à valider" />
     </h3>
     <table class="mini-table" data-collapse-table="5">
         <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>Sprint</th><th>Action</th></tr></thead>
@@ -124,6 +123,7 @@
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Tendance (4 semaines)
+            <x-detail :href="route('reporting.index')" titre="reporting" />
         </h3>
         @include('dashboard._tendance', ['series' => $tendanceHebdoGlobal, 'max' => $tendanceMaxGlobal, 'legende' => 'Tâches terminées par semaine (toute l\'équipe)'])
     </div>
@@ -136,6 +136,7 @@
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
             Sprints en cours ({{ $sprintsEnCours->count() }})
+            <x-detail :href="route('sprints.index')" titre="projets et sprints" />
         </h3>
         @forelse($sprintsEnCours as $s)
         <div class="sprint-item">
@@ -161,6 +162,7 @@
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             Livraison sprints terminés
+            <x-detail :href="route('sprints.index')" titre="projets et sprints" />
         </h3>
         @foreach($sprintsTermines as $st)
         @php $livColor = $st->taux_livraison >= 80 ? 'var(--ok)' : ($st->taux_livraison >= 50 ? 'var(--warn)' : 'var(--ko)'); @endphp
@@ -182,6 +184,7 @@
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             T&acirc;ches bloqu&eacute;es ({{ $topBloquees->count() }})
+            <x-detail :href="route('taches.pilote', ['statut' => 'bloque'])" titre="tâches bloquées" />
         </h3>
         <table class="mini-table" data-collapse-table="5">
             <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>Projet</th></tr></thead>
@@ -203,6 +206,7 @@
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             T&acirc;ches en retard ({{ $tachesEnRetard->count() }})
+            <x-detail :href="route('taches.pilote', ['statut' => 'en_retard'])" titre="tâches en retard" />
         </h3>
         <table class="mini-table" data-collapse-table="5">
             <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>&Eacute;ch&eacute;ance</th><th>Retard</th></tr></thead>
@@ -228,6 +232,7 @@
     <h3>
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/></svg>
         Mes t&acirc;ches actives ({{ $mesTachesActives->count() }})
+        <x-detail :href="route('taches.index')" titre="mes activités" />
     </h3>
     <table class="mini-table" data-collapse-table="5">
         <thead><tr><th>T&acirc;che</th><th>Projet</th><th>Priorit&eacute;</th><th>D&eacute;but</th><th>&Eacute;ch&eacute;ance</th><th>Statut</th></tr></thead>
@@ -248,7 +253,6 @@
         @endforeach
         </tbody>
     </table>
-    <div style="margin-top:10px"><a href="{{ route('taches.index') }}" class="lien">Voir toutes mes activit&eacute;s &rarr;</a></div>
 </div>
 @endif
 
@@ -257,6 +261,7 @@
     <h3>
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         R&eacute;partition par projet
+        <x-detail :href="route('sprints.index')" titre="projets et sprints" />
     </h3>
     <table class="mini-table">
         <thead><tr><th>Projet</th><th>T&acirc;ches</th><th>Term.</th><th>Retard</th><th>Progression</th></tr></thead>
@@ -286,6 +291,7 @@
     <h3>
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         Faits marquants (30 derniers jours)
+        <x-detail :href="route('reporting.index')" titre="reporting" />
     </h3>
     <div data-collapse="5">
     @foreach($evenements as $e)

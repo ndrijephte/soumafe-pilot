@@ -8,9 +8,12 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Rapport de Review Sprint (compte rendu « demo_sprint ») : fond et circuit.
  *
- * Circuit : clôture du sprint → séance de review (démonstration au client) → rapport rédigé par le pilote,
- * les développeurs complètent leurs tâches → relecture par le responsable du projet → validation par le pilote
+ * Circuit : clôture du sprint → séance de review (démonstration au client) → rapport rédigé par le pilote
+ * (seul rédacteur ; il peut passer la main au responsable du projet et la reprendre) → relecture → validation par le pilote
  * → Review des développeurs (archive Excel) → Rétrospective.
+ *
+ * Les développeurs n'écrivent pas dans le rapport : leurs commentaires et les blocages déclarés sur leurs tâches
+ * pré-remplissent l'observation de chaque tâche. Le pilote garde la main sur toutes les rubriques.
  *
  * À la validation, le rapport alimente le suivi : nouvelles user stories au Product Backlog, décisions en tâches.
  */
@@ -25,7 +28,7 @@ class RapportReview
     ];
 
     /** Étapes du circuit, dans l'ordre : clé de statut => libellé. */
-    public const ETAPES = ['brouillon' => 'Rédaction et contributions', 'en_revision' => 'Relecture', 'confirme' => 'Validé'];
+    public const ETAPES = ['brouillon' => 'Rédaction', 'en_revision' => 'Relecture', 'confirme' => 'Validé'];
 
     /* ───────────── Droits ───────────── */
 
@@ -46,28 +49,59 @@ class RapportReview
         return self::relecteurs($cr)->contains('id', $u->id);
     }
 
-    /* ───────────── Contributions des développeurs ───────────── */
-
-    /** La ligne de tâche appartient-elle à l'utilisateur ? Par identifiant, à défaut par le nom (rapports antérieurs). */
-    public static function tacheDe(array $t, User $u): bool
+    /** Responsable du projet du sprint, à qui le pilote peut passer la main pour la rédaction (null s'il n'y en a pas). */
+    public static function responsable(CompteRendu $cr): ?User
     {
-        return !empty($t['user_id']) ? (int) $t['user_id'] === (int) $u->id : ($t['attribution'] ?? '') === $u->nomComplet();
+        $u = $cr->sprint?->projet?->responsable_projet_id ? User::where('actif', true)->find($cr->sprint->projet->responsable_projet_id) : null;
+        return $u && !$u->estPilote() ? $u : null;
     }
 
-    /**
-     * Suivi des contributions : pour chaque développeur du sprint qui a des tâches dans le rapport,
-     * nombre de tâches et date de sa dernière contribution (null si pas encore contribué).
-     * @return array<int, array{user: User, taches: int, le: ?string}>
-     */
-    public static function contributions(CompteRendu $cr): array
+    /** La rédaction a-t-elle été confiée au responsable du projet ? */
+    public static function mainAuResponsable(CompteRendu $cr): bool
     {
-        if (!$cr->sprint) return [];
-        $d = $cr->getDonnees();
-        $faites = $d['contributions'] ?? [];
-        return ScrumService::membres($cr->sprint)
-            ->reject(fn(User $m) => $m->estPilote() || (int) $m->id === (int) $cr->redacteur_id)
-            ->map(fn(User $m) => ['user' => $m, 'taches' => collect($d['taches'] ?? [])->filter(fn($t) => self::tacheDe($t, $m))->count(), 'le' => $faites[$m->id] ?? null])
-            ->filter(fn($c) => $c['taches'] > 0)->values()->all();
+        $resp = self::responsable($cr);
+        return $resp && (int) $cr->redacteur_id === (int) $resp->id;
+    }
+
+    /* ───────────── Observations des tâches ───────────── */
+
+    /** Longueur maximale d'une observation de tâche dans le rapport. */
+    public const OBSERVATION_MAX = 1000;
+
+    /**
+     * Observation pré-remplie de chaque tâche du sprint, à partir du journal de la tâche (Mes activités) :
+     * qualification (à temps, en retard…), blocages déclarés (motif, levée), journal d'activité daté
+     * (commentaires du développeur, de l'équipe ou du pilote, rejets, arbitrages ; les validations automatiques n'y figurent pas),
+     * et l'observation de la Review des développeurs si elle existe déjà.
+     * @return array<int, string> id de tâche => texte (OBSERVATION_MAX caractères au plus)
+     */
+    public static function observationsTaches(Sprint $sprint): array
+    {
+        $taches = Tache::where('sprint_id', $sprint->id)->with(['blocages', 'commentaires.user'])->get();
+        $review = CompteRendu::where('sprint_id', $sprint->id)->where('type', 'review_sprint')->duModuleScrum()->first();
+        $obsReview = $review ? ($review->getDonnees()['observations'] ?? []) : [];
+        $texte = fn($v) => trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace(['<br>', '</p>', '</li>'], ' ', (string) $v)), ENT_QUOTES, 'UTF-8')));
+
+        $obs = [];
+        foreach ($taches as $t) {
+            $parts = [];
+            if ($t->qualification) $parts[] = Tache::libelleQualification($t->qualification);
+            foreach ($t->blocages->sortBy('date_blocage') as $b) {
+                $parts[] = 'Blocage du ' . $b->date_blocage?->format('d/m') . ' : ' . $texte($b->motif)
+                    . ($b->date_levee ? ' (levé le ' . $b->date_levee->format('d/m') . ')' : ' (non levé)');
+            }
+            // Journal d'activité de la tâche, dans l'ordre : l'auteur est nommé quand ce n'est pas le développeur de la tâche
+            foreach ($t->commentaires->where('contexte', '!==', 'validation')->sortBy('created_at') as $c) {
+                $contenu = $texte($c->contenu);
+                if ($contenu === '') continue;
+                $auteur = (int) $c->user_id !== (int) $t->user_id && $c->user && !str_contains($contenu, $c->user->nomComplet()) ? $c->user->nomComplet() . ' : ' : '';
+                $parts[] = $c->created_at->format('d/m') . ' ' . $auteur . $contenu;
+            }
+            if (!empty($obsReview[$t->id])) $parts[] = $texte($obsReview[$t->id]);
+            $parts = array_values(array_unique(array_filter($parts, fn($p) => $p !== '')));
+            $obs[$t->id] = mb_substr(implode(' — ', $parts), 0, self::OBSERVATION_MAX);
+        }
+        return $obs;
     }
 
     /* ───────────── Contenu ───────────── */

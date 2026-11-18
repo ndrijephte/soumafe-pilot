@@ -259,7 +259,6 @@
 .cr-edit.demo .be-add-sec:hover{color:#2e74b5;background:none}
 .cr-edit.demo .be-add-mod{border:2px dashed #cbd5e1;background:transparent;color:#64748b}
 .cr-edit.demo .be-add-mod:hover{border-color:var(--bleu,#1F4E79);background:#fff;color:var(--bleu,#1F4E79)}
-.mode-contrib .be-bloc-head,.mode-contrib .be-ajout,.mode-contrib select.taille{display:none!important}
 /* Tableau synoptique */
 .syno{background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.06),0 6px 20px rgba(15,23,42,.04);padding:20px 24px 16px;margin-bottom:22px}
 .syno-lib{font-size:.7rem;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#2e74b5}
@@ -306,7 +305,6 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
 .be-ctitre-menu.ouvert{display:flex}
 .be-ctitre-menu button{width:20px;height:20px;border-radius:50%;border:none;cursor:pointer;padding:0}
 .be-ctitre-menu button.defaut{background:#f1f5f9;color:#64748b;font-size:.8rem}
-.mode-contrib .be-reglages{display:none!important}
 .cr-edit.demo .be-mod-fields input::placeholder,.cr-edit.demo .be-sec-head input::placeholder,.cr-edit.demo .be-sstitre-txt::placeholder{font-weight:400;font-size:.9rem;color:#b6c2d1;font-style:normal}
 @media(max-width:700px){.syno-tbl th{width:110px}.syno-tbl tr{display:grid;grid-template-columns:110px 1fr}}
 .cr-edit.demo .be-tab .btn-rm{color:#cbd5e1;font-size:.9rem}
@@ -319,14 +317,13 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
 .be-bloc-head .be-handle{cursor:grab;color:#b0b8c4;font-size:.9rem;padding:0 3px}
 .be-glisse{opacity:.45;outline:2px dashed #93c5fd;outline-offset:2px}
 .be-contrib{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:10px;padding:9px 14px;font-size:.84rem;margin-bottom:12px}
-.mode-contrib .be-handle,.mode-contrib .be-add-bar,.mode-contrib .be-add-btn,.mode-contrib .be-actualiser,.mode-contrib .be-bloc-bar,.mode-contrib .be-sec-actions,.mode-contrib .be-mod-actions,.mode-contrib .be-add-sec,.mode-contrib .btn-rm,.mode-contrib .rich-toolbar,.mode-contrib .be-tab-aide{display:none!important}
-.mode-contrib tr.mienne td{background:#fffbeb}
 .be-actualiser{margin-left:auto;margin-right:6px;background:#fff;border:1px solid #bfdbfe;color:#1f4e79;border-radius:6px;font-size:.74rem;font-weight:600;padding:3px 9px;cursor:pointer}
 .be-actualiser:hover{background:#eff6ff}
 .be-tab-aide{font-size:.75rem;color:#64748b;margin-bottom:6px}
 .be-tab input,.be-tab select,.be-tab textarea{width:100%;padding:4px 7px;border:1px solid #e2e8f0;border-radius:6px;font-size:.8rem;font-family:inherit;background:#fff}
 .be-tab textarea{resize:none;overflow:hidden;min-height:30px;line-height:1.35;margin-top:3px}
 .be-tab input:focus,.be-tab select:focus,.be-tab textarea:focus{outline:none;border-color:#93c5fd}
+.be-tab textarea.be-tache-obs{resize:none;overflow:hidden;line-height:1.45;min-width:220px}
 .be-bloc-head .be-type-lbl{font-weight:700;color:var(--bleu,#1F4E79);text-transform:uppercase;letter-spacing:.3px}
 .be-bloc-bar{display:flex;gap:2px;margin-left:auto}
 .be-bloc-bar button{background:none;border:none;cursor:pointer;padding:2px 5px;color:#94a3b8;font-size:.82rem;border-radius:4px}
@@ -360,7 +357,12 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
 .be-circuit .et.fait{background:#dcfce7;color:#15803d}
 .be-circuit .et.cours{background:var(--accent,#2E74B5);color:#fff}
 .be-circuit .sep{color:#cbd5e1}
-.be-circuit .contrib-ok{color:#15803d;font-weight:600}.be-circuit .contrib-att{color:#b45309;font-weight:600}
+.be-circuit .contrib-ok{color:#15803d;font-weight:600}
+.be-circuit .main{display:inline-flex;align-items:center;gap:8px;margin-left:auto}
+.be-circuit .main form{margin:0}
+.be-circuit .main button{background:#fff;border:1px solid #bfdbfe;color:#1f4e79;border-radius:7px;font-size:.76rem;font-weight:600;padding:4px 10px;cursor:pointer}
+.be-circuit .main button:hover{background:#eff6ff}
+.be-circuit .main .delegue{color:#1f4e79;font-weight:600}
 .be-renvoi{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:10px;padding:9px 14px;margin-bottom:14px;font-size:.82rem}
 /* Libellés des fonctionnalités (pilote) */
 .be-libs{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 16px;margin-bottom:14px;font-size:.8rem;color:#475569}
@@ -436,8 +438,8 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
         @php
             $sp = $cr->sprint;
             $goal = trim((string) ($donnees['objectif'] ?? $sp?->objectif ?? ''));
-            $ecrit = !$contributeur;
-            $pilote = $user->estPilote() && !$contributeur;
+            $ecrit = true;
+            $pilote = $user->estPilote();
             $taille = fn(string $cle, string $titre) => '<select class="taille" data-cle="' . $cle . '" title="' . e($titre) . '"><option value="">Aa</option>'
                 . collect($taillesMef)->map(fn($pt) => '<option value="' . $pt . '"' . ((string) ($mef[$cle] ?? '') === (string) $pt ? ' selected' : '') . '>' . str_replace('.', ',', $pt) . ' pt</option>')->join('') . '</select>';
         @endphp
@@ -464,7 +466,7 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
                 <tr><th>Date de la review</th><td>@if($pilote)<input type="date" name="date_reunion" value="{{ old('date_reunion', $cr->date_reunion->format('Y-m-d')) }}" required>@else{{ $cr->date_reunion->format('d/m/Y') }}@endif</td>
                     <th>Horaires</th><td>@if($ecrit)<input type="time" name="heure_debut" value="{{ $cr->heure_debut ? substr($cr->heure_debut, 0, 5) : '' }}"> <span class="syno-gris">→</span> <input type="time" name="heure_fin" value="{{ $cr->heure_fin ? substr($cr->heure_fin, 0, 5) : '' }}">@else{{ $cr->heure_debut ? substr($cr->heure_debut, 0, 5) : '—' }}{{ $cr->heure_fin ? ' → ' . substr($cr->heure_fin, 0, 5) : '' }}@endif</td></tr>
                 <tr><th>Lieu</th><td>@if($ecrit)<input name="lieu" value="{{ $cr->lieu }}" placeholder="Lieu de la review">@else{{ $cr->lieu ?: '—' }}@endif</td>
-                    <th>Rédacteur</th><td>@if($pilote)<select name="redacteur_id" required>@foreach($collaborateurs as $c)<option value="{{ $c->id }}" @selected((int) old('redacteur_id', $cr->redacteur_id) === $c->id)>{{ $c->nomComplet() }}</option>@endforeach</select>@else{{ $cr->redacteur?->nomComplet() ?? '—' }}@endif</td></tr>
+                    <th>Rédacteur</th><td>{{ $cr->redacteur?->nomComplet() ?? '—' }}</td></tr>
             </table>
             @if($ecrit)<div class="syno-pied">Police du document : {!! $choixPolice !!} · Taille du texte : {!! $taille('texte', 'Taille du texte (PDF et Word)') !!} <span class="syno-gris">· les tailles des titres se règlent sur les titres eux-mêmes (Aa).</span></div>{!! $entetePied !!}@else{!! $entetePiedCache !!}@endif
         </section>
@@ -775,34 +777,44 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
             @php
                 $rangC = $cr->estBrouillon() ? 1 : ($cr->estEnRevision() ? 2 : 3);
                 $relecture = $donnees['relecture'] ?? [];
-                $nbContrib = count($circuit['contributions']);
-                $nbFaites = collect($circuit['contributions'])->whereNotNull('le')->count();
             @endphp
             <div class="be-circuit">
                 <div class="etapes">
-                    @foreach(['Rédaction et contributions', 'Relecture', 'Validation'] as $i => $lib)
+                    @foreach(['Rédaction', 'Relecture', 'Validation'] as $i => $lib)
                     @if($i)<span class="sep">›</span>@endif<span class="et {{ $i + 1 < $rangC || $cr->estConfirme() ? 'fait' : ($i + 1 === $rangC ? 'cours' : '') }}">{{ $lib }}</span>
                     @endforeach
                 </div>
                 <span>Relecture : <strong>{{ $circuit['relecteurs']->map->nomComplet()->join(', ') ?: 'un pilote' }}</strong></span>
-                @if($nbContrib)<span>Contributions : <span class="{{ $nbFaites === $nbContrib ? 'contrib-ok' : 'contrib-att' }}" title="{{ collect($circuit['contributions'])->map(fn($c) => $c['user']->nomComplet() . ($c['le'] ? ' : ' . $c['le'] : ' : en attente'))->join("\n") }}">{{ $nbFaites }}/{{ $nbContrib }}</span></span>@endif
                 @if(!empty($relecture['transmis_le']) && $cr->estEnRevision())<span>Transmis par {{ $relecture['transmis_par'] }} le {{ $relecture['transmis_le'] }}</span>@endif
                 @if(!empty($relecture['par']))<span class="contrib-ok">&#10003; Relu par {{ $relecture['par'] }}</span>@endif
+                {{-- Le pilote rédige ; il peut passer la main au responsable du projet, et la reprendre --}}
+                <span class="main">
+                    @if($circuit['mainResponsable'])
+                    <span class="delegue" title="{{ !empty($donnees['main']) ? 'Main passée par ' . $donnees['main']['par'] . ' le ' . $donnees['main']['le'] : '' }}">Rédaction confiée à {{ $cr->redacteur?->nomComplet() }}</span>
+                    @else
+                    <span>Rédaction : <strong>{{ $cr->redacteur?->nomComplet() ?? 'le pilote' }}</strong></span>
+                    @endif
+                    @if($user->estPilote() && $cr->estBrouillon())
+                        @if($circuit['mainResponsable'])
+                        <button type="button" onclick="mainCR('pilote', 'Reprendre la main sur la rédaction ? Le rapport est enregistré avant.')" title="La rédaction revient au pilote">Reprendre la main</button>
+                        @elseif($circuit['responsable'])
+                        <button type="button" onclick="mainCR('responsable', 'Passer la main à {{ $circuit['responsable']->nomComplet() }} pour la rédaction ? Vous gardez la main sur toutes les rubriques et la validation. Le rapport est enregistré avant.')" title="Le responsable du projet rédige ; vous gardez la main et la validation">Passer la main à {{ $circuit['responsable']->nomComplet() }}</button>
+                        @endif
+                    @endif
+                </span>
             </div>
             @if(!empty($relecture['renvoi']) && $cr->estBrouillon())
             <div class="be-renvoi"><strong>Renvoyé par {{ $relecture['renvoi']['par'] }}</strong> le {{ $relecture['renvoi']['le'] }} : {{ $relecture['renvoi']['motif'] }}</div>
             @endif
             @endif
-            @if($contributeur)
-            <div class="be-contrib">Vous complétez la colonne <strong>Réalisée</strong> et l'<strong>observation</strong> de vos tâches (surlignées). Le rédacteur rédige le reste puis transmet le rapport pour relecture.</div>
-            @elseif($cr->estBrouillon())
-            <div class="be-contrib">Les développeurs complètent leurs tâches (Réalisée, observation) ; vous rédigez le reste : verdict du client par fonctionnalité, nouvelles user stories, décisions. Puis transmettez pour relecture.</div>
+            @if($cr->estBrouillon())
+            <div class="be-contrib">L'observation de chaque tâche reprend ce que le développeur a consigné sur sa tâche (blocages, commentaires, qualification). Vous la reformulez librement ; « Actualiser » reprend les nouveaux commentaires sans toucher aux observations que vous avez modifiées. Rédigez le reste (verdict du client, user stories, décisions), puis transmettez pour relecture.</div>
             @elseif($cr->estEnRevision())
             <div class="be-contrib">Relecture : corrigez si besoin, puis marquez le rapport comme relu ou renvoyez-le au rédacteur. Le pilote le valide ensuite : les nouvelles user stories rejoignent alors le Product Backlog et les décisions deviennent des tâches suivies.</div>
             @endif
             <datalist id="be-modules-liste">@foreach(collect($donnees['stories'] ?? [])->pluck('module')->filter()->unique() as $m)<option value="{{ $m }}">@endforeach</datalist>
             <datalist id="be-membres">@foreach($collaborateurs as $c)<option value="{{ $c->nomComplet() }}">@endforeach</datalist>
-            @if($user->estPilote() && !$contributeur)
+            @if($user->estPilote())
             <details class="be-libs" id="be-libs"><summary>Libellés des fonctionnalités<span class="aide">noms importés du Product Backlog, à reformuler pour ce rapport</span></summary><div class="be-libs-grille" id="be-libs-grille"></div></details>
             @endif
             <div id="be-modules"></div>
@@ -812,9 +824,9 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
         <div class="cr-bottom">
             <a href="{{ route('comptes-rendus.index') }}" class="btn-retour">&larr; Retour</a>
             <a href="{{ route('comptes-rendus.imprimer', $cr) }}" target="_blank" class="btn-retour" title="Version PDF du dernier enregistrement, dans un nouvel onglet">Aperçu PDF</a>
-            <button type="submit" class="btn-save">{{ $contributeur ? 'Enregistrer mes tâches' : ($cr->estConfirme() || $cr->estEnRevision() ? 'Enregistrer les modifications' : 'Enregistrer brouillon') }}</button>
+            <button type="submit" class="btn-save">{{ $cr->estConfirme() || $cr->estEnRevision() ? 'Enregistrer les modifications' : 'Enregistrer brouillon' }}</button>
             @if($circuit)
-                @if($cr->estBrouillon() && !$contributeur && ($user->estPilote() || (int) $cr->redacteur_id === (int) $user->id))
+                @if($cr->estBrouillon() && ($user->estPilote() || (int) $cr->redacteur_id === (int) $user->id))
                 <button type="button" class="btn-confirm" onclick="etapeCR('transmettre-form', 'Transmettre le rapport pour relecture ? Il est enregistré avant l\'envoi.')">Transmettre pour relecture</button>
                 @elseif($cr->estEnRevision() && ($circuit['relecteur'] || $user->estPilote()))
                 <button type="button" class="btn-retour" onclick="renvoyerCR()">Renvoyer au rédacteur</button>
@@ -832,6 +844,7 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
     @endif
     @if($circuit && $cr->estBrouillon())
     <form method="POST" action="{{ route('comptes-rendus.transmettre', $cr) }}" id="transmettre-form" style="display:none">@csrf</form>
+    @if($user->estPilote())<form method="POST" action="{{ route('comptes-rendus.main', $cr) }}" id="main-form" style="display:none">@csrf<input type="hidden" name="a"></form>@endif
     @endif
     @if($circuit && $cr->estEnRevision())
     <form method="POST" action="{{ route('comptes-rendus.relire', $cr) }}" id="relu-form" style="display:none">@csrf<input type="hidden" name="decision" value="relu"></form>
@@ -1320,7 +1333,7 @@ function renderBloc(bloc, secEl){
                 <td><input type="number" min="0" class="be-t" data-idx="${i}" data-champ="points" value="${t.points ?? 1}"></td>
                 <td><input class="be-t" data-idx="${i}" data-champ="attribution" value="${beEsc(t.attribution)}" list="be-membres"></td>
                 <td style="text-align:center"><input type="checkbox" class="chk be-tache-chk" data-idx="${i}" ${chk}></td>
-                <td><input type="text" class="be-tache-obs be-t" data-idx="${i}" data-champ="observation" value="${beEsc(t.observation)}"></td>
+                <td><textarea class="be-tache-obs be-t" rows="1" data-idx="${i}" data-champ="observation" title="Repris des blocages et commentaires du développeur sur sa tâche ; modifiable">${beEsc(t.observation)}</textarea></td>
                 <td><button type="button" class="btn-rm" onclick="beRetirerLigne('taches',${i})" title="Retirer">&#10005;</button></td></tr>`;
         });
         bodyHtml += '</tbody></table>';
@@ -1861,15 +1874,17 @@ function beRetirerLigne(liste, i){
     beRerendre();
 }
 function beActualiser(btn){
-    if(!confirm("Reprendre l'état actuel du sprint ? Les tableaux sont recalculés ; les observations saisies sont conservées.")) return;
+    if(!confirm("Reprendre l'état actuel du sprint ? Les tableaux sont recalculés ; les observations que vous avez modifiées sont conservées, les autres reprennent les derniers commentaires des développeurs.")) return;
     btn.disabled = true;
     fetch(@json(route('comptes-rendus.sprint-actuel', $cr)), {headers: {'Accept': 'application/json'}, redirect: 'error'})
         .then(r => { if(!r.ok) throw new Error(); return r.json(); })
         .then(j => {
+            // Observation retouchée (différente de la version pré-remplie) : conservée ; sinon elle reprend les nouveaux commentaires
+            const cle = t => t.tache_id ? 'id' + t.tache_id : 't' + t.tache;
             const obs = {};
-            (BE_DONNEES.taches || []).forEach(t => { if(t.tache && t.observation) obs[t.tache] = t.observation; });
+            (BE_DONNEES.taches || []).forEach(t => { if(t.tache && (t.observation || '') !== (t.observation_auto || '')) obs[cle(t)] = t.observation; });
             BE_DONNEES.stories = j.stories;
-            BE_DONNEES.taches = j.taches.map(t => ({...t, observation: obs[t.tache] ?? t.observation}));
+            BE_DONNEES.taches = j.taches.map(t => ({...t, observation: obs[cle(t)] ?? t.observation}));
             BE_DONNEES.score_manuel = false;
             beRerendre();
         })
@@ -1914,30 +1929,11 @@ document.getElementById('be-modules').addEventListener('dragend', () => {
     beRenumeroter();
 });
 
-/* --- Mode contributeur : seules la case « Réalisée » et l'observation de ses tâches restent modifiables --- */
-const BE_CONTRIBUTEUR = @json($contributeur ? ['id' => $user->id, 'nom' => $user->nomComplet()] : null);
-function beVerrouiller(){
-    if(!BE_CONTRIBUTEUR) return;
-    const zone = document.getElementById('be-modules');
-    zone.classList.add('mode-contrib');
-    zone.querySelectorAll('input, select, textarea').forEach(el => el.disabled = true);
-    zone.querySelectorAll('[contenteditable]').forEach(el => el.contentEditable = 'false');
-    zone.querySelectorAll('tr[data-tache-idx]').forEach(tr => {
-        const t = (BE_DONNEES.taches || [])[+tr.dataset.tacheIdx];
-        if(t && (t.user_id ? +t.user_id === BE_CONTRIBUTEUR.id : t.attribution === BE_CONTRIBUTEUR.nom)){
-            tr.classList.add('mienne');
-            tr.querySelectorAll('.be-tache-chk, .be-tache-obs').forEach(el => el.disabled = false);
-        }
-    });
-    document.querySelectorAll('.be-add-mod, [data-sect="mise-en-forme"], .cr-sommaire').forEach(el => el.style.display = 'none');
-}
-
 /* --- Init : rendu initial --- */
 beModules.forEach(m => renderModule(m));
 if(!BE_DONNEES.score_manuel) beRecalculerScore();
 beAjusterHauteurs();
 beAppliquerTailles();
-beVerrouiller();
 beLibsPanneau();
 window.addEventListener('resize', beAjusterHauteurs);
 
@@ -1968,6 +1964,11 @@ function etapeCR(formId, question){
     fetch(form.action, {method:'POST', body:new FormData(form), headers:{'X-Requested-With':'XMLHttpRequest'}})
         .then(r => { if(!r.ok) throw new Error(); document.getElementById(formId).submit(); })
         .catch(() => alert("L'enregistrement a échoué : corrigez le rapport puis réessayez."));
+}
+/* Passer la main au responsable du projet (ou la reprendre) : le rapport est enregistré d'abord */
+function mainCR(a, question){
+    document.querySelector('#main-form [name=a]').value = a;
+    etapeCR('main-form', question);
 }
 function renvoyerCR(){
     const motif = prompt('Que doit reprendre le rédacteur ?');

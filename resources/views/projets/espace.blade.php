@@ -140,6 +140,9 @@ dialog textarea{resize:vertical}
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
 @if($errors->any())<div class="alerte ko">{{ $errors->first() }}</div>@endif
+@if(session('erreurs_import') && count(session('erreurs_import')))
+<div class="alerte" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e"><strong>Remarques de l'import consolidé :</strong><ul style="margin:4px 0 0 18px">@foreach(session('erreurs_import') as $err)<li>{{ $err }}</li>@endforeach</ul></div>
+@endif
 
 <div class="ep-tabs" role="tablist">
     <button class="ep-tab" data-onglet="backlog" onclick="ongletEp('backlog')">Product Backlog <span class="nb">{{ $stories->count() }}</span></button>
@@ -154,6 +157,7 @@ dialog textarea{resize:vertical}
         <div style="display:flex;gap:6px;flex-wrap:wrap">
             @if($peutAlimenter)
             <button class="btn sec" onclick="document.getElementById('dlg-import').showModal()">Importer (.xlsx)</button>
+            <button class="btn sec" onclick="document.getElementById('dlg-import-consolide').showModal()">Import consolidé</button>
             <button class="btn" onclick="ouvrirStory()">+ User story</button>
             @endif
             @if($stories->isNotEmpty())<a class="btn sec" href="{{ route('projets.backlog.export', $projet) }}" title="Exporter le Product Backlog (.xlsx)">Exporter</a>@endif
@@ -417,6 +421,25 @@ dialog textarea{resize:vertical}
             <option value="maj">Mettre à jour la user story existante</option>
             <option value="ajout">Ignorer la ligne (ne créer que les nouvelles)</option>
         </select>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Importer</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="dlg-import-consolide" style="width:540px">
+    <h3 style="color:var(--bleu);margin-bottom:6px">Import consolidé des éléments Scrum</h3>
+    <p style="font-size:12.5px;color:#334155;margin-bottom:10px">Un classeur couvrant plusieurs sprints : Product Backlog, puis pour chaque sprint son Sprint Backlog, son planning, ses dailys, sa review et sa rétrospective.</p>
+    <form method="POST" action="{{ route('projets.import.consolide', $projet) }}" enctype="multipart/form-data" onsubmit="this.querySelector('button.btn:not(.sec)').disabled=true;this.querySelector('button.btn:not(.sec)').textContent='Import en cours…'">@csrf
+        <label>Classeur Excel (.xlsx) <span class="req">*</span></label>
+        <input type="file" name="fichier" accept=".xlsx" required>
+        <ul style="font-size:11.5px;color:var(--gris);margin:8px 0 0 16px;padding:0;line-height:1.6">
+            <li>Onglets lus, dans l'ordre du classeur : <em>Product Backlog, Backlog Sprint N, Sprint N Planning, DAILY n jj-mm-aaaa, REVIEW SPRINT N, RETROSPECTIVE N</em>.</li>
+            <li>Les sprints passés sont créés clôturés ; le dernier est en cours (ou planifié s'il n'a pas commencé).</li>
+            <li>Les collaborateurs sont reconnus par leur nom ; « Toute l'équipe » donne une tâche à chaque membre du sprint.</li>
+            <li>Réimporter le même classeur ne crée pas de doublon ; un sprint déjà clôturé dans l'application n'est pas modifié.</li>
+        </ul>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn">Importer</button>

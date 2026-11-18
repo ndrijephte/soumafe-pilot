@@ -82,8 +82,9 @@ class ImportBacklog
 
             if ($us = $existantes->get($cle)) {
                 if ($mode !== 'maj') { $this->rapport['ignores']++; continue; }
-                // Le statut du fichier ne prime pas sur celui que calculent les tâches
-                if ($s['statut'] && !$us->taches()->exists()) $donnees['statut'] = $s['statut'];
+                // Le statut du fichier ne vaut que pour une story encore hors de tout sprint et sans tâche :
+                // ensuite, il découle du suivi dans l'application (tâches, sprints)
+                if ($s['statut'] && !$us->taches()->exists() && !$us->sprints()->exists()) $donnees['statut'] = $s['statut'];
                 // Texte riche identique au fichier : inchangé (pas de fausse modification signalée au sprint)
                 foreach (['exigences', 'taches_techniques'] as $k) {
                     if (isset($donnees[$k]) && trim(TexteRiche::texte($donnees[$k])) === trim(TexteRiche::texte($us->$k))) unset($donnees[$k]);
@@ -91,7 +92,8 @@ class ImportBacklog
                 $us->update($donnees);
                 if ($us->wasChanged('contenu_modifie_le')) $this->modifiees[] = $us;
                 if ($us->estArchivee()) $this->remarque("{$us->numero} : user story archivée, mise à jour sans revenir au Product Backlog (Restaurer pour la réintégrer).");
-                $this->rapport['maj']++;
+                // Seules les stories réellement modifiées sont comptées
+                if ($us->wasChanged()) $this->rapport['maj']++;
             } else {
                 $this->projet->userStories()->create($donnees + ['priorite' => 'moyenne', 'statut' => $s['statut'] ?: 'a_faire', 'origine' => 'import']);
                 $this->rapport['crees']++;
@@ -117,7 +119,9 @@ class ImportBacklog
             foreach ($cellules as $i => $v) {
                 $h = $this->norm($v);
                 if ($h === '' || mb_strlen($h) > 60) continue;
-                if (!isset($cols['numero']) && preg_match('/^(n|no|n°|num|numero|id|ref|reference)\b/u', str_replace(['°', 'º'], '°', $h))) { $cols['numero'] = $i; continue; }
+                // « ID » / « Réf. » (US-001) prime sur un « N° » d'ordre (1, 2, 3…) quand les deux existent
+                if (!isset($cols['ident']) && preg_match('/^(id|ref|reference|code|id us|identifiant)\.?$/u', $h)) { $cols['ident'] = $i; continue; }
+                if (!isset($cols['numero']) && preg_match('/^(n|no|n°|num|numero)\b/u', str_replace(['°', 'º'], '°', $h))) { $cols['numero'] = $i; continue; }
                 foreach (self::COLONNES as $champ => $mots) {
                     if (isset($cols[$champ])) continue;
                     foreach ($mots as $mot) {
@@ -134,14 +138,18 @@ class ImportBacklog
     {
         $brut = [];
         $moduleCourant = null;
+        $epicCourant = null;
         foreach ($lignes as $num => $c) {
             if ($num <= $entete) continue;
             $get = fn($champ) => isset($cols[$champ]) ? trim((string) ($c[$cols[$champ]] ?? '')) : '';
             $texte = $get('intitule');
-            if ($texte === '') {
-                // Ligne de séparation « MODULE 2 : … »
-                $seul = trim(implode(' ', $c));
+            // Ligne de séparation (cellules fusionnées : la valeur est répétée, on n'en garde qu'une)
+            $seul = trim((string) collect($c)->first(fn($v) => trim((string) $v) !== ''));
+            $fusionnee = $seul !== '' && collect($c)->filter(fn($v) => trim((string) $v) !== '')->unique()->count() === 1 && count(array_filter($c, fn($v) => trim((string) $v) !== '')) > 1;
+            if ($texte === '' || $fusionnee) {
+                // « MODULE 2 : … » : fonctionnalité ; « Section 1 — … » ou « EP-01 — … » : epic
                 if (preg_match('/^module\s*\d*\s*[:\-–—]\s*(.+)$/iu', $seul, $m)) $moduleCourant = trim($m[1]);
+                elseif (!isset($cols['epic']) && preg_match('/^(?:section\s*\d+|ep[\s\-]*[a-z0-9\-]+|epic\s*\d*)\s*[:\-–—]\s*(.+)$/iu', $seul, $m)) $epicCourant = Str::limit(trim(preg_replace(['/\s*[—–-]\s*\d+\s*user stor(y|ies).*$/iu', '/\s*\([^()]*\b\d+\s*(US|pts?|user stor\w*)\b[^()]*\)\s*$/iu'], '', $m[1])), 147);
                 continue;
             }
             // Lignes de synthèse du fichier : elles ne sont pas des user stories
@@ -157,9 +165,9 @@ class ImportBacklog
             $brut[] = [
                 'ligne' => $num,
                 'numero' => $numero,
-                'numero_col' => $get('numero'),
+                'numero_col' => $get('ident') ?: $get('numero'),
                 'module' => $get('module') ?: null,
-                'epic' => $this->texte($get('epic'), 150) ?: null,
+                'epic' => $this->texte($get('epic'), 150) ?: $epicCourant,
                 'module_courant' => $moduleCourant,
                 'intitule' => $this->texte($texte, 2000),
                 'exigences' => $this->texte($get('exigences'), 5000),

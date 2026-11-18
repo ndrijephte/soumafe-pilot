@@ -63,7 +63,7 @@ class CompteRenduController extends Controller
 
         $v = $r->validate([
             'type'          => 'required|in:reunion_ordinaire,reunion_extraordinaire,demo_sprint',
-            'redacteur_id'  => 'required|exists:users,id',
+            'redacteur_id'  => 'required_unless:type,demo_sprint|nullable|exists:users,id',
             'president_id'  => 'nullable|exists:users,id',
             'date_reunion'  => 'required|date',
             'heure_debut'   => 'nullable|string|max:10',
@@ -72,6 +72,9 @@ class CompteRenduController extends Controller
             'lieu'          => 'nullable|string|max:255',
             'sprint_id'     => 'required_if:type,demo_sprint|nullable|exists:sprints,id',
         ], ['sprint_id.required_if' => 'Choisissez le sprint du rapport de review : ses user stories et ses tâches en sont reprises.']);
+
+        // Rapport de review : le pilote en est le rédacteur (il peut ensuite passer la main au responsable du projet)
+        if ($v['type'] === 'demo_sprint') $v['redacteur_id'] = $user->id;
 
         try {
             $cr = CompteRendu::create([
@@ -93,8 +96,8 @@ class CompteRenduController extends Controller
             $cr->setDonnees($donnees);
             $cr->save();
 
-            // Notification rédacteur
-            if (Schema::hasTable('notifications_app')) {
+            // Notification rédacteur (sauf s'il s'est désigné lui-même)
+            if (Schema::hasTable('notifications_app') && (int) $v['redacteur_id'] !== (int) $user->id) {
                 NotificationApp::create([
                     'user_id' => $v['redacteur_id'],
                     'type'    => 'designation_cr',
@@ -105,7 +108,7 @@ class CompteRenduController extends Controller
             }
 
             // E-mail au rédacteur
-            $redacteur = User::find($v['redacteur_id']);
+            $redacteur = (int) $v['redacteur_id'] !== (int) $user->id ? User::find($v['redacteur_id']) : null;
             if ($redacteur) {
                 MailService::notifier(
                     $redacteur,
@@ -115,15 +118,16 @@ class CompteRenduController extends Controller
                 );
             }
 
-            // CR Démo : les développeurs du sprint complètent leurs tâches
+            // Rapport de review : les développeurs alimentent l'observation de leurs tâches par leurs commentaires et blocages
             if ($cr->type === 'demo_sprint' && $cr->sprint && Schema::hasTable('notifications_app')) {
-                foreach (ScrumService::membres($cr->sprint)->reject(fn($m) => $m->estPilote() || (int) $m->id === (int) $v['redacteur_id']) as $m) {
+                foreach (ScrumService::membres($cr->sprint)->reject(fn($m) => $m->estPilote()) as $m) {
                     NotificationApp::create(['user_id' => $m->id, 'type' => 'designation_cr', 'lu' => false, 'canal' => 'in_app',
-                        'contenu' => "Rapport de review du sprint {$cr->sprint->numero} ouvert : complétez la colonne « Réalisée » et l'observation de vos tâches.",
-                        'lien' => route('comptes-rendus.edit', $cr)]);
+                        'contenu' => "Rapport de review du sprint {$cr->sprint->numero} en préparation : vos commentaires et blocages sur vos tâches y sont repris. Complétez-les si besoin.",
+                        'lien' => route('taches.index')]);
                 }
             }
-            return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rédacteur désigné. Le formulaire est pré-rempli.');
+            return redirect()->route('comptes-rendus.edit', $cr)->with('ok', $cr->type === 'demo_sprint'
+                ? 'Rapport préparé : tableaux et observations des tâches pré-remplis.' : 'Rédacteur désigné. Le formulaire est pré-rempli.');
         } catch (\Throwable $e) {
             return redirect()->back()->withInput()->withErrors(['erreur' => $e->getMessage()]);
         }
@@ -131,12 +135,9 @@ class CompteRenduController extends Controller
 
     /* ===== ÉDITION ===== */
     /**
-     * CR Démo en brouillon : un développeur de l'équipe du sprint (ni pilote ni rédacteur) le complète en partie,
-     * la colonne « Réalisée » et l'observation de ses propres tâches. Le pilote rédige le reste et valide.
-     */
-    /**
-     * Brouillon : pilote ou rédacteur. Rapport de review en relecture : pilote ou relecteur (responsable du projet).
-     * Confirmé : pilote (le DOCX est régénéré).
+     * Le pilote garde la main sur toutes les rubriques, à toutes les étapes (confirmé : le DOCX est régénéré).
+     * Brouillon : aussi le rédacteur (pour le rapport de review, le responsable du projet si le pilote lui a passé la main).
+     * Rapport de review en relecture : aussi le relecteur.
      */
     private function peutModifier(User $u, CompteRendu $cr): bool
     {
@@ -146,19 +147,12 @@ class CompteRenduController extends Controller
         return (int) $cr->redacteur_id === (int) $u->id;
     }
 
-    private function contributeurDemo(User $u, CompteRendu $cr): bool
-    {
-        if ($cr->type !== 'demo_sprint' || !$cr->estBrouillon() || !$cr->sprint || $u->estPilote() || (int) $cr->redacteur_id === (int) $u->id) return false;
-        return ScrumService::membres($cr->sprint)->contains('id', $u->id);
-    }
-
     public function edit(Request $r, CompteRendu $cr)
     {
         if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         $user = $r->user();
-        $contributeur = $this->contributeurDemo($user, $cr);
-        abort_unless($this->peutModifier($user, $cr) || $contributeur, 403);
+        abort_unless($this->peutModifier($user, $cr), 403);
 
         $collaborateurs = User::where('actif', true)
             ->orWhereIn('id', array_filter([$cr->redacteur_id, $cr->president_id]))
@@ -181,37 +175,51 @@ class CompteRenduController extends Controller
         if ($cr->type === 'demo_sprint') $donnees = $this->libellesDemo($donnees);
 
         $peutConfirmer = $cr->type === 'demo_sprint' ? $user->estPilote() : ($user->estPilote() || $cr->redacteur_id === $user->id);
-        // Rapport de review : circuit (rédaction, relecture, validation), contributions des développeurs, indicateurs
+        // Rapport de review : circuit (rédaction, relecture, validation), main du rédacteur, indicateurs
         $circuit = $cr->type === 'demo_sprint' ? [
             'relecteurs' => RapportReview::relecteurs($cr),
             'relecteur' => RapportReview::estRelecteur($user, $cr),
-            'contributions' => RapportReview::contributions($cr),
+            'responsable' => RapportReview::responsable($cr),
+            'mainResponsable' => RapportReview::mainAuResponsable($cr),
             'indicateurs' => RapportReview::indicateurs($donnees, $cr->sprint),
             'verdicts' => RapportReview::VERDICTS,
         ] : null;
-        return view('comptes-rendus.edit', compact('cr', 'collaborateurs', 'projets', 'donnees', 'user', 'contributeur', 'peutConfirmer', 'sprintsRattachables', 'circuit'));
+        return view('comptes-rendus.edit', compact('cr', 'collaborateurs', 'projets', 'donnees', 'user', 'peutConfirmer', 'sprintsRattachables', 'circuit'));
     }
 
-    /** Contribution d'un développeur au CR Démo : « Réalisée » et observation de ses tâches, rien d'autre. */
-    private function contribuerDemo(Request $r, CompteRendu $cr, User $user)
+    /**
+     * Rapport de review : le pilote passe la main au responsable du projet pour la rédaction, ou la reprend.
+     * Le pilote garde ses droits sur toutes les rubriques ; la validation lui reste réservée.
+     */
+    public function passerMain(Request $r, CompteRendu $cr)
     {
-        $envoi = json_decode((string) $r->input('bloc_data'), true)['taches'] ?? [];
+        $user = $r->user();
+        abort_unless($cr->type === 'demo_sprint' && $user->estPilote(), 403);
+        if (!$cr->estBrouillon()) return back()->with('erreur', 'La main ne se passe que pendant la rédaction du rapport.');
+        $v = $r->validate(['a' => 'required|in:responsable,pilote']);
         $d = $cr->getDonnees();
-        $n = 0;
-        foreach ($d['taches'] ?? [] as $i => $t) {
-            if (!RapportReview::tacheDe($t, $user)) continue;
-            // Même ligne, même intitulé : la tâche n'a pas été déplacée entre-temps
-            $e = $envoi[$i] ?? null;
-            if (!is_array($e) || ($e['tache'] ?? null) !== ($t['tache'] ?? null)) continue;
-            $d['taches'][$i]['termine'] = filter_var($e['termine'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $d['taches'][$i]['observation'] = mb_substr(trim(strip_tags((string) ($e['observation'] ?? ''))), 0, 500);
-            $n++;
+        $sprint = $cr->sprint;
+        if ($v['a'] === 'responsable') {
+            $resp = RapportReview::responsable($cr);
+            if (!$resp) return back()->with('erreur', "Le projet n'a pas de responsable (hors pilotes) à qui passer la main.");
+            $cr->redacteur_id = $resp->id;
+            $d['main'] = ['a' => $resp->nomComplet(), 'par' => $user->nomComplet(), 'le' => now()->format('d/m/Y H:i')];
+            RapportReview::notifier($resp->id, "{$user->nomComplet()} vous passe la main pour rédiger le rapport de review du sprint {$sprint?->numero}.", route('comptes-rendus.edit', $cr));
+            MailService::notifier($resp, 'Rapport de review à rédiger',
+                "{$user->nomComplet()} vous confie la rédaction du rapport de review du sprint {$sprint?->numero} ({$sprint?->projet?->libelle}).\nLe pilote garde la main et valide le rapport.",
+                route('comptes-rendus.edit', $cr));
+            $message = "Main passée à {$resp->nomComplet()} : il rédige le rapport, vous gardez la main et la validation.";
+        } else {
+            $ancien = $cr->redacteur_id;
+            $cr->redacteur_id = $user->id;
+            unset($d['main']);
+            if ($ancien && (int) $ancien !== (int) $user->id) RapportReview::notifier($ancien, "{$user->nomComplet()} a repris la rédaction du rapport de review du sprint {$sprint?->numero}.", route('comptes-rendus.show', $cr));
+            $message = 'Vous avez repris la main sur la rédaction du rapport.';
         }
-        if (empty($d['score_manuel'])) $d = array_merge($d, $this->calculerScoreDemo($d['taches'] ?? []));
-        if ($n) $d['contributions'][$user->id] = now()->format('d/m/Y H:i');
         $cr->setDonnees($d);
         $cr->save();
-        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', $n ? "Vos {$n} tâche(s) sont enregistrées. Le rédacteur complète le rapport, puis le transmet pour relecture." : 'Aucune de vos tâches dans ce compte rendu.');
+        AuditLog::log('main_rapport_review', 'comptes_rendus', $cr->titre, $message);
+        return back()->with('ok', $message);
     }
 
     /** CR Démo : état actuel du sprint (stories, tâches) pour actualiser les tableaux de l'éditeur. */
@@ -228,7 +236,6 @@ class CompteRenduController extends Controller
         if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum()) return redirect($cr->lienScrum() ?? route('comptes-rendus.index'));
         $user = $r->user();
-        if ($this->contributeurDemo($user, $cr)) return $this->contribuerDemo($r, $cr, $user);
         abort_unless($this->peutModifier($user, $cr), 403);
 
         /* ---- Demo sprint : bloc editor JSON ---- */
@@ -292,7 +299,7 @@ class CompteRenduController extends Controller
                 'tache_id' => (int) ($t['tache_id'] ?? 0) ?: null, 'user_id' => (int) ($t['user_id'] ?? 0) ?: null,
                 'tache' => $txt($t['tache'] ?? '', 1000), 'points' => max(0, (int) ($t['points'] ?? 1)), 'attribution' => $txt($t['attribution'] ?? '', 150),
                 'statut' => $txt($t['statut'] ?? '', 30), 'termine' => filter_var($t['termine'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'observation' => $txt($t['observation'] ?? ''), 'us' => $txt($t['us'] ?? '', 30) ?: null, 'us_contexte' => $txt($t['us_contexte'] ?? '', 300) ?: null,
+                'observation' => $txt($t['observation'] ?? '', RapportReview::OBSERVATION_MAX), 'observation_auto' => $txt($t['observation_auto'] ?? '', RapportReview::OBSERVATION_MAX), 'us' => $txt($t['us'] ?? '', 30) ?: null, 'us_contexte' => $txt($t['us_contexte'] ?? '', 300) ?: null,
                 'module' => $txt($t['module'] ?? '', 150) ?: null,
             ], array_filter(is_array($donnees['taches'] ?? null) ? $donnees['taches'] : [], fn($t) => is_array($t) && trim($t['tache'] ?? '') !== '')));
             $donnees['objectif'] = $cr->getDonnees()['objectif'] ?? $cr->sprint?->objectif;
@@ -309,8 +316,8 @@ class CompteRenduController extends Controller
             } else {
                 $donnees['libelles_modules'] = $anciens;
             }
-            // Tenus par le serveur : contributions des développeurs, relecture, tâches de suivi déjà créées
-            foreach (['contributions', 'relecture', 'suivi'] as $k) {
+            // Tenus par le serveur : relecture, main du rédacteur, tâches de suivi déjà créées (et anciennes contributions)
+            foreach (['contributions', 'relecture', 'suivi', 'main'] as $k) {
                 if (isset($cr->getDonnees()[$k])) $donnees[$k] = $cr->getDonnees()[$k]; else unset($donnees[$k]);
             }
             $score = $this->calculerScoreDemo($donnees['taches'] ?? []);
@@ -387,10 +394,11 @@ class CompteRenduController extends Controller
                 'date_reunion' => 'required|date',
                 'type'         => $cr->estReunion() ? 'required|in:reunion_ordinaire,reunion_extraordinaire' : 'prohibited',
                 'president_id' => 'nullable|exists:users,id',
-                'redacteur_id' => 'required|exists:users,id',
+                // Rapport de review : le rédacteur ne se choisit pas ici (le pilote passe la main au responsable du projet)
+                'redacteur_id' => $cr->type === 'demo_sprint' ? 'prohibited' : 'required|exists:users,id',
             ]);
             $cr->date_reunion = $v['date_reunion'];
-            $cr->redacteur_id = $v['redacteur_id'];
+            if ($cr->type !== 'demo_sprint') $cr->redacteur_id = $v['redacteur_id'];
             if ($cr->estReunion()) {
                 $cr->type = $v['type'];
                 $cr->president_id = $v['president_id'] ?? null;
@@ -543,9 +551,7 @@ class CompteRenduController extends Controller
         foreach ($relecteurs->reject(fn($u) => (int) $u->id === (int) $user->id) as $u) {
             RapportReview::notifier($u->id, "Rapport de review du sprint {$cr->sprint?->numero} transmis pour relecture par {$user->nomComplet()}.", route('comptes-rendus.edit', $cr));
         }
-        $manquants = collect(RapportReview::contributions($cr))->whereNull('le')->map(fn($c) => $c['user']->nomComplet());
-        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rapport transmis pour relecture à ' . ($relecteurs->map->nomComplet()->join(', ') ?: 'un pilote') . '.'
-            . ($manquants->isNotEmpty() ? ' Sans contribution de : ' . $manquants->join(', ') . '.' : ''));
+        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rapport transmis pour relecture à ' . ($relecteurs->map->nomComplet()->join(', ') ?: 'un pilote') . '.');
     }
 
     /** Relecture : le relecteur (ou un pilote) consigne sa relecture, ou renvoie le rapport au rédacteur avec un motif. */
@@ -733,6 +739,7 @@ class CompteRenduController extends Controller
         $lignes = [];
         $totalPoints = 0;
         $pointsRealises = 0;
+        $observations = RapportReview::observationsTaches($sprint);
 
         foreach ($taches as $t) {
             $pts = $t->points ?? 1;
@@ -743,7 +750,10 @@ class CompteRenduController extends Controller
                 'tache_id' => $t->id, 'user_id' => $t->user_id,
                 'tache' => $t->intitule, 'points' => $pts,
                 'attribution' => $t->user?->nomComplet() ?? '-', 'statut' => $t->statut,
-                'termine' => $termine, 'observation' => Tache::libelleQualification($t->qualification),
+                'termine' => $termine,
+                // Repris de la tâche (qualification, blocages, commentaires du développeur) ; « observation_auto » garde la version
+                // pré-remplie : à l'actualisation, une observation que le pilote n'a pas retouchée suit la tâche
+                'observation' => $observations[$t->id] ?? '', 'observation_auto' => $observations[$t->id] ?? '',
                 'us' => $t->userStory?->numero,
                 'us_contexte' => $t->userStory ? trim(($t->userStory->module ?: '') . ($t->userStory->epic ? ' › ' . $t->userStory->epic : '')) : null,
                 'module' => $t->userStory ? (trim((string) $t->userStory->module) ?: 'Sans module') : self::HORS_US,

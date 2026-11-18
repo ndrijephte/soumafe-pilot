@@ -32,6 +32,7 @@
 
 <div class="statut-cr">
     @if($verrou)<span class="pill p-attente">Review fermée</span><span style="font-size:12px;color:var(--gris)">{{ $verrou }}</span>
+    @elseif($avantRapport)<span class="pill p-warn">Avant validation du rapport</span><span style="font-size:12px;color:var(--gris)">Vous gardez la main en tant que pilote ; les développeurs y accéderont une fois le rapport de review validé.</span>
     @elseif(!$cr)<span class="pill p-attente">Review non commencée</span><span style="font-size:12px;color:var(--gris)">Ajoutez vos observations puis enregistrez.</span>
     @elseif($valide)<span class="pill p-ok">Review validée</span><span style="font-size:12px;color:var(--gris)">Enregistrée dans les comptes rendus le {{ $cr->updated_at->format('d/m/Y') }}.</span>
         <span style="font-size:12px;color:var(--gris)">Modifiable par un pilote uniquement.</span>
@@ -97,7 +98,7 @@
                 <td class="ctr">{{ $t->date_debut && $t->echeance ? $t->dureeJours() : '—' }}</td>
                 <td class="ctr"></td>
                 <td><span class="st-{{ $cls }}">{{ $lib }}</span> <span class="scc {{ $code['classe'] }}" title="{{ $code['libelle'] }}">{{ $code['code'] }}</span></td>
-                <td>@if($canEdit && in_array((string) $t->id, $modifiables, true))<x-redaction compact name="observations[{{ $t->id }}]" :value="$obs[$t->id] ?? null" />@else<x-redaction lecture vide="" :value="$obs[$t->id] ?? null" />@endif</td>
+                <td>@if($canEdit && in_array((string) $t->id, $modifiables, true))<x-redaction compact name="observations[{{ $t->id }}]" :value="$obs[$t->id] ?? null" :placeholder="($suggestions[$t->id] ?? '') !== '' ? 'Consigné sur la tâche : ' . $suggestions[$t->id] : 'Observation sur la tâche'" />@else<x-redaction lecture vide="" :value="$obs[$t->id] ?? null" />@endif</td>
             </tr>
             @endforeach
         @endforeach

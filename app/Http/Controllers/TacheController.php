@@ -88,7 +88,8 @@ class TacheController extends Controller
         $query = Tache::with(['user', 'projet', 'sprint'])
             ->when($r->collaborateur, fn ($q) => $q->where('user_id', $r->collaborateur))
             ->when($r->projet, fn ($q) => $q->where('projet_id', $r->projet))
-            ->when($r->statut, fn ($q) => $q->where('statut', $r->statut))
+            // « En retard » : échéance dépassée, tâche non terminée (lien du tableau de bord)
+            ->when($r->statut, fn ($q) => $r->statut === 'en_retard' ? $q->enRetard() : $q->where('statut', $r->statut))
             ->when($r->priorite, fn ($q) => $q->where('priorite', $r->priorite))
             ->when($r->type, fn ($q) => $q->where('type', $r->type))
             ->orderByRaw("FIELD(statut,'a_valider','bloque','en_cours','a_faire','termine')")
@@ -182,6 +183,66 @@ class TacheController extends Controller
 
         $tache->update(['statut' => $r->statut]);
         return response()->json(['ok' => true, 'message' => 'Statut mis à jour.']);
+    }
+
+    /**
+     * Mes activités : une même opération sur plusieurs tâches (démarrer, terminer, remettre à faire, bloquer, commenter).
+     * Chaque tâche suit les règles du glisser-déposer ; celles qui n'y satisfont pas sont écartées avec leur motif.
+     */
+    public function groupe(Request $r)
+    {
+        $u = $r->user();
+        $v = $r->validate([
+            'ids' => 'required|array|min:1|max:200', 'ids.*' => 'integer',
+            'action' => 'required|in:demarrer,terminer,a_faire,bloquer,commenter',
+            'texte' => 'required_if:action,bloquer,commenter|nullable|string|max:2000',
+        ], [
+            'ids.required' => 'Sélectionnez au moins une tâche.',
+            'texte.required_if' => "Indiquez le motif du blocage ou le texte du commentaire.",
+        ]);
+        $cible = ['demarrer' => 'en_cours', 'terminer' => 'termine', 'a_faire' => 'a_faire', 'bloquer' => 'bloque'][$v['action']] ?? null;
+        $texte = trim((string) ($v['texte'] ?? ''));
+        $faites = 0; $ecartees = []; $retards = 0; $bloquees = collect();
+
+        foreach (Tache::with('sprint')->whereIn('id', array_unique($v['ids']))->get() as $t) {
+            $nom = \Illuminate\Support\Str::limit($t->intitule, 40);
+            if ((int) $t->user_id !== (int) $u->id && !$u->estPilote()) { $ecartees[] = "{$nom} : tâche d'un autre collaborateur"; continue; }
+            if ($v['action'] === 'commenter') {
+                $t->commentaires()->create(['user_id' => $u->id, 'contenu' => $texte, 'contexte' => 'suivi']);
+                $faites++;
+                continue;
+            }
+            if ($t->sprint_id && $t->sprint?->statut !== 'en_cours') { $ecartees[] = "{$nom} : sprint " . ($t->sprint?->statut === 'termine' ? 'clôturé' : 'non démarré'); continue; }
+            if ($t->statut === $cible) continue;
+            if ($t->statut === 'termine' && !$u->estPilote()) { $ecartees[] = "{$nom} : déjà terminée (seul un pilote peut la rétrograder)"; continue; }
+            if ($cible === 'termine') {
+                $this->cloture->cloturer($t);
+                if ($t->justification_requise && $t->qualification === 'en_retard') $retards++;
+            } elseif ($cible === 'bloque') {
+                $t->blocages()->create(['motif' => $texte, 'type' => 'technique', 'date_blocage' => now()]);
+                $t->update(['statut' => 'bloque']);
+                $bloquees->push($t);
+            } else {
+                $t->update(['statut' => $cible]);
+            }
+            $faites++;
+        }
+
+        // Un blocage groupé : les pilotes sont prévenus une fois
+        if ($bloquees->isNotEmpty() && Schema::hasTable('notifications_app')) {
+            foreach (User::where('actif', true)->whereIn('role', ['administrateur', 'charge_operations', 'direction'])->where('id', '!=', $u->id)->get() as $p) {
+                \App\Models\NotificationApp::create(['user_id' => $p->id, 'type' => 'blocage', 'lu' => false,
+                    'contenu' => $u->nomComplet() . ' a signalé un blocage sur ' . $bloquees->count() . ' tâche(s) : ' . \Illuminate\Support\Str::limit($texte, 80),
+                    'lien' => route('taches.pilote', ['statut' => 'bloque'])]);
+            }
+        }
+
+        $libelle = ['demarrer' => 'démarrée(s)', 'terminer' => 'terminée(s)', 'a_faire' => 'remise(s) à faire', 'bloquer' => 'bloquée(s)', 'commenter' => 'commentée(s)'][$v['action']];
+        $msg = ($faites ? "{$faites} tâche(s) {$libelle}." : 'Aucune tâche modifiée.')
+            . ($retards ? " {$retards} terminée(s) après l'échéance : ajoutez une justification dans leur journal." : '')
+            . ($v['action'] === 'commenter' && $faites ? ' Le commentaire figure dans le journal de chaque tâche (repris dans le rapport de review).' : '');
+        return redirect()->route('taches.index', $r->only(['affichage', 'projet', 'type']))
+            ->with($faites ? 'succes' : 'erreur', $msg)->with('ecartees', $ecartees);
     }
 
     /** Validation définitive par un pilote (tâche T1 en a_valider). */

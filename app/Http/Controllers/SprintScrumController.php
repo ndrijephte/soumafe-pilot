@@ -354,18 +354,16 @@ class SprintScrumController extends Controller
         $this->voir($r, $sprint);
         $sprint->load(['projet', 'userStories']);
         $cr = CeremoniesScrum::crDemo($sprint);
-        $redacteurs = User::where('actif', true)->where('role', 'charge_operations')->orderBy('name')->get();
-        if ($redacteurs->isEmpty()) $redacteurs = User::where('actif', true)->whereIn('role', ['administrateur', 'charge_operations'])->orderBy('name')->get();
+        // Le pilote rédige le rapport ; il peut passer la main au responsable du projet. Les développeurs n'y écrivent pas :
+        // leurs commentaires et blocages sur leurs tâches pré-remplissent les observations.
         return view('scrum.demo', [
             'sprint' => $sprint, 'cr' => $cr,
             'verrou' => $sprint->statut !== 'termine' ? 'Le rapport de review se rédige après la clôture du sprint.' : null,
             'peutPreparer' => $r->user()->estPilote(),
             'peutRediger' => $cr && !$cr->estConfirme() && ($r->user()->estPilote() || ($cr->estBrouillon() && (int) $cr->redacteur_id === (int) $r->user()->id)
                 || ($cr->estEnRevision() && \App\Services\RapportReview::estRelecteur($r->user(), $cr))),
-            'contributions' => $cr ? \App\Services\RapportReview::contributions($cr) : [],
             'relecteurs' => $cr ? \App\Services\RapportReview::relecteurs($cr) : collect(),
-            'peutContribuer' => $cr && $cr->estBrouillon() && !$r->user()->estPilote() && ScrumService::membres($sprint)->contains('id', $r->user()->id),
-            'redacteurs' => $redacteurs,
+            'mainResponsable' => $cr && \App\Services\RapportReview::mainAuResponsable($cr),
             'aPresenter' => UserStory::trierParNumero($sprint->userStories->filter(fn($us) => ($us->pivot->statut_sprint ?? '') === 'termine' || $us->estFinie())),
         ]);
     }
@@ -391,12 +389,22 @@ class SprintScrumController extends Controller
             ->merge($siennes->pluck('user_story_id')->filter()->unique()->map(fn($id) => 'us_' . $id))->values()->all();
     }
 
+    /**
+     * Verrou de la Review des développeurs pour l'utilisateur : le pilote garde toujours la main sur le sprint clôturé,
+     * même avant la validation du rapport de review (les développeurs, eux, attendent cette validation).
+     */
+    private function verrouReviewPour(Request $r, Sprint $sprint): ?string
+    {
+        $verrou = CeremoniesScrum::verrouReview($sprint);
+        return $verrou && $sprint->statut === 'termine' && $r->user()->estPilote() ? null : $verrou;
+    }
+
     public function review(Request $r, Sprint $sprint)
     {
         $sprint->load(['projet', 'taches.user', 'taches.userStory', 'userStories']);
         $cr = $this->compteRendu($sprint, 'review_sprint');
         $this->voirRapport($r, $sprint, $cr);
-        $verrou = CeremoniesScrum::verrouReview($sprint);
+        $verrou = $this->verrouReviewPour($r, $sprint);
         $canEdit = !$verrou && ($cr?->estConfirme() ? $r->user()->estPilote() : $this->redigerReview($r, $sprint, $cr));
         $donnees = $cr?->getDonnees() ?? [];
         // Les user stories issues du rapport de review (séance client) sont reprises dans les ajustements du backlog
@@ -418,6 +426,9 @@ class SprintScrumController extends Controller
             'storiesCreees' => UserStory::whereIn('id', collect($donnees['backlog'] ?? [])->pluck('user_story_id')->filter())->get()->keyBy('id'),
             'modules' => $sprint->projet->userStories()->whereNotNull('module')->distinct()->orderBy('module')->pluck('module'),
             'crDemo' => $crDemo,
+            // Ce que chaque développeur a consigné sur sa tâche (blocages, commentaires) : proposé dans les observations vides
+            'suggestions' => \App\Services\RapportReview::observationsTaches($sprint),
+            'avantRapport' => CeremoniesScrum::verrouReview($sprint) !== null && $verrou === null,
         ]);
     }
 
@@ -426,7 +437,7 @@ class SprintScrumController extends Controller
         $sprint->load(['taches', 'userStories']);
         $cr = $this->compteRendu($sprint, 'review_sprint');
         abort_unless($cr?->estConfirme() ? $r->user()->estPilote() : $this->redigerReview($r, $sprint, $cr), 403);
-        if ($motif = CeremoniesScrum::verrouReview($sprint)) return back()->with('erreur', $motif);
+        if ($motif = $this->verrouReviewPour($r, $sprint)) return back()->with('erreur', $motif);
         $v = $r->validate([
             'date_reunion' => 'nullable|date',
             'heure_debut' => 'nullable|date_format:H:i', 'heure_fin' => 'nullable|date_format:H:i',

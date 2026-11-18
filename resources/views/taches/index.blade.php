@@ -46,6 +46,30 @@
 
     .req{color:var(--ko);font-weight:700}
 
+    /* Sélection multiple : une case par carte, une barre d'actions commune */
+    .btn-sel{display:inline-flex;align-items:center;gap:6px}
+    .btn-sel[aria-pressed=true]{background:#eef4fb;color:#1f4e79;border-color:#2e74b5}
+    .kanban.mode-selection .tache{padding-left:36px;cursor:pointer}
+    .kanban.mode-selection .tache a{pointer-events:none}
+    .tache .coche{display:none;position:absolute;left:11px;top:11px;width:16px;height:16px;border:1.5px solid #94a3b8;border-radius:4px;background:#fff}
+    .kanban.mode-selection .tache .coche{display:block}
+    .tache.choisie{border-color:#2e74b5;box-shadow:0 0 0 2px #dbeafe}
+    .tache.choisie .coche{background:#2e74b5;border-color:#2e74b5}
+    .tache.choisie .coche::after{content:"";position:absolute;left:4.5px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+    .col .tout{display:none;background:none;border:0;padding:0;font:inherit;font-size:10.5px;font-weight:700;color:#2e74b5;cursor:pointer;text-transform:none;letter-spacing:0;margin-left:auto;margin-right:8px}
+    .kanban.mode-selection .col .tout{display:inline}
+    .barre-sel{position:fixed;left:50%;bottom:18px;transform:translate(-50%,140%);z-index:40;display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:calc(100vw - 32px);background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.18);padding:8px 10px;transition:transform .2s;font-size:12.5px}
+    .barre-sel.visible{transform:translate(-50%,0)}
+    .barre-sel .nb{font-weight:700;color:#1f4e79;padding:0 8px 0 4px;white-space:nowrap}
+    .barre-sel button{border:1px solid #e2e8f0;background:#fff;color:#334155;border-radius:8px;padding:6px 11px;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+    .barre-sel button:hover{border-color:#93c5fd;background:#f8fafc}
+    .barre-sel button.ok{color:#15803d}.barre-sel button.ko{color:#b91c1c}
+    .barre-sel .sep{width:1px;height:22px;background:#e2e8f0;margin:0 2px}
+    .barre-sel button.fermer{border:0;color:#64748b;padding:6px 8px}
+    dialog textarea{width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font:inherit;font-size:13px;min-height:90px;resize:vertical}
+    .ecartees{margin:0 0 10px;padding:9px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12.5px;color:#92400e}
+    .ecartees ul{margin:4px 0 0 18px;padding:0}
+
     @media(max-width:900px){
         .kanban{grid-template-columns:1fr 1fr}
         .barre-outils{flex-direction:column;align-items:stretch}
@@ -68,9 +92,17 @@
 </div>
 
 @if(session('succes'))<div class="carte" style="background:#f0fdf4;margin-bottom:10px">{{ session('succes') }}</div>@endif
+@if(session('erreur'))<div class="carte" style="background:#fef2f2;color:#991b1b;margin-bottom:10px">{{ session('erreur') }}</div>@endif
+@if($errors->any())<div class="carte" style="background:#fef2f2;color:#991b1b;margin-bottom:10px">{{ $errors->first() }}</div>@endif
+@if(session('ecartees'))<div class="ecartees"><strong>Tâches non modifiées :</strong><ul>@foreach(session('ecartees') as $e)<li>{{ $e }}</li>@endforeach</ul></div>@endif
 
 <div class="barre-outils">
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Nouvelle tâche</button>
+    @if($affichage !== 'archives')
+    <button type="button" class="btn sec btn-sel" id="btn-sel" aria-pressed="false" onclick="modeSelection()" title="Choisir plusieurs tâches pour leur appliquer une même opération">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Sélectionner
+    </button>
+    @endif
     <form method="GET" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
         <select name="affichage" class="filtre-select" onchange="this.form.submit()" title="Les archives regroupent les tâches des sprints clôturés et les tâches terminées avant l'exercice en cours">
             <option value="actives" @selected($affichage === 'actives')>Tâches actives</option>
@@ -110,15 +142,16 @@
 <div class="kanban" id="kanban">
     @foreach($colonnes as $code => $libelle)
     <div class="col" data-statut="{{ $code }}" ondragover="event.preventDefault()" ondrop="deposer(event,'{{ $code }}')">
-        <h4>{{ $libelle }} <span>{{ ($taches[$code] ?? collect())->count() }}</span></h4>
+        <h4>{{ $libelle }} <button type="button" class="tout" onclick="toutColonne(this)">Tout</button><span>{{ ($taches[$code] ?? collect())->count() }}</span></h4>
         <div data-collapse="8">
         @foreach($taches[$code] ?? [] as $t)
         @php
             $sprintBloque = $t->sprint_id && $t->sprint?->statut !== 'en_cours';
             $peutDrag = $code !== 'termine' && !$sprintBloque && $affichage !== 'archives';
         @endphp
-        <div class="tache" data-collapse-item data-urgence="{{ $t->urgence()['niveau'] }}"
+        <div class="tache" data-collapse-item data-id="{{ $t->id }}" data-urgence="{{ $t->urgence()['niveau'] }}"
              draggable="{{ $peutDrag ? 'true' : 'false' }}" @if($peutDrag)ondragstart="event.dataTransfer.setData('id',{{ $t->id }})"@endif style="{{ !$peutDrag ? 'cursor:default;opacity:.55' : '' }}" @if($sprintBloque) title="Sprint {{ $t->sprint?->statut === 'planifie' ? 'non démarré' : 'terminé' }}"@endif>
+            <span class="coche" aria-hidden="true"></span>
             <x-voyant :tache="$t" />
             @if($code === 'a_faire' && \App\Http\Controllers\TacheController::estDuJour($t))<span class="du-jour" title="Tâche à réaliser aujourd'hui">Aujourd'hui</span>@endif
             <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
@@ -165,6 +198,32 @@
         </div>
     </form>
 </dialog>
+
+@if($affichage !== 'archives')
+<div class="barre-sel" id="barre-sel" role="toolbar" aria-label="Opération sur les tâches sélectionnées">
+    <span class="nb" id="sel-nb">0 tâche</span>
+    <button type="button" onclick="operation('demarrer')">Démarrer</button>
+    <button type="button" class="ok" onclick="operation('terminer')">Terminer</button>
+    <button type="button" onclick="operation('a_faire')">Remettre à faire</button>
+    <button type="button" class="ko" onclick="ouvrirTexte('bloquer')">Bloquer…</button>
+    <span class="sep"></span>
+    <button type="button" onclick="ouvrirTexte('commenter')" title="Ajoute le même commentaire au journal de chaque tâche">Commenter…</button>
+    <button type="button" class="fermer" onclick="modeSelection(false)" title="Quitter la sélection">✕</button>
+</div>
+<form method="POST" action="{{ route('taches.groupe') }}" id="form-groupe" style="display:none">@csrf
+    <input type="hidden" name="action"><input type="hidden" name="texte">
+    @foreach(['affichage', 'projet', 'type'] as $f)@if(request($f))<input type="hidden" name="{{ $f }}" value="{{ request($f) }}">@endif @endforeach
+</form>
+<dialog id="dlg-texte">
+    <h3 id="dt-titre" style="color:var(--bleu);margin-bottom:4px"></h3>
+    <p id="dt-aide" style="font-size:12.5px;color:var(--gris);margin:0 0 6px"></p>
+    <textarea id="dt-texte" maxlength="2000"></textarea>
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+        <button type="button" class="btn" id="dt-ok">Appliquer</button>
+    </div>
+</dialog>
+@endif
 
 <div class="toast" id="toast"></div>
 @endsection
@@ -224,6 +283,66 @@ function toast(msg, type){
         });
     });
 })();
+
+/* ── Sélection multiple ── */
+const kanban = document.getElementById('kanban');
+function choisies(){ return [...kanban.querySelectorAll('.tache.choisie')]; }
+function majBarre(){
+    const n = choisies().length, barre = document.getElementById('barre-sel');
+    if (!barre) return;
+    document.getElementById('sel-nb').textContent = n + ' tâche' + (n > 1 ? 's' : '');
+    barre.classList.toggle('visible', n > 0);
+}
+function modeSelection(actif){
+    const btn = document.getElementById('btn-sel');
+    actif = actif ?? !kanban.classList.contains('mode-selection');
+    kanban.classList.toggle('mode-selection', actif);
+    btn?.setAttribute('aria-pressed', actif);
+    // Le glisser-déposer est suspendu pendant la sélection
+    kanban.querySelectorAll('.tache').forEach(t => {
+        if (actif) { t.dataset.drag = t.getAttribute('draggable'); t.setAttribute('draggable', 'false'); }
+        else { if (t.dataset.drag) t.setAttribute('draggable', t.dataset.drag); t.classList.remove('choisie'); }
+    });
+    majBarre();
+}
+kanban.addEventListener('click', e => {
+    if (!kanban.classList.contains('mode-selection')) return;
+    const carte = e.target.closest('.tache');
+    if (!carte || e.target.closest('.voyant')) return;
+    e.preventDefault();
+    carte.classList.toggle('choisie');
+    majBarre();
+});
+function toutColonne(btn){
+    // Toute la colonne, cartes repliées comprises ; avec un filtre d'urgence actif, seulement les cartes filtrées
+    const filtre = kanban.classList.contains('filtre-actif');
+    const cartes = [...btn.closest('.col').querySelectorAll('.tache')].filter(t => !filtre || t.classList.contains('urg-ok-filtre'));
+    const tout = cartes.every(t => t.classList.contains('choisie'));
+    cartes.forEach(t => t.classList.toggle('choisie', !tout));
+    majBarre();
+}
+function operation(action, texte){
+    const ids = choisies().map(t => t.dataset.id);
+    if (!ids.length) return;
+    const libelles = {demarrer: 'Démarrer', terminer: 'Terminer', a_faire: 'Remettre à faire'};
+    if (libelles[action] && !confirm(libelles[action] + ' ' + ids.length + ' tâche(s) ?')) return;
+    const f = document.getElementById('form-groupe');
+    f.querySelectorAll('input[name="ids[]"]').forEach(i => i.remove());
+    ids.forEach(id => f.insertAdjacentHTML('beforeend', `<input type="hidden" name="ids[]" value="${id}">`));
+    f.querySelector('[name=action]').value = action; f.querySelector('[name=texte]').value = texte || '';
+    f.submit();
+}
+function ouvrirTexte(action){
+    const n = choisies().length, d = document.getElementById('dlg-texte'), zone = document.getElementById('dt-texte');
+    document.getElementById('dt-titre').textContent = action === 'bloquer' ? `Bloquer ${n} tâche(s)` : `Commenter ${n} tâche(s)`;
+    document.getElementById('dt-aide').textContent = action === 'bloquer'
+        ? 'Motif du blocage : il est enregistré sur chaque tâche, les pilotes sont prévenus et il figure dans le rapport de review.'
+        : 'Le commentaire est ajouté au journal de chaque tâche ; il est repris dans le rapport de review du sprint.';
+    zone.value = '';
+    document.getElementById('dt-ok').onclick = () => { if (!zone.value.trim()) { zone.focus(); return; } operation(action, zone.value.trim()); };
+    d.showModal(); zone.focus();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && kanban.classList.contains('mode-selection') && !document.querySelector('dialog[open]')) modeSelection(false); });
 
 async function deposer(ev, statut){
     const id = ev.dataTransfer.getData('id');

@@ -90,6 +90,12 @@
         </div>
         @endif
 
+        @if($type === 'demo_sprint')
+        <div class="fg">
+            <label>Rédacteur</label>
+            <div style="font-size:13px;color:#334155;padding:6px 0">Vous (pilote). Vous pourrez passer la main au responsable du projet depuis l'éditeur.</div>
+        </div>
+        @else
         <div class="fg">
             <label>Rédacteur désigné</label>
             <select name="redacteur_id" id="cr-redacteur" required>
@@ -100,6 +106,7 @@
             </select>
             <div id="cr-scribe-info" style="font-size:11.5px;color:var(--gris);margin-top:4px">{{ $scribe ? 'Scribe du jour au planning des réunions : rédacteur de tous les rapports de la journée.' : 'Aucun scribe au planning des réunions à cette date.' }}</div>
         </div>
+        @endif
 
         @if($type === 'demo_sprint')
         <div class="fg">
@@ -126,7 +133,7 @@
 
         <div class="cr-bar">
             <a href="{{ route('comptes-rendus.index') }}" class="btn-annuler">Annuler</a>
-            <button type="submit" class="btn-creer">Désigner et créer</button>
+            <button type="submit" class="btn-creer">{{ $type === 'demo_sprint' ? 'Créer le rapport' : 'Désigner et créer' }}</button>
         </div>
     </form>
 </div>
@@ -135,10 +142,10 @@
 // Le scribe du jour (planning des réunions) est le rédacteur des rapports de la journée
 function scribeDuJour(){
     const d = document.getElementById('cr-date').value, info = document.getElementById('cr-scribe-info');
-    if (!d) return;
+    if (!d || !info) return;
     fetch(@json(route('comptes-rendus.scribe')) + '?date=' + d, {headers: {'Accept': 'application/json'}})
         .then(r => r.json()).then(j => {
-            if (j.id) { document.getElementById('cr-redacteur').value = j.id; info.textContent = 'Scribe du jour au planning des réunions (' + j.nom + ') : rédacteur de tous les rapports de la journée.'; }
+            if (j.id && document.getElementById('cr-redacteur')) { document.getElementById('cr-redacteur').value = j.id; info.textContent = 'Scribe du jour au planning des réunions (' + j.nom + ') : rédacteur de tous les rapports de la journée.'; }
             else info.textContent = 'Aucun scribe au planning des réunions à cette date : choisissez le rédacteur.';
         }).catch(() => {});
 }

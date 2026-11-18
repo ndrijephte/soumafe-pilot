@@ -21,10 +21,7 @@
 .circuit .et b{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11.5px;background:#e2e8f0;color:#64748b}
 .circuit .et.fait{color:#15803d;border-color:#86efac}.circuit .et.fait b{background:#15803d;color:#fff}
 .circuit .et.cours{color:var(--bleu);font-weight:600;border-color:var(--accent)}.circuit .et.cours b{background:var(--accent);color:#fff}
-.contrib{list-style:none;margin:10px 0 0;padding:0}
-.contrib li{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px;color:#334155;border-bottom:1px solid #f1f5f9}
-.contrib li:last-child{border-bottom:0}
-.contrib .ok{color:#15803d;font-weight:600;margin-left:auto}.contrib .att{color:#b45309;margin-left:auto}
+.demo-note{margin-top:12px;padding:9px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:12.5px;color:#475569;line-height:1.5}
 .renvoi{margin-top:10px;padding:8px 12px;border:1px solid #fcd34d;background:#fffbeb;border-radius:8px;font-size:12.5px;color:#92400e}
 @media(max-width:900px){.demo-grille,.demo-form{grid-template-columns:1fr}.demo-form .large{grid-column:auto}}
 </style>
@@ -34,9 +31,9 @@
 @include('scrum._entete', ['sprint' => $sprint, 'actif' => 'demo', 'page' => 'Rapport de review'])
 
 @php
-    // Circuit : séance de review → rédaction et contributions → relecture → validation → Review des développeurs
+    // Circuit : séance de review → rédaction (pilote, ou responsable du projet s'il lui passe la main) → relecture → validation → Review des développeurs
     $rang = $verrou ? 0 : (!$cr ? 1 : ($cr->estBrouillon() ? 2 : ($cr->estEnRevision() ? 3 : 5)));
-    $etapes = ['Séance de review', 'Rédaction et contributions', 'Relecture', 'Validation', 'Review des développeurs'];
+    $etapes = ['Séance de review', 'Rédaction', 'Relecture', 'Validation', 'Review des développeurs'];
 @endphp
 <div class="circuit">
     @foreach($etapes as $i => $lib)
@@ -48,7 +45,7 @@
     @elseif(!$cr)<span class="pill p-attente">Rapport non préparé</span><span style="font-size:12px;color:var(--gris)">Après la séance de review avec le client, le pilote prépare le rapport.</span>
     @elseif($cr->estConfirme())<span class="pill p-ok">Rapport validé</span><span style="font-size:12px;color:var(--gris)">Ses user stories ont rejoint le Product Backlog et ses décisions sont suivies en tâches. La Review des développeurs est ouverte.</span>
     @elseif($cr->estEnRevision())<span class="pill p-warn">En relecture</span><span style="font-size:12px;color:var(--gris)">Relecture : {{ $relecteurs->map->nomComplet()->join(', ') ?: 'un pilote' }}. Le pilote valide ensuite.</span>
-    @else<span class="pill p-warn">En rédaction</span><span style="font-size:12px;color:var(--gris)">Les développeurs complètent leurs tâches ; le rédacteur rédige le reste puis transmet le rapport pour relecture.</span>@endif
+    @else<span class="pill p-warn">En rédaction</span><span style="font-size:12px;color:var(--gris)">{{ $mainResponsable ? 'Rédaction confiée à ' . $cr->redacteur?->nomComplet() . ' par le pilote' : 'Le pilote rédige le rapport' }}, puis le transmet pour relecture.</span>@endif
 </div>
 
 <div class="demo-grille">
@@ -60,8 +57,7 @@
             <div class="meta">{{ $cr->date_reunion->format('d/m/Y') }}@if($cr->heure_debut) · {{ substr($cr->heure_debut, 0, 5) }}@endif @if($cr->lieu) · {{ $cr->lieu }}@endif · Rédacteur : <strong style="color:#1e293b">{{ $cr->redacteur?->nomComplet() ?? '—' }}</strong></div>
         </div>
         <div class="actions">
-            @if($peutRediger)<a class="btn" href="{{ route('comptes-rendus.edit', $cr) }}">{{ $cr->estEnRevision() ? 'Relire le rapport' : 'Rédiger le rapport' }}</a>
-            @elseif($peutContribuer)<a class="btn" href="{{ route('comptes-rendus.edit', $cr) }}">Compléter mes tâches</a>@endif
+            @if($peutRediger)<a class="btn" href="{{ route('comptes-rendus.edit', $cr) }}">{{ $cr->estEnRevision() ? 'Relire le rapport' : 'Rédiger le rapport' }}</a>@endif
             <a class="btn sec" href="{{ route('comptes-rendus.show', $cr) }}">Consulter</a>
             @if($cr->estConfirme() && $cr->fichier_path)<a class="btn sec" href="{{ route('comptes-rendus.telecharger', $cr) }}">DOCX</a>@endif
         </div>
@@ -70,14 +66,8 @@
     @php $rv = $cr->getDonnees()['relecture']['renvoi']; @endphp
     <div class="renvoi"><strong>Renvoyé par {{ $rv['par'] }}</strong> le {{ $rv['le'] }} : {{ $rv['motif'] }}</div>
     @endif
-    @if($contributions)
-    <h4 style="margin:14px 0 0;font-size:13px;color:var(--bleu)">Contributions des développeurs · {{ collect($contributions)->whereNotNull('le')->count() }}/{{ count($contributions) }}</h4>
-    <ul class="contrib">
-        @foreach($contributions as $c)
-        <li>{{ $c['user']->nomComplet() }} <span style="color:var(--gris)">· {{ $c['taches'] }} tâche{{ $c['taches'] > 1 ? 's' : '' }}</span>
-            @if($c['le'])<span class="ok">&#10003; {{ $c['le'] }}</span>@else<span class="att">En attente</span>@endif</li>
-        @endforeach
-    </ul>
+    @if($cr->estBrouillon())
+    <div class="demo-note">L'observation de chaque tâche reprend ce que son développeur a consigné sur la tâche : blocages déclarés, commentaires de suivi, qualification. Développeurs : commentez vos tâches, c'est ce qui alimente le rapport.</div>
     @endif
     @elseif($verrou)
     <p style="margin:0;font-size:13px;color:var(--gris)">Le rapport se prépare une fois le sprint clôturé.</p>
@@ -91,14 +81,11 @@
             <div class="champ"><label>Date de la review</label><input type="date" name="date_reunion" value="{{ today()->toDateString() }}" required></div>
             <div class="champ"><label>Heure</label><input type="time" name="heure_debut"></div>
             <div class="champ large"><label>Lieu</label><input name="lieu" maxlength="255" placeholder="Locaux du client, visioconférence…"></div>
-            <div class="champ large"><label>Rédacteur (chargé des opérations)</label>
-                <select name="redacteur_id" required>@foreach($redacteurs as $u)<option value="{{ $u->id }}" @selected($loop->first)>{{ $u->nomComplet() }}</option>@endforeach</select>
-            </div>
         </div>
-        <div style="margin-top:12px"><button class="btn">Créer le rapport</button></div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><button class="btn">Créer le rapport</button><span style="font-size:12px;color:var(--gris)">Vous en serez le rédacteur ; vous pourrez passer la main au responsable du projet depuis l'éditeur.</span></div>
     </form>
     @else
-    <p style="margin:0;font-size:13px;color:var(--gris)">Le rapport sera préparé par le chargé des opérations.</p>
+    <p style="margin:0;font-size:13px;color:var(--gris)">Le rapport sera préparé par le pilote. Commentez vos tâches (blocages, remarques) : ces commentaires alimentent l'observation de chaque tâche.</p>
     @endif
 </div>
 

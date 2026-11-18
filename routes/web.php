@@ -15,6 +15,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/taches', [TacheController::class, 'index'])->name('taches.index');
     Route::get('/taches/pilote', [TacheController::class, 'pilote'])->name('taches.pilote');
     Route::post('/taches', [TacheController::class, 'store'])->name('taches.store');
+    Route::post('/taches/groupe', [TacheController::class, 'groupe'])->name('taches.groupe');
     Route::get('/taches/{tache}', [TacheController::class, 'show'])->name('taches.show');
     Route::put('/taches/{tache}', [TacheController::class, 'update'])->name('taches.update');
     Route::patch('/taches/{tache}/statut', [TacheController::class, 'statut'])->name('taches.statut');
@@ -70,6 +71,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/projets/{projet}/user-stories/import', [ProjetScrumController::class, 'importerBacklog'])->name('projets.backlog.import');
     Route::get('/projets/{projet}/user-stories/modele', [ProjetScrumController::class, 'modeleImport'])->name('projets.backlog.modele');
     Route::get('/projets/{projet}/user-stories/export', [ProjetScrumController::class, 'exporterBacklog'])->name('projets.backlog.export');
+    Route::post('/projets/{projet}/import-consolide', [ProjetScrumController::class, 'importerConsolide'])->name('projets.import.consolide');
     // Cérémonies Scrum du sprint
     Route::get('/daily-scrum', [SprintScrumController::class, 'rapportsDaily'])->name('scrum.rapports');
     Route::get('/sprints/{sprint}/daily', [SprintScrumController::class, 'dailies'])->name('scrum.dailies');
@@ -167,6 +169,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/comptes-rendus/{cr}', [CompteRenduController::class, 'update'])->name('comptes-rendus.update');
     Route::post('/comptes-rendus/{cr}/confirmer', [CompteRenduController::class, 'confirmer'])->name('comptes-rendus.confirmer');
     Route::post('/comptes-rendus/{cr}/transmettre', [CompteRenduController::class, 'transmettre'])->name('comptes-rendus.transmettre');
+    Route::post('/comptes-rendus/{cr}/main', [CompteRenduController::class, 'passerMain'])->name('comptes-rendus.main');
     Route::post('/comptes-rendus/{cr}/relire', [CompteRenduController::class, 'relire'])->name('comptes-rendus.relire');
     Route::get('/comptes-rendus/{cr}/telecharger', [CompteRenduController::class, 'telecharger'])->name('comptes-rendus.telecharger');
     Route::get('/comptes-rendus/{cr}/imprimer', [CompteRenduController::class, 'imprimer'])->name('comptes-rendus.imprimer');

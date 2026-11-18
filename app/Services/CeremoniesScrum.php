@@ -18,7 +18,7 @@ class CeremoniesScrum
         ['Daily Scrum', 'Chaque jour travaillé, tant que le sprint est en cours', 'Créé par un pilote ou automatiquement ; rédigé et publié par le scribe du jour', 'Rapport visible de tous une fois publié.'],
         ['Clôture', 'Fin du sprint ; un arrêt motivé reste possible à tout moment', 'Pilote ou gestionnaire du projet', "Exécution figée ; les user stories non terminées retournent au Product Backlog. Les rapports suivent."],
         ['Séance de review', 'Après la clôture', "L'équipe démontre au client les fonctionnalités du sprint ; le pilote prépare le rapport (date, lieu, rédacteur)", "Démonstration, appréciation du client par fonctionnalité, nouvelles demandes."],
-        ['Rapport de review', 'Après la séance de review', "Rédigé par le pilote (ou le rédacteur désigné), complété par les développeurs sur leurs tâches ; relu par le responsable du projet ; validé par le pilote", "Le rapport de Review Sprint : verdict du client par fonctionnalité, indicateurs, nouvelles user stories et décisions. À la validation, les user stories rejoignent le Product Backlog et les décisions deviennent des tâches suivies."],
+        ['Rapport de review', 'Après la séance de review', "Rédigé par le pilote, seul rédacteur (il peut passer la main au responsable du projet) ; observations des tâches reprises des commentaires et blocages des développeurs ; relu, puis validé par le pilote", "Le rapport de Review Sprint : verdict du client par fonctionnalité, indicateurs, nouvelles user stories et décisions. À la validation, les user stories rejoignent le Product Backlog et les décisions deviennent des tâches suivies."],
         ['Review des développeurs', 'Après la validation du rapport de review', "Chaque développeur commente ses tâches et ses user stories ; le gestionnaire du projet complète la synthèse et valide", "Réalisation par tâche, observations, ajustements du Product Backlog (reprend les user stories du rapport). Consignée dans l'archive Excel."],
         ['Rétrospective', 'Après la validation de la Review des développeurs', "Rédigée par les développeurs de l'équipe ; validée par le gestionnaire", "Ce qui a marché ou non, causes, actions d'amélioration, reprises au sprint suivant. N'alimente pas le Product Backlog."],
     ];
@@ -150,7 +150,7 @@ class CeremoniesScrum
         }
         $demo = self::crDemo($sprint);
         if (!$demo) return ['tenir la séance de review avec le client, puis préparer le rapport de review', route('scrum.demo', $sprint)];
-        if ($demo->estBrouillon()) return ['rédiger le rapport de review (contributions des développeurs), puis le transmettre pour relecture', route('scrum.demo', $sprint)];
+        if ($demo->estBrouillon()) return ['rédiger le rapport de review (pilote, ou responsable du projet à qui il a passé la main), puis le transmettre pour relecture', route('scrum.demo', $sprint)];
         if ($demo->estEnRevision()) return ['relire puis valider le rapport de review', route('scrum.demo', $sprint)];
         if (!self::reviewValidee($sprint)) return ['compléter et valider la Review des développeurs', route('scrum.review', $sprint)];
         if (!self::retroValidee($sprint)) return ['rédiger et valider la Rétrospective', route('scrum.retro', $sprint)];

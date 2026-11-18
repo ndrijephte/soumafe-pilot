@@ -82,18 +82,17 @@
 </div>
 @endif
 
-@include('dashboard._attention', ['alertes' => $alertes])
 
 @php
     $duJour = $mesTachesActives->filter(fn ($t) => \App\Http\Controllers\TacheController::estDuJour($t))->count();
     $pctPts = $pointsTotalSprint ? (int) round($pointsLivres / $pointsTotalSprint * 100) : 0;
 @endphp
 <div class="kpis kpi-v2">
-    <div class="kpi signal-info"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg>Aujourd'hui</div><div class="val">{{ $duJour }}</div><div class="sub"><a href="{{ route('saisie.index') }}">Saisie</a></div></div>
-    <div class="kpi {{ $enRetard ? 'signal-ko' : '' }}"><x-voyant :niveau="$enRetard ? 'retard' : 'ok'" :titre="$enRetard ? $enRetard . ' tâche(s) en retard' : 'Aucun retard'" :lien="route('taches.index')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En retard</div><div class="val">{{ $enRetard }}</div></div>
-    <div class="kpi {{ $bloquees ? 'signal-warn' : '' }}"><x-voyant :niveau="$bloquees ? 'bloque' : 'ok'" :titre="$bloquees ? $bloquees . ' tâche(s) bloquée(s)' : 'Aucun blocage'" :lien="route('taches.index')" lien-texte="Voir le détail" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>En cours</div><div class="val">{{ $enCours }}</div>@if($bloquees)<div class="sub">{{ $bloquees }} bloquée(s)</div>@endif</div>
-    <div class="kpi signal-ok"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Terminées</div><div class="val">{{ $terminees }}</div><div class="sub">{{ $termineesSemaine }} cette semaine</div></div>
-    <div class="kpi"><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Story points</div><div class="val">{{ $pointsLivres }}<span style="font-size:14px;color:#64748b;font-weight:600"> / {{ $pointsTotalSprint }}</span></div><div class="barre-k"><i style="width:{{ $pctPts }}%"></i></div></div>
+    <div class="kpi signal-info"><x-detail :href="route('taches.index')" titre="mes activités du jour" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/></svg>Aujourd'hui</div><div class="val">{{ $duJour }}</div><div class="sub"><a href="{{ route('saisie.index') }}">Saisie</a></div></div>
+    <div class="kpi {{ $enRetard ? 'signal-ko' : '' }}"><x-voyant :niveau="$enRetard ? 'retard' : 'ok'" :titre="$enRetard ? $enRetard . ' tâche(s) en retard' : 'Aucun retard'" :lien="route('taches.index')" lien-texte="Voir le détail" /><x-detail :href="route('taches.index')" titre="mes activités" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En retard</div><div class="val">{{ $enRetard }}</div></div>
+    <div class="kpi {{ $bloquees ? 'signal-warn' : '' }}"><x-voyant :niveau="$bloquees ? 'bloque' : 'ok'" :titre="$bloquees ? $bloquees . ' tâche(s) bloquée(s)' : 'Aucun blocage'" :lien="route('taches.index')" lien-texte="Voir le détail" /><x-detail :href="route('taches.index')" titre="mes activités" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>En cours</div><div class="val">{{ $enCours }}</div>@if($bloquees)<div class="sub">{{ $bloquees }} bloquée(s)</div>@endif</div>
+    <div class="kpi signal-ok"><x-detail :href="route('taches.index', ['affichage' => 'toutes'])" titre="toutes mes activités" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Terminées</div><div class="val">{{ $terminees }}</div><div class="sub">{{ $termineesSemaine }} cette semaine</div></div>
+    <div class="kpi"><x-detail :href="route('sprints.index')" titre="projets et sprints" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Story points</div><div class="val">{{ $pointsLivres }}<span style="font-size:14px;color:#64748b;font-weight:600"> / {{ $pointsTotalSprint }}</span></div><div class="barre-k"><i style="width:{{ $pctPts }}%"></i></div></div>
 </div>
 
 <div class="grille">
@@ -101,6 +100,7 @@
         <h3>
             <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/></svg>
             Mes t&acirc;ches actives ({{ $mesTachesActives->count() }})
+            <x-detail :href="route('taches.index')" titre="mes activités" />
         </h3>
         <div data-collapse="5">
         @forelse($mesTachesActives as $t)
@@ -120,12 +120,12 @@
         <p style="color:var(--gris);font-size:13px">Aucune t&acirc;che active.</p>
         @endforelse
         </div>
-        <div style="margin-top:12px"><a href="{{ route('taches.index') }}" class="btn">Voir toutes mes activit&eacute;s</a></div>
     </div>
     <div class="panneau">
         <h3>
             <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
             Résumé de la semaine
+            <x-detail :href="route('taches.index', ['affichage' => 'toutes'])" titre="toutes mes activités" />
         </h3>
         <div style="font-size:13px;line-height:2">
             <div>Tâches terminées : <strong>{{ $termineesSemaine }}</strong></div>
@@ -152,6 +152,7 @@
         <h3>
             <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Progression (4 semaines)
+            <x-detail :href="route('taches.index', ['affichage' => 'toutes'])" titre="toutes mes activités" />
         </h3>
         @include('dashboard._tendance', ['series' => $tendanceHebdo, 'max' => $tendanceMax, 'legende' => 'Mes tâches terminées par semaine'])
     </div>
@@ -159,6 +160,7 @@
         <h3>
             <svg class="ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
             Répartition par priorité
+            <x-detail :href="route('taches.index')" titre="mes activités" />
         </h3>
         @php
             $pColors = ['haute' => '#dc2626', 'moyenne' => '#2E74B5', 'basse' => '#94a3b8'];
@@ -191,6 +193,7 @@
         @foreach($projetData['mesProjets'] as $p)
         @php $pct = $p->taches_count > 0 ? round(($p->terminees_count / $p->taches_count) * 100) : 0; @endphp
         <div class="kpi">
+            <x-detail :href="route('projets.espace', $p)" :titre="'espace du projet ' . $p->libelle" />
             <div class="lbl">{{ $p->libelle }}</div>
             <div class="val" style="font-size:22px">{{ $pct }}%</div>
             <div class="jauge-wrap" style="height:8px;margin-top:4px"><div class="jauge-bar" style="width:{{ $pct }}%;background:{{ $pct >= 70 ? 'var(--ok)' : ($pct >= 40 ? 'var(--warn)' : 'var(--accent)') }}"></div></div>
@@ -208,6 +211,7 @@
             <h3>
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
                 Sprints en cours ({{ $projetData['sprintsEnCours']->count() }})
+                <x-detail :href="route('sprints.index')" titre="projets et sprints" />
             </h3>
             @forelse($projetData['sprintsEnCours'] as $s)
             <div class="sprint-item">
@@ -233,6 +237,7 @@
             <h3>
                 <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 &Eacute;quipe projet
+                <x-detail :href="route('sprints.index')" titre="projets et sprints" />
             </h3>
             <div data-collapse="5">
             @foreach($projetData['membres'] as $m)
@@ -260,6 +265,7 @@
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             T&acirc;ches bloqu&eacute;es sur mes projets
+            <x-detail :href="route('sprints.index')" titre="projets et sprints" />
         </h3>
         <table class="mini-table" data-collapse-table="5">
             <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>Projet</th></tr></thead>

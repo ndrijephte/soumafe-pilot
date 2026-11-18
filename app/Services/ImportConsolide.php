@@ -81,10 +81,16 @@ class ImportConsolide
         foreach ($feuilles as $nom) {
             $n = self::norm($nom);
             if (str_contains($n, 'product backlog')) { $plan['backlog'] = $nom; continue; }
-            if (preg_match('/backlog\s*sprint\s*(\d+)/', $n, $m)) { $plan['sprints'][$courant = (int) $m[1]]['backlog'] = $nom; continue; }
+            if (preg_match('/backlog\s*sprint\s*(\d+)|sprint\s*(\d+)\s*backlog/', $n, $m)) { $plan['sprints'][$courant = (int) ($m[1] !== '' ? $m[1] : $m[2])]['backlog'] = $nom; continue; }
             if (preg_match('/sprint\s*(\d+)\s*planning|planning\s*(?:sprint\s*)?(\d+)/', $n, $m)) { $plan['sprints'][$courant = (int) ($m[1] !== '' ? $m[1] : $m[2])]['planning'] = $nom; continue; }
             if (preg_match('/review\s*(?:sprint\s*)?(\d+)/', $n, $m)) { $plan['sprints'][$courant = (int) $m[1]]['review'] = $nom; continue; }
             if (preg_match('/retro(?:spective)?\s*(?:sprint\s*)?(\d+)/', $n, $m)) { $plan['sprints'][$courant = (int) $m[1]]['retro'] = $nom; continue; }
+            // « REVIEW SPRINT », « RETROSPECTIVE » sans numéro (archive d'un sprint) : celles du sprint en cours de lecture
+            if (preg_match('/^(review|retro)/', $n, $m)) {
+                if ($courant === null) { $this->erreur("Onglet « {$nom} » : aucun sprint ne le précède, ignoré."); continue; }
+                $plan['sprints'][$courant][$m[1] === 'review' ? 'review' : 'retro'] = $nom;
+                continue;
+            }
             if (preg_match('/^dail/', $n)) {
                 if ($courant === null) { $this->erreur("Onglet « {$nom} » : daily placé avant tout sprint, ignoré."); continue; }
                 $plan['sprints'][$courant]['dailys'][] = $nom;
@@ -99,7 +105,13 @@ class ImportConsolide
     private function productBacklog(): void
     {
         $import = new ImportBacklog($this->projet);
-        $r = $import->importer($this->chemin, 'maj');
+        try {
+            $r = $import->importer($this->chemin, 'maj');
+        } catch (\RuntimeException $e) {
+            // Backlog vide ou sans colonne « User Story » (archive d'un sprint) : le reste du classeur est importé
+            $this->erreur('Product Backlog non importé : ' . $e->getMessage());
+            return;
+        }
         $this->rapport['stories_crees'] += $r['crees'];
         $this->rapport['stories_maj'] += $r['maj'];
         foreach ($r['remarques'] as $rq) $this->erreur("Product Backlog : {$rq}");
@@ -149,7 +161,9 @@ class ImportConsolide
             $this->sprintsCrees[$sprint->id] = true;
         } else {
             $maj = array_filter([
-                'objectif' => !$sprint->objectif ? $meta['objectif'] : null,
+                'objectif' => (!$sprint->objectif || self::estLibelleMeta($sprint->objectif)) ? $meta['objectif'] : null,
+                'date_debut' => $meta['debut'] && $meta['fin'] && $sprint->date_debut->eq($sprint->date_fin) && !$meta['debut']->eq($meta['fin']) ? $meta['debut'] : null,
+                'date_fin' => $meta['debut'] && $meta['fin'] && $sprint->date_debut->eq($sprint->date_fin) && !$meta['debut']->eq($meta['fin']) ? $meta['fin'] : null,
             ]);
             if ($maj) { $sprint->update($maj); $this->rapport['sprints_maj']++; }
         }
@@ -162,35 +176,94 @@ class ImportConsolide
         }
         $rang = 0;
         foreach ($onglets['dailys'] ?? [] as $nom) $this->daily($sprint, $nom, ++$rang);
-        if (isset($onglets['review'])) $this->review($sprint, $onglets['review']);
-        if (isset($onglets['retro'])) $this->retro($sprint, $onglets['retro']);
+        // Review et rétrospective : seulement pour un sprint clôturé (dans l'application, ou par cet import)
+        $clos = $sprint->statut === 'termine' || ($cree && $termine);
+        if (!$clos && (isset($onglets['review']) || isset($onglets['retro']))) {
+            $this->erreur("Sprint {$num} : en cours dans l'application, review et rétrospective non importées.");
+        } else {
+            if (isset($onglets['review'])) $this->review($sprint, $onglets['review']);
+            if (isset($onglets['retro'])) $this->retro($sprint, $onglets['retro']);
+        }
 
         if ($cree && $termine) $this->cloturer($sprint);
     }
 
-    /** Objectif et dates : onglet Planning, sinon Backlog du sprint, sinon Review. */
+    /**
+     * Objectif et période du sprint, cherchés dans le Planning, puis le Backlog du sprint, la Review et la Rétrospective.
+     * Mises en page reconnues :
+     *  - texte « Objectif : … », « Date de début : jj/mm/aaaa Date de fin : jj/mm/aaaa », « Sprint 1 — … (jj/mm/aaaa → jj/mm/aaaa) » ;
+     *  - libellé puis valeur dans la case voisine (« Objectif du sprint » | texte) ;
+     *  - ligne de libellés (« Objectif du sprint », « Date de début », « Date de fin », « Dates et durée ») et valeurs à la ligne suivante.
+     * Une valeur qui est elle-même un libellé n'est jamais retenue ; les lignes « Tenue le », « Bilan » sont ignorées.
+     */
     private function metaSprint(array $onglets): array
     {
         $meta = ['objectif' => null, 'debut' => null, 'fin' => null];
-        foreach (['planning', 'backlog', 'review'] as $type) {
+        foreach (['planning', 'backlog', 'review', 'retro'] as $type) {
             if (!isset($onglets[$type])) continue;
-            foreach (array_slice($this->lecteur->lignesFeuille($onglets[$type]), 0, 14, true) as $c) {
-                $vals = self::valeurs($c);
-                $txt = $vals[0] ?? '';
-                $n = self::norm($txt);
-                if (!$meta['objectif'] && str_starts_with($n, 'objectif')) {
-                    $obj = count($vals) > 1 && !str_contains($txt, ':') ? $vals[1] : preg_replace('/^[^:]*:\s*/u', '', $txt);
-                    $meta['objectif'] = trim($obj, " \t«»\"“”") ?: null;
-                }
-                if (!$meta['debut'] && preg_match_all('/(\d{1,2})\/(\d{1,2})\/(\d{4})/', $txt, $d, PREG_SET_ORDER) && count($d) >= 2
-                    && (str_contains($n, 'debut') || str_contains($txt, '→') || str_contains($n, 'sprint'))) {
-                    $meta['debut'] = Carbon::create((int) $d[0][3], (int) $d[0][2], (int) $d[0][1])->startOfDay();
-                    $meta['fin'] = Carbon::create((int) $d[1][3], (int) $d[1][2], (int) $d[1][1])->startOfDay();
+            $lignes = array_values(array_slice($this->lecteur->lignesFeuille($onglets[$type]), 0, 16, true));
+            foreach ($lignes as $k => $c) {
+                ksort($c);
+                $cases = array_filter(array_map(fn($v) => trim((string) $v), $c), fn($v) => $v !== '');
+                if (!$cases) continue;
+                $premiere = self::norm(reset($cases));
+                if (preg_match('/^(tenue|bilan|source|legende|statuts?\s*:|n°?$|n$)/', $premiere)) continue;
+                $suivante = $lignes[$k + 1] ?? [];
+                $vues = [];
+                foreach ($cases as $i => $v) {
+                    if (isset($vues[$v])) continue; // cellule fusionnée : une seule lecture
+                    $vues[$v] = true;
+                    if (str_contains($v, ':') || str_contains($v, '→') || preg_match('/\bdu\s+\d/i', $v)) $this->metaTexte($v, $meta);
+                    if (!self::estLibelleMeta($v)) continue;
+                    // Valeur : case suivante de la ligne, sinon même colonne à la ligne suivante
+                    $val = null;
+                    foreach ($cases as $j => $w) if ($j > $i && $w !== $v) { $val = self::estLibelleMeta($w) ? null : $w; break; }
+                    if ($val === null) { $w = trim((string) ($suivante[$i] ?? '')); if ($w !== '' && !self::estLibelleMeta($w)) $val = $w; }
+                    if ($val !== null) $this->metaLibelle(self::norm(rtrim($v, ' :')), $val, $meta);
                 }
             }
-            if ($meta['objectif'] && $meta['debut']) break;
+            if ($meta['objectif'] && $meta['debut'] && $meta['fin']) break;
         }
+        if ($meta['debut'] && $meta['fin'] && $meta['fin']->lt($meta['debut'])) $meta['fin'] = null;
         return $meta;
+    }
+
+    /** Case-libellé d'une fiche de sprint (objectif, dates, durée, points, statut). */
+    private static function estLibelleMeta(string $v): bool
+    {
+        $n = self::norm(rtrim(trim($v), ' :'));
+        return mb_strlen($n) <= 45 && !preg_match('/\d{1,2}\/\d{1,2}\/\d{4}/', $n)
+            && (bool) preg_match('/^(objectifs? du sprint|objectif|sprint goal|dates? et duree|dates?|periode( du sprint)?|date de debut|debut|date de fin|fin|duree|story points?( engages)?|points|statut( du sprint)?|realisation)$/', $n);
+    }
+
+    /** Libellé et valeur lus dans des cases distinctes. */
+    private function metaLibelle(string $lib, string $val, array &$meta): void
+    {
+        if (str_starts_with($lib, 'objectif') || $lib === 'sprint goal') {
+            $meta['objectif'] ??= trim($val, " \t«»\"“”") ?: null;
+        } elseif (in_array($lib, ['date de debut', 'debut'], true)) {
+            $meta['debut'] ??= self::date($val);
+        } elseif (in_array($lib, ['date de fin', 'fin'], true)) {
+            $meta['fin'] ??= self::date($val);
+        } elseif (in_array($lib, ['dates et duree', 'dates', 'date', 'periode', 'periode du sprint'], true)) {
+            $this->metaTexte('Du ' . $val, $meta);
+        }
+    }
+
+    /** Valeurs écrites dans une même case : « Objectif : … », « Date de début : … Date de fin : … », « (… → …) », « Du … au … ». */
+    private function metaTexte(string $v, array &$meta): void
+    {
+        $date = '(\d{1,2}\/\d{1,2}\/\d{4})';
+        if (!$meta['objectif'] && preg_match('/^\s*(objectifs?|sprint goal)\b[^:]{0,60}:\s*(.+)$/isu', $v, $m)) {
+            $o = trim($m[2], " \t«»\"“”");
+            if ($o !== '' && !self::estLibelleMeta($o)) $meta['objectif'] = $o;
+        }
+        if (preg_match("/d[ée]but\s*:?\s*{$date}/iu", $v, $m)) $meta['debut'] ??= self::date($m[1]);
+        if (preg_match("/\bfin\s*:?\s*{$date}/iu", $v, $m)) $meta['fin'] ??= self::date($m[1]);
+        if (preg_match("/{$date}\s*(?:→|->|–|—|-|\bau\b)\s*{$date}/iu", $v, $m)) {
+            $meta['debut'] ??= self::date($m[1]);
+            $meta['fin'] ??= self::date($m[2]);
+        }
     }
 
     /** Onglet « Backlog Sprint N » : stories engagées dans le sprint (créées si absentes du Product Backlog). */
@@ -251,7 +324,7 @@ class ImportConsolide
     {
         $lignes = $this->lecteur->lignesFeuille($onglet);
         [$entete, $cols] = $this->entete($lignes, [
-            'tache' => ['tache'], 'story' => ['user story', 'story'], 'assigne' => ['attribution', 'assigne', 'responsable'],
+            'num' => ['n', 'no', 'num', 'numero'], 'tache' => ['tache'], 'story' => ['user story', 'story'], 'assigne' => ['attribution', 'assigne', 'responsable'],
             'debut' => ['debut'], 'fin' => ['date de fin', 'fin', 'echeance'], 'statut' => ['statut', 'etat'], 'points' => ['point'],
         ], 'tache');
         if ($entete === null) { $this->erreur("{$onglet} : colonne « Tâches » introuvable."); return; }
@@ -271,6 +344,11 @@ class ImportConsolide
             $get = fn($k) => isset($cols[$k]) ? trim((string) ($c[$cols[$k]] ?? '')) : '';
             if (self::fusionnee($c)) { $storyGroupe = $this->story(self::valeurs($c)[0]); continue; }
             $intitule = $get('tache');
+            // Ligne de user story (archive de l'application) : « US 1.1 » dans la colonne N°, ses tâches suivent (« 1.1.1 »…)
+            if (preg_match('/^US[\s\-_]*[A-Z]?\d/iu', $get('num'))) {
+                $storyGroupe = $this->story($get('num')) ?? $this->storyParIntitule($get('story')) ?? $this->storyParIntitule($intitule);
+                continue;
+            }
             if ($intitule === '' || preg_match('/^(total|l[ée]gende|statuts?\s*:)/iu', $intitule)) continue;
             // Ligne de regroupement non fusionnée (processus, story sans tâche) : ni attribution, ni date, ni statut
             if ($get('assigne') === '' && $get('debut') === '' && $get('statut') === '') {
@@ -350,10 +428,15 @@ class ImportConsolide
             $c = array_values(array_filter($c, fn($v) => trim((string) $v) !== ''));
             foreach ($c as $i => $v) {
                 $lib = self::norm(rtrim(trim((string) $v), ' :'));
-                if (!in_array($lib, ['objet', 'facilitateur', 'scribe', 'gardien du temps', 'observateur', 'date', 'heure debut', 'heure fin'], true)) continue;
+                if (str_starts_with($lib, 'scribe')) $lib = 'scribe';
+                if (!in_array($lib, ['objet', 'facilitateur', 'scribe', 'gardien du temps', 'observateur', 'date', 'heure debut', 'heure fin', 'horaire'], true)) continue;
                 $suivante = $c[$i + 1] ?? null;
                 if ($suivante !== null && !str_ends_with(trim((string) $suivante), ':')) $meta[$lib] = trim((string) $suivante);
             }
+        }
+        if (!empty($meta['horaire']) && preg_match('/(\d{1,2}\s*[h:]\s*\d{2})\s*(?:→|->|-|–|à)\s*(\d{1,2}\s*[h:]\s*\d{2})/u', $meta['horaire'], $hm)) {
+            $meta['heure debut'] ??= $hm[1];
+            $meta['heure fin'] ??= $hm[2];
         }
         $date = self::date($meta['date'] ?? null);
         if (!$date && preg_match('/(\d{1,2})-(\d{1,2})-(\d{4})/', $onglet, $m)) $date = Carbon::create((int) $m[3], (int) $m[2], (int) $m[1])->startOfDay();
@@ -434,7 +517,11 @@ class ImportConsolide
 
         // Observations par tâche (code « T-007 » en tête de l'intitulé) ; lignes « + » : travaux hors planning
         $parCode = [];
-        foreach ($sprint->taches()->get() as $t) if (preg_match('/^\s*(T-\d+)/i', $t->intitule, $m)) $parCode[strtoupper($m[1])] = $t->id;
+        $parIntitule = [];
+        foreach ($sprint->taches()->get() as $t) {
+            if (preg_match('/^\s*(T-\d+)/i', $t->intitule, $m)) $parCode[strtoupper($m[1])] = $t->id;
+            $parIntitule[self::norm($t->intitule)][] = $t->id;
+        }
         $observations = [];
         $horsPlanning = [];
         if ($entete !== null) {
@@ -445,6 +532,11 @@ class ImportConsolide
                 $intitule = $get('tache');
                 if ($intitule === '') continue;
                 if (isset($parCode[$code])) { if ($get('obs') !== '') $observations[(string) $parCode[$code]] = self::riche($get('obs')); continue; }
+                if (!empty($parIntitule[self::norm($intitule)])) {
+                    $id = array_shift($parIntitule[self::norm($intitule)]);
+                    if ($get('obs') !== '') $observations[(string) $id] = self::riche($get('obs'));
+                    continue;
+                }
                 if ($code === '+' || $code === '' || !preg_match('/^T-\d+/', $code)) {
                     $horsPlanning[] = $intitule . ($get('obs') !== '' ? ' — ' . $get('obs') : '');
                 }

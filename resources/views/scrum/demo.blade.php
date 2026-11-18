@@ -31,9 +31,9 @@
 @include('scrum._entete', ['sprint' => $sprint, 'actif' => 'demo', 'page' => 'Rapport de review'])
 
 @php
-    // Circuit : séance de review → rédaction (pilote, ou responsable du projet s'il lui passe la main) → relecture → validation → Review des développeurs
+    // Circuit : séance de review → rédaction (le pilote, ou le responsable du projet qui lui transmet) → validation par le pilote → Review des développeurs
     $rang = $verrou ? 0 : (!$cr ? 1 : ($cr->estBrouillon() ? 2 : ($cr->estEnRevision() ? 3 : 5)));
-    $etapes = ['Séance de review', 'Rédaction', 'Relecture', 'Validation', 'Review des développeurs'];
+    $etapes = ['Séance de review', 'Rédaction', 'Validation', 'Review des développeurs'];
 @endphp
 <div class="circuit">
     @foreach($etapes as $i => $lib)
@@ -44,8 +44,8 @@
     @if($verrou)<span class="pill p-attente">Rapport à venir</span><span style="font-size:12px;color:var(--gris)">{{ $verrou }}</span>
     @elseif(!$cr)<span class="pill p-attente">Rapport non préparé</span><span style="font-size:12px;color:var(--gris)">Après la séance de review avec le client, le pilote prépare le rapport.</span>
     @elseif($cr->estConfirme())<span class="pill p-ok">Rapport validé</span><span style="font-size:12px;color:var(--gris)">Ses user stories ont rejoint le Product Backlog et ses décisions sont suivies en tâches. La Review des développeurs est ouverte.</span>
-    @elseif($cr->estEnRevision())<span class="pill p-warn">En relecture</span><span style="font-size:12px;color:var(--gris)">Relecture : {{ $relecteurs->map->nomComplet()->join(', ') ?: 'un pilote' }}. Le pilote valide ensuite.</span>
-    @else<span class="pill p-warn">En rédaction</span><span style="font-size:12px;color:var(--gris)">{{ $mainResponsable ? 'Rédaction confiée à ' . $cr->redacteur?->nomComplet() . ' par le pilote' : 'Le pilote rédige le rapport' }}, puis le transmet pour relecture.</span>@endif
+    @elseif($cr->estEnRevision())<span class="pill p-warn">Transmis au pilote</span><span style="font-size:12px;color:var(--gris)">Rédigé par {{ $cr->redacteur?->nomComplet() }} : le pilote le valide ou le renvoie.</span>
+    @else<span class="pill p-warn">En rédaction</span><span style="font-size:12px;color:var(--gris)">{{ $mainResponsable ? 'Rédaction confiée à ' . $cr->redacteur?->nomComplet() . ', qui le transmettra au pilote pour validation.' : 'Le pilote rédige et valide le rapport.' }}</span>@endif
 </div>
 
 <div class="demo-grille">
@@ -57,7 +57,7 @@
             <div class="meta">{{ $cr->date_reunion->format('d/m/Y') }}@if($cr->heure_debut) · {{ substr($cr->heure_debut, 0, 5) }}@endif @if($cr->lieu) · {{ $cr->lieu }}@endif · Rédacteur : <strong style="color:#1e293b">{{ $cr->redacteur?->nomComplet() ?? '—' }}</strong></div>
         </div>
         <div class="actions">
-            @if($peutRediger)<a class="btn" href="{{ route('comptes-rendus.edit', $cr) }}">{{ $cr->estEnRevision() ? 'Relire le rapport' : 'Rédiger le rapport' }}</a>@endif
+            @if($peutRediger)<a class="btn" href="{{ route('comptes-rendus.edit', $cr) }}">{{ $cr->estEnRevision() ? 'Valider le rapport' : 'Rédiger le rapport' }}</a>@endif
             <a class="btn sec" href="{{ route('comptes-rendus.show', $cr) }}">Consulter</a>
             @if($cr->estConfirme() && $cr->fichier_path)<a class="btn sec" href="{{ route('comptes-rendus.telecharger', $cr) }}">DOCX</a>@endif
         </div>

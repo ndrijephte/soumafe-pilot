@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Schema;
  * Rapport de Review Sprint (compte rendu « demo_sprint ») : fond et circuit.
  *
  * Circuit : clôture du sprint → séance de review (démonstration au client) → rapport rédigé par le pilote
- * (seul rédacteur ; il peut passer la main au responsable du projet et la reprendre) → relecture → validation par le pilote
+ * (seul rédacteur ; il peut passer la main au responsable du projet et la reprendre) → validation par le pilote.
+ * Le pilote qui rédige valide lui-même, sans autre relecture ; le responsable qui rédige transmet au pilote, qui valide ou renvoie.
  * → Review des développeurs (archive Excel) → Rétrospective.
  *
  * Les développeurs n'écrivent pas dans le rapport : leurs commentaires et les blocages déclarés sur leurs tâches
@@ -28,20 +29,14 @@ class RapportReview
     ];
 
     /** Étapes du circuit, dans l'ordre : clé de statut => libellé. */
-    public const ETAPES = ['brouillon' => 'Rédaction', 'en_revision' => 'Relecture', 'confirme' => 'Validé'];
+    public const ETAPES = ['brouillon' => 'Rédaction', 'en_revision' => 'Transmis au pilote', 'confirme' => 'Validé'];
 
     /* ───────────── Droits ───────────── */
 
-    /** Relecteurs : responsable du projet et Product Owner ; à défaut, les pilotes. Le rédacteur n'est pas son propre relecteur. */
+    /** Valideurs : les pilotes. Un rapport transmis par le responsable du projet leur revient. */
     public static function relecteurs(CompteRendu $cr): Collection
     {
-        $projet = $cr->sprint?->projet;
-        $ids = collect([$projet?->responsable_projet_id])
-            ->merge($projet ? $projet->collaborateurs()->where('actif', true)->whereIn('role_projet', ['responsable', 'product_owner'])->pluck('user_id') : [])
-            ->filter()->unique()->reject(fn($id) => (int) $id === (int) $cr->redacteur_id);
-        $users = User::whereIn('id', $ids)->where('actif', true)->orderBy('name')->get();
-        return $users->isNotEmpty() ? $users
-            : User::where('actif', true)->get()->filter(fn(User $u) => $u->estPilote() && (int) $u->id !== (int) $cr->redacteur_id)->values();
+        return User::where('actif', true)->orderBy('name')->get()->filter(fn(User $u) => $u->estPilote())->values();
     }
 
     public static function estRelecteur(User $u, CompteRendu $cr): bool

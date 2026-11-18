@@ -10,11 +10,24 @@
 .badge-resp svg{flex:none}
 .badge-statut{padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600}
 .s-planifie{background:#e2e8f0;color:#475569}.s-en_cours{background:#dbeafe;color:#1d4ed8}.s-termine{background:#dcfce7;color:var(--ok)}
-.progress-wrap{background:#e2e8f0;border-radius:6px;height:10px;overflow:hidden;margin:8px 0}
-.progress-fill{height:100%;border-radius:6px;background:var(--accent);transition:width .5s}
-.stats-row{display:flex;gap:20px;font-size:13px;color:var(--gris);margin-bottom:18px;flex-wrap:wrap}
-.stats-row strong{color:#1e293b}
-.periode-ex{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#334155;border-top:1px dashed var(--bord);padding-top:10px}
+.av-sp{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:12px 16px;margin-bottom:16px}
+.av-sp .ligne{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.av-sp .pct{display:flex;align-items:baseline;gap:8px;min-width:150px}
+.av-sp .pct b{font-size:22px;font-weight:800;color:#1f4e79;line-height:1}
+.av-sp .pct span{font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.av-sp .barre{flex:1;min-width:160px;height:6px;background:#e9eef5;border-radius:6px;overflow:hidden;display:flex}
+.av-sp .barre i{display:block;height:100%}
+.av-sp .barre .t{background:#2e74b5}.av-sp .barre .c{background:#93c5fd}.av-sp .barre .b{background:#f87171}
+.av-sp .chiffres{display:flex;gap:4px;flex-wrap:wrap}
+.av-sp .chiffres span{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:#f8fafc;border:1px solid #edf1f6;font-size:11.5px;color:#64748b;white-space:nowrap}
+.av-sp .chiffres b{color:#1e293b;font-weight:700}
+.av-sp .chiffres i{width:7px;height:7px;border-radius:50%}
+.av-sp .actions{display:flex;gap:4px;margin-left:auto}
+.av-sp .ico-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid transparent;background:none;color:#64748b;cursor:pointer;transition:all .15s}
+.av-sp .ico-btn:hover{background:#eef4fb;color:#2e74b5;border-color:#d6e4f3}
+.av-sp .ico-btn.ko:hover{background:#fef2f2;color:#dc2626;border-color:#fecaca}
+.av-sp .ico-btn svg{width:15px;height:15px}
+.periode-ex{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:#64748b;border-top:1px solid #f1f5f9;padding-top:8px;margin-top:10px}
 .periode-ex strong{color:var(--bleu)}
 .periode-ex .arb{font-size:11.5px;color:var(--gris)}
 .periode-ex.a-arbitrer{color:#92400e}
@@ -141,31 +154,37 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 
 @include('scrum._fiche', ['sprint' => $sprint])
 
-<div class="carte" style="margin-bottom:16px">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="font-size:12px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.4px">Avancement du sprint</div>
+@php
+    $pT = $totalTaches ? $terminees / $totalTaches * 100 : 0;
+    $pC = $totalTaches ? $enCours / $totalTaches * 100 : 0;
+    $pB = $totalTaches ? $bloquees / $totalTaches * 100 : 0;
+@endphp
+<div class="av-sp">
+    <div class="ligne">
+        <div class="pct" title="Tâches terminées sur l'ensemble des tâches du sprint"><b>{{ $pct }} %</b><span>Avancement</span></div>
+        <div class="barre" role="img" aria-label="{{ $terminees }} terminées, {{ $enCours }} en cours, {{ $bloquees }} bloquées sur {{ $totalTaches }} tâches">
+            <i class="t" style="width:{{ $pT }}%"></i><i class="c" style="width:{{ $pC }}%"></i><i class="b" style="width:{{ $pB }}%"></i>
+        </div>
+        <div class="chiffres">
+            <span><b>{{ $totalTaches }}</b> tâches</span>
+            <span><i style="background:#2e74b5"></i><b>{{ $terminees }}</b> terminées</span>
+            <span><i style="background:#93c5fd"></i><b>{{ $enCours }}</b> en cours</span>
+            @if($bloquees)<span><i style="background:#f87171"></i><b>{{ $bloquees }}</b> bloquées</span>@endif
+            <span title="Story points livrés / engagés"><b>{{ $sprint->pointsLivres() }}</b>/{{ $sprint->pointsEngages() }} pts</span>
+        </div>
         @if($canEditSprint)
-        <div style="display:flex;gap:6px;align-items:center">
+        <div class="actions">
             @if($sprint->statut !== 'termine')
-            <button class="btn-edit-sprint" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Modifier</button>
+            <button type="button" class="ico-btn" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint" aria-label="Modifier le sprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
             @endif
             @if($sprint->statut !== 'en_cours')
             <form method="POST" action="{{ route('sprints.destroy', $sprint) }}" style="margin:0" onsubmit="return demanderMotifSuppression(this,'ce sprint')">@csrf @method('DELETE')
                 <input type="hidden" name="motif_suppression" class="motif-suppr-input">
-                <button type="submit" class="btn-edit-sprint" style="border-color:var(--ko);color:var(--ko)" onmouseover="this.style.background='var(--ko)';this.style.color='#fff'" onmouseout="this.style.background='none';this.style.color='var(--ko)'" title="Supprimer le sprint"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Supprimer</button>
+                <button type="submit" class="ico-btn ko" title="Supprimer le sprint" aria-label="Supprimer le sprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
             </form>
             @endif
         </div>
         @endif
-    </div>
-    <div class="progress-wrap"><div class="progress-fill" style="width:{{ $pct }}%"></div></div>
-    <div class="stats-row">
-        <div>T&acirc;ches : <strong>{{ $totalTaches }}</strong></div>
-        <div>Termin&eacute;es : <strong>{{ $terminees }}</strong></div>
-        <div>En cours : <strong>{{ $enCours }}</strong></div>
-        <div>Bloqu&eacute;es : <strong>{{ $bloquees }}</strong></div>
-        <div>Story points livr&eacute;s : <strong>{{ $sprint->pointsLivres() }}</strong> / {{ $sprint->pointsEngages() }}</div>
-        <div>Progression : <strong>{{ $pct }}%</strong></div>
     </div>
     {{-- Période d'exercice (05 → 04) : un sprint à cheval est arbitré par un pilote --}}
     @php $periodeEx = $sprint->periodeExercice(); @endphp

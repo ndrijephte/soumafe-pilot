@@ -152,6 +152,9 @@ class CompteRenduController extends Controller
         if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum() && $cr->lienScrum()) return redirect($cr->lienScrum());
         $user = $r->user();
+        if (!$this->peutModifier($user, $cr) && $cr->type === 'demo_sprint' && (int) $cr->redacteur_id === (int) $user->id) {
+            return redirect()->route('comptes-rendus.show', $cr)->with('ok', $cr->estConfirme() ? 'Rapport validé.' : 'Rapport transmis au pilote : il le valide ou vous le renvoie.');
+        }
         abort_unless($this->peutModifier($user, $cr), 403);
 
         $collaborateurs = User::where('actif', true)
@@ -429,12 +432,9 @@ class CompteRenduController extends Controller
         if ($cr->estReviewV1()) return redirect()->route('comptes-rendus.review-sprint.edit', $cr);
         if ($cr->estScrum()) return redirect($cr->lienScrum() ?? route('comptes-rendus.index'));
         $user = $r->user();
-        // Le rapport de review est validé par le pilote, après relecture ; les autres comptes rendus, par un pilote ou leur rédacteur
+        // Le rapport de review est validé par un pilote (directement s'il l'a rédigé) ; les autres comptes rendus, par un pilote ou leur rédacteur
         abort_unless($user->estPilote() || ($cr->type !== 'demo_sprint' && $cr->redacteur_id === $user->id), 403);
         if ($cr->estConfirme()) return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu déjà validé.');
-        if ($cr->type === 'demo_sprint' && !$cr->estEnRevision()) {
-            return redirect()->route('comptes-rendus.edit', $cr)->withErrors(['erreur' => "Le rapport se valide après relecture : transmettez-le d'abord au responsable du projet."]);
-        }
 
         $suites = '';
         try {
@@ -536,12 +536,12 @@ class CompteRenduController extends Controller
         }
     }
 
-    /** Rapport de review : le rédacteur (ou un pilote) le transmet au responsable du projet pour relecture. */
+    /** Rapport de review rédigé par le responsable du projet (main passée) : il le transmet au pilote pour validation. */
     public function transmettre(Request $r, CompteRendu $cr)
     {
         $user = $r->user();
         abort_unless($cr->type === 'demo_sprint' && $cr->estBrouillon(), 404);
-        abort_unless($user->estPilote() || (int) $cr->redacteur_id === (int) $user->id, 403);
+        abort_unless((int) $cr->redacteur_id === (int) $user->id && !$user->estPilote(), 403);
         $d = $cr->getDonnees();
         $d['relecture'] = ['transmis_par' => $user->nomComplet(), 'transmis_le' => now()->format('d/m/Y H:i')];
         $cr->setDonnees($d);
@@ -549,12 +549,12 @@ class CompteRenduController extends Controller
         $cr->save();
         $relecteurs = RapportReview::relecteurs($cr);
         foreach ($relecteurs->reject(fn($u) => (int) $u->id === (int) $user->id) as $u) {
-            RapportReview::notifier($u->id, "Rapport de review du sprint {$cr->sprint?->numero} transmis pour relecture par {$user->nomComplet()}.", route('comptes-rendus.edit', $cr));
+            RapportReview::notifier($u->id, "Rapport de review du sprint {$cr->sprint?->numero} transmis par {$user->nomComplet()} : à valider.", route('comptes-rendus.edit', $cr));
         }
-        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Rapport transmis pour relecture à ' . ($relecteurs->map->nomComplet()->join(', ') ?: 'un pilote') . '.');
+        return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Rapport transmis au pilote pour validation.');
     }
 
-    /** Relecture : le relecteur (ou un pilote) consigne sa relecture, ou renvoie le rapport au rédacteur avec un motif. */
+    /** Rapport transmis : le pilote le renvoie au rédacteur avec un motif (ou, pour un ancien rapport, consigne sa relecture). */
     public function relire(Request $r, CompteRendu $cr)
     {
         $user = $r->user();

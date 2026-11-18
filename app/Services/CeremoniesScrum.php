@@ -5,7 +5,7 @@ use App\Models\{CompteRendu, Sprint, User};
 
 /**
  * Déroulement d'un sprint : Sprint Backlog → Sprint Planning → Daily Scrum → clôture → séance de review (démonstration au client)
- * → rapport de Review Sprint (rédaction, relecture, validation) → Review des développeurs (archive Excel) → Rétrospective.
+ * → rapport de Review Sprint (rédaction, validation par le pilote) → Review des développeurs (archive Excel) → Rétrospective.
  * Source unique des règles : les contrôleurs les appliquent, les écrans les affichent.
  */
 class CeremoniesScrum
@@ -18,7 +18,7 @@ class CeremoniesScrum
         ['Daily Scrum', 'Chaque jour travaillé, tant que le sprint est en cours', 'Créé par un pilote ou automatiquement ; rédigé et publié par le scribe du jour', 'Rapport visible de tous une fois publié.'],
         ['Clôture', 'Fin du sprint ; un arrêt motivé reste possible à tout moment', 'Pilote ou gestionnaire du projet', "Exécution figée ; les user stories non terminées retournent au Product Backlog. Les rapports suivent."],
         ['Séance de review', 'Après la clôture', "L'équipe démontre au client les fonctionnalités du sprint ; le pilote prépare le rapport (date, lieu, rédacteur)", "Démonstration, appréciation du client par fonctionnalité, nouvelles demandes."],
-        ['Rapport de review', 'Après la séance de review', "Rédigé par le pilote, seul rédacteur (il peut passer la main au responsable du projet) ; observations des tâches reprises des commentaires et blocages des développeurs ; relu, puis validé par le pilote", "Le rapport de Review Sprint : verdict du client par fonctionnalité, indicateurs, nouvelles user stories et décisions. À la validation, les user stories rejoignent le Product Backlog et les décisions deviennent des tâches suivies."],
+        ['Rapport de review', 'Après la séance de review', "Rédigé par le pilote, seul rédacteur (il peut passer la main au responsable du projet) ; observations des tâches reprises des commentaires et blocages des développeurs ; validé par le pilote (directement s’il rédige, après transmission si le responsable rédige)", "Le rapport de Review Sprint : verdict du client par fonctionnalité, indicateurs, nouvelles user stories et décisions. À la validation, les user stories rejoignent le Product Backlog et les décisions deviennent des tâches suivies."],
         ['Review des développeurs', 'Après la validation du rapport de review', "Chaque développeur commente ses tâches et ses user stories ; le gestionnaire du projet complète la synthèse et valide", "Réalisation par tâche, observations, ajustements du Product Backlog (reprend les user stories du rapport). Consignée dans l'archive Excel."],
         ['Rétrospective', 'Après la validation de la Review des développeurs', "Rédigée par les développeurs de l'équipe ; validée par le gestionnaire", "Ce qui a marché ou non, causes, actions d'amélioration, reprises au sprint suivant. N'alimente pas le Product Backlog."],
     ];
@@ -128,7 +128,7 @@ class CeremoniesScrum
             'backlog' => $sprint->userStories()->exists() ? ['ok', 'User stories engagées'] : ($sprint->statut === 'planifie' ? ['cours', 'À préparer'] : ['', 'Aucune user story']),
             'planning' => $sprint->taches()->exists() ? ['ok', 'Tâches planifiées'] : ($sprint->statut === 'planifie' ? ['cours', 'À préparer'] : ['', 'Aucune tâche']),
             'daily' => match ($sprint->statut) { 'en_cours' => ['cours', 'En cours'], 'planifie' => ['', self::verrouDaily($sprint)], default => ['ok', 'Terminé'] },
-            'demo' => $demo ? ($demo->estConfirme() ? ['ok', 'Rapport validé'] : ($demo->estEnRevision() ? ['brouillon', 'Rapport en relecture'] : ['brouillon', 'Rapport en rédaction']))
+            'demo' => $demo ? ($demo->estConfirme() ? ['ok', 'Rapport validé'] : ($demo->estEnRevision() ? ['brouillon', 'Rapport transmis au pilote'] : ['brouillon', 'Rapport en rédaction']))
                 : ($sprint->statut === 'termine' ? ['cours', 'À mener'] : ['', 'Le rapport de review suit la clôture du sprint.']),
             'review' => $rapport('review_sprint', self::verrouReview($sprint)),
             'retro' => $rapport('retrospective', self::verrouRetro($sprint)),
@@ -150,8 +150,8 @@ class CeremoniesScrum
         }
         $demo = self::crDemo($sprint);
         if (!$demo) return ['tenir la séance de review avec le client, puis préparer le rapport de review', route('scrum.demo', $sprint)];
-        if ($demo->estBrouillon()) return ['rédiger le rapport de review (pilote, ou responsable du projet à qui il a passé la main), puis le transmettre pour relecture', route('scrum.demo', $sprint)];
-        if ($demo->estEnRevision()) return ['relire puis valider le rapport de review', route('scrum.demo', $sprint)];
+        if ($demo->estBrouillon()) return ['rédiger puis valider le rapport de review (le responsable du projet, s\'il a la main, le transmet au pilote)', route('scrum.demo', $sprint)];
+        if ($demo->estEnRevision()) return ['valider le rapport de review transmis par le responsable du projet', route('scrum.demo', $sprint)];
         if (!self::reviewValidee($sprint)) return ['compléter et valider la Review des développeurs', route('scrum.review', $sprint)];
         if (!self::retroValidee($sprint)) return ['rédiger et valider la Rétrospective', route('scrum.retro', $sprint)];
         return [($sprint->arrete_le ? 'sprint arrêté le ' . $sprint->arrete_le->format('d/m/Y') : 'sprint clôturé') . ', rapports complets.', null];

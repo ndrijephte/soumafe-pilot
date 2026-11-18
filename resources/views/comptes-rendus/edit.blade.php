@@ -94,13 +94,22 @@
 .cr-sommaire a i{width:7px;height:7px;border-radius:50%;background:#cbd5e1}
 .cr-sommaire a.ok i{background:#16a34a}
 #cr-form .section{scroll-margin-top:64px}
-.cr-bottom .btn-retour{padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:500;text-decoration:none;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;transition:all .15s}
-.cr-bottom .btn-retour:hover{background:#e2e8f0;color:#334155}
-.cr-bottom .btn-save{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--accent,#2E74B5);border:none;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(46,116,181,.2)}
-.cr-bottom .btn-save:hover{background:#245f96}
-.cr-bottom .btn-confirm{padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:600;color:#fff;background:var(--ok,#16a34a);border:none;cursor:pointer;transition:all .15s;box-shadow:0 1px 3px rgba(22,163,106,.2)}
-.cr-bottom .btn-confirm:hover{background:#15803d}
-@media(max-width:900px){.tbl{display:block;overflow-x:auto}.cr-bottom{justify-content:stretch}.cr-bottom .btn-retour,.cr-bottom .btn-save,.cr-bottom .btn-confirm{flex:1;text-align:center;justify-content:center}}
+/* Boutons : sobres, une icône qui dit l'action ; un seul bouton plein, l'action principale */
+.cr-bottom .bt{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:38px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:.82rem;font-weight:600;line-height:1;text-decoration:none;cursor:pointer;border:1px solid transparent;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;white-space:nowrap}
+.cr-bottom .bt svg{width:16px;height:16px;flex:none}
+.cr-bottom .bt-ghost{background:transparent;color:#64748b}
+.cr-bottom .bt-ghost:hover{background:#f1f5f9;color:#1e293b}
+.cr-bottom .bt-sec{background:#fff;color:#1f4e79;border-color:#cbd5e1}
+.cr-bottom .bt-sec:hover{border-color:#2e74b5;background:#f5f9fe}
+.cr-bottom .bt-warn{background:#fff;color:#b45309;border-color:#fcd9a8}
+.cr-bottom .bt-warn:hover{background:#fffbeb;border-color:#f59e0b}
+.cr-bottom .bt-prim{background:#2e74b5;color:#fff;box-shadow:0 1px 2px rgba(31,78,121,.25)}
+.cr-bottom .bt-prim:hover{background:#245f96;box-shadow:0 3px 10px rgba(46,116,181,.28)}
+.cr-bottom .bt-ok{background:#15803d;color:#fff;box-shadow:0 1px 2px rgba(21,128,61,.25)}
+.cr-bottom .bt-ok:hover{background:#166534;box-shadow:0 3px 10px rgba(21,128,61,.28)}
+.cr-bottom .bt:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
+.cr-bottom .espace{flex:1}
+@media(max-width:900px){.tbl{display:block;overflow-x:auto}.cr-bottom{justify-content:stretch}.cr-bottom .bt{flex:1}.cr-bottom .espace{display:none}}
 @media(max-width:600px){.cr-edit{margin:0}.section-body{padding:12px 10px}.fg .row2{grid-template-columns:1fr}.odj-item{padding:14px 12px 14px 42px}.rich-toolbar{flex-wrap:wrap}}
 .tbl .num-col{width:45px;text-align:center;color:#94a3b8;font-weight:600}
 /* Multi-select responsables */
@@ -115,12 +124,12 @@
 .ms-placeholder{color:#94a3b8;font-size:.82rem}
 /* ===== Compte rendu de réunion : même présentation que le rapport de review ===== */
 .cr-edit.reu .section{border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.06),0 6px 20px rgba(15,23,42,.04)}
-.cr-edit.reu .section-head{background:linear-gradient(180deg,#EAF2FB,#DCE9F7);border-bottom:2px solid var(--accent,#2E74B5);border-radius:14px 14px 0 0;padding:16px 24px}
-.cr-edit.reu .section-head:hover{background:linear-gradient(180deg,#E3EDF9,#D3E3F5)}
+.cr-edit.reu .section-head{background:#EAF2FB;border-bottom:2px solid var(--accent,#2E74B5);border-radius:14px 14px 0 0;padding:16px 24px}
+.cr-edit.reu .section-head:hover{background:#E3EDF9}
 .cr-edit.reu .section.collapsed .section-head{border-radius:14px}
-.cr-edit.reu .section.validated .section-head{background:linear-gradient(180deg,#EAF2FB,#DCE9F7)}
+.cr-edit.reu .section.validated .section-head{background:#EAF2FB}
 .cr-edit.reu .section-head h3{display:flex;align-items:center;gap:12px;font-size:1.15rem;color:var(--bleu,#1F4E79)}
-.cr-edit.reu .section-head h3[data-num]::before{content:attr(data-num);flex:none;width:30px;height:30px;border-radius:9px;background:var(--accent,#2E74B5);color:#fff;font-weight:800;font-size:.95rem;display:flex;align-items:center;justify-content:center}
+.cr-edit.reu .section-head h3[data-num]::before{content:attr(data-num);flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent,#2E74B5);color:#fff;font-weight:800;font-size:.95rem;display:flex;align-items:center;justify-content:center}
 .cr-edit.reu .btn-validate{border-color:var(--accent,#2E74B5);color:var(--accent,#2E74B5);background:rgba(255,255,255,.85)}
 .cr-edit.reu .btn-validate:hover{background:var(--accent,#2E74B5);color:#fff}
 .cr-edit.reu .btn-validate.validated{background:var(--ok,#16a34a);border-color:var(--ok,#16a34a);color:#fff}
@@ -188,10 +197,10 @@
 @media(max-width:800px){.be-bloc.demi{width:100%}}
 /* ===== Rapport de review : document épuré ===== */
 .cr-edit.demo .be-module{background:#fff;border:none;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.06),0 6px 20px rgba(15,23,42,.04);margin-bottom:22px;overflow:visible}
-.cr-edit.demo .be-mod-head{background:linear-gradient(180deg,#EAF2FB,#DCE9F7);border-bottom:2px solid var(--accent,#2E74B5);color:inherit;align-items:flex-start;padding:18px 26px 12px;border-radius:14px 14px 0 0}
+.cr-edit.demo .be-mod-head{background:#EAF2FB;border-bottom:2px solid var(--accent,#2E74B5);color:inherit;align-items:flex-start;padding:18px 26px 12px;border-radius:14px 14px 0 0}
 .cr-edit.demo .be-mod-head .be-handle{color:#cbd5e1;padding:8px 6px 0 0;font-size:.85rem;letter-spacing:-3px;opacity:0;transition:opacity .15s}
 .cr-edit.demo .be-module:hover > .be-mod-head .be-handle{opacity:1}
-.cr-edit.demo .be-num-mod{flex:none;width:34px;height:34px;border-radius:10px;background:var(--accent,#2E74B5);color:#fff;font-weight:800;font-size:1.05rem;display:flex;align-items:center;justify-content:center;margin:2px 14px 0 0}
+.cr-edit.demo .be-num-mod{flex:none;width:34px;height:34px;border-radius:50%;background:var(--accent,#2E74B5);color:#fff;font-weight:800;font-size:1.05rem;display:flex;align-items:center;justify-content:center;margin:2px 14px 0 0}
 .cr-edit.demo .be-mod-fields{padding:0;gap:2px}
 .cr-edit.demo .be-mod-fields input{background:transparent;border:none;border-radius:0;color:var(--bleu,#1F4E79);padding:2px 0}
 .cr-edit.demo .be-mod-fields input.be-mod-titre{font-size:1.4rem;font-weight:800;letter-spacing:-.2px}
@@ -352,16 +361,23 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
 .be-score .be-score-sub{font-size:.82rem;color:#64748b;margin-top:2px}
 /* Circuit du rapport de review */
 .be-circuit{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 16px;margin-bottom:14px;font-size:.8rem;color:#475569}
-.be-circuit .etapes{display:flex;gap:4px;align-items:center}
-.be-circuit .et{padding:3px 10px;border-radius:999px;background:#f1f5f9;color:#64748b;font-weight:600}
-.be-circuit .et.fait{background:#dcfce7;color:#15803d}
-.be-circuit .et.cours{background:var(--accent,#2E74B5);color:#fff}
-.be-circuit .sep{color:#cbd5e1}
+/* Circuit : étapes fines reliées par un trait */
+.be-circuit .etapes{display:flex;align-items:center;gap:0;margin:0;padding:0;list-style:none}
+.be-circuit .etapes li{display:flex;align-items:center;gap:7px;font-size:.78rem;font-weight:600;color:#94a3b8;white-space:nowrap}
+.be-circuit .etapes li+li::before{content:"";width:28px;height:2px;border-radius:2px;background:#e2e8f0;margin:0 10px}
+.be-circuit .etapes li b{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1.5px solid #cbd5e1;font-size:.68rem;color:#94a3b8;background:#fff}
+.be-circuit .etapes li.cours{color:#1f4e79}
+.be-circuit .etapes li.cours b{border-color:#2e74b5;background:#2e74b5;color:#fff;box-shadow:0 0 0 3px #dbeafe}
+.be-circuit .etapes li.fait{color:#15803d}
+.be-circuit .etapes li.fait b{border-color:#16a34a;background:#16a34a;color:#fff}
+.be-circuit .etapes li.fait+li::before{background:#86efac}
+.be-circuit .info{color:#64748b;font-size:.78rem}
 .be-circuit .contrib-ok{color:#15803d;font-weight:600}
 .be-circuit .main{display:inline-flex;align-items:center;gap:8px;margin-left:auto}
 .be-circuit .main form{margin:0}
-.be-circuit .main button{background:#fff;border:1px solid #bfdbfe;color:#1f4e79;border-radius:7px;font-size:.76rem;font-weight:600;padding:4px 10px;cursor:pointer}
-.be-circuit .main button:hover{background:#eff6ff}
+.be-circuit .main button{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #dbe4ee;color:#1f4e79;border-radius:8px;font-family:inherit;font-size:.76rem;font-weight:600;line-height:1;padding:7px 11px;cursor:pointer;transition:border-color .15s,background .15s}
+.be-circuit .main button svg{width:14px;height:14px}
+.be-circuit .main button:hover{background:#f5f9fe;border-color:#2e74b5}
 .be-circuit .main .delegue{color:#1f4e79;font-weight:600}
 .be-renvoi{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:10px;padding:9px 14px;margin-bottom:14px;font-size:.82rem}
 /* Libellés des fonctionnalités (pilote) */
@@ -775,30 +791,31 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
 
             @if($circuit)
             @php
-                $rangC = $cr->estBrouillon() ? 1 : ($cr->estEnRevision() ? 2 : 3);
                 $relecture = $donnees['relecture'] ?? [];
+                // Le pilote qui rédige valide lui-même ; le responsable du projet qui rédige transmet au pilote
+                $delegue = $circuit['mainResponsable'] || $cr->estEnRevision();
+                $etapes = $delegue ? ['Rédaction', 'Transmis au pilote', 'Validation'] : ['Rédaction', 'Validation'];
+                $rangC = $cr->estConfirme() ? count($etapes) + 1 : ($cr->estEnRevision() ? 2 : 1);
             @endphp
             <div class="be-circuit">
-                <div class="etapes">
-                    @foreach(['Rédaction', 'Relecture', 'Validation'] as $i => $lib)
-                    @if($i)<span class="sep">›</span>@endif<span class="et {{ $i + 1 < $rangC || $cr->estConfirme() ? 'fait' : ($i + 1 === $rangC ? 'cours' : '') }}">{{ $lib }}</span>
+                <ol class="etapes" aria-label="Circuit du rapport">
+                    @foreach($etapes as $i => $lib)
+                    <li class="{{ $i + 1 < $rangC ? 'fait' : ($i + 1 === $rangC ? 'cours' : '') }}"><b>{!! $i + 1 < $rangC ? '&#10003;' : $i + 1 !!}</b>{{ $lib }}</li>
                     @endforeach
-                </div>
-                <span>Relecture : <strong>{{ $circuit['relecteurs']->map->nomComplet()->join(', ') ?: 'un pilote' }}</strong></span>
-                @if(!empty($relecture['transmis_le']) && $cr->estEnRevision())<span>Transmis par {{ $relecture['transmis_par'] }} le {{ $relecture['transmis_le'] }}</span>@endif
-                @if(!empty($relecture['par']))<span class="contrib-ok">&#10003; Relu par {{ $relecture['par'] }}</span>@endif
+                </ol>
+                @if(!empty($relecture['transmis_le']) && $cr->estEnRevision())<span class="info">Transmis par {{ $relecture['transmis_par'] }} le {{ $relecture['transmis_le'] }}</span>@endif
                 {{-- Le pilote rédige ; il peut passer la main au responsable du projet, et la reprendre --}}
                 <span class="main">
                     @if($circuit['mainResponsable'])
                     <span class="delegue" title="{{ !empty($donnees['main']) ? 'Main passée par ' . $donnees['main']['par'] . ' le ' . $donnees['main']['le'] : '' }}">Rédaction confiée à {{ $cr->redacteur?->nomComplet() }}</span>
                     @else
-                    <span>Rédaction : <strong>{{ $cr->redacteur?->nomComplet() ?? 'le pilote' }}</strong></span>
+                    <span class="info">Rédaction : <strong style="color:#1f4e79">{{ $cr->redacteur?->nomComplet() ?? 'le pilote' }}</strong></span>
                     @endif
                     @if($user->estPilote() && $cr->estBrouillon())
                         @if($circuit['mainResponsable'])
-                        <button type="button" onclick="mainCR('pilote', 'Reprendre la main sur la rédaction ? Le rapport est enregistré avant.')" title="La rédaction revient au pilote">Reprendre la main</button>
+                        <button type="button" onclick="mainCR('pilote', 'Reprendre la main sur la rédaction ? Le rapport est enregistré avant.')" title="La rédaction revient au pilote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>Reprendre la main</button>
                         @elseif($circuit['responsable'])
-                        <button type="button" onclick="mainCR('responsable', 'Passer la main à {{ $circuit['responsable']->nomComplet() }} pour la rédaction ? Vous gardez la main sur toutes les rubriques et la validation. Le rapport est enregistré avant.')" title="Le responsable du projet rédige ; vous gardez la main et la validation">Passer la main à {{ $circuit['responsable']->nomComplet() }}</button>
+                        <button type="button" onclick="mainCR('responsable', 'Passer la main à {{ $circuit['responsable']->nomComplet() }} pour la rédaction ? Il vous transmettra le rapport pour validation ; vous gardez la main sur toutes les rubriques. Le rapport est enregistré avant.')" title="Le responsable du projet rédige puis vous transmet le rapport ; vous gardez la main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>Passer la main à {{ $circuit['responsable']->nomComplet() }}</button>
                         @endif
                     @endif
                 </span>
@@ -808,9 +825,9 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
             @endif
             @endif
             @if($cr->estBrouillon())
-            <div class="be-contrib">L'observation de chaque tâche reprend ce que le développeur a consigné sur sa tâche (blocages, commentaires, qualification). Vous la reformulez librement ; « Actualiser » reprend les nouveaux commentaires sans toucher aux observations que vous avez modifiées. Rédigez le reste (verdict du client, user stories, décisions), puis transmettez pour relecture.</div>
+            <div class="be-contrib">L'observation de chaque tâche reprend ce que le développeur a consigné sur sa tâche (blocages, commentaires, qualification). Vous la reformulez librement ; « Actualiser » reprend les nouveaux commentaires sans toucher aux observations que vous avez modifiées. Rédigez le reste (verdict du client, user stories, décisions), puis {{ $user->estPilote() ? 'validez le rapport' : 'transmettez-le au pilote' }}.</div>
             @elseif($cr->estEnRevision())
-            <div class="be-contrib">Relecture : corrigez si besoin, puis marquez le rapport comme relu ou renvoyez-le au rédacteur. Le pilote le valide ensuite : les nouvelles user stories rejoignent alors le Product Backlog et les décisions deviennent des tâches suivies.</div>
+            <div class="be-contrib">Rapport transmis par le responsable du projet : corrigez si besoin, puis validez-le ou renvoyez-le au rédacteur. À la validation, les nouvelles user stories rejoignent le Product Backlog et les décisions deviennent des tâches suivies.</div>
             @endif
             <datalist id="be-modules-liste">@foreach(collect($donnees['stories'] ?? [])->pluck('module')->filter()->unique() as $m)<option value="{{ $m }}">@endforeach</datalist>
             <datalist id="be-membres">@foreach($collaborateurs as $c)<option value="{{ $c->nomComplet() }}">@endforeach</datalist>
@@ -822,19 +839,21 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
         @endif
 
         <div class="cr-bottom">
-            <a href="{{ route('comptes-rendus.index') }}" class="btn-retour">&larr; Retour</a>
-            <a href="{{ route('comptes-rendus.imprimer', $cr) }}" target="_blank" class="btn-retour" title="Version PDF du dernier enregistrement, dans un nouvel onglet">Aperçu PDF</a>
-            <button type="submit" class="btn-save">{{ $cr->estConfirme() || $cr->estEnRevision() ? 'Enregistrer les modifications' : 'Enregistrer brouillon' }}</button>
+            <a href="{{ route('comptes-rendus.index') }}" class="bt bt-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Retour</a>
+            <a href="{{ route('comptes-rendus.imprimer', $cr) }}" target="_blank" class="bt bt-ghost" title="Version PDF du dernier enregistrement, dans un nouvel onglet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><circle cx="11.5" cy="14.5" r="2.5"/><line x1="13.3" y1="16.3" x2="15" y2="18"/></svg>Aperçu PDF</a>
+            <span class="espace"></span>
+            <button type="submit" class="bt bt-sec" title="Enregistrer sans changer d'étape"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Enregistrer</button>
             @if($circuit)
-                @if($cr->estBrouillon() && ($user->estPilote() || (int) $cr->redacteur_id === (int) $user->id))
-                <button type="button" class="btn-confirm" onclick="etapeCR('transmettre-form', 'Transmettre le rapport pour relecture ? Il est enregistré avant l\'envoi.')">Transmettre pour relecture</button>
-                @elseif($cr->estEnRevision() && ($circuit['relecteur'] || $user->estPilote()))
-                <button type="button" class="btn-retour" onclick="renvoyerCR()">Renvoyer au rédacteur</button>
-                @if(empty($donnees['relecture']['par']))<button type="button" class="btn-retour" onclick="etapeCR('relu-form', 'Marquer le rapport comme relu ? Le pilote sera prévenu.')">Marquer comme relu</button>@endif
-                @if($user->estPilote())<button type="button" class="btn-confirm" onclick="etapeCR('confirm-form', 'Valider le rapport ? Les nouvelles user stories rejoignent le Product Backlog, les décisions deviennent des tâches suivies et le DOCX est généré.')">Valider le rapport</button>@endif
+                @if($cr->estEnRevision() && $user->estPilote())
+                <button type="button" class="bt bt-warn" onclick="renvoyerCR()" title="Renvoyer le rapport au rédacteur avec un motif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>Renvoyer</button>
+                @endif
+                @if(!$cr->estConfirme() && $user->estPilote())
+                <button type="button" class="bt bt-ok" onclick="etapeCR('confirm-form', 'Valider le rapport ? Les nouvelles user stories rejoignent le Product Backlog, les décisions deviennent des tâches suivies et le DOCX est généré.')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Valider le rapport</button>
+                @elseif($cr->estBrouillon() && (int) $cr->redacteur_id === (int) $user->id)
+                <button type="button" class="bt bt-prim" onclick="etapeCR('transmettre-form', 'Transmettre le rapport au pilote pour validation ? Il est enregistré avant l\'envoi.')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Transmettre au pilote</button>
                 @endif
             @elseif($cr->estBrouillon() && $peutConfirmer)
-            <button type="button" class="btn-confirm" onclick="confirmerCR()">Confirmer le compte rendu</button>
+            <button type="button" class="bt bt-ok" onclick="confirmerCR()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Confirmer le compte rendu</button>
             @endif
         </div>
     </form>
@@ -847,7 +866,6 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
     @if($user->estPilote())<form method="POST" action="{{ route('comptes-rendus.main', $cr) }}" id="main-form" style="display:none">@csrf<input type="hidden" name="a"></form>@endif
     @endif
     @if($circuit && $cr->estEnRevision())
-    <form method="POST" action="{{ route('comptes-rendus.relire', $cr) }}" id="relu-form" style="display:none">@csrf<input type="hidden" name="decision" value="relu"></form>
     <form method="POST" action="{{ route('comptes-rendus.relire', $cr) }}" id="renvoi-form" style="display:none">@csrf<input type="hidden" name="decision" value="renvoi"><input type="hidden" name="motif"></form>
     @endif
 </div>
@@ -1956,7 +1974,7 @@ new MutationObserver(muts => {
 } /* fin if(!estReunion) */
 
 /* === Confirmation === */
-/* Étapes du rapport de review : enregistrer d'abord, puis transmettre / marquer relu / valider */
+/* Étapes du rapport de review : enregistrer d'abord, puis transmettre / valider / passer la main */
 function etapeCR(formId, question){
     if(!confirm(question)) return;
     syncBeforeSubmit();

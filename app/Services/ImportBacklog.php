@@ -146,6 +146,8 @@ class ImportBacklog
             // Ligne de séparation (cellules fusionnées : la valeur est répétée, on n'en garde qu'une)
             $seul = trim((string) collect($c)->first(fn($v) => trim((string) $v) !== ''));
             $fusionnee = $seul !== '' && collect($c)->filter(fn($v) => trim((string) $v) !== '')->unique()->count() === 1 && count(array_filter($c, fn($v) => trim((string) $v) !== '')) > 1;
+            // Tableau de synthèse ou légende sous le backlog : la liste des user stories s'arrête là
+            if ($fusionnee && preg_match('/^(synth[eè]se|r[ée]capitulatif|total\b|l[ée]gende|code statut)/iu', $seul)) break;
             if ($texte === '' || $fusionnee) {
                 // « MODULE 2 : … » : fonctionnalité ; « Section 1 — … » ou « EP-01 — … » : epic
                 if (preg_match('/^module\s*\d*\s*[:\-–—]\s*(.+)$/iu', $seul, $m)) $moduleCourant = trim($m[1]);

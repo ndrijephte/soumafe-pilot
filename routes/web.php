@@ -1,5 +1,5 @@
 <?php
-use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController, ObservationController, PlanningReunionController};
+use App\Http\Controllers\{TacheController, BlocageController, CommentaireController, SprintController, DashboardController, ArbitrageController, SaisieController, NotificationController, ProfilController, ParcController, PointageController, ObservationController, PlanningReunionController, DocumentParcController};
 use App\Http\Controllers\Admin\{UtilisateurController, PoleController, ProjetController, JourFerieController, DomaineController, ServiceController, RoleController, ProfilMesureController, TypeEvenementController, TypeBlocageController, ParcParametreController, TitrePosteController};
 use App\Http\Controllers\{CompteRenduController, ExportController, ObjectifController, ProjetScrumController, ReportingController, ReportingParcController, SprintScrumController};
 use Illuminate\Support\Facades\Route;
@@ -246,6 +246,12 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/parc/recettes/{recette}/valider-motif', [ParcController::class, 'validerMotif'])->name('parc.recettes.validerMotif');
     Route::patch('/parc/recettes/{recette}/invalider-motif', [ParcController::class, 'invaliderMotif'])->name('parc.recettes.invaliderMotif');
 
+    // Documents du parc (pièces de chaque opération, aperçu, renouvellement, archivage motivé)
+    Route::get('/parc/documents/fichier/{document}/apercu', [DocumentParcController::class, 'apercu'])->name('parc.documents.apercu');
+    Route::get('/parc/documents/fichier/{document}/telecharger', [DocumentParcController::class, 'telecharger'])->name('parc.documents.telecharger');
+    Route::delete('/parc/documents/fichier/{document}', [DocumentParcController::class, 'destroy'])->name('parc.documents.destroy');
+    Route::get('/parc/documents/{type}/{id}', [DocumentParcController::class, 'liste'])->whereAlpha('type')->whereNumber('id')->name('parc.documents.liste');
+    Route::post('/parc/documents/{type}/{id}', [DocumentParcController::class, 'store'])->whereAlpha('type')->whereNumber('id')->name('parc.documents.store');
     Route::get('/parc/reporting', [ReportingParcController::class, 'index'])->name('reporting.parc');
     Route::get('/parc/reporting/vehicules/{vehicule}', [ReportingParcController::class, 'vehicule'])->name('reporting.parc.vehicule');
 

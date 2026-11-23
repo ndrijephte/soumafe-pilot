@@ -118,6 +118,105 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .gc-form .gc-btn-val.nouveau{background:var(--accent);color:#fff}
 .gc-form .gc-btn-val.maj{background:var(--ok);color:#fff}
 @media(max-width:700px){.gc-form{grid-template-columns:1fr 1fr;gap:8px}.gc-montant{min-width:60px;font-size:13px}}
+/* Documents du parc */
+.act-docs{position:relative;display:inline-flex;align-items:center;gap:1px}
+.act-docs .docs-n{font-size:10px;font-weight:700;line-height:1}
+.act-docs.a-docs{color:var(--accent)}
+.act-docs.v-semaine{color:#b45309}.act-docs.v-proche{color:#c2410c}.act-docs.v-retard{color:var(--ko)}
+.act-docs.v-semaine::after,.act-docs.v-proche::after,.act-docs.v-retard::after{content:"";position:absolute;top:0;left:0;width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px #fff}
+.dg-mode .act-row:has(.act-docs){display:flex!important}
+.dg-mode .act-row>:not(.act-docs){display:none!important}
+#dlg-docs{width:94vw;max-width:780px;border:none;border-radius:16px;padding:0;box-shadow:0 18px 50px rgba(15,23,42,.22)}
+#dlg-docs::backdrop,#dlg-apercu::backdrop{background:rgba(15,23,42,.45)}
+#dlg-docs .dlg-fermer,#dlg-apercu .dlg-fermer{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;border:none;background:#f1f5f9;color:#475569;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+#dlg-docs .dlg-fermer:hover,#dlg-apercu .dlg-fermer:hover{background:#e2e8f0;color:#0f172a}
+#docs-contenu{padding:22px 24px 24px;max-height:86vh;overflow:auto}
+.docs-chargement{padding:40px;text-align:center;color:var(--gris);font-size:13px}
+.docs-tete{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;padding-right:36px;margin-bottom:14px}
+.docs-sur{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--gris);font-weight:600}
+.docs-tete h3{margin:2px 0 0;font-size:17px;color:var(--bleu);font-weight:700}
+.docs-stats{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--gris);white-space:nowrap}
+.docs-stats strong{color:#0f172a}
+.docs-alerte{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;padding:2px 9px;font-weight:600}
+.docs-depot{border:1px solid var(--bord);border-radius:12px;padding:12px;background:#f8fafc;margin-bottom:16px}
+.docs-renouv{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 10px;margin-bottom:10px}
+.docs-renouv[hidden]{display:none}
+.docs-renouv svg{width:15px;height:15px;flex:none}
+.docs-lien{margin-left:auto;background:none;border:none;color:var(--accent);font-weight:600;cursor:pointer;font-size:12px}
+.docs-zone{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;border:1.5px dashed #cbd5e1;border-radius:10px;padding:14px;background:#fff;cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+.docs-zone:hover,.docs-zone.survol{border-color:var(--accent);background:#f5f9ff}
+.docs-zone:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.docs-zone input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.docs-zone svg{width:22px;height:22px;color:var(--accent)}
+.docs-zone-txt{font-size:13px;color:#334155}.docs-zone-txt strong{color:var(--accent)}
+.docs-zone-aide{font-size:11px;color:var(--gris)}
+.docs-zone.choisi{border-style:solid;border-color:#93c5fd;background:#f5f9ff}
+.docs-champs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 10px;margin-top:10px}
+.docs-champs label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:#475569;font-weight:600}
+.docs-champs label[hidden]{display:none}
+.docs-champs input,.docs-champs select{padding:7px 9px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;font-weight:400;font-family:inherit;background:#fff;color:#0f172a}
+.docs-champs input:focus-visible,.docs-champs select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.docs-champs .docs-notes{grid-column:span 2}
+.docs-champs .docs-exp input{border-color:#fdba74}
+.docs-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:10px}
+.docs-msg{font-size:12px;color:var(--gris);margin-right:auto}.docs-msg.ko{color:var(--ko)}.docs-msg.ok{color:var(--ok)}
+.docs-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 1px 2px rgba(46,116,181,.3)}
+.docs-btn:hover{background:#245f96}.docs-btn:disabled{opacity:.6;cursor:wait}
+.docs-btn svg{width:15px;height:15px}
+.docs-liste{display:flex;flex-direction:column;gap:6px}
+.docs-vide{padding:18px;text-align:center;font-size:12.5px;color:var(--gris);border:1px dashed var(--bord);border-radius:10px}
+.docs-section{margin:18px 0 8px;font-size:12px;font-weight:700;color:#334155;display:flex;align-items:center;gap:6px}
+.docs-section span,.docs-histo summary span{background:#f1f5f9;color:#475569;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600}
+.doc{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border:1px solid var(--bord);border-radius:10px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.doc:hover{border-color:#bfdbfe;box-shadow:0 2px 8px rgba(30,64,175,.06)}
+.doc.ancien{background:#f8fafc;opacity:.75}
+.doc-ic{flex:none;width:38px;height:44px;border-radius:7px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font-size:9.5px;font-weight:700;letter-spacing:.03em;color:#fff;position:relative}
+.doc-ic::before{content:"";position:absolute;top:0;right:0;width:10px;height:10px;background:rgba(255,255,255,.35);border-bottom-left-radius:4px}
+.doc-ic.pdf{background:#dc2626}.doc-ic.img{background:#0891b2}.doc-ic.xls{background:#16a34a}.doc-ic.doc{background:#2563eb}
+.doc-corps{flex:1;min-width:0}
+.doc-titre{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.doc-nom{background:none;border:none;padding:0;font:inherit;font-size:13.5px;font-weight:600;color:#0f172a;cursor:pointer;text-decoration:none;text-align:left}
+.doc-nom:hover{color:var(--accent);text-decoration:underline}
+.doc-cat{font-size:10.5px;font-weight:600;color:#475569;background:#f1f5f9;border-radius:5px;padding:1px 6px}
+.doc-validite{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px}
+.doc-validite i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.doc-validite.v-ok{color:#15803d;background:#f0fdf4}
+.doc-validite.v-semaine{color:#b45309;background:#fffbeb}
+.doc-validite.v-proche{color:#c2410c;background:#fff7ed}
+.doc-validite.v-retard{color:#b91c1c;background:#fef2f2}
+.doc-meta{display:flex;flex-wrap:wrap;gap:2px 0;margin-top:3px;font-size:11.5px;color:var(--gris)}
+.doc-meta span:not(:last-child)::after{content:"·";margin:0 6px;color:#cbd5e1}
+.doc-objet{color:#1e40af;font-weight:600}
+.doc-notes{margin-top:4px;font-size:12px;color:#475569}
+.doc-act{display:flex;gap:2px;flex:none}
+.doc-b{width:30px;height:30px;border-radius:8px;border:none;background:none;color:#64748b;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.doc-b svg{width:15px;height:15px}
+.doc-b:hover{background:#eff6ff;color:var(--accent)}
+.doc-b.del:hover{background:#fef2f2;color:var(--ko)}
+.docs-histo{margin-top:16px}
+.docs-histo summary{cursor:pointer;font-size:12px;font-weight:700;color:#475569;display:flex;align-items:center;gap:6px;margin-bottom:8px}
+#dlg-apercu{width:96vw;max-width:1100px;height:92vh;border:none;border-radius:14px;padding:0;overflow:hidden;box-shadow:0 18px 50px rgba(15,23,42,.3)}
+#dlg-apercu[open]{display:flex;flex-direction:column}
+.apercu-tete{display:flex;align-items:center;gap:10px;padding:12px 56px 12px 18px;border-bottom:1px solid var(--bord)}
+.apercu-tete strong{font-size:14px;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apercu-tete a{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.apercu-tete a:hover{text-decoration:underline}
+.apercu-corps{flex:1;background:#525659;display:flex;align-items:center;justify-content:center;overflow:auto}
+.apercu-corps iframe{width:100%;height:100%;border:none;background:#fff}
+.apercu-corps img{max-width:100%;max-height:100%;object-fit:contain;background:#fff}
+.docs-bandeau{border:1px solid #fed7aa;background:#fffbf5;border-radius:12px;padding:10px 14px;margin:0 0 12px}
+.docs-bandeau summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#9a3412;list-style:none}
+.docs-bandeau summary::-webkit-details-marker{display:none}
+.docs-bandeau summary svg{width:16px;height:16px;flex:none}
+.docs-bandeau summary .chev{margin-left:auto;transition:transform .15s}
+.docs-bandeau[open] summary .chev{transform:rotate(180deg)}
+.docs-bandeau ul{list-style:none;margin:10px 0 2px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px}
+.docs-bandeau li{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #fde3c8;border-radius:9px;padding:7px 10px;font-size:12.5px;cursor:pointer}
+.docs-bandeau li:hover{border-color:#fdba74}
+.docs-bandeau li .q{margin-left:auto;font-size:11px;font-weight:700;white-space:nowrap}
+.docs-bandeau li .q.v-retard{color:#b91c1c}.docs-bandeau li .q.v-proche{color:#c2410c}.docs-bandeau li .q.v-semaine{color:#b45309}
+.docs-bandeau li .o{color:var(--gris);font-size:11.5px}
+@media(max-width:700px){.docs-champs{grid-template-columns:1fr 1fr}.docs-champs .docs-notes{grid-column:span 2}.docs-tete{flex-direction:column;align-items:flex-start}.doc{flex-wrap:wrap}.doc-act{width:100%;justify-content:flex-end}}
 </style>
 @endpush
 @section('contenu')
@@ -169,6 +268,27 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 <div class="crumb">Opérations &rsaquo; Parc automobile</div>
 
 @if(session('succes'))<div class="alerte ok">{!! $ic('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',16) !!} {{ session('succes') }}</div>@endif
+
+{{-- Pièces à renouveler (assurance, visite technique, permis…) : expirées ou à moins de 30 jours --}}
+@if($docsARenouveler->isNotEmpty())
+<details class="docs-bandeau">
+    <summary>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="15"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        @php $nbExp = $docsARenouveler->filter(fn($d) => $d->date_expiration->lt(today()))->count(); @endphp
+        <span><strong>{{ $docsARenouveler->count() }} document{{ $docsARenouveler->count() > 1 ? 's' : '' }} à renouveler</strong>@if($nbExp) dont {{ $nbExp }} expiré{{ $nbExp > 1 ? 's' : '' }}@endif</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+    </summary>
+    <ul>
+        @foreach($docsARenouveler as $dr)
+        @php $vr = $dr->validite(); @endphp
+        <li onclick="ouvrirDocuments('{{ $dr->documentable_type }}', {{ $dr->documentable_id }})" title="{{ $vr['libelle'] }}">
+            <span><strong>{{ $dr->categorieLibelle() }}</strong> <span class="o">{{ \App\Models\Document::libelleObjet($dr->documentable) }}</span></span>
+            <span class="q v-{{ $vr['niveau'] }}">{{ $vr['jours'] < 0 ? 'Expiré le ' . $dr->date_expiration->format('d/m') : ($vr['jours'] === 0 ? "Aujourd'hui" : 'J-' . $vr['jours']) }}</span>
+        </li>
+        @endforeach
+    </ul>
+</details>
+@endif
 
 {{-- KPI --}}
 <form method="GET" action="{{ route('parc.index') }}" id="form-exercice" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 12px;padding:8px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:13px;color:#1e40af">
@@ -250,6 +370,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill {{ $v->statut === 'en_service' ? 'p-ok' : ($v->statut === 'immobilise' ? 'p-warn' : 'p-ko') }}">{{ $v->statutLabel() }}</span></td>
         <td>
             <div class="act-row">
+                @include('parc._doc_btn', ['t' => 'vehicule', 'id' => $v->id])
                 @if($v->observations)
                 <button class="act-btn info" title="Détails" onclick="toggleDetail('veh-{{ $v->id }}')">{!! $icEye !!}</button>
                 @endif
@@ -309,6 +430,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>{{ $p->delai_resolution !== null ? $p->delai_resolution.'j' : '—' }}</td>
         <td>
             <div class="act-row">
+                @include('parc._doc_btn', ['t' => 'panne', 'id' => $p->id])
                 @if($p->description || $p->diagnostic || $p->decision || $p->lignes->count())
                 <button class="act-btn info" title="Détails" onclick="toggleDetail('panne-{{ $p->id }}')">{!! $icEye !!}</button>
                 @endif
@@ -751,6 +873,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td style="max-width:150px">{{ Str::limit($m->observations, 40) }}</td>
         <td>
             <div class="act-row">
+                @include('parc._doc_btn', ['t' => 'maintenance', 'id' => $m->id])
                 @if($m->observations || $m->prestataire || $m->lignes->count())
                 <button class="act-btn info" title="Détails / facture" onclick="toggleDetail('maint-{{ $m->id }}')">{!! $icEye !!}</button>
                 @endif
@@ -827,6 +950,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill {{ $pen->statut === 'payee' ? 'p-ok' : ($pen->statut === 'en_cours' ? 'p-warn' : ($pen->statut === 'contestee' ? 'p-warn' : 'p-ko')) }}">{{ $pen->statutLabel() }}</span></td>
         <td>
             <div class="act-row">
+                @include('parc._doc_btn', ['t' => 'penalite', 'id' => $pen->id])
                 @if($pen->statut !== 'payee' && !$estDG)
                 <button class="act-btn" title="Enregistrer un paiement" onclick="ouvrirPaiementPenal({{ $pen->id }}, '{{ addslashes($pen->chauffeur ?? $pen->vehicule?->immatriculation ?? '-') }}', {{ $soldePen }})" style="color:var(--ok)">{!! $ic('<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>',14) !!}</button>
                 @endif
@@ -911,6 +1035,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill p-ko">Actif</span></td>
         <td>
             <div class="act-row">
+                @include('parc._doc_btn', ['t' => 'recouvrement', 'id' => $rc->id])
                 <button type="button" class="act-btn" title="Enregistrer un versement" onclick="ouvrirVersement({{ $rc->id }}, '{{ $rc->chauffeur_nom }}', {{ $rc->solde }})">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
@@ -1075,6 +1200,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill {{ $ch->statut === 'actif' ? 'p-ok' : 'p-gris' }}">{{ ucfirst($ch->statut) }}</span></td>
         <td>
             <div class="act-row">
+                @include('parc._doc_btn', ['t' => 'chauffeur', 'id' => $ch->id])
                 @if($ch->observations)
                 <button class="act-btn info" title="Détails" onclick="toggleDetail('ch-{{ $ch->id }}')">{!! $icEye !!}</button>
                 @endif
@@ -1129,6 +1255,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>@if($rec->motif_absence)<span class="pill p-warn">{{ \App\Models\TypeParc::libelleMotif($rec->motif_absence) }}</span>@else - @endif</td>
         <td>
             <div class="act-row">
+                @include('parc._doc_btn', ['t' => 'recette', 'id' => $rec->id])
                 @if(auth()->user()->estAdmin())
                 <button type="button" class="act-btn edit-icon-btn" title="Modifier cette recette" onclick="editRecette({{ $rec->id }})">{!! $icEdit !!}</button>
                 @endif
@@ -1794,6 +1921,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @if(!auth()->user()->aRole('direction'))
     <td>
         <div class="act-row">
+            @include('parc._doc_btn', ['t' => 'depense', 'id' => $dep->id])
             @if($dep->commentaire)
             <button class="act-btn info" title="Détails" onclick="toggleDetail('dep-{{ $dep->id }}')">{!! $icEye !!}</button>
             @endif
@@ -1874,6 +2002,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @if(!$estDG)
     <td>
         <div class="act-row">
+            @include('parc._doc_btn', ['t' => 'emprunt', 'id' => $emp->id])
             @if($emp->statut !== 'rembourse')
             <button class="act-btn" title="Rembourser" onclick="ouvrirRemboursement({{ $emp->id }}, '{{ addslashes($emp->preteur) }}', {{ $soldeEmp }})" style="color:var(--ok)">{!! $ic('<path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>',14) !!}</button>
             @endif
@@ -1960,6 +2089,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @if(!$estDG)
     <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
+            @include('parc._doc_btn', ['t' => 'pret', 'id' => $prt->id])
             @if($prt->soldeRestant() > 0)
             <button class="btn sm" onclick="ouvrirRembPret({{ $prt->id }}, '{{ $prt->beneficiaire }}', {{ $prt->soldeRestant() }})">Rembourser</button>
             @endif
@@ -2037,6 +2167,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @if(!$estDG)
     <td>
         <div style="display:flex;gap:4px">
+            @include('parc._doc_btn', ['t' => 'ressource', 'id' => $res->id])
             <button class="btn sm sec" title="Modifier" onclick="ouvrirEditRessource({{ $res->id }})">{!! $icEdit !!}</button>
             @if($estChargeOps)
             <form method="POST" action="{{ route('parc.ressources.destroy', $res) }}" onsubmit="return demanderMotifSuppression(this, 'cette ressource')">
@@ -2223,6 +2354,17 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </div>
 </form>
+</dialog>
+
+{{-- Dossier documentaire d'une opération et aperçu des pièces --}}
+<dialog id="dlg-docs" aria-label="Documents">
+    <button type="button" class="dlg-fermer" onclick="this.closest('dialog').close()" aria-label="Fermer"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div id="docs-contenu"></div>
+</dialog>
+<dialog id="dlg-apercu" aria-label="Aperçu du document">
+    <button type="button" class="dlg-fermer" onclick="this.closest('dialog').close()" aria-label="Fermer"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <div class="apercu-tete"><strong id="apercu-titre"></strong><a id="apercu-dl" href="#"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Télécharger</a></div>
+    <div class="apercu-corps" id="apercu-corps"></div>
 </dialog>
 
 @endsection
@@ -3791,5 +3933,127 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(updateArrows, 200);
     });
 });
+</script>
+@endpush
+
+@push('scripts')
+<script>
+/* Documents du parc : dossier d'une opération, dépôt (glisser-déposer), renouvellement, aperçu, retrait motivé */
+(function(){
+const dlg = () => document.getElementById('dlg-docs');
+const zone = () => document.getElementById('docs-contenu');
+const jeton = '{{ csrf_token() }}';
+
+window.ouvrirDocuments = function(type, id){
+    zone().innerHTML = '<div class="docs-chargement">Chargement du dossier…</div>';
+    if (!dlg().open) dlg().showModal();
+    fetch('{{ url('/parc/documents') }}/' + type + '/' + id, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(r => r.ok ? r.text() : Promise.reject(r.status))
+        .then(h => { zone().innerHTML = h; })
+        .catch(() => { zone().innerHTML = '<div class="docs-chargement">Le dossier n\'a pas pu être chargé.</div>'; });
+};
+
+function majCompteur(type, id, c){
+    document.querySelectorAll('[data-docs="' + type + '-' + id + '"]').forEach(b => {
+        b.querySelector('.docs-n').textContent = c.n || '';
+        b.classList.toggle('a-docs', c.n > 0);
+        ['v-semaine', 'v-proche', 'v-retard'].forEach(k => b.classList.remove(k));
+        if (c.niveau && c.niveau !== 'ok') b.classList.add('v-' + c.niveau);
+        b.title = 'Documents' + (c.n ? ' (' + c.n + ')' : '');
+    });
+}
+
+function appliquer(j){
+    if (j.html) zone().innerHTML = j.html;
+    const d = zone().querySelector('.docs');
+    if (d && j.compteur) majCompteur(d.dataset.type, d.dataset.id, j.compteur);
+    if (j.message) { const m = zone().querySelector('.docs-msg'); if (m) { m.textContent = j.message; m.className = 'docs-msg ' + (j.ok ? 'ok' : 'ko'); } }
+}
+
+function erreurs(j){
+    if (j && j.errors) return Object.values(j.errors).flat().join(' ');
+    return (j && j.message) || 'L\'opération a échoué.';
+}
+
+window.fichiersChoisis = function(input){
+    const lab = input.closest('.docs-zone'), n = input.files.length, t = lab.querySelector('.docs-zone-txt');
+    lab.classList.toggle('choisi', n > 0);
+    t.textContent = '';
+    const b = document.createElement('strong');
+    if (n) { b.textContent = n > 1 ? n + ' fichiers' : input.files[0].name; t.append(b, ' prêt' + (n > 1 ? 's' : '') + ' à joindre'); }
+    else { b.textContent = 'Choisir des fichiers'; t.append(b, ' ou les glisser ici'); }
+};
+window.deposerGlisser = function(e, lab){
+    e.preventDefault(); lab.classList.remove('survol');
+    const input = lab.querySelector('input[type=file]');
+    input.files = e.dataTransfer.files; fichiersChoisis(input);
+};
+window.categorieDocChange = function(sel){
+    const exp = sel.form.querySelector('.docs-exp');
+    exp.hidden = sel.selectedOptions[0].dataset.expire !== '1';
+    if (exp.hidden) exp.querySelector('input').value = '';
+};
+
+window.deposerDocuments = function(e, form){
+    e.preventDefault();
+    const btn = form.querySelector('.docs-btn'), msg = form.querySelector('.docs-msg');
+    btn.disabled = true; msg.className = 'docs-msg'; msg.textContent = 'Envoi en cours…';
+    const fd = new FormData(form);
+    const sel = form.querySelector('select[name=categorie]');
+    if (sel.disabled) fd.set('categorie', sel.value);
+    fetch(form.dataset.action, {method: 'POST', body: fd, headers: {'X-CSRF-TOKEN': jeton, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+        .then(r => r.json().then(j => ({ok: r.ok, j})))
+        .then(({ok, j}) => { if (ok) appliquer(j); else { btn.disabled = false; msg.className = 'docs-msg ko'; msg.textContent = erreurs(j); } })
+        .catch(() => { btn.disabled = false; msg.className = 'docs-msg ko'; msg.textContent = 'Envoi impossible (fichier trop volumineux ?).'; });
+    return false;
+};
+
+window.renouvelerDocument = function(btn, id, libelle, categorie){
+    const form = zone().querySelector('.docs-depot');
+    if (!form) return;
+    form.querySelector('input[name=remplace_id]').value = id;
+    const sel = form.querySelector('select[name=categorie]');
+    sel.value = categorie; sel.disabled = true; categorieDocChange(sel);
+    form.querySelector('input[type=file]').multiple = false;
+    form.querySelector('.docs-renouv').hidden = false;
+    form.querySelector('.docs-renouv-nom').textContent = libelle;
+    form.querySelector('.docs-btn span').textContent = 'Renouveler';
+    form.scrollIntoView({behavior: 'smooth', block: 'start'});
+};
+window.annulerRenouvellement = function(form){
+    form.querySelector('input[name=remplace_id]').value = '';
+    form.querySelector('select[name=categorie]').disabled = false;
+    form.querySelector('input[type=file]').multiple = true;
+    form.querySelector('.docs-renouv').hidden = true;
+    form.querySelector('.docs-btn span').textContent = 'Joindre';
+};
+
+window.retirerDocument = function(btn, url){
+    const motif = prompt('Motif du retrait de ce document (obligatoire, 5 caractères min.) :');
+    if (motif === null) return;
+    if (motif.trim().length < 5) { alert('Le motif est obligatoire (5 caractères minimum).'); return; }
+    const d = zone().querySelector('.docs');
+    const fd = new FormData();
+    fd.append('_method', 'DELETE'); fd.append('motif_suppression', motif.trim());
+    if (d) { fd.append('dossier_type', d.dataset.type); fd.append('dossier_id', d.dataset.id); }
+    btn.disabled = true;
+    fetch(url, {method: 'POST', body: fd, headers: {'X-CSRF-TOKEN': jeton, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+        .then(r => r.json().then(j => ({ok: r.ok, j})))
+        .then(({ok, j}) => { if (ok) appliquer(j); else { btn.disabled = false; alert(erreurs(j)); } })
+        .catch(() => { btn.disabled = false; alert('Le retrait a échoué.'); });
+};
+
+window.apercuDocument = function(url, genre, titre, dl){
+    const a = document.getElementById('dlg-apercu'), c = document.getElementById('apercu-corps');
+    document.getElementById('apercu-titre').textContent = titre;
+    document.getElementById('apercu-dl').href = dl;
+    c.innerHTML = '';
+    const el = document.createElement(genre === 'pdf' ? 'iframe' : 'img');
+    el.src = url; if (genre === 'pdf') el.title = titre; else el.alt = titre;
+    c.appendChild(el);
+    a.showModal();
+};
+document.getElementById('dlg-apercu')?.addEventListener('close', () => { document.getElementById('apercu-corps').innerHTML = ''; });
+})();
 </script>
 @endpush

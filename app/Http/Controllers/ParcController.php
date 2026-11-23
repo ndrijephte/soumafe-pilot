@@ -99,7 +99,12 @@ class ParcController extends Controller
 
         $reports = $exDebut ? $this->reportsAnterieurs($exDebut) : [];
 
+        // Documents : pastilles des trombones et pièces à renouveler (assurances, visites techniques, permis…)
+        $docsResume = \App\Models\Document::resumes();
+        $docsARenouveler = Schema::hasTable('documents') ? \App\Models\Document::aRenouveler() : collect();
+
         return view('parc.index', compact(
+            'docsResume', 'docsARenouveler',
             'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes',
             'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',

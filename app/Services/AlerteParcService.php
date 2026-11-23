@@ -110,6 +110,37 @@ class AlerteParcService
 
             self::creerSiAbsent($destinataires, 'alerte_panne_agee', $contenu, $aujourdhui);
         }
+
+        self::documentsARenouveler($destinataires, $aujourdhui);
+    }
+
+    /**
+     * ─── 6. Documents à renouveler (assurance, visite technique, permis…) ───
+     * Une alerte par palier franchi (J-30, J-7, expiration) et par document, pour ne pas répéter
+     * le même rappel chaque jour ; le bandeau du parc et les trombones restent visibles jusqu'au renouvellement.
+     */
+    private static function documentsARenouveler($destinataires, string $aujourdhui): void
+    {
+        if (!Schema::hasTable('documents')) return;
+        $nouveaux = collect();
+        foreach (\App\Models\Document::aRenouveler() as $d) {
+            $j = (int) today()->diffInDays($d->date_expiration, false);
+            $palier = $j <= 0 ? 'expire' : ($j <= 7 ? 'j7' : 'j30');
+            if ($d->alerte_envoyee === $palier) continue;
+            $d->forceFill(['alerte_envoyee' => $palier])->saveQuietly();
+            $nouveaux->push([$d, $j]);
+        }
+        if ($nouveaux->isEmpty()) return;
+
+        $details = $nouveaux->take(3)->map(fn($x) => $x[0]->categorieLibelle() . ' ' . \App\Models\Document::libelleObjet($x[0]->documentable)
+            . ' (' . ($x[1] < 0 ? 'expiré le ' : ($x[1] === 0 ? "expire aujourd'hui, " : 'expire le ')) . $x[0]->date_expiration->format('d/m') . ')')->join(', ');
+        $contenu = $nouveaux->count() . ' document(s) à renouveler : ' . $details . ($nouveaux->count() > 3 ? '...' : '');
+        foreach ($destinataires as $user) {
+            NotificationApp::create([
+                'user_id' => $user->id, 'type' => 'alerte_document_parc', 'contenu' => mb_substr($contenu, 0, 1000),
+                'lien' => route('parc.index'), 'lu' => false, 'canal' => 'in_app',
+            ]);
+        }
     }
 
     /**

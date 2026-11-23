@@ -121,25 +121,61 @@ class Sprint extends Model
         return ['niveau' => $j <= 2 ? 'proche' : ($j <= 5 ? 'semaine' : 'ok'), 'libelle' => "{$j} jour(s) ouvré(s) restant(s), fin le {$fin}", 'court' => "{$j} j restant(s)"];
     }
 
-    /**
-     * Points engagés : somme des story points des user stories du Sprint Backlog
-     * (repli sur l'engagement saisi si aucune story n'est estimée). Sprint clôturé : points figés à la clôture.
+    /*
+     * Story points : une seule règle pour tous les écrans (fiche, avancement, listes, rapports, archives).
+     *  - Base « stories » dès qu'une story du Sprint Backlog est estimée : engagé = Σ points des stories,
+     *    livré = Σ points des stories terminées dans le sprint (une story compte quand elle est finie).
+     *  - Sinon base « tâches » : engagé = Σ points des tâches du sprint, livré = Σ points des tâches terminées.
+     *  - En dernier recours, l'engagement saisi sur le sprint.
+     * La progression pondérée (Σ points × exécution de chaque story) montre l'avancement avant qu'une story soit finie.
      */
+    public function basePoints(): string
+    {
+        return $this->userStories->sum('effort_estime') > 0 ? 'stories' : 'taches';
+    }
+
+    /** Points engagés. Sprint clôturé : points figés à la clôture (instantané des stories). */
     public function pointsEngages(): int
     {
-        $pts = (int) $this->userStories->sum('effort_estime');
+        if ($this->basePoints() === 'stories') return (int) $this->userStories->sum('effort_estime');
+        $pts = (int) $this->taches()->where('statut', '!=', 'reporte')->sum('points');
         return $pts ?: (int) $this->engagement_points;
     }
 
-    /**
-     * Points livrés : story points des user stories terminées dans le sprint ;
-     * sans story estimée, points des tâches terminées (ancien mode).
-     */
+    /** Points livrés : stories terminées dans le sprint (ou, en base tâches, tâches terminées). */
     public function pointsLivres(): int
     {
-        if ($this->userStories->sum('effort_estime') > 0) {
-            return (int) $this->userStories->where('pivot.statut_sprint', 'termine')->sum('effort_estime');
+        if ($this->basePoints() === 'stories') {
+            return (int) $this->userStories->filter(fn($us) => ($us->pivot->statut_sprint ?? null) === 'termine' || ($this->statut !== 'termine' && $us->estFinie()))->sum('effort_estime');
         }
         return (int) $this->taches()->where('statut', 'termine')->sum('points');
+    }
+
+    /** Points réalisés, pondérés par l'exécution de chaque story (ou par les tâches terminées en base tâches). */
+    public function pointsRealises(): int
+    {
+        // Sprint clôturé ou base tâches : ce qui est réalisé est ce qui est livré
+        if ($this->basePoints() !== 'stories' || $this->statut === 'termine') return $this->pointsLivres();
+        $taches = $this->taches()->get(['id', 'user_story_id', 'statut']);
+        return (int) round($this->userStories->sum(fn($us) => (int) $us->effort_estime
+            * \App\Services\AvancementScrum::pctStory($us, $taches->where('user_story_id', $us->id)) / 100));
+    }
+
+    /** Stories du Sprint Backlog sans story points : leur travail n'entre pas dans les points. */
+    public function storiesNonEstimees(): int
+    {
+        return $this->userStories->whereNull('effort_estime')->count();
+    }
+
+    /** Résumé lisible de la progression des points, pour les infobulles. */
+    public function resumePoints(): string
+    {
+        $eng = $this->pointsEngages();
+        if (!$eng) return 'Aucun point engagé : estimez les user stories du Sprint Backlog (ou les tâches).';
+        $txt = $this->basePoints() === 'stories'
+            ? "{$this->pointsLivres()} pts livrés (stories terminées) sur {$eng} engagés · {$this->pointsRealises()} pts réalisés en tenant compte de l'exécution des stories en cours"
+            : "{$this->pointsLivres()} pts de tâches terminées sur {$eng} (aucune story estimée)";
+        if ($n = $this->storiesNonEstimees()) $txt .= " · {$n} story(s) non estimée(s) : leur travail n'est pas compté";
+        return $txt;
     }
 }

@@ -13,7 +13,7 @@
 .av-sp{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:12px 16px;margin-bottom:16px}
 .av-sp .ligne{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .av-sp .pct{display:flex;align-items:baseline;gap:8px;min-width:150px}
-.av-sp .pct b{font-size:22px;font-weight:800;color:#1f4e79;line-height:1}
+.av-sp .pct b{font-size:22px;font-weight:700;color:#1f4e79;line-height:1}
 .av-sp .pct span{font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
 .av-sp .barre{flex:1;min-width:160px;height:6px;background:#e9eef5;border-radius:6px;overflow:hidden;display:flex}
 .av-sp .barre i{display:block;height:100%}
@@ -170,7 +170,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <span><i style="background:#2e74b5"></i><b>{{ $terminees }}</b> terminées</span>
             <span><i style="background:#93c5fd"></i><b>{{ $enCours }}</b> en cours</span>
             @if($bloquees)<span><i style="background:#f87171"></i><b>{{ $bloquees }}</b> bloquées</span>@endif
-            <span title="Story points livrés / engagés"><b>{{ $sprint->pointsLivres() }}</b>/{{ $sprint->pointsEngages() }} pts</span>
+            <span title="{{ $sprint->resumePoints() }}"><b>{{ $sprint->pointsLivres() }}</b>/{{ $sprint->pointsEngages() }} pts{{ $sprint->pointsRealises() > $sprint->pointsLivres() ? ' · ' . $sprint->pointsRealises() . ' réalisés' : '' }}</span>
+            @if($sprint->storiesNonEstimees() && $sprint->statut !== 'termine')<span style="background:#fff7ed;border-color:#fdba74;color:#9a3412" title="Leur travail n'entre pas dans les story points : estimez-les ci-dessous (Sprint Backlog)"><b style="color:#c2410c">{{ $sprint->storiesNonEstimees() }}</b> story(s) non estimée(s)</span>@endif
         </div>
         @if($canEditSprint)
         <div class="actions">
@@ -659,6 +660,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <input type="hidden" name="sprint_id" value="{{ $sprint->id }}">
         <label>Fichier Excel (.xlsx) <span class="req">*</span></label>
         <input type="file" name="fichier" accept=".xlsx" required style="padding:8px;border:1px dashed var(--bord);border-radius:8px;background:var(--fond);margin-top:4px">
+        <label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:9px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#92400e;cursor:pointer;font-weight:400"><input type="checkbox" name="simulation" value="1" style="width:auto;margin-top:2px"><span><b>Simulation</b> : voir le résultat (sprints, tâches, doublons évités, remarques) sans rien enregistrer. Recommandé avant un import en production.</span></label>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn">Importer</button>

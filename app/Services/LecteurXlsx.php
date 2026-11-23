@@ -86,7 +86,13 @@ class LecteurXlsx
             return $resultat;
         }
 
-        return array_values($lignes);
+        return $ligneEntete === -1 ? $lignes : array_values($lignes);
+    }
+
+    /** Lignes de la feuille indexées par leur numéro réel dans Excel (les lignes vides ne décalent pas la numérotation). */
+    public function lignesNumerotees(int $index = 1): array
+    {
+        return $this->lire($index, -1);
     }
 
     /**

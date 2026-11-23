@@ -99,6 +99,7 @@ class ImportController extends Controller
         $data = $lecteur->lire(1, 4);
         $importees = 0;
         $ignores = 0;
+        $majs = 0;
 
         foreach ($data as $row) {
             $dateStr = trim($row['date'] ?? '');
@@ -153,13 +154,25 @@ class ImportController extends Controller
                 continue;
             }
 
-            // Éviter les doublons exacts
+            if (\App\Services\ImportConsolide::pasUneTache($intitule)) { $ignores++; continue; }
             $date = \Carbon\Carbon::parse($dateStr)->format('Y-m-d');
-            $existe = Tache::where('user_id', $user->id)
-                ->whereDate('date_debut', $date)
-                ->where('intitule', $intitule)->exists();
-            if ($existe) {
-                $ignores++;
+
+            // Le suivi quotidien répète la tâche chaque jour tant qu'elle n'est pas finie : une tâche déjà connue du collaborateur
+            // (même intitulé, même projet, dans un sprint ou non) n'est pas recréée ; son statut suit le fichier
+            $existante = Tache::where('user_id', $user->id)->where('projet_id', $projet?->id)
+                ->whereRaw('LOWER(TRIM(intitule)) = ?', [mb_strtolower(trim(preg_replace('/\s+/u', ' ', $intitule)))])
+                ->orderByDesc('id')->first();
+            if ($existante) {
+                if ($statutMapped === 'termine' && $existante->statut !== 'termine') {
+                    (new \App\Services\ClotureService())->cloturer($existante, \Carbon\Carbon::parse($date));
+                    $majs++;
+                } elseif ($statutMapped !== 'termine' && $existante->statut !== 'termine' && $existante->statut !== $statutMapped
+                    && (!$existante->sprint_id || $existante->sprint?->statut === 'en_cours')) {
+                    $existante->update(['statut' => $statutMapped]);
+                    $majs++;
+                } else {
+                    $ignores++;
+                }
                 continue;
             }
 
@@ -176,7 +189,7 @@ class ImportController extends Controller
             $importees++;
         }
 
-        return back()->with('succes', "Import terminé : {$importees} tâche(s) importée(s), {$ignores} ignorée(s).");
+        return back()->with('succes', "Import terminé : {$importees} tâche(s) importée(s), {$majs} déjà connue(s) mise(s) à jour, {$ignores} ignorée(s) (doublons, lignes incomplètes).");
     }
 
     private function deduireRole(string $fonction): string

@@ -281,23 +281,24 @@ class ProjetScrumController extends Controller
             'fichier' => 'required|file|mimes:xlsx|max:51200',
         ], ['fichier.mimes' => 'Le fichier doit être au format .xlsx (Excel).']);
 
+        // Simulation : l'import est réalisé puis entièrement annulé ; seul le compte rendu est affiché
+        $simulation = $r->boolean('simulation');
+        if ($simulation) DB::beginTransaction();
         try {
             $import = new ImportConsolide($projet);
             $rapport = $import->importer($r->file('fichier')->getRealPath());
         } catch (\Throwable $e) {
+            if ($simulation) DB::rollBack();
             return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])->withErrors(['fichier' => 'Import consolidé impossible : ' . $e->getMessage()]);
         }
+        if ($simulation) {
+            DB::rollBack();
+            return redirect()->route('projets.espace', [$projet, 'onglet' => 'sprints'])
+                ->with('succes', "SIMULATION : rien n'a été enregistré. Résultat attendu : " . ImportConsolide::resume($rapport) . '.')
+                ->with('erreurs_import', $rapport['erreurs']);
+        }
 
-        $resume = collect([
-            $rapport['sprints_crees'] ? "{$rapport['sprints_crees']} sprint(s) créé(s)" : null,
-            $rapport['stories_crees'] ? "{$rapport['stories_crees']} user story(s) créée(s)" : null,
-            $rapport['stories_maj'] ? "{$rapport['stories_maj']} user story(s) mise(s) à jour" : null,
-            $rapport['stories_engagees'] ? "{$rapport['stories_engagees']} engagement(s) en Sprint Backlog" : null,
-            $rapport['taches_crees'] ? "{$rapport['taches_crees']} tâche(s) créée(s)" : null,
-            $rapport['dailys_crees'] ? "{$rapport['dailys_crees']} daily(s) créé(s)" : null,
-            $rapport['reviews_crees'] ? "{$rapport['reviews_crees']} review(s)" : null,
-            $rapport['retros_crees'] ? "{$rapport['retros_crees']} rétrospective(s)" : null,
-        ])->filter()->implode(', ') ?: 'aucun élément nouveau (déjà importé)';
+        $resume = ImportConsolide::resume($rapport);
 
         AuditLog::log('import_consolide', 'projet', $projet->code, $resume);
 

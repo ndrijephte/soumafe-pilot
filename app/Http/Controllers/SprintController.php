@@ -506,6 +506,22 @@ class SprintController extends Controller
     public function importerTaches(Request $r)
     {
         abort_unless($r->user()->peutGererProjet(), 403);
+        if (!$r->boolean('simulation')) return $this->executerImport($r);
+        // Simulation : l'import est réalisé puis entièrement annulé ; seul le compte rendu est affiché
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $reponse = $this->executerImport($r);
+        } finally {
+            \Illuminate\Support\Facades\DB::rollBack();
+        }
+        foreach (['succes', 'erreur'] as $cle) {
+            if (session()->has($cle)) session()->flash($cle, 'SIMULATION : rien n\'a été enregistré. Résultat attendu : ' . session($cle));
+        }
+        return $reponse;
+    }
+
+    private function executerImport(Request $r)
+    {
 
         // Vérifier le fichier
         if (!$r->hasFile('fichier')) {
@@ -524,9 +540,14 @@ class SprintController extends Controller
             return back()->with('erreur', 'Impossible de lire le fichier Excel : ' . $e->getMessage());
         }
 
+        // Classeur Scrum (consolidé ou archive) : sprints, plannings, dailys, reviews et rétros créés d'un coup
+        if (\App\Services\ImportConsolide::estClasseurScrum($lecteur->feuilles())) {
+            return $this->importerClasseurScrum($r, $fichier->getRealPath());
+        }
+
         try {
             // Détecter la ligne d'en-tête
-            $brut = $lecteur->lire(1);
+            $brut = $lecteur->lignesNumerotees(1);
             if (empty($brut)) {
                 return back()->with('erreur', 'Le fichier est vide.');
             }
@@ -534,8 +555,9 @@ class SprintController extends Controller
             $ligneEntete = 1;
             foreach ($brut as $i => $row) {
                 foreach ($row as $cell) {
-                    if (is_string($cell) && preg_match('/intitul|tâche|tache/iu', $cell)) {
-                        $ligneEntete = $i + 1;
+                    // Case d'en-tête : courte et commençant par Intitulé / Tâche(s) / Libellé (pas une phrase de légende)
+                    if (is_string($cell) && mb_strlen(trim($cell)) <= 30 && preg_match('/^(intitul|t[âa]ches?\b|libell)/iu', trim($cell))) {
+                        $ligneEntete = $i; // numéro réel de la ligne dans Excel
                         break 2;
                     }
                 }
@@ -554,6 +576,14 @@ class SprintController extends Controller
             // (« MODULE n : … », « Epic : … », ligne « US x.y » suivie de ses tâches « x.y.n »)
             $sprintImport = $r->sprint_id ? Sprint::with('projet')->find($r->sprint_id) : null;
             if ($sprintImport && ($fige = $this->backlogFige($sprintImport))) return $fige;
+            // Écran inadapté : le fichier correspond aux tâches d'un autre sprint (ou d'un sprint alors qu'aucun n'est choisi)
+            if ($refus = $this->autreSprintReconnu($data, $sprintImport, $r->projet_id ? (int) $r->projet_id : null)) return back()->with('erreur', $refus);
+            // Planning de sprint importé sans sprint : ses tâches deviendraient des tâches isolées, puis des doublons une fois le sprint créé
+            if (!$sprintImport && $this->estPlanningDeSprint($brut, $ligneEntete)) {
+                return back()->with('erreur', "Ce fichier est le planning d'un sprint : ses tâches ne peuvent pas être importées hors sprint. "
+                    . "Créez d'abord le sprint (« + Nouveau sprint »), puis importez ce fichier en le choisissant dans la liste Sprint, ou depuis son Sprint Planning.");
+            }
+            $dejaPresentes = 0; $rattachees = 0;
             $moduleCourant = null; $epicCourant = null; $storyCourante = null;
             $storiesCreees = 0; $storiesRattachees = [];
             // Réimport : tâches déjà présentes dans le sprint, par intitulé et assigné. Chacune ne répond qu'à une seule ligne :
@@ -585,7 +615,7 @@ class SprintController extends Controller
                         continue;
                     }
 
-                    if (empty($intitule)) { $ignores++; continue; }
+                    if (empty($intitule) || \App\Services\ImportConsolide::pasUneTache($intitule)) { $ignores++; continue; }
 
                     $projetStr = trim($this->chercher($row, ['projet']) ?? '');
                     $assigneStr = trim($this->chercher($row, ['assigné', 'assigne', 'assigné_à', 'assigne_a', 'assigné à', 'collaborateur', 'responsable', 'attribution']) ?? '');
@@ -623,6 +653,8 @@ class SprintController extends Controller
                     // Sprint rattaché → utiliser son projet_id si pas de projet dans le fichier
                     $sprintId = $r->sprint_id ?: null;
                     if ($sprintId && !$projetId) $projetId = $sprintImport?->projet_id;
+                    // Hors sprint : le projet choisi dans la fenêtre d'import, si le fichier n'en indique pas
+                    if (!$projetId && $r->projet_id) $projetId = (int) $r->projet_id;
 
                     // User story de la tâche : colonne « User story », sinon la story de la ligne « US » qui précède (tâche « x.y.n »)
                     $story = null;
@@ -677,6 +709,27 @@ class SprintController extends Controller
                         continue;
                     }
 
+                    $cleIntitule = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $intitule)));
+                    // Hors sprint : une tâche identique (même collaborateur, même intitulé, même projet) existe déjà, dans un sprint ou non
+                    if (!$sprintImport && Tache::where('user_id', $userId)->where('projet_id', $projetId)
+                            ->whereRaw('LOWER(TRIM(intitule)) = ?', [$cleIntitule])->exists()) {
+                        $dejaPresentes++;
+                        continue;
+                    }
+                    // Vers un sprint : la même tâche importée auparavant hors sprint (sans projet ou du même projet) est rattachée, pas recréée
+                    if ($sprintImport && ($isolee = Tache::whereNull('sprint_id')->where('user_id', $userId)
+                            ->where(fn($q) => $q->whereNull('projet_id')->orWhere('projet_id', $sprintImport->projet_id))
+                            ->whereRaw('LOWER(TRIM(intitule)) = ?', [$cleIntitule])->orderBy('id')->first())) {
+                        $isolee->update(array_filter([
+                            'sprint_id' => $sprintImport->id, 'projet_id' => $sprintImport->projet_id, 'type' => 'T1',
+                            'user_story_id' => $story?->id,
+                            'points' => $isolee->points === null && is_numeric($points) ? (int) $points : null,
+                            'echeance' => $isolee->echeance ? null : $echeance,
+                        ], fn($v) => $v !== null));
+                        $rattachees++;
+                        continue;
+                    }
+
                     Tache::create([
                         'user_id' => $userId,
                         'projet_id' => $projetId,
@@ -701,6 +754,8 @@ class SprintController extends Controller
 
             $msg = "{$importees} tâche(s) importée(s)";
             if ($majTaches) $msg .= ", {$majTaches} déjà présente(s) mise(s) à jour";
+            if ($dejaPresentes) $msg .= ", {$dejaPresentes} déjà présente(s) non recréée(s)";
+            if ($rattachees) $msg .= ", {$rattachees} importée(s) auparavant hors sprint rattachée(s) au sprint";
             if ($storiesRattachees) $msg .= ', ' . count($storiesRattachees) . ' user story(s) rattachée(s) au sprint' . ($storiesCreees ? " (dont {$storiesCreees} ajoutée(s) au Product Backlog)" : '');
             if ($ignores > 0) $msg .= ", {$ignores} ignorée(s)";
             if ($this->storiesNonPretes) $msg .= '. Non rattachées au sprint (DoR = Non, achevée ou engagée ailleurs) : ' . implode(', ', array_keys($this->storiesNonPretes)) . ' ; leurs tâches restent hors user story';
@@ -712,6 +767,70 @@ class SprintController extends Controller
         } catch (\Throwable $e) {
             return back()->with('erreur', 'Erreur lors de l\'import : ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Fichier de Sprint Planning : titre « Sprint Planning N » / « Sprint N » en tête, ou colonnes propres au planning
+     * (User story et Attribution, codes de statut T / TT / NS…).
+     */
+    private function estPlanningDeSprint(array $brut, int $ligneEntete): bool
+    {
+        foreach ($brut as $num => $row) {
+            if ($num > $ligneEntete) break;
+            foreach ($row as $cell) {
+                $t = mb_strtolower(trim((string) $cell));
+                if ($t === '') continue;
+                if (preg_match('/sprint\s*planning|planning\s*(du\s*)?sprint|^sprint\s*\d+\b|backlog\s*sprint/u', $t)) return true;
+            }
+        }
+        $entete = array_map(fn($c) => mb_strtolower(trim((string) $c)), $brut[$ligneEntete] ?? []);
+        return (bool) array_filter($entete, fn($c) => str_contains($c, 'user story') || $c === 'us')
+            && (bool) array_filter($entete, fn($c) => str_contains($c, 'attribution'));
+    }
+
+    /**
+     * Import de tâches lancé depuis un écran inadapté : les intitulés du fichier correspondent pour l'essentiel
+     * aux tâches d'un autre sprint du projet. Renvoie le message de refus, ou null si l'import peut se faire.
+     */
+    private function autreSprintReconnu(array $data, ?Sprint $cible, ?int $projetId): ?string
+    {
+        $cle = fn($v) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $v)));
+        $intitules = collect($data)->map(fn($row) => $cle($this->chercher($row, ['intitulé', 'intitule', 'tâche', 'tache', 'tâches', 'taches', 'libellé', 'libelle']) ?? ''))
+            ->filter(fn($i) => $i !== '' && !\App\Services\ImportConsolide::pasUneTache($i))->unique()->values();
+        if ($intitules->count() < 3) return null;
+        $projetId = $cible?->projet_id ?? $projetId;
+        $parSprint = Tache::whereNotNull('sprint_id')->when($projetId, fn($q) => $q->where('projet_id', $projetId))
+            ->when($cible, fn($q) => $q->where('sprint_id', '!=', $cible->id))
+            ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(TRIM(intitule))'), $intitules->all())
+            ->selectRaw('sprint_id, COUNT(DISTINCT LOWER(TRIM(intitule))) n')->groupBy('sprint_id')->orderByDesc('n')->first();
+        if (!$parSprint || $parSprint->n < max(3, (int) ceil($intitules->count() * 0.5))) return null;
+        // Le sprint choisi contient déjà autant de ces tâches : c'est bien le sien (réimport)
+        if ($cible && $cible->taches()->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(TRIM(intitule))'), $intitules->all())->count() >= $parSprint->n) return null;
+        $sp = Sprint::with('projet')->find($parSprint->sprint_id);
+        $lieu = "le Sprint {$sp->numero} de {$sp->projet?->libelle}";
+        return "Import refusé : {$parSprint->n} des {$intitules->count()} tâches du fichier figurent déjà dans {$lieu}. "
+            . ($cible ? "Ce fichier n'est pas celui du Sprint {$cible->numero} : importez-le dans {$lieu}." : "Choisissez ce sprint dans la fenêtre d'import (ou importez depuis son Sprint Planning) pour mettre ses tâches à jour sans doublon.");
+    }
+
+    /**
+     * Import d'un classeur Scrum pour un projet : les sprints sont créés (ou complétés) à partir du classeur,
+     * sans avoir à les créer un à un. Projet : celui du sprint choisi, sinon celui sélectionné.
+     */
+    private function importerClasseurScrum(Request $r, string $chemin)
+    {
+        $projet = $r->sprint_id ? Sprint::find($r->sprint_id)?->projet : ($r->projet_id ? Projet::find($r->projet_id) : null);
+        if (!$projet) return back()->with('erreur', 'Classeur Scrum reconnu : choisissez le projet concerné, ses sprints seront créés à partir du classeur.');
+        abort_unless($r->user()->peutGererProjet($projet->id) || $projet->peutAlimenterBacklog($r->user()), 403);
+        try {
+            $rapport = (new \App\Services\ImportConsolide($projet))->importer($chemin);
+        } catch (\Throwable $e) {
+            return back()->with('erreur', 'Import du classeur impossible : ' . $e->getMessage());
+        }
+        $resume = \App\Services\ImportConsolide::resume($rapport);
+        \App\Models\AuditLog::log('import_consolide', 'projet', $projet->code, $resume);
+        return redirect()->route('sprints.index')
+            ->with('succes', "Classeur importé dans {$projet->libelle} : {$resume}.")
+            ->with('erreurs_import', $rapport['erreurs']);
     }
 
     /**

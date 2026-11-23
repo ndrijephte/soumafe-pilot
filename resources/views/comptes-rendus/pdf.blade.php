@@ -112,7 +112,7 @@ body{font-family:{!! \App\Http\Controllers\CompteRenduController::police($cr->ge
 .verdict-val{display:inline-block;padding:2px 12px;border-radius:999px;font-size:9.5pt;font-weight:700;border:1px solid}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:6px 0 10px}
 .kpi{background:linear-gradient(180deg,#F5F9FE,#EAF2FB);border:1px solid #dbe7f5;border-radius:6px;padding:7px 10px;page-break-inside:avoid}
-.kpi .v{font-size:14pt;font-weight:800;color:#1F4E79}
+.kpi .v{font-size:14pt;font-weight:700;color:#1F4E79}
 .kpi .l{font-size:8pt;font-weight:700;color:#2E74B5;text-transform:uppercase;letter-spacing:.3px}
 .kpi .d{font-size:8pt;color:#64748b;margin-top:1px}
 </style>

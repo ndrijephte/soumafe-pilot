@@ -27,6 +27,15 @@ class ScrumService
         return User::whereIn('id', $ids)->orderBy('name')->get();
     }
 
+    /**
+     * Membres du sprint présents dans l'entreprise à cette date : un collaborateur parti reste membre de l'historique
+     * (membres()), mais n'a ni rôle, ni ligne pré-remplie dans les Daily tenus après son départ.
+     */
+    public static function membresPresents(Sprint $sprint, $date): Collection
+    {
+        return self::membres($sprint)->filter(fn(User $u) => $u->presentLe($date))->values();
+    }
+
     /** Jours du calendrier du sprint : tous les jours travaillés (selon les horaires en vigueur). */
     public static function joursProgrammes(Sprint $sprint): Collection
     {
@@ -103,7 +112,7 @@ class ScrumService
      */
     public static function roles(Sprint $sprint, Carbon $date, int $numero, ?Collection $membres = null): array
     {
-        return self::rolesPour($sprint->projet_id, $date, $numero, $membres ?? self::membres($sprint));
+        return self::rolesPour($sprint->projet_id, $date, $numero, $membres ?? self::membresPresents($sprint, $date));
     }
 
     /** Rôles du Daily pour un projet (ou transversal) : planning des réunions, scribe du jour, puis rotation. */
@@ -309,7 +318,7 @@ class ScrumService
         $daily->loadMissing('sprint.projet');
         $n = 0;
         // Daily hors sprint : les participants sont ceux déjà inscrits au Daily
-        $participants = $daily->sprint ? self::membres($daily->sprint) : User::whereIn('id', $daily->entrees()->pluck('user_id'))->get();
+        $participants = $daily->sprint ? self::membresPresents($daily->sprint, $daily->date_reunion) : User::whereIn('id', $daily->entrees()->pluck('user_id'))->get();
         foreach ($participants as $m) {
             $e = DailyScrumEntree::firstOrNew(['daily_scrum_id' => $daily->id, 'user_id' => $m->id]);
             if ($e->exists && !$ecraser) continue;

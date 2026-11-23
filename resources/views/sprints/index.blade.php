@@ -18,11 +18,27 @@
 .sprint-bar div{height:100%;border-radius:3px;background:var(--accent);transition:width .4s}
 .sprint-stats{display:flex;gap:16px;font-size:12px;color:var(--gris)}
 .sprint-stats strong{color:#1e293b}
+/* Sprint en cours : se distingue nettement des sprints planifiés ou clôturés */
+.sprint-card.en-cours{grid-column:1/-1;background:#F2F7FD;border:1.5px solid #2e74b5;box-shadow:0 4px 18px -6px rgba(46,116,181,.35);padding:16px 20px}
+.sprint-card.en-cours:hover{box-shadow:0 8px 24px -6px rgba(46,116,181,.45)}
+.sprint-card.en-cours .sprint-num{font-size:20px;color:#1f4e79}
+.sprint-card.en-cours .sprint-obj{font-size:13.5px;color:#1f4e79;font-weight:600}
+.sprint-card.en-cours .sprint-bar{height:9px;background:#dbe7f5;border-radius:6px}
+.sprint-card.en-cours .sprint-bar div{border-radius:6px;background:#2e74b5}
+.sprint-card.en-cours .sprint-stats{color:#475569;align-items:center}
+.encours-tete{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#2e74b5}
+.encours-tete .pouls{position:relative;width:8px;height:8px;border-radius:50%;background:#16a34a}
+.encours-tete .pouls::after{content:"";position:absolute;inset:0;border-radius:50%;background:#16a34a;animation:pouls-sp 1.8s ease-out infinite}
+@keyframes pouls-sp{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.6);opacity:0}}
+@media(prefers-reduced-motion:reduce){.encours-tete .pouls::after{animation:none}}
+.encours-tete .reste{margin-left:auto;padding:3px 10px;border-radius:999px;background:#2e74b5;color:#fff;letter-spacing:.3px}
+.encours-tete .reste.retard{background:#dc2626}
+.encours-pct{font-size:12px;font-weight:700;color:#1f4e79;margin-left:auto}
 .sprint-taches{margin-top:10px;border-top:1px solid var(--bord);padding-top:8px}
 .sprint-tache-line{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid #f1f5f9}
 .sprint-tache-line:last-child{border:none}
 .pill{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
-.s-planifie{background:#e2e8f0;color:#475569}.s-en_cours{background:#dbeafe;color:#1d4ed8}.s-termine{background:#dcfce7;color:var(--ok)}
+.s-planifie{background:#e2e8f0;color:#475569}.s-en_cours{background:#dbeafe;color:#1d4ed8}.s-termine{background:#dcfce7;color:var(--ok)}.s-arrete{background:#fee2e2;color:#b91c1c}
 .btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
 .btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
 .btn.sm{padding:5px 12px;font-size:11.5px}
@@ -79,6 +95,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 
 @if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div> @endif
 @if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div> @endif
+@if(session('erreurs_import') && count(session('erreurs_import')))<div class="alerte" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e"><strong>Remarques de l'import :</strong><ul style="margin:4px 0 0 18px">@foreach(session('erreurs_import') as $e)<li>{{ $e }}</li>@endforeach</ul></div>@endif
 @if($errors->any())<div class="alerte ko">{{ $errors->first() }}</div> @endif
 
 @if($espaces->isNotEmpty())
@@ -128,7 +145,11 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             $pct = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
             $nbExcl = count($s->exclus);
         @endphp
-        <a href="{{ route('sprints.show', $s) }}" class="sprint-card{{ !$s->visible_collaborateurs ? ' masque' : '' }}" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block;position:relative">
+        <a href="{{ route('sprints.show', $s) }}" class="sprint-card{{ $s->statut === 'en_cours' ? ' en-cours' : '' }}{{ !$s->visible_collaborateurs ? ' masque' : '' }}" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block;position:relative">
+            @if($s->statut === 'en_cours')
+            @php $urg = $s->urgence(); @endphp
+            <div class="encours-tete"><span class="pouls" aria-hidden="true"></span>Sprint en cours<span class="reste {{ $urg['niveau'] === 'retard' ? 'retard' : '' }}" title="{{ $urg['libelle'] }}">{{ $urg['court'] }}</span></div>
+            @endif
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <span class="sprint-num">Sprint {{ $s->numero }}</span>
                 <span style="display:flex;align-items:center;gap:6px">
@@ -154,7 +175,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
                         </form>
                     </div>
                     @endif
-                    <span class="pill s-{{ $s->statut }}">{{ ucfirst(str_replace('_',' ',$s->statut)) }}</span>
+                    @if($s->statut === 'termine' && $s->arrete_le)<span class="pill s-arrete" title="Arrêté le {{ $s->arrete_le->format('d/m/Y') }}{{ $s->justification_arret ? ' - Motif : ' . $s->justification_arret : '' }}">Arrêté</span>@else<span class="pill s-{{ $s->statut }}">{{ ['planifie' => 'Planifié', 'en_cours' => 'En cours', 'termine' => 'Clôturé'][$s->statut] ?? $s->statut }}</span>@endif
                 </span>
             </div>
             <div class="sprint-obj">{{ $s->objectif }}</div>
@@ -166,7 +187,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div class="sprint-stats">
                 <div>T&acirc;ches : <strong>{{ $totalTaches }}</strong></div>
                 <div>Termin&eacute;es : <strong>{{ $terminees }}</strong></div>
-                <div>Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->pointsEngages()) / {{ $s->pointsEngages() }} @endif</div>
+                <div title="{{ $s->resumePoints() }}">Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->pointsEngages()) / {{ $s->pointsEngages() }} @endif @if($s->statut !== 'termine' && $s->storiesNonEstimees())<span style="color:#c2410c;font-weight:600">· {{ $s->storiesNonEstimees() }} non estimée(s)</span>@endif</div>
+                @if($s->statut === 'en_cours')<span class="encours-pct" title="Tâches terminées">{{ $pct }} % réalisé</span>@endif
             </div>
             <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:600">Voir le d&eacute;tail &rarr;</div>
         </a>
@@ -185,7 +207,11 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             $pct = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
             $nbExcl = count($s->exclus);
         @endphp
-        <a href="{{ route('sprints.show', $s) }}" class="sprint-card{{ !$s->visible_collaborateurs ? ' masque' : '' }}" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block;position:relative">
+        <a href="{{ route('sprints.show', $s) }}" class="sprint-card{{ $s->statut === 'en_cours' ? ' en-cours' : '' }}{{ !$s->visible_collaborateurs ? ' masque' : '' }}" data-sprint data-statut="{{ $s->statut }}" style="text-decoration:none;color:inherit;display:block;position:relative">
+            @if($s->statut === 'en_cours')
+            @php $urg = $s->urgence(); @endphp
+            <div class="encours-tete"><span class="pouls" aria-hidden="true"></span>Sprint en cours<span class="reste {{ $urg['niveau'] === 'retard' ? 'retard' : '' }}" title="{{ $urg['libelle'] }}">{{ $urg['court'] }}</span></div>
+            @endif
             <div style="display:flex;justify-content:space-between;align-items:center">
                 <span class="sprint-num">Sprint {{ $s->numero }}</span>
                 <span style="display:flex;align-items:center;gap:6px">
@@ -211,7 +237,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
                         </form>
                     </div>
                     @endif
-                    <span class="pill s-{{ $s->statut }}">{{ ucfirst(str_replace('_',' ',$s->statut)) }}</span>
+                    @if($s->statut === 'termine' && $s->arrete_le)<span class="pill s-arrete" title="Arrêté le {{ $s->arrete_le->format('d/m/Y') }}{{ $s->justification_arret ? ' - Motif : ' . $s->justification_arret : '' }}">Arrêté</span>@else<span class="pill s-{{ $s->statut }}">{{ ['planifie' => 'Planifié', 'en_cours' => 'En cours', 'termine' => 'Clôturé'][$s->statut] ?? $s->statut }}</span>@endif
                 </span>
             </div>
             <div class="sprint-obj">{{ $s->objectif }}</div>
@@ -223,7 +249,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <div class="sprint-stats">
                 <div>T&acirc;ches : <strong>{{ $totalTaches }}</strong></div>
                 <div>Termin&eacute;es : <strong>{{ $terminees }}</strong></div>
-                <div>Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->pointsEngages()) / {{ $s->pointsEngages() }} @endif</div>
+                <div title="{{ $s->resumePoints() }}">Points : <strong>{{ $s->pointsLivres() }}</strong> @if ($s->pointsEngages()) / {{ $s->pointsEngages() }} @endif @if($s->statut !== 'termine' && $s->storiesNonEstimees())<span style="color:#c2410c;font-weight:600">· {{ $s->storiesNonEstimees() }} non estimée(s)</span>@endif</div>
             </div>
             <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:600">Voir le d&eacute;tail &rarr;</div>
         </a>
@@ -271,28 +297,39 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </form>
 </dialog>
 
-{{-- Dialog import xlsx --}}
-<dialog id="dlg-import">
-    <h3 style="color:var(--bleu);margin-bottom:4px">Importer des t&acirc;ches (.xlsx)</h3>
-    <div style="font-size:12px;color:var(--gris);margin-bottom:12px;line-height:1.6">
-        <div style="background:var(--fond);border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin-bottom:8px">
-            <div style="font-weight:700;color:#1e293b;margin-bottom:4px;font-size:12px">Format attendu (7 colonnes, ordre libre) :</div>
-            <div style="font-size:11px"><strong style="color:var(--ko)">Intitul&eacute;</strong> (obligatoire) &bull; <strong style="color:var(--ko)">Assign&eacute; &agrave;</strong> (obligatoire) &bull; <strong style="color:var(--ko)">&Eacute;ch&eacute;ance</strong> (obligatoire) &bull; Date d&eacute;but &bull; Priorit&eacute; &bull; Points &bull; Projet</div>
-            <div style="margin-top:4px;font-size:10.5px;color:#64748b">En-t&ecirc;te en ligne 1. L'ordre des colonnes est libre - le syst&egrave;me reconna&icirc;t les noms.</div>
+{{-- Dialog import xlsx : classeur Scrum (sprints créés d'un coup) ou liste de tâches --}}
+<dialog id="dlg-import" style="width:540px">
+    <h3 style="color:var(--bleu);margin-bottom:4px">Importer un classeur (.xlsx)</h3>
+    <p style="font-size:12.5px;color:#475569;margin:0 0 12px;line-height:1.55">Le type de classeur est reconnu automatiquement.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:#f2f7fd;border:1px solid #d6e5f5;border-radius:10px;padding:10px 12px;font-size:11.5px;color:#334155;line-height:1.5">
+            <strong style="display:block;color:#1f4e79;font-size:12px;margin-bottom:3px">Classeur Scrum</strong>
+            Consolidé ou archive d'un sprint : Product Backlog, Backlog / Planning des sprints, Dailys, Reviews, Rétrospectives. <b>Les sprints sont créés à partir du classeur</b>, avec leur objectif et leur période.
+        </div>
+        <div style="background:var(--fond);border:1px solid var(--bord);border-radius:10px;padding:10px 12px;font-size:11.5px;color:#334155;line-height:1.5">
+            <strong style="display:block;color:#1e293b;font-size:12px;margin-bottom:3px">Liste de tâches</strong>
+            Colonnes reconnues par leur nom : <b>Intitulé</b>, <b>Assigné à</b>, <b>Échéance</b> (obligatoires), Date début, Priorité, Points, Projet, User story.
         </div>
     </div>
-    <form method="POST" action="{{ route('sprints.importer') }}" enctype="multipart/form-data">@csrf
-        <label>Sprint (optionnel)</label>
-        <select name="sprint_id">
-            <option value="">— Aucun (cr&eacute;ation libre) —</option>
+    <form method="POST" action="{{ route('sprints.importer') }}" enctype="multipart/form-data" onsubmit="const b=this.querySelector('button.btn:not(.sec)');b.disabled=true;b.textContent='Import en cours…'">@csrf
+        <label>Projet <span style="font-weight:400;color:var(--gris)">(obligatoire pour un classeur Scrum)</span></label>
+        <select name="projet_id" id="imp-projet" onchange="filtrerSprintsImport()">
+            <option value="">— Choisir —</option>
+            @foreach(auth()->user()->projetsGerables() as $pg)<option value="{{ $pg->id }}">{{ $pg->code }} - {{ $pg->libelle }}</option>@endforeach
+        </select>
+        <label>Sprint <span style="font-weight:400;color:var(--gris)">(facultatif : tâches à verser dans un sprint existant)</span></label>
+        <select name="sprint_id" id="imp-sprint">
+            <option value="">— Aucun : sprints du classeur, ou tâches hors sprint —</option>
             @foreach($projets as $p)
                 @foreach($p->sprints as $s)
-                <option value="{{ $s->id }}">{{ $p->code }} - Sprint {{ $s->numero }}</option>
+                <option value="{{ $s->id }}" data-projet="{{ $p->id }}">{{ $p->code }} - Sprint {{ $s->numero }}</option>
                 @endforeach
             @endforeach
         </select>
         <label>Fichier Excel (.xlsx) <span class="req">*</span></label>
         <input type="file" name="fichier" accept=".xlsx" required style="padding:8px;border:1px dashed var(--bord);border-radius:8px;background:var(--fond);margin-top:4px">
+        <p style="font-size:11.5px;color:var(--gris);margin:8px 0 0;line-height:1.5">Réimporter le même classeur ne crée pas de doublon ; un sprint déjà clôturé n'est pas modifié.</p>
+        <label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:9px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#92400e;cursor:pointer;font-weight:400"><input type="checkbox" name="simulation" value="1" style="width:auto;margin-top:2px"><span><b>Simulation</b> : voir le résultat (sprints, tâches, doublons évités, remarques) sans rien enregistrer. Recommandé avant un import en production.</span></label>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn">Importer</button>
@@ -307,6 +344,12 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 @push('scripts')
 <script>
 @if($errors->any())document.addEventListener('DOMContentLoaded',function(){var d=document.getElementById('dlg-sprint');if(d)d.showModal();});@endif
+// Import : les sprints proposés sont ceux du projet choisi
+function filtrerSprintsImport(){
+    const p = document.getElementById('imp-projet').value, sel = document.getElementById('imp-sprint');
+    [...sel.options].forEach(o => { if (o.value) o.hidden = !!p && o.dataset.projet !== p; });
+    if (sel.selectedOptions[0]?.hidden) sel.value = '';
+}
 function toggleVisibilite(url,e){e.preventDefault();e.stopPropagation();var f=document.getElementById('form-toggle-visibilite');f.action=url;f.submit();}
 function ouvrirExclusions(id,e){e.preventDefault();e.stopPropagation();document.querySelectorAll('.panneau-excl.visible').forEach(function(p){if(p.id!=='panneau-excl-'+id)p.classList.remove('visible');});document.getElementById('panneau-excl-'+id).classList.toggle('visible');}
 document.addEventListener('click',function(e){if(!e.target.closest('.panneau-excl')&&!e.target.closest('.btn-visibilite')){document.querySelectorAll('.panneau-excl.visible').forEach(function(p){p.classList.remove('visible');});}});

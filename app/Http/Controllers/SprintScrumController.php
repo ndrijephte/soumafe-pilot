@@ -164,10 +164,12 @@ class SprintScrumController extends Controller
 
         return view('scrum.daily', [
             'sprint' => $sprint, 'daily' => $daily, 'membres' => $membres,
-            'manquants' => $membres->whereNotIn('id', $daily->entrees->pluck('user_id')),
+            // Un collaborateur parti avant ce Daily n'y est pas « manquant »
+            'manquants' => $membres->whereNotIn('id', $daily->entrees->pluck('user_id'))->filter(fn($u) => $u->presentLe($daily->date_reunion)),
             'precedent' => $voisins->where('date_reunion', '<', $daily->date_reunion)->last(),
             'suivant' => $voisins->where('date_reunion', '>', $daily->date_reunion)->first(),
-            'tousUsers' => User::where('actif', true)->orderBy('name')->get(),
+            // Comptes actifs, plus les personnes déjà inscrites dans ce Daily (rôles, lignes), même parties depuis
+            'tousUsers' => User::where('actif', true)->orWhereIn('id', $daily->entrees->pluck('user_id')->merge(array_values((array) $daily->roles))->filter())->orderBy('name')->get(),
             'edition' => $this->editionDaily($r, $daily),
             'peutGerer' => $daily->gerablePar($r->user()),
             'config' => ($daily->projet ?? new \App\Models\Projet())->configDaily(),
@@ -303,7 +305,9 @@ class SprintScrumController extends Controller
     {
         $daily->load('entrees');
         abort_unless($this->editionDaily($r, $daily) === 'tout', 403);
-        $v = $r->validate(['user_id' => ['required', Rule::exists('users', 'id')->where('actif', true)]]);
+        $v = $r->validate(['user_id' => ['required', Rule::exists('users', 'id')]]);
+        // Un collaborateur parti peut avoir sa ligne dans un Daily tenu avant son départ (reprise de l'historique)
+        if (!User::find($v['user_id'])->presentLe($daily->date_reunion)) return back()->with('erreur', "Ce collaborateur a quitté l'entreprise avant la date de ce Daily.");
         if ($daily->entrees->contains('user_id', (int) $v['user_id'])) return back()->with('erreur', 'Ce collaborateur a déjà une ligne dans ce Daily.');
         $daily->loadMissing('sprint');
         DailyScrumEntree::create(['daily_scrum_id' => $daily->id, 'user_id' => $v['user_id']] + ScrumService::calculerEntree($daily, (int) $v['user_id']));

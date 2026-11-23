@@ -31,7 +31,7 @@ class ImportConsolide
     public array $rapport = [
         'sprints_crees' => 0, 'sprints_maj' => 0,
         'stories_crees' => 0, 'stories_maj' => 0, 'stories_engagees' => 0,
-        'taches_crees' => 0, 'taches_maj' => 0,
+        'taches_crees' => 0, 'taches_maj' => 0, 'lignes_ignorees' => 0,
         'dailys_crees' => 0, 'entrees_daily' => 0,
         'reviews_crees' => 0, 'retros_crees' => 0,
         'erreurs' => [],
@@ -39,7 +39,8 @@ class ImportConsolide
 
     public function __construct(private Projet $projet)
     {
-        foreach (User::where('actif', true)->get() as $u) {
+        // Tous les comptes, y compris ceux des collaborateurs partis : l'historique du projet leur reste attribué
+        foreach (User::orderByDesc('actif')->get() as $u) {
             $this->index[] = ['user' => $u, 'nom' => self::mots($u->name), 'tous' => self::mots($u->nomComplet())];
         }
     }
@@ -69,6 +70,38 @@ class ImportConsolide
         } finally {
             UserStory::$signaler = true;
         }
+    }
+
+    /**
+     * Classeur Scrum (consolidé ou archive d'un sprint) plutôt que simple liste de tâches :
+     * un onglet de planning ou de backlog de sprint, ou au moins un onglet de cérémonie (daily, review, rétrospective).
+     */
+    public static function estClasseurScrum(array $feuilles): bool
+    {
+        $ceremonies = 0;
+        foreach ($feuilles as $nom) {
+            $n = self::norm($nom);
+            if (preg_match('/sprint\s*\d+\s*(planning|backlog)|(planning|backlog)\s*sprint\s*\d+|sprint planning\s*\d+/', $n)) return true;
+            if (preg_match('/^(dail|review|retro)/', $n)) $ceremonies++;
+        }
+        return $ceremonies >= 1;
+    }
+
+    /** Résumé lisible d'un rapport d'import. */
+    public static function resume(array $r): string
+    {
+        return collect([
+            $r['sprints_crees'] ? "{$r['sprints_crees']} sprint(s) créé(s)" : null,
+            $r['sprints_maj'] ? "{$r['sprints_maj']} sprint(s) complété(s)" : null,
+            $r['stories_crees'] ? "{$r['stories_crees']} user story(s) créée(s)" : null,
+            $r['stories_maj'] ? "{$r['stories_maj']} user story(s) mise(s) à jour" : null,
+            $r['stories_engagees'] ? "{$r['stories_engagees']} engagement(s) en Sprint Backlog" : null,
+            $r['taches_crees'] ? "{$r['taches_crees']} tâche(s) créée(s)" : null,
+            $r['taches_maj'] ? "{$r['taches_maj']} tâche(s) mise(s) à jour" : null,
+            $r['dailys_crees'] ? "{$r['dailys_crees']} daily(s) créé(s)" : null,
+            $r['reviews_crees'] ? "{$r['reviews_crees']} review(s)" : null,
+            $r['retros_crees'] ? "{$r['retros_crees']} rétrospective(s)" : null,
+        ])->filter()->implode(', ') ?: 'aucun élément nouveau (déjà importé)';
     }
 
     /* ─── Plan du classeur ─── */
@@ -144,10 +177,16 @@ class ImportConsolide
         $meta = $this->metaSprint($onglets);
         $sprint = $this->projet->sprints()->where('numero', $num)->first();
         $cree = false;
-        $termine = !$dernier || isset($onglets['review']) || isset($onglets['retro']);
-
+        if ((!$meta['debut'] || !$meta['fin']) && isset($onglets['planning']) && ($d = $this->periodeDesTaches($onglets['planning']))) {
+            $meta['debut'] ??= $d[0];
+            $meta['fin'] ??= $d[1];
+            $this->erreur("Sprint {$num} : période non indiquée, déduite des dates des tâches ({$meta['debut']->format('d/m/Y')} → {$meta['fin']->format('d/m/Y')}).");
+        }
+        // Clôturé : review ou rétrospective présente, ou période révolue alors qu'un sprint suivant existe ; sinon selon les dates
+        $termine = isset($onglets['review']) || isset($onglets['retro'])
+            || (!$dernier && $meta['fin'] && $meta['fin']->lt(today()));
         if (!$sprint) {
-            if (!$meta['debut'] || !$meta['fin']) { $this->erreur("Sprint {$num} : dates de début et de fin introuvables, sprint ignoré."); return; }
+            if (!$meta['debut'] || !$meta['fin']) { $this->erreur("Sprint {$num} : période « à définir » ou introuvable dans le classeur, sprint non créé. Créez-le avec ses dates (Nouveau sprint), puis réimportez pour y verser son planning."); return; }
             $enCours = $this->projet->sprints()->where('statut', 'en_cours')->exists();
             $statut = $termine ? 'termine' : ($meta['debut']->isFuture() || $enCours ? 'planifie' : 'en_cours');
             // Ouvert le temps de l'import (Sprint Backlog, statuts des stories), clôturé ensuite
@@ -228,6 +267,24 @@ class ImportConsolide
         return $meta;
     }
 
+    /** Première date de début et dernière date de fin des tâches d'un onglet de planning. */
+    private function periodeDesTaches(string $onglet): ?array
+    {
+        $lignes = $this->lecteur->lignesFeuille($onglet);
+        [$entete, $cols] = $this->entete($lignes, ['tache' => ['tache'], 'debut' => ['debut'], 'fin' => ['date de fin', 'fin', 'echeance']], 'tache');
+        if ($entete === null || !isset($cols['debut'])) return null;
+        $debuts = []; $fins = [];
+        foreach ($lignes as $num => $c) {
+            if ($num <= $entete) continue;
+            if ($d = self::date($c[$cols['debut']] ?? null)) $debuts[] = $d;
+            if (isset($cols['fin']) && ($f = self::date($c[$cols['fin']] ?? null))) $fins[] = $f;
+        }
+        if (!$debuts) return null;
+        $debut = min($debuts);
+        $fin = $fins ? max($fins) : max($debuts);
+        return [$debut->copy(), max($fin, $debut)->copy()];
+    }
+
     /** Case-libellé d'une fiche de sprint (objectif, dates, durée, points, statut). */
     private static function estLibelleMeta(string $v): bool
     {
@@ -264,6 +321,34 @@ class ImportConsolide
             $meta['debut'] ??= self::date($m[1]);
             $meta['fin'] ??= self::date($m[2]);
         }
+        // Dates en toutes lettres : « Ven. 20 nov. → Ven. 27 nov. 2026 », « du 3 au 14 novembre 2026 »
+        if ((!$meta['debut'] || !$meta['fin']) && ($d = self::periodeEnLettres($v))) {
+            $meta['debut'] ??= $d[0];
+            $meta['fin'] ??= $d[1];
+        }
+    }
+
+    /** Période écrite en français (mois en toutes lettres ou abrégés) ; l'année manquante est reprise de l'autre date. */
+    private static function periodeEnLettres(string $v): ?array
+    {
+        $mois = ['janv' => 1, 'janvier' => 1, 'fevr' => 2, 'fev' => 2, 'fevrier' => 2, 'mars' => 3, 'avr' => 4, 'avril' => 4, 'mai' => 5, 'juin' => 6,
+            'juil' => 7, 'juillet' => 7, 'aout' => 8, 'sept' => 9, 'sep' => 9, 'septembre' => 9, 'oct' => 10, 'octobre' => 10, 'nov' => 11, 'novembre' => 11, 'dec' => 12, 'decembre' => 12];
+        $n = self::norm($v);
+        if (!preg_match_all('/\b(\d{1,2})(?:er)?\s+(' . implode('|', array_keys($mois)) . ')\.?(?:\s+(\d{4}))?/', $n, $mm, PREG_SET_ORDER) || count($mm) < 2) {
+            // « du 3 au 14 novembre 2026 » : le mois et l'année ne figurent qu'une fois
+            if (preg_match('/\b(\d{1,2})(?:er)?\s+au\s+(\d{1,2})\s+(' . implode('|', array_keys($mois)) . ')\.?\s+(\d{4})/', $n, $m)) {
+                return [Carbon::create((int) $m[4], $mois[$m[3]], (int) $m[1])->startOfDay(), Carbon::create((int) $m[4], $mois[$m[3]], (int) $m[2])->startOfDay()];
+            }
+            return null;
+        }
+        [$a, $b] = [$mm[0], $mm[1]];
+        $anneeB = (int) ($b[3] ?? 0) ?: (int) ($a[3] ?? 0);
+        $anneeA = (int) ($a[3] ?? 0) ?: $anneeB;
+        if (!$anneeA || !$anneeB) return null;
+        $debut = Carbon::create($anneeA, $mois[$a[2]], (int) $a[1])->startOfDay();
+        $fin = Carbon::create($anneeB, $mois[$b[2]], (int) $b[1])->startOfDay();
+        if ($fin->lt($debut) && empty($a[3])) $debut->subYear(); // « 28 déc. → 9 janv. 2027 »
+        return [$debut, $fin];
     }
 
     /** Onglet « Backlog Sprint N » : stories engagées dans le sprint (créées si absentes du Product Backlog). */
@@ -336,6 +421,7 @@ class ImportConsolide
         $code = fn($intitule) => preg_match('/^\s*(T-\d+)\b/i', (string) $intitule, $m) ? strtoupper($m[1]) : null;
         $parCode = $toutes->filter(fn($t) => $code($t->intitule))->groupBy(fn($t) => $code($t->intitule) . '|' . $t->user_id);
         $storyGroupe = null;
+        $ignorees = 0;
         // Équipe du sprint (collaborateurs nommés dans le planning) : une tâche « Toute l'équipe » est confiée à chacun
         $equipe = collect($lignes)->filter(fn($c, $num) => $num > $entete)->map(fn($c) => $this->utilisateur($c[$cols['assigne'] ?? -1] ?? null, false))->filter()->unique('id')->values();
 
@@ -355,6 +441,8 @@ class ImportConsolide
                 $storyGroupe = $this->story($get('story')) ?? $this->story($intitule) ?? $this->storyParIntitule($get('story')) ?? $storyGroupe;
                 continue;
             }
+            // Une tâche planifiée a toujours une attribution ; sans elle, c'est un total, une observation ou une note de recette
+            if ($get('assigne') === '' || self::pasUneTache($intitule)) { $ignorees++; continue; }
 
             if (in_array(self::norm($get('assigne')), ['attribution', 'assigne'], true)) continue; // en-tête répété
 
@@ -394,6 +482,10 @@ class ImportConsolide
                 ]);
                 $this->rapport['taches_crees']++;
             }
+        }
+        if ($ignorees) {
+            $this->rapport['lignes_ignorees'] += $ignorees;
+            $this->erreur("{$onglet} : {$ignorees} ligne(s) sans attribution ignorée(s) (totaux, observations, notes).");
         }
     }
 
@@ -604,11 +696,16 @@ class ImportConsolide
     {
         foreach ($this->membres as $userId => $depuis) {
             $c = ProjetCollaborateur::firstOrNew(['projet_id' => $this->projet->id, 'user_id' => $userId]);
-            if ($c->exists && $c->actif) {
+            // Déjà membre (actif ou retiré) : seule l'entrée dans le projet peut remonter ; un retrait n'est pas annulé par l'import
+            if ($c->exists) {
                 if ($c->date_ajout && Carbon::parse($c->date_ajout)->gt(Carbon::parse($depuis))) $c->update(['date_ajout' => $depuis]);
                 continue;
             }
-            $c->fill(['role_projet' => $c->role_projet ?: 'developpeur', 'actif' => true, 'date_ajout' => $depuis, 'date_retrait' => null])->save();
+            // Collaborateur parti de l'entreprise : membre de l'historique du projet, retiré à sa date de départ
+            $u = User::find($userId);
+            $parti = $u && !$u->actif;
+            $c->fill(['role_projet' => 'developpeur', 'actif' => !$parti, 'date_ajout' => $depuis,
+                'date_retrait' => $parti ? ($u->date_depart ?? today()) : null])->save();
         }
     }
 
@@ -626,15 +723,17 @@ class ImportConsolide
             $this->nomsInconnus = $avant;
             return $u;
         }
-        $meilleur = null; $score = 0; $egalite = false;
+        $score = 0; $candidats = [];
         foreach ($this->index as $i) {
             if (array_diff($i['nom'], $mots)) continue;
-            $s = count(array_intersect($i['tous'], $mots));
-            if ($s > $score) { $meilleur = $i['user']; $score = $s; $egalite = false; }
-            elseif ($s === $score) $egalite = true;
+            $sc = count(array_intersect($i['tous'], $mots));
+            if ($sc > $score) { $score = $sc; $candidats = [$i['user']]; }
+            elseif ($sc === $score && $sc > 0) $candidats[] = $i['user'];
         }
-        if (!$meilleur || $egalite) { $this->nomsInconnus[trim((string) $nom)] = true; return null; }
-        return $meilleur;
+        // Homonymes : le compte actif l'emporte sur celui d'un collaborateur parti ; sinon, ambigu
+        if (count($candidats) > 1) $candidats = array_values(array_filter($candidats, fn($u) => $u->actif));
+        if (count($candidats) !== 1) { $this->nomsInconnus[trim((string) $nom)] = true; return null; }
+        return $candidats[0];
     }
 
     /* ─── Lecture ─── */
@@ -667,6 +766,14 @@ class ImportConsolide
     {
         $t = preg_replace(['/^(?:section\s*\d+|ep[\s\-]*[A-Z0-9\-]+)\s*[—–:\-]\s*/iu', '/\s*[—–-]\s*\d+\s*user stor.*$/iu', '/\s*\([^()]*\)\s*$/u'], '', trim($texte));
         return $t !== '' ? Str::limit($t, 147) : null;
+    }
+
+    /** Intitulé qui ne peut pas être une tâche : nombre seul, ponctuation, libellé de tableau (total, observations…). */
+    public static function pasUneTache(string $intitule): bool
+    {
+        $n = self::norm($intitule);
+        return $n === '' || (bool) preg_match('/^[\d\s.,%\/?!:;\-–—]+$/u', $n)
+            || (bool) preg_match('/^(total|sous[- ]?total|observations?|remarques?|commentaires?|legende|statuts?|nb|nombre)\b\s*:?\s*$/u', $n);
     }
 
     /** Valeurs non vides d'une ligne, sans les répétitions des cellules fusionnées. */

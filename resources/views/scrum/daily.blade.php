@@ -48,10 +48,12 @@
 @endif
 @php
     $tout = $edition === 'tout';
+    // Collaborateur parti : signalé dans les listes (il reste dans l'historique des Daily tenus avant son départ)
+    $etiquette = fn($m) => $m->nomComplet() . (!$m->actif ? ' (parti' . ($m->date_depart ? ' le ' . $m->date_depart->format('d/m/Y') : '') . ')' : '');
     $nomUser = fn($id) => $tousUsers->firstWhere('id', $id)?->nomComplet() ?? $membres->firstWhere('id', $id)?->nomComplet() ?? '—';
     $entrees = $daily->entrees->sortBy(fn($e) => $e->user?->name)->values();
     $autres = $tousUsers->whereNotIn('id', $membres->pluck('id'));
-    $ajoutables = $tousUsers->whereNotIn('id', $entrees->pluck('user_id'));
+    $ajoutables = $tousUsers->merge($membres)->unique('id')->whereNotIn('id', $entrees->pluck('user_id'))->filter(fn($m) => $m->presentLe($daily->date_reunion));
     [$libStatut, $clsStatut] = $daily->statutPublication();
 @endphp
 
@@ -112,8 +114,8 @@
             @if($tout)
             <span class="champ"><select name="roles[{{ $code }}]">
                 <option value="">—</option>
-                <optgroup label="{{ $sprint ? 'Équipe du sprint' : ($daily->projet ? 'Équipe du projet' : 'Participants') }}">@foreach($membres as $m)<option value="{{ $m->id }}" @selected($daily->roleUserId($code) === $m->id)>{{ $m->nomComplet() }}</option>@endforeach</optgroup>
-                <optgroup label="Autres collaborateurs">@foreach($autres as $m)<option value="{{ $m->id }}" @selected($daily->roleUserId($code) === $m->id)>{{ $m->nomComplet() }}</option>@endforeach</optgroup>
+                <optgroup label="{{ $sprint ? 'Équipe du sprint' : ($daily->projet ? 'Équipe du projet' : 'Participants') }}">@foreach($membres as $m)<option value="{{ $m->id }}" @selected($daily->roleUserId($code) === $m->id)>{{ $etiquette($m) }}</option>@endforeach</optgroup>
+                <optgroup label="Autres collaborateurs">@foreach($autres as $m)<option value="{{ $m->id }}" @selected($daily->roleUserId($code) === $m->id)>{{ $etiquette($m) }}</option>@endforeach</optgroup>
             </select></span>
             @else
             <span>{{ $nomUser($daily->roleUserId($code)) }}</span>
@@ -155,8 +157,8 @@
     <span>Ajouter un participant :</span>
     <select name="user_id" form="f-ajout-part" required>
         <option value="">— Choisir —</option>
-        @if($membres->whereNotIn('id', $entrees->pluck('user_id'))->isNotEmpty())<optgroup label="{{ $sprint ? 'Équipe du sprint' : 'Équipe du projet' }}">@foreach($membres->whereNotIn('id', $entrees->pluck('user_id')) as $m)<option value="{{ $m->id }}">{{ $m->nomComplet() }}</option>@endforeach</optgroup>@endif
-        <optgroup label="Autres collaborateurs">@foreach($ajoutables->whereNotIn('id', $membres->pluck('id')) as $m)<option value="{{ $m->id }}">{{ $m->nomComplet() }}</option>@endforeach</optgroup>
+        @if($membres->whereNotIn('id', $entrees->pluck('user_id'))->filter(fn($m) => $m->presentLe($daily->date_reunion))->isNotEmpty())<optgroup label="{{ $sprint ? 'Équipe du sprint' : 'Équipe du projet' }}">@foreach($membres->whereNotIn('id', $entrees->pluck('user_id'))->filter(fn($m) => $m->presentLe($daily->date_reunion)) as $m)<option value="{{ $m->id }}">{{ $etiquette($m) }}</option>@endforeach</optgroup>@endif
+        <optgroup label="Autres collaborateurs">@foreach($ajoutables->whereNotIn('id', $membres->pluck('id')) as $m)<option value="{{ $m->id }}">{{ $etiquette($m) }}</option>@endforeach</optgroup>
     </select>
     <button type="submit" form="f-ajout-part" class="btn sm sec">+ Ajouter la ligne</button>
 </div>

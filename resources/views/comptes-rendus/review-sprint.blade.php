@@ -53,7 +53,7 @@ $moscowOpts = \App\Models\UserStory::MOSCOW;
 /* KPI */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
 .kpi-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;text-align:center}
-.kpi-card .kval{font-size:1.6rem;font-weight:800;color:var(--bleu,#1F4E79)}
+.kpi-card .kval{font-size:1.6rem;font-weight:700;color:var(--bleu,#1F4E79)}
 .kpi-card .klab{font-size:.78rem;color:#64748b;margin-top:2px}
 /* Buttons */
 .btn-add{background:#f1f5f9;color:#475569;border:1px dashed #94a3b8;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:.82rem;display:inline-flex;align-items:center;gap:5px}

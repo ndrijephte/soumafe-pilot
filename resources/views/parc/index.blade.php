@@ -1258,7 +1258,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     {{-- Bloc montant principal --}}
     <div style="text-align:center;margin-bottom:14px">
         <div style="font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.5px">Montant verse</div>
-        <div id="res-montant" style="font-size:28px;font-weight:800;color:var(--bleu);line-height:1.2"></div>
+        <div id="res-montant" style="font-size:28px;font-weight:700;color:var(--bleu);line-height:1.2"></div>
     </div>
     {{-- Grille details --}}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--bord);border-radius:10px;overflow:hidden;border:1px solid var(--bord);margin-bottom:12px">

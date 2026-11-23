@@ -15,10 +15,10 @@ class DashboardController extends Controller
         $user = $r->user();
 
         // Direction générale → dashboard stratégique
-        if ($user->aRole('direction')) return $this->dashboardDG($user);
+        if ($user->aRole('direction')) return $this->dashboardDG($user, $this->periode($r));
 
         // Pilotes opérationnels → dashboard pilote
-        if ($user->estPilote()) return $this->dashboardPilote($user);
+        if ($user->estPilote()) return $this->dashboardPilote($user, $this->periode($r));
 
         // Collaborateur (enrichi si responsable projet)
         return $this->dashboardCollab($user);
@@ -30,6 +30,110 @@ class DashboardController extends Controller
         abort_unless($r->user()->estPilote(), 403);
         $v = $r->validate(['du' => 'required|date_format:Y-m-d', 'au' => 'required|date_format:Y-m-d|after_or_equal:du']);
         return view('dashboard._performance_lignes', ['performance' => PerformanceEquipe::calculer($v['du'], $v['au'])]);
+    }
+
+    /**
+     * Période consultée : du ... au ... (paramètres « du » et « au »), par défaut l'exercice en cours
+     * (du 05 du mois au 04 du mois suivant).
+     * @return array{0: \Carbon\Carbon, 1: \Carbon\Carbon}
+     */
+    private function periode(Request $r): array
+    {
+        [$d, $f] = \App\Services\PeriodeExercice::bornes(today());
+        try {
+            if ($r->filled('du') && $r->filled('au')) {
+                $du = \Carbon\Carbon::createFromFormat('Y-m-d', $r->du)->startOfDay();
+                $au = \Carbon\Carbon::createFromFormat('Y-m-d', $r->au)->endOfDay();
+                if ($au->gte($du)) return [$du, $au];
+            }
+        } catch (\Throwable $e) {}
+        return [$d->copy()->startOfDay(), $f->copy()->endOfDay()];
+    }
+
+    /**
+     * Indicateurs des tableaux de bord sur une période. Tâches de la période : échéance (à défaut date de début) comprise
+     * dans la période. Taux de retard : tâches échues en retard (non finies, ou finies après l'échéance) / tâches échues.
+     * Bloquées : tâches de la période bloquées, ou dont un blocage a été déclaré pendant la période.
+     */
+    private function indicateursPeriode(\Carbon\Carbon $du, \Carbon\Carbon $au, int $limite): array
+    {
+        $bornes = [$du->toDateString(), $au->toDateString()];
+        $periode = fn($q) => $q->where('statut', '!=', 'reporte')->whereRaw('DATE(COALESCE(echeance, date_debut)) BETWEEN ? AND ?', $bornes);
+        $taches = Tache::query()->tap($periode);
+
+        $totalTaches = (clone $taches)->count();
+        $terminees = (clone $taches)->where('statut', 'termine')->count();
+        $enCours = (clone $taches)->where('statut', 'en_cours')->count();
+        $enRetard = (clone $taches)->enRetard()->count();
+        $tauxGlobal = $totalTaches > 0 ? (int) round($terminees / $totalTaches * 100) : 0;
+
+        // Retard : sur les tâches déjà échues de la période
+        $limiteEchue = min($au->toDateString(), today()->subDay()->toDateString());
+        // Les tâches restées inachevées dans un sprint clôturé relèvent de la livraison du sprint, pas du retard (comme la tuile « En retard »)
+        $echues = (clone $taches)->whereNotNull('echeance')->whereDate('echeance', '<=', $limiteEchue)
+            ->whereNot(fn($q) => $q->where('statut', '!=', 'termine')->whereHas('sprint', fn($sp) => $sp->where('statut', 'termine')));
+        $nbEchues = (clone $echues)->count();
+        $nbEchuesRetard = (clone $echues)->where(fn($q) => $q
+            ->where(fn($t) => $t->where('statut', 'termine')->whereColumn('date_fin_reelle', '>', 'echeance'))
+            ->orWhere(fn($t) => $t->whereNotIn('statut', ['termine', 'reporte'])->whereNull('date_fin_reelle')))->count();
+        $tauxRetard = $nbEchues > 0 ? (int) round($nbEchuesRetard / $nbEchues * 100) : 0;
+
+        $bloqueesQ = Tache::where(fn($q) => $q->where(fn($b) => $periode($b->where('statut', 'bloque')))
+            ->orWhereHas('blocages', fn($b) => $b->whereBetween('date_blocage', [$du, $au])));
+        $bloquees = (clone $bloqueesQ)->count();
+        $topBloquees = (clone $bloqueesQ)->with(['user', 'projet'])->orderByRaw("statut = 'bloque' DESC")->orderByDesc('updated_at')->limit($limite)->get();
+
+        $tachesEnRetard = (clone $taches)->with(['user', 'projet'])->enRetard()->whereIn('statut', ['en_cours', 'a_faire'])->orderBy('echeance')->limit(8)->get();
+
+        $parProjet = Projet::whereHas('taches', $periode)->withCount([
+            'taches' => $periode,
+            'taches as terminees_count' => fn($q) => $periode($q)->where('statut', 'termine'),
+            'taches as en_retard_count' => fn($q) => $periode($q)->enRetard(),
+        ])->get();
+
+        // Livraison : sprints qui ont couru pendant la période, et sprints clôturés pendant la période
+        $sprintsEnCours = Sprint::whereIn('statut', ['en_cours', 'termine'])->whereDate('date_debut', '<=', $au)->whereDate('date_fin', '>=', $du)
+            ->with('projet')->orderByRaw("statut = 'en_cours' DESC")->orderByDesc('date_fin')->get()->map(function ($s) {
+                $total = Tache::where('sprint_id', $s->id)->count();
+                $term = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
+                $s->stats_total = $total;
+                $s->stats_terminees = $term;
+                $s->progression = $total > 0 ? round(($term / $total) * 100) : 0;
+                $s->jours_restants = $s->date_fin->gte(today()) ? (int) today()->diffInDays($s->date_fin) : 0;
+                return $s;
+            });
+        $sprintsTermines = Sprint::where('statut', 'termine')->whereBetween('date_fin', $bornes)->with('projet')->get()->map(function ($s) {
+            $totalT = Tache::where('sprint_id', $s->id)->count();
+            $termT = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
+            $s->taux_livraison = $totalT > 0 ? round(($termT / $totalT) * 100) : 0;
+            $s->total_taches = $totalT;
+            $s->taches_terminees = $termT;
+            return $s;
+        })->sortByDesc('date_fin')->take(6)->values();
+
+        // Tendance : les 4 semaines qui précèdent la fin de la période (ou aujourd'hui)
+        $fin = $au->copy()->min(today());
+        $tendance = [];
+        for ($w = 3; $w >= 0; $w--) {
+            $deb = $fin->copy()->subWeeks($w)->startOfWeek();
+            $tendance[] = ['label' => 'S' . $deb->weekOfYear, 'count' => Tache::where('statut', 'termine')->whereBetween('date_fin_reelle', [$deb, $deb->copy()->endOfWeek()])->count()];
+        }
+
+        $evenements = Schema::hasTable('evenements')
+            ? Evenement::with('user')->whereBetween('date', $bornes)->orderByDesc('date')->orderByDesc('created_at')->limit(15)->get()
+            : collect();
+
+        $estExercice = [$du->toDateString(), $au->toDateString()] === array_map(fn($d) => $d->toDateString(), \App\Services\PeriodeExercice::bornes($du));
+        $periodeTdb = [
+            'du' => $du->toDateString(), 'au' => $au->toDateString(),
+            'libelle' => $estExercice ? \App\Services\PeriodeExercice::nom($du) . ' (' . \App\Services\PeriodeExercice::libelle($du) . ')' : 'Du ' . $du->format('d/m/Y') . ' au ' . $au->format('d/m/Y'),
+            'courante' => $du->isSameDay(\App\Services\PeriodeExercice::bornes(today())[0]) && $estExercice,
+            'exercices' => collect(range(0, 11))->map(fn($i) => \App\Services\PeriodeExercice::bornes(today()->copy()->subMonthsNoOverflow($i)))
+                ->map(fn($b) => ['du' => $b[0]->toDateString(), 'au' => $b[1]->toDateString(), 'nom' => \App\Services\PeriodeExercice::nom($b[0])])->unique('du')->values(),
+        ];
+
+        return compact('totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal', 'tauxRetard', 'nbEchues', 'nbEchuesRetard',
+            'topBloquees', 'tachesEnRetard', 'parProjet', 'sprintsEnCours', 'sprintsTermines', 'tendance', 'evenements', 'periodeTdb');
     }
 
     /* ─── Dashboard collaborateur (US-16) - enrichi si responsable projet ─── */
@@ -59,9 +163,10 @@ class DashboardController extends Controller
         $assiduite = $this->calculerAssiduite($userId);
 
         // Points livrés (tâches sprint terminées)
-        $pointsLivres = (int) Tache::where('user_id', $userId)->where('statut', 'termine')
-            ->whereNotNull('sprint_id')->sum('points');
-        $pointsTotalSprint = (int) Tache::where('user_id', $userId)->whereNotNull('sprint_id')->sum('points');
+        // Points de mes tâches dans les sprints en cours (l'historique des sprints clôturés n'y figure plus)
+        $sprintsOuverts = fn($q) => $q->where('statut', 'en_cours');
+        $pointsLivres = (int) Tache::where('user_id', $userId)->where('statut', 'termine')->whereHas('sprint', $sprintsOuverts)->sum('points');
+        $pointsTotalSprint = (int) Tache::where('user_id', $userId)->where('statut', '!=', 'reporte')->whereHas('sprint', $sprintsOuverts)->sum('points');
 
         // Tendance hebdo (4 dernières semaines)
         $tendanceHebdo = [];
@@ -158,15 +263,13 @@ class DashboardController extends Controller
     }
 
     /* ─── Dashboard DG (US-17) ─── */
-    private function dashboardDG(User $user)
+    private function dashboardDG(User $user, array $periode)
     {
         AlerteParcService::verifier();
-        $totalTaches = Tache::count();
-        $terminees = Tache::where('statut', 'termine')->count();
-        $enCours = Tache::where('statut', 'en_cours')->count();
-        $bloquees = Tache::where('statut', 'bloque')->count();
-        $enRetard = Tache::enRetard()->count();
-        $tauxGlobal = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
+        [$du, $au] = $periode;
+        $ind = $this->indicateursPeriode($du, $au, 5);
+        extract($ind);
+        $tendanceHebdo = $tendance;
 
         $arbitragesEnAttente = ArbitrageT3::where('decision', 'en_attente')->count();
 
@@ -191,55 +294,8 @@ class DashboardController extends Controller
         $termineesSemaine = Tache::where('statut', 'termine')
             ->whereBetween('date_fin_reelle', [today()->startOfWeek(), today()->endOfWeek()])->count();
 
-        $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get()->map(function ($s) {
-            $total = Tache::where('sprint_id', $s->id)->count();
-            $term = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
-            $s->stats_total = $total;
-            $s->stats_terminees = $term;
-            $s->progression = $total > 0 ? round(($term / $total) * 100) : 0;
-            $s->jours_restants = $s->date_fin->gte(today()) ? (int) today()->diffInDays($s->date_fin) : 0;
-            return $s;
-        });
-        $topBloquees = Tache::with(['user', 'projet'])->where('statut', 'bloque')
-            ->orderByDesc('updated_at')->limit(5)->get();
-        $parProjet = Projet::whereHas('taches')->withCount([
-            'taches',
-            'taches as terminees_count' => fn ($q) => $q->where('statut', 'termine'),
-            'taches as en_retard_count' => fn ($q) => $q->enRetard(),
-        ])->get();
-
-        // Tendance hebdo (4 semaines)
-        $tendanceHebdo = [];
-        for ($w = 3; $w >= 0; $w--) {
-            $deb = today()->copy()->subWeeks($w)->startOfWeek();
-            $fi = $deb->copy()->endOfWeek();
-            $tendanceHebdo[] = [
-                'label' => 'S' . $deb->weekOfYear,
-                'count' => Tache::where('statut', 'termine')
-                    ->whereBetween('date_fin_reelle', [$deb, $fi])->count(),
-            ];
-        }
         $tendanceMax = max(1, max(array_column($tendanceHebdo, 'count')));
-
-        // Taux livraison sprints terminés
-        $sprintsTermines = Sprint::where('statut', 'termine')->with('projet')->get()->map(function ($s) {
-            $totalT = Tache::where('sprint_id', $s->id)->count();
-            $termT = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
-            $s->taux_livraison = $totalT > 0 ? round(($termT / $totalT) * 100) : 0;
-            $s->total_taches = $totalT;
-            $s->taches_terminees = $termT;
-            return $s;
-        })->sortByDesc('date_fin')->take(6)->values();
-
-        $performance = PerformanceEquipe::calculer();
-
-        $evenements = collect();
-        if (Schema::hasTable('evenements')) {
-            $evenements = Evenement::with('user')
-                ->whereDate('date', '>=', today()->subDays(30))
-                ->orderByDesc('date')->orderByDesc('created_at')
-                ->limit(15)->get();
-        }
+        $performance = PerformanceEquipe::calculer($du->toDateString(), $au->toDateString());
 
         // ─── Parc automobile (résumé DG) ───
         $parc = null;
@@ -351,21 +407,17 @@ class DashboardController extends Controller
             'termineesSemaine', 'arbitragesEnAttente', 'sansSaisieHier',
             'sprintsEnCours', 'topBloquees', 'parProjet', 'evenements',
             'tendanceHebdo', 'tendanceMax', 'sprintsTermines', 'performance',
-            'parc', 'pointageStats'
+            'parc', 'pointageStats', 'tauxRetard', 'nbEchues', 'nbEchuesRetard', 'periodeTdb'
         ));
     }
 
     /* ─── Dashboard pilote opérationnel (charge_operations, administrateur) ─── */
-    private function dashboardPilote(User $user)
+    private function dashboardPilote(User $user, array $periode)
     {
         AlerteParcService::verifier();
-        // KPI globaux
-        $totalTaches = Tache::count();
-        $terminees = Tache::where('statut', 'termine')->count();
-        $enCours = Tache::where('statut', 'en_cours')->count();
-        $bloquees = Tache::where('statut', 'bloque')->count();
-        $enRetard = Tache::enRetard()->count();
-        $tauxGlobal = $totalTaches > 0 ? round(($terminees / $totalTaches) * 100) : 0;
+        // KPI de la période (par défaut l'exercice en cours : du 05 au 04)
+        [$du, $au] = $periode;
+        extract($this->indicateursPeriode($du, $au, 8));
 
         $termineesSemaine = Tache::where('statut', 'termine')
             ->whereBetween('date_fin_reelle', [today()->startOfWeek(), today()->endOfWeek()])->count();
@@ -389,54 +441,9 @@ class DashboardController extends Controller
         }
         $arbitragesEnAttente = ArbitrageT3::where('decision', 'en_attente')->count();
 
-        // Auto-fix ENUM si pas encore migré
-        try {
-            $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\DB::statement("ALTER TABLE sprints MODIFY COLUMN statut VARCHAR(30) NOT NULL DEFAULT 'planifie'");
-            \Illuminate\Support\Facades\DB::table('sprints')->where('statut', 'clos')->update(['statut' => 'termine']);
-            $sprintsEnCours = Sprint::where('statut', 'en_cours')->with('projet')->get();
-        }
-
-        // Calculer progression, stats et jours restants pour chaque sprint
-        $sprintsEnCours = $sprintsEnCours->map(function ($s) {
-            $total = Tache::where('sprint_id', $s->id)->count();
-            $term = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
-            $s->stats_total = $total;
-            $s->stats_terminees = $term;
-            $s->progression = $total > 0 ? round(($term / $total) * 100) : 0;
-            $s->jours_restants = $s->date_fin->gte(today()) ? (int) today()->diffInDays($s->date_fin) : 0;
-            return $s;
-        });
-
         // Collaborateurs actifs (exclut admin, DG, invité) et leur performance sur la période d'exercice en cours
         $collaborateurs = User::where('actif', true)->whereNotIn('role', ['invite', 'direction', 'administrateur'])->orderBy('name')->get();
-        $performance = PerformanceEquipe::calculer();
-
-        // Tâches bloquées
-        $topBloquees = Tache::with(['user', 'projet'])->where('statut', 'bloque')
-            ->orderByDesc('updated_at')->limit(8)->get();
-
-        // Tâches en retard
-        $tachesEnRetard = Tache::with(['user', 'projet'])->enRetard()
-            ->whereIn('statut', ['en_cours', 'a_faire'])
-            ->orderBy('echeance')->limit(8)->get();
-
-        // Répartition par projet
-        $parProjet = Projet::whereHas('taches')->withCount([
-            'taches',
-            'taches as terminees_count' => fn ($q) => $q->where('statut', 'termine'),
-            'taches as en_retard_count' => fn ($q) => $q->enRetard(),
-        ])->get();
-
-        // Événements récents
-        $evenements = collect();
-        if (Schema::hasTable('evenements')) {
-            $evenements = Evenement::with('user')
-                ->whereDate('date', '>=', today()->subDays(30))
-                ->orderByDesc('date')->orderByDesc('created_at')
-                ->limit(10)->get();
-        }
+        $performance = PerformanceEquipe::calculer($du->toDateString(), $au->toDateString());
 
         // Tâches en attente de validation (par tous les collaborateurs)
         $aValider = Tache::with(['user', 'projet', 'sprint'])
@@ -456,28 +463,8 @@ class DashboardController extends Controller
             // Tâches du jour en tête (même définition que « Mes tâches » et la saisie quotidienne)
             ->sortBy(fn ($t) => \App\Http\Controllers\TacheController::estDuJour($t) ? 0 : 1)->values();
 
-        // Tendance hebdo globale (4 semaines)
-        $tendanceHebdoGlobal = [];
-        for ($w = 3; $w >= 0; $w--) {
-            $deb = today()->copy()->subWeeks($w)->startOfWeek();
-            $fi = $deb->copy()->endOfWeek();
-            $tendanceHebdoGlobal[] = [
-                'label' => 'S' . $deb->weekOfYear,
-                'count' => Tache::where('statut', 'termine')
-                    ->whereBetween('date_fin_reelle', [$deb, $fi])->count(),
-            ];
-        }
+        $tendanceHebdoGlobal = $tendance;
         $tendanceMaxGlobal = max(1, max(array_column($tendanceHebdoGlobal, 'count')));
-
-        // Taux livraison sprints terminés
-        $sprintsTermines = Sprint::where('statut', 'termine')->with('projet')->get()->map(function ($s) {
-            $totalT = Tache::where('sprint_id', $s->id)->count();
-            $termT = Tache::where('sprint_id', $s->id)->where('statut', 'termine')->count();
-            $s->taux_livraison = $totalT > 0 ? round(($termT / $totalT) * 100) : 0;
-            $s->total_taches = $totalT;
-            $s->taches_terminees = $termT;
-            return $s;
-        })->sortByDesc('date_fin')->take(6)->values();
 
         // Pointage du jour (pilote) - masqué si jour non ouvré
         $monPointage = null;
@@ -497,7 +484,8 @@ class DashboardController extends Controller
             'termineesSemaine', 'sansSaisieHier', 'arbitragesEnAttente',
             'sprintsEnCours', 'collaborateurs', 'performance', 'topBloquees', 'tachesEnRetard',
             'parProjet', 'evenements', 'mesTachesActives', 'aValider',
-            'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines', 'monPointage', 'pointageActif'
+            'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines', 'monPointage', 'pointageActif',
+            'tauxRetard', 'nbEchues', 'nbEchuesRetard', 'periodeTdb'
         ));
     }
 

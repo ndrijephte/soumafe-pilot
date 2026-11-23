@@ -10,9 +10,28 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'prenom', 'email', 'password', 'pole_id', 'profil_mesure', 'role', 'titre_poste', 'actif', 'delegation_parc'];
+    protected $fillable = ['name', 'prenom', 'email', 'password', 'pole_id', 'profil_mesure', 'role', 'titre_poste', 'actif', 'date_depart', 'delegation_parc'];
     protected $hidden = ['password', 'remember_token'];
-    protected $casts = ['email_verified_at' => 'datetime', 'password' => 'hashed', 'actif' => 'boolean', 'delegation_parc' => 'boolean'];
+    protected $casts = ['email_verified_at' => 'datetime', 'password' => 'hashed', 'actif' => 'boolean', 'date_depart' => 'date', 'delegation_parc' => 'boolean'];
+
+    /** Désactiver un compte date le départ du collaborateur ; le réactiver l'efface. */
+    protected static function booted(): void
+    {
+        static::saving(function (User $u) {
+            if (!$u->isDirty('actif')) return;
+            $u->date_depart = $u->actif ? null : ($u->date_depart ?? today());
+        });
+    }
+
+    /**
+     * Présent dans l'entreprise à cette date : compte actif, ou parti après. Un collaborateur parti reste membre
+     * de ses sprints et Daily Scrum passés, sans être proposé pour ceux d'après son départ.
+     */
+    public function presentLe($date): bool
+    {
+        if ($this->actif) return true;
+        return $this->date_depart !== null && \Carbon\Carbon::parse($date)->startOfDay()->lt($this->date_depart);
+    }
 
     public function pole(): BelongsTo { return $this->belongsTo(Pole::class); }
     public function taches(): HasMany { return $this->hasMany(Tache::class); }

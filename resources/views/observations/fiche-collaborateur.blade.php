@@ -106,7 +106,7 @@
 @endphp
 <div class="panneau" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
     <div style="text-align:center;min-width:100px">
-        <div style="font-size:42px;font-weight:800;color:{{ $couleurScore }};line-height:1">{{ $scoreGlobal }}%</div>
+        <div style="font-size:42px;font-weight:700;color:{{ $couleurScore }};line-height:1">{{ $scoreGlobal }}%</div>
         <div style="font-size:11px;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;margin-top:4px">Score Global</div>
     </div>
     <div style="flex:1;display:flex;gap:6px;flex-wrap:wrap;min-width:200px">

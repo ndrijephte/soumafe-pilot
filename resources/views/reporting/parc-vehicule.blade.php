@@ -11,7 +11,7 @@
 .fv-btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
 .fiche{background:#fff;border:1px solid var(--bord);border-radius:14px;overflow:hidden}
 .fiche-tete{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between;padding:20px 24px;background:linear-gradient(135deg,#1F4E79,#2E74B5);color:#fff}
-.fiche-tete h1{font-size:26px;letter-spacing:1px;margin:0;font-weight:800}
+.fiche-tete h1{font-size:26px;letter-spacing:1px;margin:0;font-weight:700}
 .fiche-tete .sous{font-size:13px;opacity:.85;margin-top:2px}
 .fiche-tete .badges{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .fiche-tete .bdg{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:20px;padding:2px 10px;font-size:11.5px;font-weight:600}
@@ -22,11 +22,11 @@
 .fiche-periode{font-size:12.5px;color:#475569;margin-bottom:16px}
 .fiche-periode strong{color:var(--bleu)}
 .fv-section{margin-top:22px}
-.fv-section h3{font-size:12px;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.6px;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bord)}
+.fv-section h3{font-size:12px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.6px;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bord)}
 .fv-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .fv-kpi{border:1px solid var(--bord);border-radius:10px;padding:12px 14px}
 .fv-kpi .l{font-size:11.5px;color:var(--gris);font-weight:700}
-.fv-kpi .v{font-size:22px;font-weight:800;color:var(--bleu);font-variant-numeric:tabular-nums}
+.fv-kpi .v{font-size:22px;font-weight:700;color:var(--bleu);font-variant-numeric:tabular-nums}
 .fv-kpi .v small{font-size:12px;color:var(--gris);font-weight:600}
 .fv-kpi .a{font-size:11.5px;color:#64748b}
 .fv-kpi.ok{background:#f0fdf4;border-color:#86efac}.fv-kpi.ok .v{color:var(--ok)}

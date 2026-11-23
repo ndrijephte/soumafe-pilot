@@ -106,6 +106,34 @@
 .sp-ceremonies a{font-size:11.5px;font-weight:600;color:var(--accent);text-decoration:none;padding:3px 8px;border-radius:6px;background:#eff6ff}
 .sp-ceremonies a:hover{background:#dbeafe}
 .sp-ceremonies a.xl{margin-left:auto;background:#dcfce7;color:#166534}
+/* Blocs de même taille ; un bandeau d'état en tête de chaque bloc. En cours : mis en avant et placé en premier.
+   Clôturé (fin de la planification) et arrêté (interruption, avec son motif) se distinguent dans l'historique. */
+.sp-carte{display:flex;flex-direction:column;transition:box-shadow .2s,border-color .2s}
+.sp-carte .sp-lien{flex:1}
+.sp-etat{display:flex;align-items:center;gap:7px;margin:-14px -14px 10px;padding:7px 14px;border-radius:11px 11px 0 0;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;border-bottom:1px solid transparent}
+.sp-etat svg{width:13px;height:13px;flex:none}
+.sp-etat .droite{margin-left:auto;font-weight:700;letter-spacing:.2px;text-transform:none;font-size:11px}
+.sp-carte.encours{order:-1;background:#F2F7FD;border:1.5px solid #2e74b5;box-shadow:0 4px 16px -6px rgba(46,116,181,.4)}
+.sp-carte.encours .sp-etat{background:#2e74b5;color:#fff}
+.sp-carte.encours .sp-etat .droite{background:rgba(255,255,255,.18);padding:2px 9px;border-radius:999px}
+.sp-carte.encours .sp-etat .droite.retard{background:#dc2626}
+.sp-carte.encours .sp-titre{color:#1f4e79}
+.sp-carte.encours .sp-obj{color:#1f4e79!important;font-weight:600}
+.sp-carte.encours .barre{background:#dbe7f5}.sp-carte.encours .barre>div{background:#2e74b5}
+.sp-carte.encours .sp-ceremonies a{background:#fff;border:1px solid #d6e4f3}
+.pouls{position:relative;width:8px;height:8px;border-radius:50%;background:#4ade80;flex:none}
+.pouls::after{content:"";position:absolute;inset:0;border-radius:50%;background:#4ade80;animation:sp-pouls 1.8s ease-out infinite}
+@keyframes sp-pouls{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.6);opacity:0}}
+@media(prefers-reduced-motion:reduce){.pouls::after{animation:none}}
+.sp-carte.clos .sp-etat{background:#f0fdf4;color:#15803d;border-bottom-color:#dcfce7}
+.sp-carte.clos .barre>div{background:#86c9a0}
+.sp-carte.arrete{border-color:#fecaca}
+.sp-carte.arrete .sp-etat{background:#fef2f2;color:#b91c1c;border-bottom-color:#fee2e2}
+.sp-carte.arrete .barre>div{background:#f4a3a3}
+.sp-motif{margin:8px 0 0;padding:6px 9px;border-radius:8px;background:#fff5f5;border:1px solid #fee2e2;font-size:11.5px;color:#991b1b;line-height:1.45}
+.sp-motif span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sp-carte.planifie{border-style:dashed;border-color:#cbd5e1}
+.sp-carte.planifie .sp-etat{background:#f8fafc;color:#475569;border-bottom-color:#eef2f7}
 .barre{height:7px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin:8px 0 4px}.barre>div{height:100%;background:var(--accent)}
 dialog{border:none;border-radius:14px;padding:22px;width:560px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18);max-height:88vh;overflow-y:auto}
 dialog::backdrop{background:rgba(22,56,92,.35)}
@@ -295,18 +323,29 @@ dialog textarea{resize:vertical}
     @if($projet->sprints->isEmpty())
     <div class="carte" style="text-align:center;color:var(--gris);padding:30px">Aucun sprint pour ce projet. Créez-le depuis « Projets / Sprints ».</div>
     @else
-    <div class="sp-cartes">
+    <div class="sp-cartes {{ $projet->sprints->contains('statut', 'en_cours') ? 'avec-encours' : '' }}">
         @foreach($projet->sprints as $sp)
         @php $pct = $sp->taches_count ? round($sp->taches_terminees_count / $sp->taches_count * 100) : 0; @endphp
-        <div class="sp-carte">
+        @php $etat = $sp->statut === 'en_cours' ? 'encours' : ($sp->statut === 'planifie' ? 'planifie' : ($sp->arrete_le ? 'arrete' : 'clos')); @endphp
+        <div class="sp-carte {{ $etat }}">
+            @if($etat === 'encours')
+            @php $urg = $sp->urgence(); @endphp
+            <div class="sp-etat"><span class="pouls" aria-hidden="true"></span>En cours · {{ $pct }} %<span class="droite {{ $urg['niveau'] === 'retard' ? 'retard' : '' }}" title="{{ $urg['libelle'] }}">{{ $urg['court'] }}</span></div>
+            @elseif($etat === 'arrete')
+            <div class="sp-etat" title="Sprint interrompu avant son terme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Arrêté<span class="droite">le {{ $sp->arrete_le->format('d/m/Y') }}</span></div>
+            @elseif($etat === 'clos')
+            <div class="sp-etat" title="Sprint mené à son terme : planification effective achevée"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>Clôturé<span class="droite">{{ $sp->date_fin->format('d/m/Y') }}</span></div>
+            @else
+            <div class="sp-etat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Planifié<span class="droite">démarre le {{ $sp->date_debut->format('d/m') }}</span></div>
+            @endif
             <a href="{{ route('sprints.show', $sp) }}" class="sp-lien">
             <div style="display:flex;justify-content:space-between;align-items:center">
-                <strong style="color:var(--bleu)">Sprint {{ $sp->numero }}</strong>
-                <span class="pill {{ $sp->statut === 'termine' ? 'p-ok' : ($sp->statut === 'en_cours' ? 'p-cours' : 'p-attente') }}">{{ ['planifie' => 'Planifié', 'en_cours' => 'En cours', 'termine' => 'Terminé'][$sp->statut] ?? $sp->statut }}</span>
+                <strong class="sp-titre" style="color:var(--bleu)">Sprint {{ $sp->numero }}</strong>
             </div>
-            <div style="font-size:12.5px;color:#334155;margin-top:6px">{{ \Illuminate\Support\Str::limit($sp->objectif, 110) }}</div>
+            <div class="sp-obj" style="font-size:12.5px;color:#334155;margin-top:6px">{{ \Illuminate\Support\Str::limit($sp->objectif, 110) }}</div>
             <div class="barre"><div style="width:{{ $pct }}%"></div></div>
             <div style="font-size:11.5px;color:var(--gris)">{{ $sp->date_debut->format('d/m') }} → {{ $sp->date_fin->format('d/m/Y') }} · {{ $sp->dureeJours() }} j ouvrés · {{ $sp->taches_terminees_count }}/{{ $sp->taches_count }} tâches</div>
+            @if($etat === 'arrete' && $sp->justification_arret)<div class="sp-motif" title="{{ $sp->justification_arret }}"><span><strong>Motif :</strong> {{ $sp->justification_arret }}</span></div>@endif
             </a>
             <div class="sp-ceremonies">
                 <a href="{{ route('sprints.show', $sp) }}">Backlog</a>
@@ -440,6 +479,7 @@ dialog textarea{resize:vertical}
             <li>Les collaborateurs sont reconnus par leur nom ; « Toute l'équipe » donne une tâche à chaque membre du sprint.</li>
             <li>Réimporter le même classeur ne crée pas de doublon ; un sprint déjà clôturé dans l'application n'est pas modifié.</li>
         </ul>
+        <label style="display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:9px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12px;color:#92400e;cursor:pointer;font-weight:400"><input type="checkbox" name="simulation" value="1" style="width:auto;margin-top:2px"><span><b>Simulation</b> : voir le résultat (sprints, tâches, doublons évités, remarques) sans rien enregistrer. Recommandé avant un import en production.</span></label>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn">Importer</button>

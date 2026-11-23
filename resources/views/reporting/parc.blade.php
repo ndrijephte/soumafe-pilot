@@ -40,7 +40,7 @@
 .essentiel{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .ess{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
 .ess .lbl{font-size:12px;color:var(--gris);font-weight:600}
-.ess .val{font-size:24px;font-weight:800;color:var(--bleu);font-variant-numeric:tabular-nums;line-height:1.2}
+.ess .val{font-size:24px;font-weight:700;color:var(--bleu);font-variant-numeric:tabular-nums;line-height:1.2}
 .ess .val small{font-size:13px;font-weight:600;color:var(--gris)}
 .ess .aide{font-size:11.5px;color:var(--gris)}
 .ess.ok{background:#f0fdf4;border-color:#86efac}.ess.ok .val{color:var(--ok)}

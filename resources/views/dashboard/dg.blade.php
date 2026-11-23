@@ -36,12 +36,13 @@
 @endpush
 @section('contenu')
 <h2>Tableau de bord Direction</h2>
+@include('dashboard._periode', ['periode' => $periodeTdb])
 
 {{-- KPI principaux --}}
 
 {{-- Indicateurs clés --}}
 <div class="kpis kpi-v2">
-    <div class="kpi {{ $enRetard ? 'signal-ko' : '' }}"><x-voyant :niveau="$enRetard ? 'retard' : 'ok'" :titre="$enRetard ? $enRetard . ' tâche(s) en retard' : 'Aucun retard'" :lien="route('taches.pilote')" lien-texte="Voir le détail" /><x-detail :href="route('taches.pilote', ['statut' => 'en_retard'])" titre="tâches en retard" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En retard</div><div class="val">{{ $enRetard }}</div></div>
+    <div class="kpi {{ $enRetard ? 'signal-ko' : '' }}"><x-voyant :niveau="$enRetard ? 'retard' : 'ok'" :titre="$enRetard ? $enRetard . ' tâche(s) en retard' : 'Aucun retard'" :lien="route('taches.pilote')" lien-texte="Voir le détail" /><x-detail :href="route('taches.pilote', ['statut' => 'en_retard'])" titre="tâches en retard" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>En retard</div><div class="val">{{ $enRetard }}</div><div class="sub" title="Tâches de la période échues : {{ $nbEchuesRetard }} en retard (non finies, ou finies après l'échéance) sur {{ $nbEchues }}">Taux de retard <strong style="color:{{ $tauxRetard >= 30 ? '#b91c1c' : ($tauxRetard >= 15 ? '#b45309' : '#15803d') }}">{{ $tauxRetard }} %</strong></div></div>
     <div class="kpi {{ $bloquees ? 'signal-ko' : '' }}"><x-voyant :niveau="$bloquees ? 'bloque' : 'ok'" :titre="$bloquees ? $bloquees . ' tâche(s) bloquée(s)' : 'Aucun blocage'" :lien="route('taches.pilote', ['statut' => 'bloque'])" lien-texte="Voir le détail" /><x-detail :href="route('taches.pilote', ['statut' => 'bloque'])" titre="tâches bloquées" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Bloquées</div><div class="val">{{ $bloquees }}</div></div>
     <div class="kpi {{ $arbitragesEnAttente ? 'signal-ko' : '' }}"><x-voyant :niveau="$arbitragesEnAttente ? 'retard' : 'ok'" :titre="$arbitragesEnAttente ? $arbitragesEnAttente . ' arbitrage(s) en attente' : 'Aucun arbitrage en attente'" :lien="route('arbitrages.index')" lien-texte="Voir le détail" /><x-detail :href="route('arbitrages.index')" titre="arbitrages" /><div class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/></svg>Arbitrages</div><div class="val">{{ $arbitragesEnAttente }}</div>@if($arbitragesEnAttente)<div class="sub"><a href="{{ route('arbitrages.index') }}">À décider ›</a></div>@endif</div>
     @if($pointageStats)
@@ -70,7 +71,7 @@
     <div class="panneau" @if($sprintsTermines->isEmpty()) style="grid-column:1/-1" @endif>
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
-            Sprints en cours ({{ $sprintsEnCours->count() }})
+            Sprints de la p&eacute;riode ({{ $sprintsEnCours->count() }})
             <x-detail :href="route('sprints.index')" titre="projets et sprints" />
         </h3>
         @forelse($sprintsEnCours as $s)
@@ -88,7 +89,7 @@
             </div>
         </div>
         @empty
-        <div style="text-align:center;color:var(--gris);font-size:13px;padding:16px">Aucun sprint en cours.</div>
+        <div style="text-align:center;color:var(--gris);font-size:13px;padding:16px">Aucun sprint sur la p&eacute;riode.</div>
         @endforelse
     </div>
 
@@ -96,7 +97,7 @@
     <div class="panneau">
         <h3>
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-            Livraison sprints termin&eacute;s
+            Sprints cl&ocirc;tur&eacute;s sur la p&eacute;riode
             <x-detail :href="route('sprints.index')" titre="projets et sprints" />
         </h3>
         @foreach($sprintsTermines as $st)
@@ -278,7 +279,7 @@
 <div class="panneau">
     <h3>
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Faits marquants (30 derniers jours)
+        Faits marquants de la p&eacute;riode
         <x-detail :href="route('reporting.index')" titre="reporting" />
     </h3>
     <div data-collapse="5">

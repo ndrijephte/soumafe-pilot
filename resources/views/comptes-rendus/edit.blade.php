@@ -129,7 +129,7 @@
 .cr-edit.reu .section.collapsed .section-head{border-radius:14px}
 .cr-edit.reu .section.validated .section-head{background:#EAF2FB}
 .cr-edit.reu .section-head h3{display:flex;align-items:center;gap:12px;font-size:1.15rem;color:var(--bleu,#1F4E79)}
-.cr-edit.reu .section-head h3[data-num]::before{content:attr(data-num);flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent,#2E74B5);color:#fff;font-weight:800;font-size:.95rem;display:flex;align-items:center;justify-content:center}
+.cr-edit.reu .section-head h3[data-num]::before{content:attr(data-num);flex:none;width:30px;height:30px;border-radius:50%;background:var(--accent,#2E74B5);color:#fff;font-weight:700;font-size:.95rem;display:flex;align-items:center;justify-content:center}
 .cr-edit.reu .btn-validate{border-color:var(--accent,#2E74B5);color:var(--accent,#2E74B5);background:rgba(255,255,255,.85)}
 .cr-edit.reu .btn-validate:hover{background:var(--accent,#2E74B5);color:#fff}
 .cr-edit.reu .btn-validate.validated{background:var(--ok,#16a34a);border-color:var(--ok,#16a34a);color:#fff}
@@ -200,10 +200,10 @@
 .cr-edit.demo .be-mod-head{background:#EAF2FB;border-bottom:2px solid var(--accent,#2E74B5);color:inherit;align-items:flex-start;padding:18px 26px 12px;border-radius:14px 14px 0 0}
 .cr-edit.demo .be-mod-head .be-handle{color:#cbd5e1;padding:8px 6px 0 0;font-size:.85rem;letter-spacing:-3px;opacity:0;transition:opacity .15s}
 .cr-edit.demo .be-module:hover > .be-mod-head .be-handle{opacity:1}
-.cr-edit.demo .be-num-mod{flex:none;width:34px;height:34px;border-radius:50%;background:var(--accent,#2E74B5);color:#fff;font-weight:800;font-size:1.05rem;display:flex;align-items:center;justify-content:center;margin:2px 14px 0 0}
+.cr-edit.demo .be-num-mod{flex:none;width:34px;height:34px;border-radius:50%;background:var(--accent,#2E74B5);color:#fff;font-weight:700;font-size:1.05rem;display:flex;align-items:center;justify-content:center;margin:2px 14px 0 0}
 .cr-edit.demo .be-mod-fields{padding:0;gap:2px}
 .cr-edit.demo .be-mod-fields input{background:transparent;border:none;border-radius:0;color:var(--bleu,#1F4E79);padding:2px 0}
-.cr-edit.demo .be-mod-fields input.be-mod-titre{font-size:1.4rem;font-weight:800;letter-spacing:-.2px}
+.cr-edit.demo .be-mod-fields input.be-mod-titre{font-size:1.4rem;font-weight:700;letter-spacing:-.2px}
 .cr-edit.demo .be-mod-fields input.be-mod-obj{font-size:.86rem;font-style:italic;color:#64748b;font-weight:400}
 .cr-edit.demo .be-mod-fields input::placeholder{color:#b6c2d1}
 .cr-edit.demo .be-mod-fields input:focus{outline:none;box-shadow:inset 0 -2px 0 #93c5fd}
@@ -216,7 +216,7 @@
 .cr-edit.demo .be-sec-head{background:none;border:none;border-bottom:1px solid #9FBFE0;padding:12px 0 5px;gap:8px}
 .cr-edit.demo .be-sec-head .be-handle{opacity:0;transition:opacity .15s;letter-spacing:-3px;font-size:.8rem;color:#cbd5e1;padding:0}
 .cr-edit.demo .be-section:hover > .be-sec-head .be-handle,.cr-edit.demo .be-section:hover > .be-sec-head .be-sec-actions{opacity:1}
-.cr-edit.demo .be-num-sec{font-weight:800;color:var(--accent,#2E74B5);font-size:1rem;white-space:nowrap}
+.cr-edit.demo .be-num-sec{font-weight:700;color:var(--accent,#2E74B5);font-size:1rem;white-space:nowrap}
 .cr-edit.demo .be-sec-head input{border:none;background:transparent;padding:2px 0;border-radius:0;font-size:1.08rem;font-weight:700;color:#1e3a5f}
 .cr-edit.demo .be-sec-head input:focus{outline:none;box-shadow:inset 0 -2px 0 #93c5fd}
 .cr-edit.demo .be-sec-actions{opacity:0;transition:opacity .15s}
@@ -356,7 +356,7 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
 .be-add-mod:hover{background:var(--bleu,#1F4E79);color:#fff;border-style:solid}
 /* Score bloc */
 .be-score{background:#EFF4FB;border-radius:8px;padding:14px 18px;text-align:center}
-.be-score .be-score-val{font-size:1.4rem;font-weight:800;color:var(--bleu,#1F4E79)}
+.be-score .be-score-val{font-size:1.4rem;font-weight:700;color:var(--bleu,#1F4E79)}
 .be-score .be-score-val input{width:70px;padding:2px 6px;font:inherit;color:inherit;text-align:center;border:1px solid #c7d7ea;border-radius:6px;background:#fff}
 .be-score .be-score-sub{font-size:.82rem;color:#64748b;margin-top:2px}
 /* Circuit du rapport de review */
@@ -402,7 +402,7 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
 /* Indicateurs */
 .be-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .be-kpi{background:linear-gradient(180deg,#F5F9FE,#EAF2FB);border:1px solid #dbe7f5;border-radius:10px;padding:10px 12px}
-.be-kpi .v{font-size:1.25rem;font-weight:800;color:#1F4E79}
+.be-kpi .v{font-size:1.25rem;font-weight:700;color:#1F4E79}
 .be-kpi .l{font-size:.74rem;font-weight:700;color:#2E74B5;text-transform:uppercase;letter-spacing:.3px}
 .be-kpi .d{font-size:.74rem;color:#64748b;margin-top:2px}
 .be-kpis-note{font-size:.74rem;color:#94a3b8;margin-top:6px}

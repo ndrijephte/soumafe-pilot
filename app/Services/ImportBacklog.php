@@ -48,6 +48,8 @@ class ImportBacklog
         if (!$stories) throw new \RuntimeException('Aucune user story trouvée sous la ligne d\'en-tête.');
 
         $existantes = $this->projet->userStories()->get()->keyBy(fn($us) => $this->cle($us->numero));
+        // Une story déjà au backlog sous un autre numéro (import antérieur numéroté automatiquement) est retrouvée par son intitulé
+        $parIntitule = $existantes->groupBy(fn($us) => $this->cleIntitule($us->intitule))->map->first();
         $prochain = $this->compteurNumero(array_merge($existantes->keys()->all(), array_map(fn($s) => $this->cle($s['numero']), array_filter($stories, fn($s) => $s['numero'] !== null))));
         $vus = [];
 
@@ -80,7 +82,19 @@ class ImportBacklog
                 'effort_estime' => $s['effort'],
             ], fn($v) => $v !== null && $v !== '');
 
-            if ($us = $existantes->get($cle)) {
+            $us = $existantes->get($cle);
+            if (!$us && ($us = $parIntitule->get($this->cleIntitule($s['intitule'] ?? '')))) {
+                // Reprend le numéro du fichier s'il est libre : les réimports suivants la retrouvent directement
+                if (!$existantes->has($cle) && $mode === 'maj') {
+                    $existantes->forget($this->cle($us->numero));
+                    $donnees['numero'] = $s['numero'];
+                    $existantes->put($cle, $us);
+                } else {
+                    unset($donnees['numero']);
+                }
+                $parIntitule->forget($this->cleIntitule($us->intitule));
+            }
+            if ($us) {
                 if ($mode !== 'maj') { $this->rapport['ignores']++; continue; }
                 // Le statut du fichier ne vaut que pour une story encore hors de tout sprint et sans tâche :
                 // ensuite, il découle du suivi dans l'application (tâches, sprints)
@@ -215,6 +229,12 @@ class ImportBacklog
     private function norm(?string $v): string
     {
         return trim(preg_replace('/\s+/', ' ', mb_strtolower(Str::ascii((string) $v))));
+    }
+
+    /** Intitulé normalisé (casse, espaces, ponctuation finale) pour reconnaître une même story. */
+    private function cleIntitule(?string $v): string
+    {
+        return mb_substr(trim(preg_replace('/\s+/u', ' ', mb_strtolower(Str::ascii((string) $v))), " .;"), 0, 160);
     }
 
     private function cle(string $numero): string

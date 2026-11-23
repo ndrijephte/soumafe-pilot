@@ -196,31 +196,149 @@ class ProjetScrumController extends Controller
         $projet = $userStory->projet;
         abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5|max:500']);
-        $numero = $userStory->numero;
-        $retour = redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog']);
+        [$issue, $message] = $this->retirerStory($userStory, $r->motif_suppression);
+        return redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog'])->with($issue === 'refus' ? 'erreur' : 'succes', $message);
+    }
 
+    /**
+     * Retrait d'une story du Product Backlog : refusé si elle est engagée dans un sprint en cours ; archivée si elle est
+     * passée par un sprint clôturé (l'historique du sprint la conserve) ; sinon supprimée.
+     * @return array{0: 'refus'|'archivee'|'supprimee', 1: string}
+     */
+    private function retirerStory(UserStory $userStory, string $motif): array
+    {
+        $projet = $userStory->projet;
+        $numero = $userStory->numero;
         // Engagée dans un sprint en cours (Sprint Backlog ou tâches) : on ne la retire pas du sprint en douce
         $enCours = $userStory->sprints()->where('sprints.statut', 'en_cours')->first()
             ?? \App\Models\Sprint::where('statut', 'en_cours')->whereHas('taches', fn($t) => $t->where('user_story_id', $userStory->id))->first();
         if ($enCours) {
-            return $retour->with('erreur', "{$numero} est engagée dans le Sprint {$enCours->numero} en cours : retirez-la d'abord du Sprint Backlog (ses tâches restent au planning), ou attendez la clôture du sprint.");
+            return ['refus', "{$numero} est engagée dans le Sprint {$enCours->numero} en cours : retirez-la d'abord du Sprint Backlog (ses tâches restent au planning), ou attendez la clôture du sprint."];
         }
-
         // Déjà passée par un sprint clôturé : archivée, pour que l'historique du sprint reste complet
         $clos = $userStory->sprints()->where('sprints.statut', 'termine')->pluck('numero')
             ->merge(\App\Models\Sprint::where('statut', 'termine')->whereHas('taches', fn($t) => $t->where('user_story_id', $userStory->id))->pluck('numero'))
             ->unique()->sort()->values();
         if ($clos->isNotEmpty()) {
-            $userStory->update(['archivee_le' => now(), 'archive_motif' => $r->motif_suppression]);
+            $userStory->update(['archivee_le' => now(), 'archive_motif' => $motif]);
             $planifies = $userStory->sprints()->where('sprints.statut', 'planifie')->pluck('sprints.id');
             if ($planifies->isNotEmpty()) $userStory->sprints()->detach($planifies->all());
-            AuditLog::log('archivage_user_story', 'projet', $projet->code, "{$numero} - Motif : {$r->motif_suppression}");
-            return $retour->with('succes', "User story {$numero} archivée : elle a été engagée dans le Sprint " . $clos->join(', ', ' et ') . ", dont l'historique la conserve. Elle ne figure plus dans le Product Backlog.");
+            AuditLog::log('archivage_user_story', 'projet', $projet->code, "{$numero} - Motif : {$motif}");
+            return ['archivee', "User story {$numero} archivée : elle a été engagée dans le Sprint " . $clos->join(', ', ' et ') . ", dont l'historique la conserve. Elle ne figure plus dans le Product Backlog."];
         }
-
-        AuditLog::log('suppression_user_story', 'projet', $projet->code, "{$numero} - Motif : {$r->motif_suppression}");
+        AuditLog::log('suppression_user_story', 'projet', $projet->code, "{$numero} - Motif : {$motif}");
         $userStory->delete(); // jamais engagée (ou seulement dans un sprint planifié) : suppression définitive
-        return $retour->with('succes', "User story {$numero} supprimée.");
+        return ['supprimee', "User story {$numero} supprimée."];
+    }
+
+    /**
+     * Action commune sur plusieurs user stories du Product Backlog : DoR, priorité MoSCoW, story points,
+     * profil, classement (fonctionnalité / epic), statut, retrait. Chaque story suit les mêmes règles qu'à l'unité ;
+     * celles qui ne s'y prêtent pas sont écartées et signalées. Les développeurs du sprint en cours sont prévenus en une fois.
+     */
+    public function actionGroupeeStories(Request $r, Projet $projet)
+    {
+        abort_unless($projet->peutAlimenterBacklog($r->user()), 403);
+        $v = $r->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => ['integer', Rule::exists('user_stories', 'id')->where('projet_id', $projet->id)],
+            'action' => ['required', Rule::in(['dor', 'moscow', 'points', 'profil', 'classer', 'statut', 'retirer'])],
+            'dor' => 'required_if:action,dor|nullable|boolean',
+            'priorite_moscow' => ['nullable', Rule::in(UserStory::MOSCOW_BACKLOG)],
+            'effort_estime' => ['nullable', 'integer', Rule::in(UserStory::POINTS)],
+            'profil' => 'nullable|string|max:150',
+            'module' => 'nullable|string|max:150',
+            'epic' => 'nullable|string|max:150',
+            'changer_module' => 'nullable|boolean',
+            'changer_epic' => 'nullable|boolean',
+            'statut' => ['required_if:action,statut', 'nullable', Rule::in(array_keys(UserStory::STATUTS))],
+            'motif' => 'required_if:action,retirer|nullable|string|min:5|max:500',
+        ], [
+            'ids.required' => 'Sélectionnez au moins une user story.',
+            'motif.required_if' => 'Le motif du retrait est obligatoire.',
+            'motif.min' => 'Le motif doit compter au moins 5 caractères.',
+        ]);
+        $stories = UserStory::withCount(['taches' => fn($q) => $q->where('statut', '!=', 'reporte')])
+            ->where('projet_id', $projet->id)->whereIn('id', $v['ids'])->get();
+        $stories = UserStory::trierParNumero($stories)->values();
+        $retour = redirect()->route('projets.espace', [$projet, 'onglet' => 'backlog']);
+        $faites = [];
+        $ecartees = [];
+        $libelle = '';
+
+        UserStory::$signaler = false;
+        $modifiees = collect();
+        try {
+            DB::transaction(function () use ($v, $stories, &$faites, &$ecartees, &$libelle, $modifiees) {
+                $maj = function (UserStory $us, array $valeurs) use (&$faites, $modifiees) {
+                    $us->fill($valeurs);
+                    if (!$us->isDirty()) return;
+                    $us->save();
+                    if ($us->wasChanged('contenu_modifie_le')) $modifiees->push($us);
+                    $faites[] = $us->numero;
+                };
+                switch ($v['action']) {
+                    case 'dor':
+                        $libelle = 'DoR : ' . ($v['dor'] ? 'Oui' : 'Non');
+                        foreach ($stories as $us) $maj($us, ['dor' => (bool) $v['dor']]);
+                        break;
+                    case 'moscow':
+                        $libelle = 'Priorité : ' . (isset($v['priorite_moscow']) ? UserStory::MOSCOW[$v['priorite_moscow']] : 'non définie');
+                        foreach ($stories as $us) $maj($us, ['priorite_moscow' => $v['priorite_moscow'] ?? null]);
+                        break;
+                    case 'points':
+                        $libelle = 'Story points : ' . ($v['effort_estime'] ?? 'non estimées');
+                        foreach ($stories as $us) {
+                            // Points figés d'un sprint clôturé : la story garde son estimation historique dans le sprint ; le backlog peut évoluer
+                            if ($us->estFinie()) { $ecartees[$us->numero] = 'achevée : son estimation ne change plus'; continue; }
+                            $maj($us, ['effort_estime' => $v['effort_estime'] ?? null]);
+                        }
+                        break;
+                    case 'profil':
+                        $libelle = 'Profil : ' . (trim($v['profil'] ?? '') ?: 'aucun');
+                        foreach ($stories as $us) $maj($us, ['profil' => trim($v['profil'] ?? '') ?: null]);
+                        break;
+                    case 'classer':
+                        $valeurs = [];
+                        if (!empty($v['changer_module'])) $valeurs['module'] = trim($v['module'] ?? '') ?: null;
+                        if (!empty($v['changer_epic'])) $valeurs['epic'] = trim($v['epic'] ?? '') ?: null;
+                        $libelle = 'Classement : ' . collect($valeurs)->map(fn($x, $k) => ($k === 'module' ? 'fonctionnalité ' : 'epic ') . ($x ?? 'aucun(e)'))->join(', ');
+                        if ($valeurs) foreach ($stories as $us) $maj($us, $valeurs);
+                        break;
+                    case 'statut':
+                        $libelle = 'Statut : ' . UserStory::STATUTS[$v['statut']];
+                        foreach ($stories as $us) {
+                            if (!in_array($v['statut'], $us->statutsPermis(), true)) { $ecartees[$us->numero] = 'statut calculé à partir de ses tâches'; continue; }
+                            if ($us->statut === $v['statut']) continue;
+                            $us->update(['statut' => $v['statut']]);
+                            $suivi = $us->estFinie() ? 'termine' : ($v['statut'] === 'a_faire' ? 'a_faire' : 'en_cours');
+                            foreach ($us->sprints()->where('sprints.statut', '!=', 'termine')->get() as $sp) $us->sprints()->updateExistingPivot($sp->id, ['statut_sprint' => $suivi]);
+                            $faites[] = $us->numero;
+                        }
+                        break;
+                    case 'retirer':
+                        $libelle = 'Retrait du Product Backlog';
+                        foreach ($stories as $us) {
+                            [$issue, $message] = $this->retirerStory($us, trim($v['motif']));
+                            if ($issue === 'refus') $ecartees[$us->numero] = 'engagée dans le sprint en cours';
+                            else $faites[] = $us->numero . ($issue === 'archivee' ? ' (archivée)' : '');
+                        }
+                        break;
+                }
+            });
+        } finally {
+            UserStory::$signaler = true;
+        }
+        if ($modifiees->isNotEmpty()) UserStory::signalerModifications($modifiees);
+
+        if ($faites && $v['action'] !== 'retirer') {
+            AuditLog::log('action_groupee_us', 'projet', $projet->code, $libelle . ' — ' . implode(', ', $faites));
+        }
+        $n = count($faites);
+        $msg = $n ? "{$libelle} : {$n} user stor" . ($n > 1 ? 'ies' : 'y') . ' mise' . ($n > 1 ? 's' : '') . ' à jour.' : "{$libelle} : aucune modification.";
+        if ($v['action'] === 'retirer' && $n) $msg = "{$n} user stor" . ($n > 1 ? 'ies retirées' : 'y retirée') . ' du Product Backlog (' . implode(', ', $faites) . ').';
+        if ($ecartees) $retour->with('ecartees_us', $ecartees);
+        return $retour->with($n ? 'succes' : 'erreur', $msg);
     }
 
     /** Une story archivée revient dans le Product Backlog. */

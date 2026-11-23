@@ -591,6 +591,7 @@ class SprintController extends Controller
             $cleTache = fn($intitule, $userId) => mb_strtolower(trim(preg_replace('/\s+/u', ' ', (string) $intitule))) . '|' . $userId;
             $existantes = $sprintImport ? $sprintImport->taches()->orderBy('id')->get()->groupBy(fn($t) => $cleTache($t->intitule, $t->user_id)) : collect();
             $majTaches = 0;
+            $inconnus = [];
 
             foreach ($data as $idx => $row) {
                 $numLigne = $idx + $ligneEntete + 1;
@@ -665,18 +666,8 @@ class SprintController extends Controller
                     }
                     if ($story) $storiesRattachees[$story->id] = true;
 
-                    // Trouver le collaborateur assigné
-                    $userId = $r->user()->id;
-                    if ($assigneStr) {
-                        $parts = preg_split('/\s+/', $assigneStr, 2);
-                        $nom = mb_strtolower($parts[0]);
-                        $prenom = isset($parts[1]) ? mb_strtolower($parts[1]) : null;
-                        $user = User::whereRaw('LOWER(name) = ?', [$nom])->first();
-                        if (!$user && $prenom) {
-                            $user = User::whereRaw('LOWER(prenom) = ?', [$prenom])->first();
-                        }
-                        if ($user) $userId = $user->id;
-                    }
+                    // Collaborateurs assignés : « M. KOUASSI ET M. YAPO » donne une tâche à chacun
+                    $userIds = $this->assignes($assigneStr, $sprintImport, $inconnus) ?: [$r->user()->id];
 
                     // Mapper priorité
                     $prioMapped = match (mb_strtolower($priorite)) {
@@ -695,12 +686,14 @@ class SprintController extends Controller
                     $dateDebut = $this->parserDate($dateDebutStr);
                     $echeance = $this->parserDate($echeanceStr);
 
+                    foreach ($userIds as $userId) {
                     // Déjà dans le sprint : pas de doublon. La story du fichier est rattachée et seuls les champs vides sont complétés ;
-                    // le statut et ce qui a été saisi depuis le premier import ne bougent pas.
+                    // le statut, la story et ce qui a été saisi depuis le premier import ne bougent pas.
                     if ($existantes->get($cleTache($intitule, $userId))?->isNotEmpty()) {
                         $tache = $existantes[$cleTache($intitule, $userId)]->shift();
                         $tache->update(array_filter([
-                            'user_story_id' => $story?->id,
+                            // Déjà rattachée : l'application fait foi, le ré-import ne la déplace pas
+                            'user_story_id' => $tache->user_story_id ? null : $story?->id,
                             'points' => $tache->points === null && is_numeric($points) ? (int) $points : null,
                             'date_debut' => $tache->date_debut ? null : $dateDebut,
                             'echeance' => $tache->echeance ? null : $echeance,
@@ -722,7 +715,7 @@ class SprintController extends Controller
                             ->whereRaw('LOWER(TRIM(intitule)) = ?', [$cleIntitule])->orderBy('id')->first())) {
                         $isolee->update(array_filter([
                             'sprint_id' => $sprintImport->id, 'projet_id' => $sprintImport->projet_id, 'type' => 'T1',
-                            'user_story_id' => $story?->id,
+                            'user_story_id' => $isolee->user_story_id ? null : $story?->id,
                             'points' => $isolee->points === null && is_numeric($points) ? (int) $points : null,
                             'echeance' => $isolee->echeance ? null : $echeance,
                         ], fn($v) => $v !== null));
@@ -745,6 +738,7 @@ class SprintController extends Controller
                         'points' => is_numeric($points) ? (int) $points : null,
                     ]);
                     $importees++;
+                    }
                 } catch (\Throwable $e) {
                     $erreurs[] = "Ligne {$numLigne} : {$e->getMessage()}";
                     $ignores++;
@@ -758,6 +752,7 @@ class SprintController extends Controller
             if ($rattachees) $msg .= ", {$rattachees} importée(s) auparavant hors sprint rattachée(s) au sprint";
             if ($storiesRattachees) $msg .= ', ' . count($storiesRattachees) . ' user story(s) rattachée(s) au sprint' . ($storiesCreees ? " (dont {$storiesCreees} ajoutée(s) au Product Backlog)" : '');
             if ($ignores > 0) $msg .= ", {$ignores} ignorée(s)";
+            if ($inconnus) $msg .= '. Attribution non reconnue (tâche confiée à vous-même) : ' . implode(', ', array_keys($inconnus));
             if ($this->storiesNonPretes) $msg .= '. Non rattachées au sprint (DoR = Non, achevée ou engagée ailleurs) : ' . implode(', ', array_keys($this->storiesNonPretes)) . ' ; leurs tâches restent hors user story';
             if (!empty($erreurs)) {
                 $msg .= '. Erreurs : ' . implode(' | ', array_slice($erreurs, 0, 3));
@@ -848,14 +843,16 @@ class SprintController extends Controller
         }
         // « US-001 », « US 001 » et « us_001 » désignent la même story : le numéro du backlog fait foi
         $cle = fn($n) => preg_replace('/[\s\-_]+/', '', mb_strtolower($n));
-        $us = $numero ? $projet->userStories()->get()->first(fn($s) => $cle($s->numero) === $cle($numero)) : null;
-        if (!$us && $texte !== '') $us = $projet->userStories()->whereRaw('LOWER(intitule) = ?', [mb_strtolower($texte)])->first();
+        // Le numéro doit concorder avec l'intitulé (un planning peut numéroter ses stories à sa façon) ; sinon l'intitulé fait foi
+        $stories = $projet->userStories()->get();
+        $us = UserStory::retrouverPourImport($stories, $numero, $texte, $cle);
         $module = trim((string) $module) ?: null;
         $epic = trim((string) $epic) ?: null;
         if (!$us) {
             if ($texte === '' && !$numero) return null;
             $us = $projet->userStories()->create([
-                'numero' => $numero ?: UserStory::prochainNumero($projet, $module),
+                // Numéro du fichier déjà porté par une autre story du backlog : numéro libre suivant
+                'numero' => $numero && !$stories->contains(fn($s) => $cle($s->numero) === $cle($numero)) ? $numero : UserStory::prochainNumero($projet, $module),
                 'module' => $module, 'epic' => $epic,
                 'intitule' => $texte !== '' ? $texte : $numero,
                 'effort_estime' => UserStory::normaliserPoints($points),
@@ -879,6 +876,38 @@ class SprintController extends Controller
             $sprint->userStories()->attach($us->id, ['statut_sprint' => 'a_faire']);
         }
         return $us;
+    }
+
+    /**
+     * Collaborateurs d'une cellule « Attribution » : plusieurs noms (« M. KOUASSI ET M. YAPO », « A, B & C »),
+     * civilités ignorées. Chaque nom est rapproché du nom ou du prénom ; entre homonymes, l'équipe du sprint
+     * l'emporte, puis les comptes actifs. Les noms non reconnus sont signalés.
+     * @return int[]
+     */
+    private function assignes(string $texte, ?Sprint $sprint, array &$inconnus): array
+    {
+        $norm = fn($v) => trim(preg_replace('/[^a-z0-9]+/', ' ', strtolower(\Illuminate\Support\Str::ascii((string) $v))));
+        static $index = null;
+        $index ??= User::get(['id', 'name', 'prenom', 'actif'])->map(fn($u) => ['u' => $u, 'nom' => explode(' ', $norm($u->name)), 'prenom' => array_filter(explode(' ', $norm($u->prenom)))]);
+        $equipe = $sprint ? \App\Services\ScrumService::membres($sprint)->pluck('id')->merge($sprint->taches()->distinct()->pluck('user_id'))->unique()->all() : [];
+        $ids = [];
+        foreach (preg_split('/\s*(?:,|;|&|\/|\+|\bet\b)\s*/iu', $texte) as $morceau) {
+            $mots = array_values(array_diff(explode(' ', $norm($morceau)), ['m', 'mr', 'mme', 'mlle', 'melle', 'mle', 'dr', 'me', 'monsieur', 'madame']));
+            if (!$mots || $mots === ['']) continue;
+            // Candidats : le nom compte double, le prénom simple ; un membre de l'équipe du sprint passe avant tout autre
+            $scores = [];
+            foreach ($index as $i) {
+                $sc = count(array_intersect($mots, $i['nom'])) * 2 + count(array_intersect($mots, $i['prenom']));
+                if ($sc > 0) $scores[] = [$i['u'], $sc];
+            }
+            if ($dans = array_values(array_filter($scores, fn($x) => in_array($x[0]->id, $equipe, true)))) $scores = $dans;
+            $meilleur = $scores ? max(array_column($scores, 1)) : 0;
+            $candidats = array_values(array_map(fn($x) => $x[0], array_filter($scores, fn($x) => $x[1] === $meilleur)));
+            if (count($candidats) > 1 && ($actifs = array_values(array_filter($candidats, fn($u) => $u->actif)))) $candidats = $actifs;
+            if (count($candidats) === 1) $ids[] = $candidats[0]->id;
+            else $inconnus[trim($morceau)] = true;
+        }
+        return array_values(array_unique($ids));
     }
 
     /** Cherche une valeur dans un tableau associatif par clés possibles (accent-insensitive). */

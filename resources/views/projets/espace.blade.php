@@ -45,6 +45,36 @@
 .puiser .btn:disabled{opacity:.5;cursor:not-allowed}
 .us-coche{flex:none;margin-top:3px;width:15px;height:15px;accent-color:#2e74b5;cursor:pointer}
 .us-coche:disabled{cursor:not-allowed;opacity:.4}
+.tout-coche{width:15px;height:15px;accent-color:#2e74b5;cursor:pointer;margin:0}
+.pb-tbl tr.us.choisie>td{background:#f5f9ff}
+.sel-aide{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;margin-bottom:12px;background:#f8fafc;border:1px solid var(--bord);border-radius:10px;font-size:12.5px;color:#475569}
+.sel-aide svg{width:15px;height:15px;color:#2e74b5;flex:none}
+.sel-aide .lien{background:none;border:0;padding:0;font:inherit;font-weight:600;color:#2e74b5;cursor:pointer}
+.sel-aide .lien:hover{text-decoration:underline}
+/* Barre d'actions de la sélection */
+.barre-us{position:fixed;left:50%;bottom:18px;transform:translate(-50%,160%);z-index:40;width:max-content;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 32px);background:#fff;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 14px 36px rgba(15,23,42,.2);padding:8px 10px;transition:transform .2s;font-size:12.5px}
+.barre-us.visible{transform:translate(-50%,0)}
+.barre-us .nb{font-weight:700;color:#1f4e79;padding:0 8px 0 4px;white-space:nowrap}
+.barre-us button,.barre-us select{border:1px solid #e2e8f0;background:#fff;color:#334155;border-radius:8px;padding:6px 11px;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+.barre-us button:hover{border-color:#93c5fd;background:#f8fafc}
+.barre-us button.prim{background:#2e74b5;border-color:#2e74b5;color:#fff}.barre-us button.prim:hover{background:#245f96}
+.barre-us button.ko{color:#b91c1c}.barre-us button.ko:hover{border-color:#fecaca;background:#fef2f2}
+.barre-us .sep{width:1px;height:22px;background:#e2e8f0;margin:0 2px}
+.barre-us .grp{display:inline-flex;align-items:center;gap:4px}
+.barre-us button.fermer{border:0;color:#64748b;padding:6px 8px}
+#dlg-groupe{width:92vw;max-width:440px;border:none;border-radius:14px;padding:22px;box-shadow:0 12px 40px rgba(15,23,42,.2)}
+#dlg-groupe h3{margin:0 0 4px;font-size:16px;color:#1f4e79}
+#dlg-groupe .aide{font-size:12.5px;color:var(--gris);margin:0 0 14px}
+#dlg-groupe label{display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:10px}
+#dlg-groupe input[type=text],#dlg-groupe select,#dlg-groupe textarea{display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font:inherit;font-size:13px;font-weight:400;box-sizing:border-box}
+#dlg-groupe textarea{min-height:80px;resize:vertical}
+#dlg-groupe label{text-transform:none;letter-spacing:0}
+#dlg-groupe .ligne-case{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;font-size:12.5px;font-weight:600;color:#334155;margin:4px 0 6px;cursor:pointer}
+#dlg-groupe .ligne-case input{width:auto;flex:none;margin:0;accent-color:#2e74b5}
+#dlg-groupe .liste{max-height:120px;overflow:auto;font-size:12px;color:#475569;background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:6px 10px;margin-bottom:12px}
+#dlg-groupe .pied{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.ecartees-us{margin:0 0 10px;padding:9px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:12.5px;color:#92400e}
+.ecartees-us ul{margin:4px 0 0 18px;padding:0}
 .us-prog{display:flex;align-items:center;gap:8px;min-width:150px}.us-prog .prog{flex:1}
 @media(max-width:700px){.module-titre,.epic-titre{grid-template-columns:1fr}.module-titre .stats,.epic-titre .stats{white-space:normal}}
 .pb-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;margin-bottom:10px;border:1px solid var(--bord)}
@@ -206,14 +236,16 @@ dialog textarea{resize:vertical}
         <input type="search" id="fb-q" placeholder="Rechercher…" oninput="filtrerBacklog()">
         <span id="fb-nb" style="margin-left:auto;font-size:12px;color:var(--gris)"></span>
     </div>
-    @if($sprintsCibles->isNotEmpty())
-    <form method="POST" id="f-puiser" class="puiser" action="{{ route('sprints.user-stories.attacher', $sprintsCibles->first()) }}">@csrf
-        <span>Cochez les user stories prêtes (DoR = Oui) du prochain sprint, puis ajoutez-les à</span>
-        <select aria-label="Sprint cible" onchange="this.form.action = this.selectedOptions[0].dataset.url">
-            @foreach($sprintsCibles as $sp)<option data-url="{{ route('sprints.user-stories.attacher', $sp) }}">Sprint {{ $sp->numero }}{{ $sp->statut === 'en_cours' ? ' (en cours)' : '' }}</option>@endforeach
-        </select>
-        <button class="btn sm" id="puiser-btn" disabled>Ajouter <span id="puiser-nb"></span></button>
-    </form>
+    @php $selection = $peutAlimenter || $sprintsCibles->isNotEmpty(); @endphp
+    @if(session('ecartees_us'))
+    <div class="ecartees-us"><strong>User stories écartées :</strong><ul>@foreach(session('ecartees_us') as $num => $raison)<li>{{ $num }} : {{ $raison }}</li>@endforeach</ul></div>
+    @endif
+    @if($selection)
+    <div class="sel-aide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Cochez des user stories pour agir sur la sélection{{ $sprintsCibles->isNotEmpty() ? ' : ajout au sprint' : '' }}{{ $peutAlimenter ? ($sprintsCibles->isNotEmpty() ? ', ' : ' : ') . 'DoR, priorité, story points, classement, statut, retrait' : '' }}.</span>
+        <button type="button" class="lien" onclick="toutesVisibles()">Tout cocher (stories affichées)</button>
+    </div>
     @elseif($canEdit)
     <div class="puiser">Aucun sprint à préparer : créez le prochain sprint depuis « Projets / Sprints » pour y puiser des user stories.</div>
     @endif
@@ -237,13 +269,14 @@ dialog textarea{resize:vertical}
         @endif
         <table class="pb-tbl">
             <colgroup><col class="c-coche"><col class="c-id"><col class="c-profil"><col><col class="c-moscow"><col class="c-pts"><col class="c-dor"><col class="c-statut"><col class="c-exec"><col class="c-act"></colgroup>
-            <thead><tr><th></th><th>ID</th><th>Profil / Acteur</th><th>User Story</th><th>MoSCoW</th><th title="Story points">Pts</th><th title="Definition of Ready">DoR</th><th>Statut</th><th>Exécution</th><th></th></tr></thead>
+            <thead><tr><th>@if($selection)<input type="checkbox" class="tout-coche" onchange="toutTableau(this)" title="Cocher les stories affichées de ce tableau" aria-label="Cocher les user stories affichées de ce tableau">@endif</th><th>ID</th><th>Profil / Acteur</th><th>User Story</th><th>MoSCoW</th><th title="Story points">Pts</th><th title="Definition of Ready">DoR</th><th>Statut</th><th>Exécution</th><th></th></tr></thead>
             <tbody>
         @foreach($ep['stories'] as $us)
             <tr class="us" data-us data-statut="{{ $us->statut }}" data-moscow="{{ $us->priorite_moscow }}" data-dor="{{ $us->dor ? '1' : '0' }}" data-texte="{{ mb_strtolower($us->numero . ' ' . $us->module . ' ' . $us->epic . ' ' . $us->profil . ' ' . $us->intitule . ' ' . \App\Services\TexteRiche::texte($us->exigences)) }}">
-                <td class="td-coche">@if($sprintsCibles->isNotEmpty() && !$us->estFinie() && !$us->sprints->contains(fn($s) => $s->statut !== 'termine'))
-                    @if($us->dor)<input type="checkbox" class="us-coche" form="f-puiser" name="user_stories[]" value="{{ $us->id }}" aria-label="Sélectionner {{ $us->numero }}">
-                    @else<input type="checkbox" class="us-coche" disabled title="DoR = Non : cette user story ne peut pas entrer dans un sprint" aria-label="{{ $us->numero }} : DoR = Non, sélection impossible">@endif
+                @php $puisable = $us->dor && !$us->estFinie() && !$us->sprints->contains(fn($sp) => $sp->statut !== 'termine'); @endphp
+                <td class="td-coche">@if($selection)
+                    <input type="checkbox" class="us-coche" value="{{ $us->id }}" data-num="{{ $us->numero }}" data-puisable="{{ $puisable ? 1 : 0 }}" aria-label="Sélectionner {{ $us->numero }}"
+                        @if(!$peutAlimenter && !$puisable) disabled title="{{ $us->dor ? 'Déjà terminée ou engagée dans un sprint ouvert' : 'DoR = Non : cette user story ne peut pas entrer dans un sprint' }}" @endif>
                 @endif</td>
                 <td class="us-num">{{ $us->numero }}</td>
                 <td class="td-profil">{{ $us->profil ?: '-' }}</td>
@@ -317,6 +350,57 @@ dialog textarea{resize:vertical}
     </details>
     @endif
 </div>
+
+@if($selection ?? false)
+<div class="barre-us" id="barre-us" role="toolbar" aria-label="Action sur les user stories sélectionnées">
+    <span class="nb" id="us-nb">0 user story</span>
+    @if($sprintsCibles->isNotEmpty())
+    <span class="grp">
+        <select id="us-sprint" aria-label="Sprint cible">@foreach($sprintsCibles as $sp)<option value="{{ route('sprints.user-stories.attacher', $sp) }}">Sprint {{ $sp->numero }}{{ $sp->statut === 'en_cours' ? ' (en cours)' : '' }}</option>@endforeach</select>
+        <button type="button" class="prim" onclick="puiserSelection()" title="Ajouter au sprint les stories prêtes (DoR = Oui, non achevées, libres)">Ajouter au sprint</button>
+    </span>
+    @endif
+    @if($peutAlimenter)
+    <span class="sep"></span>
+    <button type="button" onclick="ouvrirGroupe('dor')">DoR</button>
+    <button type="button" onclick="ouvrirGroupe('moscow')">Priorité</button>
+    <button type="button" onclick="ouvrirGroupe('points')">Story points</button>
+    <button type="button" onclick="ouvrirGroupe('classer')">Classer</button>
+    <button type="button" onclick="ouvrirGroupe('profil')">Profil</button>
+    <button type="button" onclick="ouvrirGroupe('statut')">Statut</button>
+    <span class="sep"></span>
+    <button type="button" class="ko" onclick="ouvrirGroupe('retirer')">Retirer</button>
+    @endif
+    <button type="button" class="fermer" onclick="viderSelection()" title="Annuler la sélection (Échap)" aria-label="Annuler la sélection">✕</button>
+</div>
+<form method="POST" id="f-puiser" action="" style="display:none">@csrf</form>
+@if($peutAlimenter)
+<dialog id="dlg-groupe" aria-labelledby="dg-titre">
+    <form method="POST" action="{{ route('projets.user-stories.groupe', $projet) }}" id="f-groupe" onsubmit="return validerGroupe()">@csrf
+        <input type="hidden" name="action" value="">
+        <h3 id="dg-titre"></h3>
+        <p class="aide" id="dg-aide"></p>
+        <div class="liste" id="dg-liste"></div>
+        <div data-champ="dor"><label>Definition of Ready<select name="dor"><option value="1">Oui : prête pour un sprint</option><option value="0">Non : à affiner</option></select></label></div>
+        <div data-champ="moscow"><label>Priorité MoSCoW<select name="priorite_moscow"><option value="">Non définie</option>@foreach(\App\Models\UserStory::MOSCOW_BACKLOG as $k)<option value="{{ $k }}">{{ \App\Models\UserStory::MOSCOW[$k] }}</option>@endforeach</select></label></div>
+        <div data-champ="points"><label>Story points<select name="effort_estime"><option value="">Non estimée</option>@foreach(\App\Models\UserStory::POINTS as $pt)<option value="{{ $pt }}">{{ $pt }} pt{{ $pt > 1 ? 's' : '' }} — {{ \App\Models\UserStory::complexite($pt)['libelle'] }}</option>@endforeach</select></label></div>
+        <div data-champ="classer">
+            <label class="ligne-case"><input type="checkbox" name="changer_module" value="1" checked onchange="this.form.module.disabled=!this.checked"> Changer la fonctionnalité</label>
+            <label><input type="text" name="module" list="st-modules" maxlength="150" placeholder="Vide : sans fonctionnalité"></label>
+            <label class="ligne-case"><input type="checkbox" name="changer_epic" value="1" onchange="this.form.epic.disabled=!this.checked"> Changer l'epic</label>
+            <label><input type="text" name="epic" maxlength="150" placeholder="Vide : sans epic" disabled></label>
+        </div>
+        <div data-champ="profil"><label>Profil / acteur<input type="text" name="profil" list="st-profils" maxlength="150" placeholder="Vide : aucun profil"></label></div>
+        <div data-champ="statut"><label>Statut<select name="statut">@foreach(\App\Models\UserStory::STATUTS as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select></label></div>
+        <div data-champ="retirer"><label>Motif du retrait (obligatoire)<textarea name="motif" maxlength="500" placeholder="Ex. : besoin abandonné par le client, doublon de…"></textarea></label></div>
+        <div class="pied">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button type="submit" class="btn" id="dg-ok">Appliquer</button>
+        </div>
+    </form>
+</dialog>
+@endif
+@endif
 
 {{-- ═══════════ SPRINTS ═══════════ --}}
 <div class="ep-panel" id="ep-sprints">
@@ -535,13 +619,73 @@ function filtrerStatut(s){
     filtrerBacklog();
     f.scrollIntoView({block: 'nearest'});
 }
-// Sélection des user stories à ajouter au sprint
-document.addEventListener('change', e => {
-    if (!e.target.classList.contains('us-coche')) return;
-    const n = document.querySelectorAll('.us-coche:checked').length;
-    document.getElementById('puiser-btn').disabled = !n;
-    document.getElementById('puiser-nb').textContent = n ? '(' + n + ')' : '';
-});
+/* ── Sélection multiple de user stories : une barre d'actions commune ── */
+const cochees = () => [...document.querySelectorAll('.us-coche:checked')];
+function majSelection(){
+    const n = cochees().length, barre = document.getElementById('barre-us');
+    document.querySelectorAll('.us-coche').forEach(c => c.closest('tr').classList.toggle('choisie', c.checked));
+    document.querySelectorAll('.tout-coche').forEach(t => {
+        const cases = [...t.closest('table').querySelectorAll('.us-coche:not(:disabled)')].filter(c => c.closest('tr').style.display !== 'none');
+        const k = cases.filter(c => c.checked).length;
+        t.checked = cases.length > 0 && k === cases.length; t.indeterminate = k > 0 && k < cases.length;
+    });
+    if (!barre) return;
+    document.getElementById('us-nb').textContent = n + ' user stor' + (n > 1 ? 'ies' : 'y');
+    barre.classList.toggle('visible', n > 0);
+}
+document.addEventListener('change', e => { if (e.target.classList.contains('us-coche')) majSelection(); });
+function casesVisibles(racine){ return [...racine.querySelectorAll('.us-coche:not(:disabled)')].filter(c => c.closest('tr').style.display !== 'none' && c.closest('.module-bloc').style.display !== 'none'); }
+function toutTableau(t){ casesVisibles(t.closest('table')).forEach(c => c.checked = t.checked); majSelection(); }
+function toutesVisibles(){ casesVisibles(document.getElementById('ep-backlog')).forEach(c => c.checked = true); majSelection(); }
+function viderSelection(){ document.querySelectorAll('.us-coche:checked').forEach(c => c.checked = false); majSelection(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && cochees().length && !document.querySelector('dialog[open]')) viderSelection(); });
+
+function puiserSelection(){
+    const ok = cochees().filter(c => c.dataset.puisable === '1'), non = cochees().filter(c => c.dataset.puisable !== '1');
+    if (!ok.length) { alert('Aucune des user stories sélectionnées ne peut entrer dans un sprint : DoR = Non, déjà terminée ou engagée dans un sprint ouvert.'); return; }
+    const sel = document.getElementById('us-sprint');
+    if (non.length && !confirm(non.length + ' story(s) écartée(s) (DoR = Non, terminée ou déjà engagée) : ' + non.map(c => c.dataset.num).join(', ') + '.\nAjouter les ' + ok.length + ' autre(s) au ' + sel.selectedOptions[0].text + ' ?')) return;
+    const f = document.getElementById('f-puiser');
+    f.action = sel.value;
+    f.querySelectorAll('input[name="user_stories[]"]').forEach(i => i.remove());
+    ok.forEach(c => { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'user_stories[]'; i.value = c.value; f.appendChild(i); });
+    f.submit();
+}
+
+const GROUPE = {
+    dor: ['Definition of Ready', 'Une story « DoR = Oui » peut être puisée dans un sprint.'],
+    moscow: ['Priorité MoSCoW', 'La priorité choisie remplace celle de chaque story.'],
+    points: ['Story points', 'Estimation appliquée à chaque story (les stories achevées gardent la leur).'],
+    classer: ['Classer dans le backlog', 'Déplacez les stories vers une fonctionnalité et/ou un epic (existant ou nouveau).'],
+    profil: ['Profil / acteur', 'Le profil choisi remplace celui de chaque story.'],
+    statut: ['Statut', 'Les stories dont le statut est calculé à partir des tâches ne changent pas (seules la revue et l\'acceptation restent possibles).'],
+    retirer: ['Retirer du Product Backlog', 'Les stories passées par un sprint clôturé sont archivées (l\'historique les conserve), les autres supprimées ; celles du sprint en cours sont écartées.'],
+};
+function ouvrirGroupe(action){
+    const d = document.getElementById('dlg-groupe'), f = document.getElementById('f-groupe'), c = cochees();
+    if (!c.length) return;
+    f.action.value = action;
+    document.getElementById('dg-titre').textContent = GROUPE[action][0] + ' — ' + c.length + ' user stor' + (c.length > 1 ? 'ies' : 'y');
+    document.getElementById('dg-aide').textContent = GROUPE[action][1];
+    document.getElementById('dg-liste').textContent = c.map(x => x.dataset.num).join(', ');
+    d.querySelectorAll('[data-champ]').forEach(z => { z.hidden = z.dataset.champ !== action; z.querySelectorAll('input,select,textarea').forEach(i => { if (z.hidden) i.setAttribute('data-off', ''); else i.removeAttribute('data-off'); }); });
+    f.querySelectorAll('input[name="ids[]"]').forEach(i => i.remove());
+    c.forEach(x => { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids[]'; i.value = x.value; f.appendChild(i); });
+    const ok = document.getElementById('dg-ok');
+    ok.textContent = action === 'retirer' ? 'Retirer' : 'Appliquer';
+    ok.classList.toggle('ko', action === 'retirer');
+    d.showModal();
+    d.querySelector('[data-champ="' + action + '"] select, [data-champ="' + action + '"] input:not([type=checkbox]):not(:disabled), [data-champ="' + action + '"] textarea')?.focus();
+}
+function validerGroupe(){
+    const f = document.getElementById('f-groupe');
+    // Seuls les champs de l'action choisie partent
+    f.querySelectorAll('[data-off]').forEach(i => i.disabled = true);
+    if (f.action.value === 'retirer' && f.motif.value.trim().length < 5) { alert('Le motif est obligatoire (5 caractères minimum).'); f.querySelectorAll('[data-off]').forEach(i => i.disabled = false); f.motif.focus(); return false; }
+    if (f.action.value === 'classer' && !f.changer_module.checked && !f.changer_epic.checked) { alert('Cochez au moins « Changer la fonctionnalité » ou « Changer l\'epic ».'); f.querySelectorAll('[data-off]').forEach(i => i.disabled = false); return false; }
+    return true;
+}
+document.getElementById('dlg-groupe')?.addEventListener('close', () => { document.querySelectorAll('#f-groupe [data-off]').forEach(i => { i.disabled = false; }); const f = document.getElementById('f-groupe'); if (f) { f.module.disabled = !f.changer_module.checked; f.epic.disabled = !f.changer_epic.checked; } });
 
 function filtrerBacklog(){
     const mod = document.getElementById('fb-module').value, st = document.getElementById('fb-statut').value, ms = document.getElementById('fb-moscow').value, dr = document.getElementById('fb-dor').value, q = document.getElementById('fb-q').value.toLowerCase().trim();
@@ -563,6 +707,7 @@ function filtrerBacklog(){
         });
     });
     const nb = document.getElementById('fb-nb'); if (nb) nb.textContent = n + ' / ' + tot + ' user stories';
+    if (typeof majSelection === 'function') majSelection();
 }
 if (document.getElementById('fb-q')) filtrerBacklog();
 

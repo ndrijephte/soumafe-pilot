@@ -156,18 +156,29 @@ class ImportConsolide
         foreach ($this->projet->userStories()->get() as $us) $this->stories[self::cle($us->numero)] = $us;
     }
 
-    /** Story désignée par une référence (« US-009 », « US-ROLE-04 (…) — En tant que… »). */
-    private function story(?string $texte): ?UserStory
+    /**
+     * Story désignée par une référence (« US-009 », « US-ROLE-04 (…) — En tant que… ») et/ou un intitulé.
+     * Le numéro seul ne suffit pas quand un intitulé l'accompagne : il doit concorder avec la story du backlog
+     * (un planning peut numéroter ses stories à sa façon) ; à défaut, l'intitulé fait foi.
+     */
+    private function story(?string $texte, ?string $intitule = null): ?UserStory
     {
         $texte = trim((string) $texte);
-        if ($texte === '') return null;
-        if (preg_match('/^\s*([A-Z][A-Z0-9]*(?:[\s.\-][A-Z0-9]+)*?\d[A-Z0-9.\-]*)/u', $texte, $m) && isset($this->stories[self::cle($m[1])])) {
-            return $this->stories[self::cle($m[1])];
+        $intitule = trim((string) $intitule);
+        if ($texte === '' && $intitule === '') return null;
+        $ref = null;
+        $reste = '';
+        if (preg_match('/^\s*([A-Z][A-Z0-9]*(?:[\s.\-][A-Z0-9]+)*?\d[A-Z0-9.\-]*)\s*(?:\([^)]*\))?\s*[—–:\-]*\s*(.*)$/su', $texte, $m)) {
+            [$ref, $reste] = [rtrim($m[1], '.-'), trim($m[2])];
+        } elseif (preg_match('/\bUS[\s\-]?[A-Z0-9][A-Z0-9.\-]*/u', $texte, $m)) {
+            [$ref, $reste] = [rtrim($m[0], '.-'), trim(str_replace($m[0], '', $texte))];
         }
-        if (preg_match_all('/\bUS[\s\-]?[A-Z0-9][A-Z0-9.\-]*/u', $texte, $mm)) {
-            foreach ($mm[0] as $ref) if (isset($this->stories[self::cle(rtrim($ref, '.-'))])) return $this->stories[self::cle(rtrim($ref, '.-'))];
-        }
-        return null;
+        $stories = collect($this->stories);
+        $cle = fn($n) => self::cle((string) $n);
+        $us = UserStory::retrouverPourImport($stories, $ref, $intitule ?: $reste, $cle);
+        // Référence inconnue : le texte complet est peut-être un intitulé (« API 2 : … »)
+        if (!$us && $ref && $intitule === '' && $reste !== '') $us = UserStory::retrouverPourImport($stories, null, $texte, $cle);
+        return $us;
     }
 
     /* ─── Sprint ─── */
@@ -432,7 +443,7 @@ class ImportConsolide
             $intitule = $get('tache');
             // Ligne de user story (archive de l'application) : « US 1.1 » dans la colonne N°, ses tâches suivent (« 1.1.1 »…)
             if (preg_match('/^US[\s\-_]*[A-Z]?\d/iu', $get('num'))) {
-                $storyGroupe = $this->story($get('num')) ?? $this->storyParIntitule($get('story')) ?? $this->storyParIntitule($intitule);
+                $storyGroupe = $this->story($get('num'), $get('story') ?: $intitule);
                 continue;
             }
             if ($intitule === '' || preg_match('/^(total|l[ée]gende|statuts?\s*:)/iu', $intitule)) continue;
@@ -463,13 +474,14 @@ class ImportConsolide
                 if ($user) $this->membres[$user->id] = min($this->membres[$user->id] ?? $sprint->date_debut->toDateString(), $sprint->date_debut->toDateString());
                 if (($lot = $existantes->get($cle($intitule, $userId))) && $lot->isNotEmpty()) {
                     $t = $lot->shift();
-                    if ($us && $t->user_story_id !== $us->id) { $t->update(['user_story_id' => $us->id]); $this->rapport['taches_maj']++; }
+                    // Déjà rattachée : l'application fait foi (un ré-import ne déplace pas une tâche d'une story à l'autre)
+                    if ($us && !$t->user_story_id) { $t->update(['user_story_id' => $us->id]); $this->rapport['taches_maj']++; }
                     continue;
                 }
                 // Même code, même collaborateur, intitulé reformulé : la tâche est mise à jour (son statut ne change pas)
                 if (($c = $code($intitule)) && ($lot = $parCode->get($c . '|' . $userId)) && $lot->isNotEmpty()) {
                     $t = $lot->shift();
-                    $t->update(array_filter(['intitule' => $intitule, 'user_story_id' => $us?->id], fn($v) => $v !== null));
+                    $t->update(array_filter(['intitule' => $intitule, 'user_story_id' => $t->user_story_id ? null : $us?->id], fn($v) => $v !== null));
                     $this->rapport['taches_maj']++;
                     continue;
                 }
@@ -491,10 +503,7 @@ class ImportConsolide
 
     private function storyParIntitule(string $texte): ?UserStory
     {
-        $n = mb_substr(self::norm($texte), 0, 60);
-        if (mb_strlen($n) < 20) return null;
-        foreach ($this->stories as $us) if (str_starts_with(self::norm($us->intitule), $n)) return $us;
-        return null;
+        return UserStory::retrouverPourImport(collect($this->stories), null, $texte, fn($n) => self::cle((string) $n));
     }
 
     /** Clôture d'un sprint importé : tâches qualifiées, stories figées (sans justification demandée : c'est l'historique). */

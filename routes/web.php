@@ -65,6 +65,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/user-stories/{userStory}', [ProjetScrumController::class, 'updateUserStory'])->name('user-stories.update');
     Route::post('/projets/{projet}/epics/renommer', [ProjetScrumController::class, 'renommerEpic'])->name('projets.epics.renommer');
     Route::delete('/user-stories/{userStory}', [ProjetScrumController::class, 'destroyUserStory'])->name('user-stories.destroy');
+    Route::post('/projets/{projet}/user-stories/groupe', [ProjetScrumController::class, 'actionGroupeeStories'])->name('projets.user-stories.groupe');
     Route::patch('/user-stories/{userStory}/restaurer', [ProjetScrumController::class, 'restaurerUserStory'])->name('user-stories.restaurer');
     Route::patch('/user-stories/{userStory}/statut', [ProjetScrumController::class, 'statutUserStory'])->name('user-stories.statut');
     Route::patch('/user-stories/{userStory}/avancement', [ProjetScrumController::class, 'avancementUserStory'])->name('user-stories.avancement');

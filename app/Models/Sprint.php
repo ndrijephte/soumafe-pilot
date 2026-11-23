@@ -142,11 +142,40 @@ class Sprint extends Model
         return $pts ?: (int) $this->engagement_points;
     }
 
-    /** Points livrés : stories terminées dans le sprint (ou, en base tâches, tâches terminées). */
+    /**
+     * Story livrée dans ce sprint :
+     *  - terminée dans le sprint (statut de la story dans le sprint) ;
+     *  - sprint ouvert : story achevée ;
+     *  - sprint clôturé : achevée à la clôture (instantané), ou, pour un sprint importé sans instantané,
+     *    achevée aujourd'hui et ce sprint est le dernier où elle a été engagée (c'est là qu'elle a été livrée).
+     */
+    public function storyLivree(UserStory $us): bool
+    {
+        if (($us->pivot->statut_sprint ?? null) === 'termine') return true;
+        if ($this->statut !== 'termine') return $us->estFinie();
+        $fige = $us->instantaneSprint();
+        if ($fige !== null) return in_array($fige['statut'] ?? null, UserStory::FINIES, true);
+        return $us->estFinie() && ($this->derniersSprints()[$us->id] ?? null) === $this->id;
+    }
+
+    /** Pour chaque story du sprint, le dernier sprint (par date de début) où elle a été engagée. */
+    private ?array $derniersSprintsCache = null;
+    private function derniersSprints(): array
+    {
+        if ($this->derniersSprintsCache !== null) return $this->derniersSprintsCache;
+        $lignes = \Illuminate\Support\Facades\DB::table('sprint_user_stories as p')->join('sprints as s', 's.id', '=', 'p.sprint_id')
+            ->whereIn('p.user_story_id', $this->userStories->pluck('id'))
+            ->orderBy('s.date_debut')->orderBy('s.numero')->get(['p.user_story_id', 's.id']);
+        $der = [];
+        foreach ($lignes as $l) $der[$l->user_story_id] = $l->id;
+        return $this->derniersSprintsCache = $der;
+    }
+
+    /** Points livrés : stories livrées dans le sprint (ou, en base tâches, tâches terminées). */
     public function pointsLivres(): int
     {
         if ($this->basePoints() === 'stories') {
-            return (int) $this->userStories->filter(fn($us) => ($us->pivot->statut_sprint ?? null) === 'termine' || ($this->statut !== 'termine' && $us->estFinie()))->sum('effort_estime');
+            return (int) $this->userStories->filter(fn($us) => $this->storyLivree($us))->sum('effort_estime');
         }
         return (int) $this->taches()->where('statut', 'termine')->sum('points');
     }

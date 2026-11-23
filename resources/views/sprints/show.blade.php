@@ -18,6 +18,11 @@
 .av-sp .barre{flex:1;min-width:160px;height:6px;background:#e9eef5;border-radius:6px;overflow:hidden;display:flex}
 .av-sp .barre i{display:block;height:100%}
 .av-sp .barre .t{background:#2e74b5}.av-sp .barre .c{background:#93c5fd}.av-sp .barre .b{background:#f87171}
+.av-sp .ligne.pts{margin-top:10px;padding-top:10px;border-top:1px dashed #e5ebf2}
+.av-sp .ligne.pts .pct b{color:#15803d}
+.av-sp .barre .l{background:#16a34a}.av-sp .barre .r{background:#86efac}
+.av-sp .chiffres .non-est{background:#fff7ed;border-color:#fdba74;color:#9a3412}.av-sp .chiffres .non-est b{color:#c2410c}
+.av-sp .vide{font-size:12px;color:#64748b}
 .av-sp .chiffres{display:flex;gap:4px;flex-wrap:wrap}
 .av-sp .chiffres span{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:#f8fafc;border:1px solid #edf1f6;font-size:11.5px;color:#64748b;white-space:nowrap}
 .av-sp .chiffres b{color:#1e293b;font-weight:700}
@@ -159,9 +164,17 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     $pC = $totalTaches ? $enCours / $totalTaches * 100 : 0;
     $pB = $totalTaches ? $bloquees / $totalTaches * 100 : 0;
 @endphp
+@php
+    $ptsEng = $sprint->pointsEngages();
+    $ptsLiv = $sprint->pointsLivres();
+    $ptsReal = max($ptsLiv, $sprint->pointsRealises());
+    $baseStories = $sprint->basePoints() === 'stories';
+    $pctPts = $ptsEng ? min(100, (int) round($ptsReal / $ptsEng * 100)) : 0;
+    $nonEst = $sprint->storiesNonEstimees();
+@endphp
 <div class="av-sp">
     <div class="ligne">
-        <div class="pct" title="Tâches terminées sur l'ensemble des tâches du sprint"><b>{{ $pct }} %</b><span>Avancement</span></div>
+        <div class="pct" title="Tâches terminées sur l'ensemble des tâches du sprint"><b>{{ $pct }} %</b><span>Tâches</span></div>
         <div class="barre" role="img" aria-label="{{ $terminees }} terminées, {{ $enCours }} en cours, {{ $bloquees }} bloquées sur {{ $totalTaches }} tâches">
             <i class="t" style="width:{{ $pT }}%"></i><i class="c" style="width:{{ $pC }}%"></i><i class="b" style="width:{{ $pB }}%"></i>
         </div>
@@ -170,8 +183,6 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <span><i style="background:#2e74b5"></i><b>{{ $terminees }}</b> terminées</span>
             <span><i style="background:#93c5fd"></i><b>{{ $enCours }}</b> en cours</span>
             @if($bloquees)<span><i style="background:#f87171"></i><b>{{ $bloquees }}</b> bloquées</span>@endif
-            <span title="{{ $sprint->resumePoints() }}"><b>{{ $sprint->pointsLivres() }}</b>/{{ $sprint->pointsEngages() }} pts{{ $sprint->pointsRealises() > $sprint->pointsLivres() ? ' · ' . $sprint->pointsRealises() . ' réalisés' : '' }}</span>
-            @if($sprint->storiesNonEstimees() && $sprint->statut !== 'termine')<span style="background:#fff7ed;border-color:#fdba74;color:#9a3412" title="Leur travail n'entre pas dans les story points : estimez-les ci-dessous (Sprint Backlog)"><b style="color:#c2410c">{{ $sprint->storiesNonEstimees() }}</b> story(s) non estimée(s)</span>@endif
         </div>
         @if($canEditSprint)
         <div class="actions">
@@ -185,6 +196,27 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             </form>
             @endif
         </div>
+        @endif
+    </div>
+    {{-- Story points : livrés (stories terminées) et réalisés (exécution des stories en cours), sur les points engagés --}}
+    <div class="ligne pts">
+        <div class="pct" title="Points réalisés sur les points engagés"><b>{{ $ptsEng ? $pctPts . ' %' : '—' }}</b><span>Story points</span></div>
+        @if($ptsEng)
+        <div class="barre" role="img" aria-label="{{ $ptsLiv }} points livrés et {{ $ptsReal }} réalisés sur {{ $ptsEng }} engagés">
+            <i class="l" style="width:{{ min(100, $ptsLiv / $ptsEng * 100) }}%"></i><i class="r" style="width:{{ max(0, min(100, $ptsReal / $ptsEng * 100) - min(100, $ptsLiv / $ptsEng * 100)) }}%"></i>
+        </div>
+        <div class="chiffres">
+            @if($baseStories)
+            <span title="Points des user stories terminées"><i style="background:#16a34a"></i><b>{{ $ptsLiv }}</b> livrés</span>
+            @if($ptsReal > $ptsLiv)<span title="Points livrés + part exécutée des stories en cours (tâches terminées ou niveau déclaré)"><i style="background:#86efac"></i><b>{{ $ptsReal }}</b> réalisés</span>@endif
+            <span title="Somme des story points du Sprint Backlog"><b>{{ $ptsEng }}</b> engagés</span>
+            @else
+            <span title="Aucune user story estimée : les points sont ceux des tâches"><i style="background:#16a34a"></i><b>{{ $ptsLiv }}</b> / {{ $ptsEng }} pts de tâches terminées</span>
+            @endif
+            @if($nonEst && $sprint->statut !== 'termine')<span class="non-est" title="Leur travail n'entre pas dans les story points : estimez-les dans le Sprint Backlog ci-dessous"><b>{{ $nonEst }}</b> {{ $nonEst > 1 ? 'stories' : 'story' }} non estimée{{ $nonEst > 1 ? 's' : '' }}</span>@endif
+        </div>
+        @else
+        <div class="vide">Aucun point engagé : estimez les user stories du Sprint Backlog pour suivre la progression en story points.</div>
         @endif
     </div>
     {{-- Période d'exercice (05 → 04) : un sprint à cheval est arbitré par un pilote --}}

@@ -143,6 +143,74 @@ class UserStory extends Model
         return $numero;
     }
 
+    /** Intitulé ramené à ses mots (sans accents, ponctuation ni casse), pour comparer deux formulations. */
+    public static function normIntitule(?string $t): string
+    {
+        return trim(preg_replace('/[^a-z0-9]+/', ' ', strtolower(\Illuminate\Support\Str::ascii((string) $t))));
+    }
+
+    /**
+     * Deux intitulés désignent-ils la même story ? Tolère une reformulation (ponctuation, mots ajoutés),
+     * pas une autre story : « US 1.1 » d'un planning ne capte pas la « US 1.1 » du backlog si le besoin diffère.
+     */
+    public static function memeIntitule(?string $a, ?string $b): bool
+    {
+        return self::proximiteIntitule($a, $b) >= self::SEUIL_PROXIMITE;
+    }
+
+    /** Proximité à partir de laquelle deux intitulés désignent la même story. */
+    public const SEUIL_PROXIMITE = 65;
+
+    /** Mots de la formule « En tant que… je veux… afin de… » et mots-outils : ils ne distinguent pas deux besoins. */
+    private const MOTS_VIDES = ['en', 'tant', 'que', 'qu', 'je', 'j', 'veux', 'voudrais', 'souhaite', 'pouvoir', 'puisse', 'afin', 'de', 'd', 'pour',
+        'l', 'la', 'le', 'les', 'un', 'une', 'des', 'du', 'et', 'ou', 'a', 'au', 'aux', 'mon', 'ma', 'mes', 'son', 'sa', 'ses', 'leur', 'leurs',
+        'ce', 'cet', 'cette', 'ces', 'dans', 'par', 'sur', 'avec', 'qui', 'quoi', 'ne', 'pas', 'se', 's', 'y', 'il', 'elle', 'on', 'nous', 'vous', 'etre', 'avoir'];
+
+    /** Proximité de deux intitulés, de 0 à 100 (100 : identiques ; 95 : l'un est le début de l'autre), sur les mots porteurs de sens. */
+    public static function proximiteIntitule(?string $a, ?string $b): int
+    {
+        $a = self::normIntitule($a);
+        $b = self::normIntitule($b);
+        if ($a === '' || $b === '') return 0;
+        if ($a === $b) return 100;
+        [$court, $long] = mb_strlen($a) <= mb_strlen($b) ? [$a, $b] : [$b, $a];
+        if (mb_strlen($court) >= 25 && str_starts_with($long, $court)) return 95;
+        // Acteurs différents (« En tant que Concierge » / « En tant qu'étudiant ») : deux besoins distincts
+        $acteur = fn($t) => preg_match('/^en tant qu e? ?(.+?) (je|j) /', $t, $m) || preg_match('/^en tant que (.+?) (je|j) /', $t, $m) ? trim($m[1]) : null;
+        if (($xa = $acteur($a)) && ($xb = $acteur($b)) && $xa !== $xb && !str_contains($xa, $xb) && !str_contains($xb, $xa)) return 40;
+        $mots = fn($t) => array_values(array_diff(explode(' ', $t), self::MOTS_VIDES));
+        $ma = $mots($a);
+        $mb = $mots($b);
+        if (!$ma || !$mb) return 0;
+        similar_text(implode(' ', $ma), implode(' ', $mb), $pct);
+        $ua = array_unique($ma);
+        $ub = array_unique($mb);
+        $jaccard = count(array_intersect($ua, $ub)) / max(1, count(array_unique(array_merge($ua, $ub)))) * 100;
+        return (int) round(min($pct, 100) * 0.5 + $jaccard * 0.5);
+    }
+
+    /**
+     * Story désignée par une ligne d'import (numéro et/ou intitulé), parmi les stories du projet.
+     * Le numéro ne suffit pas quand le fichier donne un intitulé : il doit concorder (un planning peut numéroter
+     * ses stories à sa façon). À défaut, l'intitulé fait foi ; entre deux homonymes, la plus récente (dernier backlog).
+     */
+    public static function retrouverPourImport(\Illuminate\Support\Collection $stories, ?string $numero, ?string $texte, ?callable $cleNumero = null): ?self
+    {
+        $cle = $cleNumero ?? fn($n) => preg_replace('/[\s\-_]+/', '', mb_strtolower((string) $n));
+        $texte = trim((string) $texte);
+        $parlant = mb_strlen(self::normIntitule($texte)) >= 12;
+        if ($numero !== null && $numero !== '') {
+            $parNumero = $stories->first(fn($s) => $cle($s->numero) === $cle($numero));
+            if ($parNumero && (!$parlant || self::memeIntitule($parNumero->intitule, $texte))) return $parNumero;
+        }
+        if (!$parlant) return null;
+        // Meilleure concordance ; à égalité, la story la plus récente (dernier Product Backlog importé)
+        return $stories->map(fn($s) => [$s, self::proximiteIntitule($s->intitule, $texte)])
+            ->filter(fn($x) => $x[1] >= self::SEUIL_PROXIMITE)
+            ->sort(fn($x, $y) => [$y[1], $y[0]->id] <=> [$x[1], $x[0]->id])
+            ->first()[0] ?? null;
+    }
+
     /** Échelle des story points (complexité estimée de la user story). */
     public const POINTS = [1, 2, 3, 5, 8, 13];
     public const COMPLEXITES = [

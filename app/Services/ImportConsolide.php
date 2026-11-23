@@ -24,6 +24,10 @@ class ImportConsolide
     /** @var array<int, array{user: User, nom: string[], tous: string[]}> */
     private array $index = [];
     private array $nomsInconnus = [];
+    /** Équipe déclarée dans l'en-tête du planning du sprint en cours de lecture (« Équipe : Yapo Rodrigue, Koudjodji Koffi ») : ids. */
+    private array $equipeFeuille = [];
+    /** Noms à plusieurs personnes possibles, tranchés : texte => personne retenue (signalé dans le rapport). */
+    private array $nomsTranches = [];
     private array $membres = [];
     /** Sprints créés par cet import (historique) : leurs stories y entrent sans les règles du puisage. */
     private array $sprintsCrees = [];
@@ -41,7 +45,7 @@ class ImportConsolide
     {
         // Tous les comptes, y compris ceux des collaborateurs partis : l'historique du projet leur reste attribué
         foreach (User::orderByDesc('actif')->get() as $u) {
-            $this->index[] = ['user' => $u, 'nom' => self::mots($u->name), 'tous' => self::mots($u->nomComplet())];
+            $this->index[] = ['user' => $u, 'nom' => self::mots($u->name), 'prenom' => self::mots($u->prenom), 'tous' => self::mots($u->nomComplet())];
         }
     }
 
@@ -64,6 +68,9 @@ class ImportConsolide
                 $this->ajouterMembres();
                 if ($this->nomsInconnus) {
                     $this->erreur('Collaborateurs non reconnus (tâches attribuées à vous, lignes de daily ignorées) : ' . implode(', ', array_keys($this->nomsInconnus)) . '.');
+                }
+                if ($this->nomsTranches) {
+                    $this->erreur('Attributions à plusieurs personnes possibles, à vérifier : ' . collect($this->nomsTranches)->map(fn($u, $n) => "« {$n} » → {$u}")->join(', ') . ' (indiquez le nom complet dans le classeur, ou « Équipe : … » en tête du planning).');
                 }
                 return $this->rapport;
             });
@@ -186,6 +193,7 @@ class ImportConsolide
     private function sprint(int $num, array $onglets, bool $dernier): void
     {
         $meta = $this->metaSprint($onglets);
+        $this->equipeFeuille = isset($onglets['planning']) ? $this->equipeDeLaFeuille($onglets['planning']) : [];
         $sprint = $this->projet->sprints()->where('numero', $num)->first();
         $cree = false;
         if ((!$meta['debut'] || !$meta['fin']) && isset($onglets['planning']) && ($d = $this->periodeDesTaches($onglets['planning']))) {
@@ -434,7 +442,9 @@ class ImportConsolide
         $storyGroupe = null;
         $ignorees = 0;
         // Équipe du sprint (collaborateurs nommés dans le planning) : une tâche « Toute l'équipe » est confiée à chacun
-        $equipe = collect($lignes)->filter(fn($c, $num) => $num > $entete)->map(fn($c) => $this->utilisateur($c[$cols['assigne'] ?? -1] ?? null, false))->filter()->unique('id')->values();
+        $equipe = collect($lignes)->filter(fn($c, $num) => $num > $entete)->flatMap(fn($c) => $this->utilisateurs($c[$cols['assigne'] ?? -1] ?? null, false))->filter()->unique('id')->values();
+        // L'équipe déclarée en tête du planning fait foi pour « Toute l'équipe » / « Équipe technique »
+        if ($this->equipeFeuille) $equipe = User::whereIn('id', $this->equipeFeuille)->get();
 
         foreach ($lignes as $num => $c) {
             if ($num <= $entete) continue;
@@ -460,8 +470,9 @@ class ImportConsolide
             $us = $this->story($get('story')) ?? $storyGroupe;
             if ($us && !$this->engager($sprint, $us)) $us = null;
             $nAssigne = self::norm($get('assigne'));
-            $pourTous = $equipe->isNotEmpty() && preg_match('/^(toute?s?\s+l.?\s*equipe|l.?\s*equipe|equipe|tous|toutes)$/', $nAssigne);
-            $users = $pourTous ? $equipe->all() : [$this->utilisateur($get('assigne'))];
+            $pourTous = $equipe->isNotEmpty() && preg_match('/^((toute?s?\s+)?(l.?\s*)?equipe(\s+(technique|projet|de\s+dev\w*|dev\w*|scrum))?|tous|toutes)$/', $nAssigne);
+            // « RODRIGUE ET KOFFI » : une tâche par collaborateur ; nom non reconnu : tâche confiée à la personne qui importe (signalé)
+            $users = $pourTous ? $equipe->all() : ($this->utilisateurs($get('assigne')) ?: [null]);
 
             [$statut, $teste] = self::statutTache($get('statut'));
             $debut = self::date($get('debut')) ?? $sprint->date_debut->copy();
@@ -469,7 +480,8 @@ class ImportConsolide
             if ($fin->lt($debut)) $fin = $debut->copy();
             $intitule = Str::limit(preg_replace('/\s+/u', ' ', $intitule), 250, '…');
 
-            foreach ($users as $user) {
+            // Ligne confiée à plusieurs personnes : une tâche chacune, les points de la ligne sur la première seulement (pas de points multipliés)
+            foreach (array_values($users) as $rangUser => $user) {
                 $userId = $user?->id ?? auth()->id();
                 if ($user) $this->membres[$user->id] = min($this->membres[$user->id] ?? $sprint->date_debut->toDateString(), $sprint->date_debut->toDateString());
                 if (($lot = $existantes->get($cle($intitule, $userId))) && $lot->isNotEmpty()) {
@@ -490,7 +502,7 @@ class ImportConsolide
                     'type' => 'T1', 'intitule' => $intitule, 'priorite' => 'moyenne', 'statut' => $statut, 'teste' => $teste,
                     'date_debut' => $debut->toDateString(), 'echeance' => $fin->toDateString(),
                     'date_fin_reelle' => $statut === 'termine' ? $fin->toDateString() : null,
-                    'points' => is_numeric($get('points')) ? max(0, min(255, (int) $get('points'))) : null,
+                    'points' => $rangUser === 0 && is_numeric($get('points')) ? max(0, min(255, (int) $get('points'))) : null,
                 ]);
                 $this->rapport['taches_crees']++;
             }
@@ -722,27 +734,126 @@ class ImportConsolide
      * Collaborateur désigné par son nom tel qu'écrit dans le classeur (« ZANFACK TSOPKENG Durel Manson »,
      * « KOUASSI ANGE-ELISEE ») : nom de famille présent, puis le plus de mots en commun ; ambigu = non reconnu.
      */
+    /**
+     * Attributions des plannings du classeur, lues sans rien importer (même lecture et mêmes règles que l'import) :
+     * numéro de sprint => [intitulé normalisé => ['intitule', 'textes' => cellules « Attribution », 'users' => ids]].
+     * Sert à corriger des tâches déjà importées avec une mauvaise attribution.
+     * @return array{sprints: array<int, array<string, array{intitule: string, textes: string[], users: int[]}>>, inconnus: string[], tranches: array<string, string>}
+     */
+    public function attributionsPlanning(string $chemin): array
+    {
+        $this->lecteur = new LecteurXlsx($chemin);
+        $plan = $this->plan($this->lecteur->feuilles());
+        $res = [];
+        foreach ($plan['sprints'] as $num => $onglets) {
+            if (!isset($onglets['planning'])) continue;
+            $this->equipeFeuille = $this->equipeDeLaFeuille($onglets['planning']);
+            $lignes = $this->lecteur->lignesFeuille($onglets['planning']);
+            [$entete, $cols] = $this->entete($lignes, [
+                'num' => ['n', 'no', 'num', 'numero'], 'tache' => ['tache'], 'story' => ['user story', 'story'], 'assigne' => ['attribution', 'assigne', 'responsable'],
+                'debut' => ['debut'], 'fin' => ['date de fin', 'fin', 'echeance'], 'statut' => ['statut', 'etat'], 'points' => ['point'],
+            ], 'tache');
+            if ($entete === null) continue;
+            $equipe = $this->equipeFeuille
+                ? User::whereIn('id', $this->equipeFeuille)->get()
+                : collect($lignes)->filter(fn($c, $n) => $n > $entete)->flatMap(fn($c) => $this->utilisateurs($c[$cols['assigne'] ?? -1] ?? null, false))->unique('id')->values();
+            foreach ($lignes as $n => $c) {
+                if ($n <= $entete || self::fusionnee($c)) continue;
+                $get = fn($k) => isset($cols[$k]) ? trim((string) ($c[$cols[$k]] ?? '')) : '';
+                $intitule = $get('tache');
+                if (preg_match('/^US[\s\-_]*[A-Z]?\d/iu', $get('num')) || $intitule === '' || preg_match('/^(total|l[ée]gende|statuts?\s*:)/iu', $intitule)) continue;
+                if ($get('assigne') === '' || self::pasUneTache($intitule) || in_array(self::norm($get('assigne')), ['attribution', 'assigne'], true)) continue;
+                $nAssigne = self::norm($get('assigne'));
+                $pourTous = $equipe->isNotEmpty() && preg_match('/^((toute?s?\s+)?(l.?\s*)?equipe(\s+(technique|projet|de\s+dev\w*|dev\w*|scrum))?|tous|toutes)$/', $nAssigne);
+                $users = $pourTous ? $equipe->all() : $this->utilisateurs($get('assigne'));
+                $intitule = Str::limit(preg_replace('/\s+/u', ' ', $intitule), 250, '…');
+                $k = self::norm($intitule);
+                $res[$num][$k]['intitule'] = $intitule;
+                $res[$num][$k]['textes'][] = $get('assigne');
+                // Une occurrence par ligne et par personne : une tâche inscrite deux fois pour la même personne compte deux fois
+                $res[$num][$k]['users'] = array_merge($res[$num][$k]['users'] ?? [], array_values(array_unique(array_map(fn($u) => $u->id, $users))));
+                $res[$num][$k]['multi'] = ($res[$num][$k]['multi'] ?? false) || count($users) > 1;
+            }
+        }
+        return ['sprints' => $res, 'inconnus' => array_keys($this->nomsInconnus), 'tranches' => $this->nomsTranches];
+    }
+
+    /** Clé de comparaison d'un intitulé de tâche (celle de l'import). */
+    public static function cleTache(?string $intitule): string
+    {
+        return self::norm(Str::limit(preg_replace('/\s+/u', ' ', (string) $intitule), 250, '…'));
+    }
+
+    /**
+     * Collaborateur désigné par un texte : nom, prénom ou nom complet (« Rodrigue », « KOFFI », « Yapo Rodrigue »),
+     * civilités ignorées. Entre plusieurs personnes possibles (« Koffi » : nom de l'un, prénom de l'autre), l'équipe
+     * déclarée en tête du planning l'emporte, puis l'équipe du projet, puis la meilleure correspondance (le nom compte
+     * double), puis les comptes actifs. Ambigu ou inconnu : null, nom signalé.
+     */
     private function utilisateur(?string $nom, bool $signaler = true): ?User
     {
-        $mots = self::mots($nom);
+        $mots = array_values(array_diff(self::mots($nom), ['mr', 'mme', 'mlle', 'melle', 'dr', 'monsieur', 'madame']));
         if (!$mots) return null;
-        if (!$signaler) {
-            $avant = $this->nomsInconnus;
-            $u = $this->utilisateur($nom);
-            $this->nomsInconnus = $avant;
-            return $u;
-        }
-        $score = 0; $candidats = [];
+        $scores = [];
         foreach ($this->index as $i) {
-            if (array_diff($i['nom'], $mots)) continue;
-            $sc = count(array_intersect($i['tous'], $mots));
-            if ($sc > $score) { $score = $sc; $candidats = [$i['user']]; }
-            elseif ($sc === $score && $sc > 0) $candidats[] = $i['user'];
+            $n = count(array_intersect($i['nom'], $mots));
+            $p = count(array_intersect($i['prenom'], $mots));
+            $nomEntier = $i['nom'] && !array_diff($i['nom'], $mots);
+            // Le texte désigne la personne par son nom entier ou son prénom, sans mot étranger à son nom complet
+            if ((!$nomEntier && !$p) || array_diff($mots, $i['tous'])) continue;
+            $scores[] = [$i['user'], $n * 2 + $p];
         }
+        if (count($scores) > 1 && $this->equipeFeuille && ($f = array_values(array_filter($scores, fn($x) => in_array($x[0]->id, $this->equipeFeuille, true))))) $scores = $f;
+        if (count($scores) > 1) {
+            $duProjet = $this->membresProjet();
+            if ($f = array_values(array_filter($scores, fn($x) => in_array($x[0]->id, $duProjet, true)))) $scores = $f;
+        }
+        $max = $scores ? max(array_column($scores, 1)) : 0;
+        $candidats = array_values(array_map(fn($x) => $x[0], array_filter($scores, fn($x) => $x[1] === $max)));
         // Homonymes : le compte actif l'emporte sur celui d'un collaborateur parti ; sinon, ambigu
         if (count($candidats) > 1) $candidats = array_values(array_filter($candidats, fn($u) => $u->actif));
-        if (count($candidats) !== 1) { $this->nomsInconnus[trim((string) $nom)] = true; return null; }
+        if (count($candidats) !== 1) {
+            if ($signaler) $this->nomsInconnus[trim((string) $nom)] = true;
+            return null;
+        }
+        if ($signaler && count($scores) > 1) $this->nomsTranches[trim((string) $nom)] = $candidats[0]->nomComplet();
         return $candidats[0];
+    }
+
+    /** Plusieurs collaborateurs dans une cellule : « RODRIGUE ET KOFFI », « A, B & C ». @return User[] */
+    private function utilisateurs(?string $texte, bool $signaler = true): array
+    {
+        $res = [];
+        foreach (preg_split('/\s*(?:,|;|&|\/|\+|\bet\b)\s*/iu', trim((string) $texte)) as $morceau) {
+            if (trim($morceau) === '') continue;
+            if ($u = $this->utilisateur($morceau, $signaler)) $res[$u->id] = $u;
+        }
+        return array_values($res);
+    }
+
+    private ?array $membresProjetCache = null;
+    private function membresProjet(): array
+    {
+        return $this->membresProjetCache ??= \App\Models\ProjetCollaborateur::where('projet_id', $this->projet->id)->pluck('user_id')->map(fn($v) => (int) $v)->all();
+    }
+
+    /** Équipe déclarée dans l'en-tête d'une feuille : « … · Équipe : Yapo Rodrigue (12 tâches), Koudjodji Koffi (2) ». @return int[] */
+    private function equipeDeLaFeuille(string $onglet): array
+    {
+        foreach (array_slice($this->lecteur->lignesFeuille($onglet), 0, 15, true) as $c) {
+            foreach ($c as $v) {
+                if (!preg_match('/[ÉE]quipe\s*:\s*(.+)$/iu', (string) $v, $m)) continue;
+                $ids = [];
+                $avant = $this->equipeFeuille;
+                $this->equipeFeuille = [];
+                foreach (preg_split('/\s*(?:,|;|\bet\b)\s*/iu', preg_replace('/\([^)]*\)/u', '', $m[1])) as $nom) {
+                    if ($u = $this->utilisateur($nom, false)) $ids[] = $u->id;
+                }
+                $this->equipeFeuille = $avant;
+                return array_values(array_unique($ids));
+            }
+        }
+        return [];
     }
 
     /* ─── Lecture ─── */

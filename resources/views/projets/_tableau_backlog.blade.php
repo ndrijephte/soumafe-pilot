@@ -29,12 +29,13 @@
 .pb-leg i{width:9px;height:9px;border-radius:2px}
 .pb-leg b{color:#1f2937}
 .pb-pied{font-size:11.5px;color:#64748b}
-.pb-sp{display:grid;grid-template-columns:128px minmax(60px,1fr) 56px 56px;gap:10px;align-items:center;padding:5px 0;font-size:12px;color:#475569}
+.pb-sp{display:grid;grid-template-columns:128px minmax(60px,1fr) 76px 52px;gap:10px;align-items:center;padding:5px 0;font-size:12px;color:#475569}
 .pb-sp.entete{padding:0 0 4px;font-size:10.5px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:#94a3b8;border-bottom:1px solid #eef2f7;margin-bottom:2px}
 .pb-sp .en-cours{font-size:10px;font-weight:600;color:#2e74b5;margin-left:5px;white-space:nowrap}
 .pb-sp>span:first-child{white-space:nowrap}
 .pb-sp .nb{text-align:right;white-space:nowrap}.pb-sp .nb b{color:#1f2937}
 .pb-sp .cumul{text-align:right;color:#64748b;white-space:nowrap}
+.pb-sp.taches .jauge i{background:#94a3b8}.pb-sp .nb small{font-size:10px;color:#94a3b8;margin-left:2px}
 .pb-sp a{font-weight:700;color:#1f4e79;text-decoration:none}.pb-sp a:hover{text-decoration:underline}
 .pb-sp .jauge{height:6px;background:#e5eaf1;border-radius:6px;overflow:hidden}.pb-sp .jauge i{display:block;height:100%;background:#16a34a;border-radius:6px}.pb-sp .jauge.ouvert i{background:#2e74b5}
 
@@ -74,15 +75,16 @@
         <div data-collapse="4">
         @foreach($tableau['sprints'] as $l)
         @php $taux = $l['engagees'] ? round($l['terminees'] / $l['engagees'] * 100) : 0; @endphp
-        <div class="pb-sp" data-collapse-item title="Sprint {{ $l['numero'] }} : {{ $l['terminees'] }} user story(s) livrée(s) sur {{ $l['engagees'] }} engagée(s) ({{ $taux }} %). À l'issue de ce sprint, {{ $l['cumul'] }} % des user stories du produit sont terminées.">
+        @php $parTaches = ($l['base'] ?? 'stories') === 'taches'; @endphp
+        <div class="pb-sp {{ $parTaches ? 'taches' : '' }}" data-collapse-item title="Sprint {{ $l['numero'] }} : {{ $parTaches ? $l['terminees'] . ' tâche(s) terminée(s) sur ' . $l['engagees'] . ' (aucune user story engagée)' : $l['terminees'] . ' user story(s) livrée(s) sur ' . $l['engagees'] . ' engagée(s)' }} ({{ $taux }} %). À l'issue de ce sprint, {{ $l['cumul'] }} % des user stories du produit sont terminées.">
             <span><a href="{{ route('sprints.show', $l['id']) }}">Sprint {{ $l['numero'] }}</a>@if($l['statut'] === 'en_cours')<span class="en-cours">en cours</span>@endif</span>
             <span class="jauge {{ $l['statut'] !== 'termine' ? 'ouvert' : '' }}" role="img" aria-label="{{ $taux }} % des stories du sprint livrées"><i style="width:{{ $taux }}%"></i></span>
-            <span class="nb"><b>{{ $l['terminees'] }}</b>/{{ $l['engagees'] }}</span>
+            <span class="nb"><b>{{ $l['terminees'] }}</b>/{{ $l['engagees'] }}@if($parTaches)<small> tâches</small>@endif</span>
             <span class="cumul">{{ $l['cumul'] }} %</span>
         </div>
         @endforeach
         </div>
-        <div class="pb-pied" style="margin-top:4px">Barre : stories livrées dans le sprint sur celles engagées. Produit : part des user stories du produit terminées à l'issue du sprint.</div>
+        <div class="pb-pied" style="margin-top:4px">Barre : stories livrées dans le sprint sur celles engagées (en gris, tâches terminées pour un sprint sans user story). Produit : part des user stories du produit terminées à l'issue du sprint.</div>
         @else
         <div class="pb-vide">Aucune user story engagée dans un sprint pour l'instant.</div>
         @endif

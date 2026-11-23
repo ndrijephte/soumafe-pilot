@@ -107,7 +107,7 @@ class UserStory extends Model
     public function taches(): HasMany { return $this->hasMany(Tache::class); }
     public function sprints(): BelongsToMany
     {
-        return $this->belongsToMany(Sprint::class, 'sprint_user_stories')->withPivot('statut_sprint', 'fige_le')->withTimestamps();
+        return $this->belongsToMany(Sprint::class, 'sprint_user_stories')->withPivot('statut_sprint', 'instantane', 'fige_le')->withTimestamps();
     }
 
     public const ORIGINES = ['manuel' => 'Saisie', 'import' => 'Import Excel', 'review' => 'Sprint Review', 'retrospective' => 'Rétrospective'];

@@ -21,7 +21,7 @@ class ProjetScrumController extends Controller
         ])]);
 
         $toutes = UserStory::trierParNumero(
-            $projet->userStories()->with(['sprints:id,numero,statut'])->withCount(['taches', 'taches as taches_terminees_count' => fn($t) => $t->where('statut', 'termine')])->get()
+            $projet->userStories()->with(['sprints:id,numero,statut,date_debut'])->withCount(['taches', 'taches as taches_terminees_count' => fn($t) => $t->where('statut', 'termine')])->get()
         )->values();
         // Les stories archivées restent dans l'historique des sprints, hors du Product Backlog
         [$archivees, $stories] = $toutes->partition(fn($us) => $us->estArchivee());

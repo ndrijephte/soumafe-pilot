@@ -172,12 +172,23 @@ final class AvancementScrum
         $lignes = [];
         foreach ($sprints->sortBy('numero') as $sp) {
             $engagees = $stories->filter(fn($us) => $us->sprints->contains('id', $sp->id));
-            if ($engagees->isEmpty()) continue;
+            if ($engagees->isEmpty()) {
+                // Sprint sans story engagée (planning importé sans user story) : il figure dans l'historique, suivi par ses tâches
+                $nb = $sp->taches_count ?? $sp->taches()->where('statut', '!=', 'reporte')->count();
+                if (!$nb && $sp->statut === 'planifie') continue;
+                $faitesT = $sp->taches_terminees_count ?? $sp->taches()->where('statut', 'termine')->count();
+                $lignes[] = [
+                    'id' => $sp->id, 'numero' => $sp->numero, 'statut' => $sp->statut, 'base' => 'taches',
+                    'engagees' => (int) $nb, 'terminees' => (int) $faitesT,
+                    'cumul' => $total ? (int) round($terminees->count() / $total * 100) : 0,
+                ];
+                continue;
+            }
             // Même règle que les points livrés (stories achevées des sprints importés sans statut de sprint comprises)
             $faites = $engagees->filter(fn($us) => $sp->storyLivree($us, $us->sprints->firstWhere('id', $sp->id)->pivot));
             $terminees = $terminees->merge($faites->pluck('id'))->unique();
             $lignes[] = [
-                'id' => $sp->id, 'numero' => $sp->numero, 'statut' => $sp->statut,
+                'id' => $sp->id, 'numero' => $sp->numero, 'statut' => $sp->statut, 'base' => 'stories',
                 'engagees' => $engagees->count(), 'terminees' => $faites->count(),
                 'cumul' => $total ? (int) round($terminees->count() / $total * 100) : 0,
             ];

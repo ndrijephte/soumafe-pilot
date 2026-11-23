@@ -686,7 +686,8 @@ class SprintController extends Controller
                     $dateDebut = $this->parserDate($dateDebutStr);
                     $echeance = $this->parserDate($echeanceStr);
 
-                    foreach ($userIds as $userId) {
+                    // Ligne confiée à plusieurs personnes : une tâche chacune, les points de la ligne sur la première seulement
+                    foreach (array_values($userIds) as $rangUser => $userId) {
                     // Déjà dans le sprint : pas de doublon. La story du fichier est rattachée et seuls les champs vides sont complétés ;
                     // le statut, la story et ce qui a été saisi depuis le premier import ne bougent pas.
                     if ($existantes->get($cleTache($intitule, $userId))?->isNotEmpty()) {
@@ -735,7 +736,7 @@ class SprintController extends Controller
                         'priorite' => $prioMapped,
                         'date_debut' => $dateDebut ?? today()->format('Y-m-d'),
                         'echeance' => $echeance,
-                        'points' => is_numeric($points) ? (int) $points : null,
+                        'points' => $rangUser === 0 && is_numeric($points) ? (int) $points : null,
                     ]);
                     $importees++;
                     }

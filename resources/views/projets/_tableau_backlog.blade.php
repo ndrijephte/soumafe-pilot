@@ -29,10 +29,15 @@
 .pb-leg i{width:9px;height:9px;border-radius:2px}
 .pb-leg b{color:#1f2937}
 .pb-pied{font-size:11.5px;color:#64748b}
-.pb-sp{display:grid;grid-template-columns:62px minmax(0,auto) minmax(50px,1fr) 38px;gap:10px;align-items:center;padding:5px 0;font-size:12px;color:#475569}
+.pb-sp{display:grid;grid-template-columns:128px minmax(60px,1fr) 56px 56px;gap:10px;align-items:center;padding:5px 0;font-size:12px;color:#475569}
+.pb-sp.entete{padding:0 0 4px;font-size:10.5px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:#94a3b8;border-bottom:1px solid #eef2f7;margin-bottom:2px}
+.pb-sp .en-cours{font-size:10px;font-weight:600;color:#2e74b5;margin-left:5px;white-space:nowrap}
+.pb-sp>span:first-child{white-space:nowrap}
+.pb-sp .nb{text-align:right;white-space:nowrap}.pb-sp .nb b{color:#1f2937}
+.pb-sp .cumul{text-align:right;color:#64748b;white-space:nowrap}
 .pb-sp a{font-weight:700;color:#1f4e79;text-decoration:none}.pb-sp a:hover{text-decoration:underline}
-.pb-sp .jauge{height:6px;background:#e5eaf1;border-radius:6px;overflow:hidden}.pb-sp .jauge i{display:block;height:100%;background:#2e74b5;border-radius:6px}
-.pb-sp .val{text-align:right;font-weight:700;color:#1f2937}
+.pb-sp .jauge{height:6px;background:#e5eaf1;border-radius:6px;overflow:hidden}.pb-sp .jauge i{display:block;height:100%;background:#16a34a;border-radius:6px}.pb-sp .jauge.ouvert i{background:#2e74b5}
+
 .pb-vide{font-size:12.5px;color:var(--gris);padding:10px 0}
 @media(max-width:800px){.pb-bord{grid-template-columns:1fr}.pb-bord>div+div{border-left:0;border-top:1px solid var(--bord)}}
 </style>
@@ -65,17 +70,19 @@
     <div>
         <h4>Progression par sprint</h4>
         @if($tableau['sprints'])
+        <div class="pb-sp entete" aria-hidden="true"><span>Sprint</span><span>Stories livrées dans le sprint</span><span></span><span style="text-align:right">Produit</span></div>
         <div data-collapse="4">
         @foreach($tableau['sprints'] as $l)
-        <div class="pb-sp" data-collapse-item title="Sprint {{ $l['numero'] }} : {{ $l['terminees'] }} terminée(s) sur {{ $l['engagees'] }} engagée(s). Après ce sprint, {{ $l['cumul'] }} % des user stories du produit sont terminées.">
-            <a href="{{ route('sprints.show', $l['id']) }}">Sprint {{ $l['numero'] }}</a>
-            <span>{{ $l['terminees'] }}/{{ $l['engagees'] }} stories</span>
-            <span class="jauge"><i style="width:{{ $l['cumul'] }}%"></i></span>
-            <span class="val">{{ $l['cumul'] }} %</span>
+        @php $taux = $l['engagees'] ? round($l['terminees'] / $l['engagees'] * 100) : 0; @endphp
+        <div class="pb-sp" data-collapse-item title="Sprint {{ $l['numero'] }} : {{ $l['terminees'] }} user story(s) livrée(s) sur {{ $l['engagees'] }} engagée(s) ({{ $taux }} %). À l'issue de ce sprint, {{ $l['cumul'] }} % des user stories du produit sont terminées.">
+            <span><a href="{{ route('sprints.show', $l['id']) }}">Sprint {{ $l['numero'] }}</a>@if($l['statut'] === 'en_cours')<span class="en-cours">en cours</span>@endif</span>
+            <span class="jauge {{ $l['statut'] !== 'termine' ? 'ouvert' : '' }}" role="img" aria-label="{{ $taux }} % des stories du sprint livrées"><i style="width:{{ $taux }}%"></i></span>
+            <span class="nb"><b>{{ $l['terminees'] }}</b>/{{ $l['engagees'] }}</span>
+            <span class="cumul">{{ $l['cumul'] }} %</span>
         </div>
         @endforeach
         </div>
-        <div class="pb-pied" style="margin-top:4px">Barre : part du produit terminée à l'issue du sprint.</div>
+        <div class="pb-pied" style="margin-top:4px">Barre : stories livrées dans le sprint sur celles engagées. Produit : part des user stories du produit terminées à l'issue du sprint.</div>
         @else
         <div class="pb-vide">Aucune user story engagée dans un sprint pour l'instant.</div>
         @endif

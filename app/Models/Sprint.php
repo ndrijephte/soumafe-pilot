@@ -149,13 +149,18 @@ class Sprint extends Model
      *  - sprint clôturé : achevée à la clôture (instantané), ou, pour un sprint importé sans instantané,
      *    achevée aujourd'hui et ce sprint est le dernier où elle a été engagée (c'est là qu'elle a été livrée).
      */
-    public function storyLivree(UserStory $us): bool
+    public function storyLivree(UserStory $us, $pivot = null): bool
     {
-        if (($us->pivot->statut_sprint ?? null) === 'termine') return true;
+        // Pivot du sprint : celui de la relation du sprint, ou celui fourni (story lue depuis ses sprints)
+        $pivot ??= $us->pivot ?? null;
+        if (($pivot->statut_sprint ?? null) === 'termine') return true;
         if ($this->statut !== 'termine') return $us->estFinie();
-        $fige = $us->instantaneSprint();
-        if ($fige !== null) return in_array($fige['statut'] ?? null, UserStory::FINIES, true);
-        return $us->estFinie() && ($this->derniersSprints()[$us->id] ?? null) === $this->id;
+        $fige = ($brut = $pivot->instantane ?? null) ? json_decode($brut, true) : null;
+        if ($fige) return in_array($fige['statut'] ?? null, UserStory::FINIES, true);
+        $dernier = $us->relationLoaded('sprints')
+            ? $us->sprints->sortBy([['date_debut', 'asc'], ['numero', 'asc']])->last()?->id
+            : ($this->derniersSprints()[$us->id] ?? null);
+        return $us->estFinie() && $dernier === $this->id;
     }
 
     /** Pour chaque story du sprint, le dernier sprint (par date de début) où elle a été engagée. */

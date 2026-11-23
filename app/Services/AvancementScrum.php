@@ -173,7 +173,8 @@ final class AvancementScrum
         foreach ($sprints->sortBy('numero') as $sp) {
             $engagees = $stories->filter(fn($us) => $us->sprints->contains('id', $sp->id));
             if ($engagees->isEmpty()) continue;
-            $faites = $engagees->filter(fn($us) => $us->sprints->firstWhere('id', $sp->id)->pivot->statut_sprint === 'termine');
+            // Même règle que les points livrés (stories achevées des sprints importés sans statut de sprint comprises)
+            $faites = $engagees->filter(fn($us) => $sp->storyLivree($us, $us->sprints->firstWhere('id', $sp->id)->pivot));
             $terminees = $terminees->merge($faites->pluck('id'))->unique();
             $lignes[] = [
                 'id' => $sp->id, 'numero' => $sp->numero, 'statut' => $sp->statut,

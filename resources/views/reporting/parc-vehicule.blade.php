@@ -10,14 +10,14 @@
 .fv-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid var(--bord);background:#fff;color:#334155}
 .fv-btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
 .fiche{background:#fff;border:1px solid var(--bord);border-radius:14px;overflow:hidden}
-.fiche-tete{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between;padding:20px 24px;background:linear-gradient(135deg,#1F4E79,#2E74B5);color:#fff}
-.fiche-tete h1{font-size:26px;letter-spacing:1px;margin:0;font-weight:700}
-.fiche-tete .sous{font-size:13px;opacity:.85;margin-top:2px}
+.fiche-tete{display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-between;padding:18px 24px;background:var(--carte);border-bottom:1px solid var(--bord);color:#334155}
+.fiche-tete h1{font-size:22px;letter-spacing:.5px;margin:0;font-weight:700;color:var(--bleu)}
+.fiche-tete .sous{font-size:13px;color:var(--gris);margin-top:2px}
 .fiche-tete .badges{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-.fiche-tete .bdg{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:20px;padding:2px 10px;font-size:11.5px;font-weight:600}
-.fiche-tete .rang{text-align:right}
-.fiche-tete .rang strong{display:block;font-size:30px;line-height:1}
-.fiche-tete .rang span{font-size:12px;opacity:.85}
+.fiche-tete .bdg{background:#f1f5f9;color:#475569;border-radius:10px;padding:2px 9px;font-size:11px;font-weight:600}
+.fiche-tete .rang{text-align:right;color:var(--gris)}
+.fiche-tete .rang strong{display:block;font-size:26px;line-height:1;color:var(--bleu)}
+.fiche-tete .rang span{font-size:12px}
 .fiche-corps{padding:20px 24px}
 .fiche-periode{font-size:12.5px;color:#475569;margin-bottom:16px}
 .fiche-periode strong{color:var(--bleu)}
@@ -35,11 +35,11 @@
 .var{font-size:11px;font-weight:700}.var.up{color:var(--ok)}.var.down{color:var(--ko)}.var.eq{color:var(--gris)}
 .gauge{height:7px;background:#f1f5f9;border-radius:6px;overflow:hidden;margin:4px 0 2px}.gauge>div{height:100%;border-radius:6px}
 .g-ok{background:var(--ok)}.g-warn{background:#f59e0b}.g-ko{background:var(--ko)}
-.constats{display:grid;gap:6px}
-.constat{padding:8px 12px;border-radius:8px;font-size:13px;border-left:4px solid}
-.constat.ok{background:#f0fdf4;border-color:var(--ok);color:#166534}
-.constat.warn{background:#fffbeb;border-color:#f59e0b;color:#92400e}
-.constat.ko{background:#fef2f2;border-color:var(--ko);color:#991b1b}
+.constats{display:grid;border:1px solid var(--bord);border-radius:10px;padding:2px 14px}
+.constat{display:flex;gap:10px;align-items:baseline;padding:8px 0;font-size:13px;color:#334155;border-bottom:1px solid var(--bord)}
+.constat:last-child{border-bottom:none}
+.constat::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--gris)}
+.constat.ok::before{background:var(--ok)}.constat.warn::before{background:#f59e0b}.constat.ko::before{background:var(--ko)}
 .fv-grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .fv-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
 .fv-tbl th{text-align:left;padding:6px 8px;background:#f8fafc;color:var(--gris);font-size:10.5px;text-transform:uppercase;border-bottom:2px solid var(--bord)}
@@ -99,7 +99,7 @@
         <input type="hidden" name="date_debut" value="{{ $debut->format('Y-m-d') }}"><input type="hidden" name="date_fin" value="{{ $fin->format('Y-m-d') }}">
         @else
         <select name="exercice" onchange="this.form.submit()" aria-label="Exercice">
-            @foreach($exercices as $cle => $ex)<option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}</option>@endforeach
+            @foreach($exercices as $cle => $ex)<option value="{{ $cle }}" @selected($exercice === $cle)>{{ \App\Services\ExerciceParc::nom($cle) }}{{ $loop->first ? ' (en cours)' : '' }}</option>@endforeach
         </select>
         @endif
     </form>

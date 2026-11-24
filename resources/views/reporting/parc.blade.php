@@ -32,7 +32,9 @@
 .evo-bulle div i{width:9px;height:9px;border-radius:2px;flex:none}
 .evo-bulle div b{margin-left:auto;color:#1e293b;font-variant-numeric:tabular-nums}
 @media(max-width:700px){.evo-totaux{grid-template-columns:repeat(2,1fr)}.evo-aide{display:none}}
-.periode-bandeau{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:13px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 14px;margin-bottom:16px}
+.periode-bandeau{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12.5px;color:#475569;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:10px 14px;margin-bottom:16px}
+.periode-bandeau strong{color:var(--bleu)}
+.periode-bandeau svg{color:var(--accent)}
 
 .rp-titre{font-size:13px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;margin:22px 0 10px}
 
@@ -58,16 +60,18 @@
 .taux-cell .t{font-weight:700;font-size:12px}
 
 /* À traiter */
-.todo{display:grid;gap:8px}
-.todo-item{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--bord);border-left:4px solid var(--gris);border-radius:10px;padding:10px 14px}
-.todo-item.ko{border-left-color:var(--ko);background:#fffafa}
-.todo-item.warn{border-left-color:#f59e0b;background:#fffdf5}
-.todo-item.info{border-left-color:var(--accent)}
-.todo-item .tt{font-weight:700;font-size:13.5px;color:var(--texte,#1e293b)}
+.todo{display:grid;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:2px 16px}
+.todo-item{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--bord)}
+.todo-item:last-child{border-bottom:none}
+.todo-item::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--gris)}
+.todo-item.ko::before{background:var(--ko)}
+.todo-item.warn::before{background:#f59e0b}
+.todo-item.info::before{background:var(--accent)}
+.todo-item .tt{font-weight:600;font-size:13px;color:var(--texte,#1e293b)}
 .todo-item .dd{font-size:12.5px;color:#475569;margin-top:2px}
 .todo-item a{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap;text-decoration:none;align-self:center}
 .todo-item a:hover{text-decoration:underline}
-.todo-ok{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;color:#166534;font-size:13px;font-weight:600}
+.todo-ok{background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:12px 16px;color:#166534;font-size:13px}
 
 .rp-section{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:16px 18px;margin-bottom:16px}
 .rp-section h3{font-size:15px;color:var(--bleu);margin-bottom:4px;display:flex;align-items:center;gap:8px}
@@ -149,7 +153,7 @@
         <label id="lbl-exercice">{{ $periode === 'trois_exercices' ? 'Jusqu\'à l\'exercice' : 'Exercice' }}</label>
         <select name="exercice">
             @foreach($exercices as $cle => $ex)
-            <option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $loop->first ? ' - en cours' : '' }}</option>
+            <option value="{{ $cle }}" @selected($exercice === $cle)>{{ \App\Services\ExerciceParc::nom($cle) }}{{ $loop->first ? ' (en cours)' : '' }}</option>
             @endforeach
         </select>
     </div>

@@ -111,8 +111,11 @@ class ParcController extends Controller
         $docsResume = \App\Models\Document::resumes();
         $docsARenouveler = Schema::hasTable('documents') ? \App\Models\Document::aRenouveler() : collect();
 
+        // Accueil « Aujourd'hui » : ce qui attend une action, quelle que soit la période affichée
+        $accueil = $this->accueil();
+
         return view('parc.index', compact(
-            'docsResume', 'docsARenouveler',
+            'docsResume', 'docsARenouveler', 'accueil',
             'vehicules', 'chauffeurs', 'collaborateurs', 'pannes', 'recettes',
             'maintenances', 'penalites', 'kpi', 'typesPenalite', 'typesMaintenance',
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
@@ -120,6 +123,31 @@ class ParcController extends Controller
             'pretsAccordes', 'autresRessources', 'typesRessource', 'caisses',
             'exercicesParc', 'exerciceCourant', 'exercice', 'reports', 'echeancier', 'exDebut', 'exFin'
         ));
+    }
+
+    /** Accueil du parc : éléments ouverts (toutes périodes), recette de la veille, activité récente. */
+    private function accueil(): array
+    {
+        $hier = today()->subDay();
+        $recHier = RecetteVehicule::whereDate('date', $hier);
+        return [
+            'pannes' => Panne::with('vehicule')->whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->orderBy('date_declaration')->get(),
+            'penalites' => Schema::hasTable('penalites') ? Penalite::with('vehicule')->where('statut', '!=', 'payee')->orderBy('date_infraction')->get() : collect(),
+            'recouvrements' => Schema::hasTable('recouvrements') ? Recouvrement::with('vehicule')->where('statut', 'actif')->orderBy('date_recette')->get() : collect(),
+            'emprunts' => Schema::hasTable('emprunts') ? Emprunt::where('statut', 'en_cours')->get() : collect(),
+            'prets' => Schema::hasTable('prets_accordes') ? PretAccorde::with('chauffeur')->where('statut', 'en_cours')->get() : collect(),
+            'hier' => $hier,
+            'recette_hier' => (int) (clone $recHier)->sum('recette'),
+            'objectif_hier' => (int) (clone $recHier)->sum('objectif'),
+            'saisies_hier' => (clone $recHier)->count(),
+            // Documents en vigueur de chaque véhicule, pour l'aperçu de l'accueil
+            'docsVehicules' => Schema::hasTable('documents')
+                ? \App\Models\Document::enVigueur()->with('deposePar:id,name')->where('documentable_type', 'vehicule')->orderBy('categorie')->orderByDesc('created_at')->get()->groupBy('documentable_id')
+                : collect(),
+            'activite' => Schema::hasTable('audit_logs')
+                ? AuditLog::whereIn('module', \App\Services\JournalActivite::modulesDuDomaine('parc'))->orderByDesc('created_at')->limit(10)->get()
+                : collect(),
+        ];
     }
 
     /* ─── Construire la grille du jour (chauffeur-centric) ─── */

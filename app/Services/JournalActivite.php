@@ -105,6 +105,12 @@ final class JournalActivite
         'horaires_modifies' => 'Horaires modifiés', 'ajout_collaborateur' => 'Collaborateur ajouté',
     ];
 
+    /** Modules du journal rattachés à un domaine (ex. « parc »). */
+    public static function modulesDuDomaine(string $domaine): array
+    {
+        return array_keys(array_filter(self::MODULES, fn($d) => $d === $domaine));
+    }
+
     public static function domaine(string $module): string
     {
         return self::MODULES[$module] ?? 'admin';

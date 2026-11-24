@@ -7,7 +7,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Tache extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, Concerns\JournaliseActivite;
+
+    public function journalModule(): string { return 'taches'; }
+    public function journalCible(): string { return "#{$this->id} " . $this->intitule . ($this->projet_id ? ' (' . (Projet::whereKey($this->projet_id)->value('code') ?? '') . ')' : ''); }
+    public function journalChamps(): array { return ['statut', 'user_id', 'echeance', 'date_debut', 'intitule']; }
+    public function journalStatut(string $s): string { return (new self(['statut' => $s]))->labelStatut(); }
     protected $table = 'taches';
     protected $fillable = ['user_id', 'type', 'intitule', 'projet_id', 'sprint_id', 'ajoutee_en_cours_le', 'activite',
         'priorite', 'date_debut', 'echeance', 'date_fin_reelle', 'points', 'statut',

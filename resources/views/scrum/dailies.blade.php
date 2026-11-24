@@ -12,7 +12,9 @@
 .jour.fait{border-color:#93c5fd;background:#f8fbff}
 .jour.fait:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(46,116,181,.14)}
 .jour.fait .num{color:var(--accent)}
-.jour.auj{outline:2px solid var(--warn);outline-offset:-1px}
+.jour.auj{outline:2px solid var(--warn);outline-offset:-1px;background:#fffbeb}
+.jour.auj.fait{background:#fff8e6;border-color:#f59e0b;box-shadow:0 2px 10px rgba(245,158,11,.18)}
+.jour .etq-auj{position:absolute;top:8px;right:8px;font-size:9.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;background:#f59e0b;color:#fff;border-radius:6px;padding:1px 6px}
 .jour.futur{opacity:.6}
 .jour .roles{font-size:11px;color:var(--gris);line-height:1.4}
 .jour .roles b{color:#334155;font-weight:600}
@@ -89,6 +91,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
             @php $d = $j['daily']; $auj = $j['date']->isToday(); @endphp
             @if($d)
             <a class="jour fait {{ $auj ? 'auj' : '' }}" href="{{ $d->url() }}">
+                @if($auj)<span class="etq-auj">Aujourd'hui</span>@endif
                 <span class="num">Daily {{ $d->numero_jour }}</span>
                 <span class="dt">{{ ucfirst($j['date']->translatedFormat('D d/m')) }}</span>
                 <span class="roles">Facilitateur : <b>{{ $nom($d->roleUserId('facilitateur')) }}</b><br>Scribe : <b>{{ $nom($d->roleUserId('scribe')) }}</b></span>
@@ -97,6 +100,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
             </a>
             @else
             <div class="jour vide {{ $auj ? 'auj' : '' }} {{ $j['date']->isFuture() && !$auj ? 'futur' : '' }}">
+                @if($auj)<span class="etq-auj">Aujourd'hui</span>@endif
                 <span class="num">Jour {{ $j['numero'] }}</span>
                 <span class="dt">{{ ucfirst($j['date']->translatedFormat('D d/m')) }}</span>
                 <span class="roles">Pas de Daily</span>

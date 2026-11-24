@@ -303,9 +303,8 @@ class ObservationController extends Controller
         $u = $r->user();
         abort_unless($u->estPilote() || $u->peutGererParc(), 403);
 
-        $collaborateurs = User::where('actif', true)
-            ->whereNotIn('role', ['invite', 'administrateur', 'direction'])
-            ->orderBy('name')->get();
+        // Tout collaborateur, y compris les anciens (leur historique reste consultable)
+        $collaborateurs = User::where('role', '!=', 'invite')->orderByDesc('actif')->orderBy('name')->get();
 
         $collab  = null;
         $data    = null;
@@ -320,9 +319,10 @@ class ObservationController extends Controller
             $taches = Tache::where('user_id', $collab->id)
                 ->where(function ($q) use ($debut, $fin) {
                     $q->whereBetween('date_debut', [$debut, $fin])
-                      ->orWhereBetween('echeance', [$debut, $fin]);
+                      ->orWhereBetween('echeance', [$debut, $fin])
+                      ->orWhereBetween('date_fin_reelle', [$debut, $fin]);
                 })
-                ->with('projet')
+                ->with(['projet', 'sprint:id,numero'])
                 ->withTrashed()
                 ->orderByDesc('date_debut')
                 ->get();
@@ -352,15 +352,8 @@ class ObservationController extends Controller
                 ->orderByDesc('date_reception')
                 ->get();
 
-            // Audit global (toutes actions sur tous modules)
-            $auditGlobal = collect();
-            if (Schema::hasTable('audit_logs')) {
-                $auditGlobal = \App\Models\AuditLog::where('user_id', $collab->id)
-                    ->whereBetween('created_at', [$debut, $fin . ' 23:59:59'])
-                    ->orderByDesc('created_at')
-                    ->limit(30)
-                    ->get();
-            }
+            // Journal complet : toutes les actions tracées, tous domaines (parc, Scrum, tâches, objectifs…)
+            $journal = \App\Services\JournalActivite::pour($collab, $debut, $fin);
 
             // Pointages
             $pointages = collect();
@@ -408,36 +401,25 @@ class ObservationController extends Controller
                 ? round($taches->where('statut', 'termine')->count() / $taches->count() * 100)
                 : 0;
 
-            // Activités parc automobile (si gestionnaire parc)
+            // Parc automobile : actions tracées au journal (saisies, versements, dépenses, maintenances…)
+            $actionsParc = $journal->where('domaine', 'parc');
             $parcData = null;
-            if ($collab->peutGererParc()) {
-                $nomComplet = $collab->nomComplet();
-                $recettesParc = \App\Models\RecetteVehicule::where('controle_par', $nomComplet)
-                    ->whereBetween('date', [$debut, $fin])
-                    ->get();
-                $depensesParc = \App\Models\Depense::where('cree_par', $nomComplet)
-                    ->whereBetween('date_depense', [$debut, $fin])
-                    ->get();
-                $auditParc = collect();
-                if (Schema::hasTable('audit_logs')) {
-                    $auditParc = \App\Models\AuditLog::where('user_id', $collab->id)
-                        ->where('module', 'parc')
-                        ->whereBetween('created_at', [$debut, $fin . ' 23:59:59'])
-                        ->orderByDesc('created_at')
-                        ->limit(20)
-                        ->get();
-                }
+            if ($collab->peutGererParc() || $actionsParc->isNotEmpty()) {
                 $parcData = [
-                    'recettes'           => $recettesParc,
-                    'recettes_total'     => $recettesParc->sum('recette'),
-                    'recettes_count'     => $recettesParc->count(),
-                    'depenses'           => $depensesParc,
-                    'depenses_total'     => $depensesParc->sum('montant'),
-                    'depenses_count'     => $depensesParc->count(),
-                    'audit_actions'      => $auditParc,
-                    'audit_count'        => $auditParc->count(),
+                    'actions'    => $actionsParc->values(),
+                    'par_module' => $actionsParc->groupBy('module')
+                        ->map(fn($g, $m) => ['libelle' => \App\Services\JournalActivite::libelleModule($m), 'n' => $g->count(),
+                            'detail' => $g->countBy('action')->map(fn($n, $a) => \App\Services\JournalActivite::libelleAction($a) . ' ' . $n)->join(' · ')])
+                        ->sortByDesc('n')->values(),
+                    'jours'      => $actionsParc->map(fn($l) => $l['quand']->toDateString())->unique()->count(),
+                    'delegue'    => (bool) ($collab->delegation_parc ?? false),
                 ];
             }
+
+            // Projets : équipes et responsabilités
+            $projets = \App\Models\Projet::where('responsable_projet_id', $collab->id)
+                ->orWhereIn('id', \App\Models\ProjetCollaborateur::where('user_id', $collab->id)->pluck('projet_id'))
+                ->orderBy('code')->get(['id', 'code', 'libelle', 'responsable_projet_id']);
 
             // Observations combinées (responsable + suivies, sans doublons)
             $obsTotal = $observations->count() + $observationsSuivies->reject(fn($o) => $observations->contains('id', $o->id))->count();
@@ -465,11 +447,14 @@ class ObservationController extends Controller
                 ? round($reunions->whereIn('statut', ['prevu', 'present'])->count() / $reunions->count() * 100) : 0;
             $scoreComposantes['reunions'] = ['poids' => 5, 'score' => $scoreReunions, 'label' => 'Réunions'];
 
-            $scoreGlobal = 0;
-            foreach ($scoreComposantes as $c) {
-                $scoreGlobal += $c['score'] * $c['poids'] / 100;
-            }
-            $scoreGlobal = round($scoreGlobal);
+            // Une composante sans objet sur la période (aucune tâche, aucun objectif…) ne pénalise pas le score :
+            // elle est écartée et les poids des autres sont rapportés à 100 %.
+            $applicable = ['taches' => $taches->isNotEmpty(), 'okr' => $objectifs->isNotEmpty(), 'obs' => $obsTotal > 0,
+                'assiduite' => $pointages->isNotEmpty(), 'reunions' => $reunions->isNotEmpty()];
+            foreach ($scoreComposantes as $k => &$c) $c['na'] = !$applicable[$k];
+            unset($c);
+            $poidsUtiles = collect($scoreComposantes)->reject(fn($c) => $c['na'])->sum('poids');
+            $scoreGlobal = $poidsUtiles ? round(collect($scoreComposantes)->reject(fn($c) => $c['na'])->sum(fn($c) => $c['score'] * $c['poids']) / $poidsUtiles) : null;
 
             // Stats résumé
             $data = [
@@ -479,7 +464,8 @@ class ObservationController extends Controller
                 'observationsSuivies' => $observationsSuivies,
                 'pointages'          => $pointages,
                 'reunions'           => $reunions,
-                'auditGlobal'        => $auditGlobal,
+                'journal'            => $journal,
+                'projets'            => $projets,
                 'parcData'           => $parcData,
                 'scoreComposantes'   => $scoreComposantes,
                 'scoreGlobal'        => $scoreGlobal,
@@ -504,7 +490,9 @@ class ObservationController extends Controller
                     'retards'          => $pointages->where('statut', 'retard')->count(),
                     'reunions_total'   => $reunions->count(),
                     'reunions_present' => $reunions->whereIn('statut', ['prevu', 'present'])->count(),
-                    'audit_actions'    => $auditGlobal->count(),
+                    'audit_actions'    => $journal->where('domaine', '!=', 'connexion')->count(),
+                    'connexions'       => $journal->where('module', 'auth')->where('action', 'connexion')->count(),
+                    'jours_actifs'     => $journal->where('domaine', '!=', 'connexion')->map(fn($l) => $l['quand']->toDateString())->unique()->count(),
                 ],
             ];
         }

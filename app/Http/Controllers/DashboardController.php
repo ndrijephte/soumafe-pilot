@@ -24,6 +24,25 @@ class DashboardController extends Controller
         return $this->dashboardCollab($user);
     }
 
+    /** Blocs « Sprints de la période », « Tâches bloquées », « Tâches en retard » sur leur propre période (du ... au). */
+    public function bloc(Request $r)
+    {
+        abort_unless($r->user()->estPilote(), 403);
+        $v = $r->validate([
+            'bloc' => 'required|in:sprints,bloquees,retard',
+            'du' => 'required|date_format:Y-m-d', 'au' => 'required|date_format:Y-m-d|after_or_equal:du',
+            'def_du' => 'nullable|date_format:Y-m-d', 'def_au' => 'nullable|date_format:Y-m-d',
+        ]);
+        $ind = $this->indicateursPeriode(\Carbon\Carbon::parse($v['du'])->startOfDay(), \Carbon\Carbon::parse($v['au'])->endOfDay(), 8);
+        return view('dashboard._bloc', [
+            'bloc' => $v['bloc'], 'du' => $v['du'], 'au' => $v['au'],
+            'defDu' => $v['def_du'] ?? $v['du'], 'defAu' => $v['def_au'] ?? $v['au'],
+            'plein' => $r->boolean('plein'), 'classe' => $r->classe === 'bloc-dg' ? 'bloc-dg' : '',
+            'sprintsEnCours' => $ind['sprintsEnCours'], 'topBloquees' => $ind['topBloquees'], 'bloquees' => $ind['bloquees'],
+            'tachesEnRetard' => $ind['tachesEnRetard'], 'enRetard' => $ind['nbTachesEnRetard'],
+        ]);
+    }
+
     /** Bloc « Performance équipe » pour la période choisie (du ... au). */
     public function performanceEquipe(Request $r)
     {
@@ -83,7 +102,9 @@ class DashboardController extends Controller
         $bloquees = (clone $bloqueesQ)->count();
         $topBloquees = (clone $bloqueesQ)->with(['user', 'projet'])->orderByRaw("statut = 'bloque' DESC")->orderByDesc('updated_at')->limit($limite)->get();
 
-        $tachesEnRetard = (clone $taches)->with(['user', 'projet'])->enRetard()->whereIn('statut', ['en_cours', 'a_faire'])->orderBy('echeance')->limit(8)->get();
+        $retardQ = (clone $taches)->enRetard()->whereIn('statut', ['en_cours', 'a_faire']);
+        $nbTachesEnRetard = (clone $retardQ)->count();
+        $tachesEnRetard = (clone $retardQ)->with(['user', 'projet'])->orderBy('echeance')->limit(8)->get();
 
         $parProjet = Projet::whereHas('taches', $periode)->withCount([
             'taches' => $periode,
@@ -133,7 +154,7 @@ class DashboardController extends Controller
         ];
 
         return compact('totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal', 'tauxRetard', 'nbEchues', 'nbEchuesRetard',
-            'topBloquees', 'tachesEnRetard', 'parProjet', 'sprintsEnCours', 'sprintsTermines', 'tendance', 'evenements', 'periodeTdb');
+            'topBloquees', 'tachesEnRetard', 'nbTachesEnRetard', 'parProjet', 'sprintsEnCours', 'sprintsTermines', 'tendance', 'evenements', 'periodeTdb');
     }
 
     /* ─── Dashboard collaborateur (US-16) - enrichi si responsable projet ─── */
@@ -482,7 +503,7 @@ class DashboardController extends Controller
         return view('dashboard.pilote', compact(
             'totalTaches', 'terminees', 'enCours', 'bloquees', 'enRetard', 'tauxGlobal',
             'termineesSemaine', 'sansSaisieHier', 'arbitragesEnAttente',
-            'sprintsEnCours', 'collaborateurs', 'performance', 'topBloquees', 'tachesEnRetard',
+            'sprintsEnCours', 'collaborateurs', 'performance', 'topBloquees', 'tachesEnRetard', 'nbTachesEnRetard',
             'parProjet', 'evenements', 'mesTachesActives', 'aValider',
             'tendanceHebdoGlobal', 'tendanceMaxGlobal', 'sprintsTermines', 'monPointage', 'pointageActif',
             'tauxRetard', 'nbEchues', 'nbEchuesRetard', 'periodeTdb'

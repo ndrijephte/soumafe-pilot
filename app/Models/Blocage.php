@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Blocage extends Model
 {
+    use Concerns\JournaliseActivite;
+
+    public function journalModule(): string { return 'blocages'; }
+    public function journalCible(): string { return 'Blocage : ' . (Tache::withTrashed()->whereKey($this->tache_id)->value('intitule') ?? "tâche #{$this->tache_id}"); }
+    public function journalChamps(): array { return ['date_levee', 'intervenant_id', 'motif']; }
+
     protected $fillable = ['tache_id', 'motif', 'type', 'tache_liee_id', 'recommandation', 'leveur_pressenti', 'intervenant_id', 'date_blocage', 'date_levee'];
     protected $casts = ['date_blocage' => 'datetime', 'date_levee' => 'datetime'];
 

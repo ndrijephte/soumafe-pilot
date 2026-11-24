@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\Schema;
 
 class Objectif extends Model
 {
+    use Concerns\JournaliseActivite;
+
+    public function journalModule(): string { return 'objectifs'; }
+    public function journalCible(): string { return "#{$this->id} {$this->libelle}"; }
+    public function journalChamps(): array { return ['libelle', 'user_id', 'ponderation', 'date_echeance', 'statut_validation', 'note_pilote']; }
+
     protected $fillable = [
         'user_id', 'type', 'projet_id', 'source', 'libelle',
         'ponderation', 'periode', 'date_debut', 'date_echeance',

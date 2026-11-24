@@ -80,29 +80,67 @@ class TacheController extends Controller
             : ($t->echeance ?? $t->date_debut ?? $t->created_at);
     }
 
-    /** Vue pilote : toutes les tâches de tous les collaborateurs avec filtres. */
+    /** Vue pilote : toutes les tâches de tous les collaborateurs, filtrées (période, personne, projet, sprint, statut…). */
     public function pilote(Request $r)
     {
         abort_unless($r->user()->estPilote(), 403);
 
-        $query = Tache::with(['user', 'projet', 'sprint'])
+        // Période : du … au …, appliquée selon le critère choisi
+        $du = $r->filled('du') ? \Carbon\Carbon::parse($r->du)->toDateString() : null;
+        $au = $r->filled('au') ? \Carbon\Carbon::parse($r->au)->toDateString() : null;
+        if ($du && $au && $du > $au) [$du, $au] = [$au, $du];
+        $critere = in_array($r->critere, ['active', 'echeance', 'debut', 'achevee'], true) ? $r->critere : 'active';
+
+        $base = Tache::query()
             ->when($r->collaborateur, fn ($q) => $q->where('user_id', $r->collaborateur))
             ->when($r->projet, fn ($q) => $q->where('projet_id', $r->projet))
-            // « En retard » : échéance dépassée, tâche non terminée (lien du tableau de bord)
-            ->when($r->statut, fn ($q) => $r->statut === 'en_retard' ? $q->enRetard() : $q->where('statut', $r->statut))
+            ->when($r->sprint, fn ($q) => $q->where('sprint_id', $r->sprint))
             ->when($r->priorite, fn ($q) => $q->where('priorite', $r->priorite))
             ->when($r->type, fn ($q) => $q->where('type', $r->type))
-            ->orderByRaw("FIELD(statut,'a_valider','bloque','en_cours','a_faire','termine')")
-            ->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")
-            ->orderBy('echeance');
+            ->when($r->boolean('ajouts'), fn ($q) => $q->whereNotNull('ajoutee_en_cours_le'))
+            ->when(trim((string) $r->q) !== '', fn ($q) => $q->where('intitule', 'like', '%' . trim($r->q) . '%'))
+            ->when($du || $au, function ($q) use ($du, $au, $critere) {
+                $du ??= '1900-01-01';
+                $au ??= '2999-12-31';
+                match ($critere) {
+                    'echeance' => $q->whereBetween('echeance', [$du, $au]),
+                    'debut'    => $q->whereBetween('date_debut', [$du, $au]),
+                    'achevee'  => $q->where('statut', 'termine')->whereBetween('date_fin_reelle', [$du, $au]),
+                    // Active sur la période : son intervalle début → échéance (ou fin réelle) chevauche la période
+                    default    => $q->whereRaw('COALESCE(date_debut, echeance, DATE(created_at)) <= ?', [$au])
+                        ->whereRaw('COALESCE(date_fin_reelle, echeance, date_debut, DATE(created_at)) >= ?', [$du]),
+                };
+            });
 
-        $taches = $query->paginate(50)->withQueryString();
+        // Compteurs par statut (avant le filtre de statut), pour les puces cliquables
+        $compteurs = (clone $base)->selectRaw('statut, COUNT(*) n')->groupBy('statut')->pluck('n', 'statut');
+        $compteurs['en_retard'] = (clone $base)->enRetard()->count();
+        $compteurs['tout'] = $compteurs->except('en_retard')->sum();
+
+        $tri = in_array($r->tri, ['echeance', 'debut', 'collaborateur', 'projet', 'recent'], true) ? $r->tri : 'statut';
+        $query = (clone $base)->with(['user', 'projet', 'sprint', 'userStory:id,numero'])
+            ->when($r->statut, fn ($q) => $r->statut === 'en_retard' ? $q->enRetard() : $q->where('statut', $r->statut));
+        match ($tri) {
+            'echeance'      => $query->orderByRaw('echeance IS NULL')->orderBy('echeance'),
+            'debut'         => $query->orderByRaw('date_debut IS NULL')->orderByDesc('date_debut'),
+            'collaborateur' => $query->orderBy(User::select('name')->whereColumn('users.id', 'taches.user_id'))->orderBy('echeance'),
+            'projet'        => $query->orderBy(Projet::select('code')->whereColumn('projets.id', 'taches.projet_id'))->orderBy('echeance'),
+            'recent'        => $query->orderByDesc('updated_at'),
+            default         => $query->orderByRaw("FIELD(statut,'a_valider','bloque','en_cours','a_faire','termine')")
+                ->orderByRaw("FIELD(priorite,'haute','moyenne','basse')")->orderBy('echeance'),
+        };
+
+        $parPage = in_array((int) $r->par_page, [25, 50, 100, 200], true) ? (int) $r->par_page : 50;
+        $taches = $query->paginate($parPage)->withQueryString();
 
         return view('taches.pilote', [
             'taches'         => $taches,
+            'compteurs'      => $compteurs,
             'projets'        => Projet::orderBy('libelle')->get(),
-            'collaborateurs' => User::where('actif', true)->whereNotIn('role', ['invite'])->orderBy('name')->get(),
-            'filtres'        => $r->only(['collaborateur', 'projet', 'statut', 'priorite', 'type']),
+            'sprints'        => $r->projet ? Sprint::where('projet_id', $r->projet)->orderByDesc('numero')->get(['id', 'numero', 'statut']) : collect(),
+            'collaborateurs' => User::whereNotIn('role', ['invite'])->orderByDesc('actif')->orderBy('name')->get(),
+            'filtres'        => array_filter($r->only(['collaborateur', 'projet', 'sprint', 'statut', 'priorite', 'type', 'q', 'du', 'au', 'ajouts'])),
+            'du' => $du, 'au' => $au, 'critere' => $critere, 'tri' => $tri, 'parPage' => $parPage,
         ]);
     }
 

@@ -623,7 +623,8 @@ class SprintController extends Controller
     public function importerTaches(Request $r)
     {
         abort_unless($r->user()->peutGererProjet(), 403);
-        if (!$r->boolean('simulation')) return $this->executerImport($r);
+        // Import en masse : une ligne de synthèse au journal, pas une par tâche
+        if (!$r->boolean('simulation')) return \App\Services\JournalActivite::sans(fn() => $this->executerImport($r));
         // Simulation : l'import est réalisé puis entièrement annulé ; seul le compte rendu est affiché
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
@@ -870,6 +871,7 @@ class SprintController extends Controller
             if ($rattachees) $msg .= ", {$rattachees} importée(s) auparavant hors sprint rattachée(s) au sprint";
             if ($storiesRattachees) $msg .= ', ' . count($storiesRattachees) . ' user story(s) rattachée(s) au sprint' . ($storiesCreees ? " (dont {$storiesCreees} ajoutée(s) au Product Backlog)" : '');
             if ($ignores > 0) $msg .= ", {$ignores} ignorée(s)";
+            if ($importees || $majTaches || $rattachees) \App\Models\AuditLog::log('import_taches', 'taches', $sprintImport ? "Sprint {$sprintImport->numero}" : 'Hors sprint', $msg);
             if ($inconnus) $msg .= '. Attribution non reconnue (tâche confiée à vous-même) : ' . implode(', ', array_keys($inconnus));
             if ($this->storiesNonPretes) $msg .= '. Non rattachées au sprint (DoR = Non, achevée ou engagée ailleurs) : ' . implode(', ', array_keys($this->storiesNonPretes)) . ' ; leurs tâches restent hors user story';
             if (!empty($erreurs)) {

@@ -133,30 +133,7 @@
 
 {{-- Sprints en cours + Livraison des sprints terminés --}}
 <div class="grille">
-    <div class="panneau" @if($sprintsTermines->isEmpty()) style="grid-column:1/-1" @endif>
-        <h3>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
-            Sprints de la p&eacute;riode ({{ $sprintsEnCours->count() }})
-            <x-detail :href="route('sprints.index')" titre="projets et sprints" />
-        </h3>
-        @forelse($sprintsEnCours as $s)
-        <div class="sprint-item">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-                <span style="font-size:13px;font-weight:600;color:var(--bleu)">Sprint {{ $s->numero }} - {{ $s->projet->libelle ?? '' }}</span>
-                @if($s->jours_restants !== null)
-                <span style="font-size:11px;font-weight:600;color:#475569;white-space:nowrap">{{ $s->urgence()['court'] }}</span>
-                @endif
-            </div>
-            <div class="jauge-wrap"><div class="jauge-bar" style="width:{{ $s->progression ?? 0 }}%;background:var(--accent)"></div></div>
-            <div style="display:flex;justify-content:space-between;margin-top:3px">
-                <span style="font-size:10.5px;color:var(--gris)">{{ $s->stats_terminees ?? 0 }}/{{ $s->stats_total ?? 0 }} t&acirc;ches</span>
-                <a href="{{ route('sprints.show', $s) }}" class="lien">D&eacute;tail &rarr;</a>
-            </div>
-        </div>
-        @empty
-        <div style="text-align:center;color:var(--gris);font-size:13px;padding:16px">Aucun sprint sur la p&eacute;riode.</div>
-        @endforelse
-    </div>
+    @include('dashboard._bloc', ['bloc' => 'sprints', 'du' => $periodeTdb['du'], 'au' => $periodeTdb['au'], 'defDu' => $periodeTdb['du'], 'defAu' => $periodeTdb['au'], 'plein' => $sprintsTermines->isEmpty()])
 
     @if($sprintsTermines->count() > 0)
     <div class="panneau">
@@ -179,52 +156,10 @@
     @endif
 </div>
 
-{{-- Tâches bloquées + en retard --}}
+{{-- Tâches bloquées + en retard : chaque bloc a sa période (par défaut celle du tableau de bord) --}}
 <div class="grille">
-    <div class="panneau">
-        <h3>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-            T&acirc;ches bloqu&eacute;es ({{ $topBloquees->count() }})
-            <x-detail :href="route('taches.pilote', ['statut' => 'bloque'])" titre="tâches bloquées" />
-        </h3>
-        <table class="mini-table" data-collapse-table="5">
-            <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>Projet</th></tr></thead>
-            <tbody>
-            @forelse($topBloquees as $t)
-            <tr>
-                <td><a href="{{ route('taches.show', $t) }}" style="color:var(--accent);text-decoration:none;font-weight:500">{{ \Illuminate\Support\Str::limit($t->intitule, 35) }}</a></td>
-                <td>{{ $t->user->nomComplet() }}</td>
-                <td style="font-size:11px;color:var(--gris)">{{ $t->projet->libelle ?? '—' }}</td>
-            </tr>
-            @empty
-            <tr><td colspan="3" style="color:var(--gris);text-align:center;padding:14px">Aucune</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    <div class="panneau">
-        <h3>
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            T&acirc;ches en retard ({{ $tachesEnRetard->count() }})
-            <x-detail :href="route('taches.pilote', ['statut' => 'en_retard'])" titre="tâches en retard" />
-        </h3>
-        <table class="mini-table" data-collapse-table="5">
-            <thead><tr><th>T&acirc;che</th><th>Collaborateur</th><th>&Eacute;ch&eacute;ance</th><th>Retard</th></tr></thead>
-            <tbody>
-            @forelse($tachesEnRetard as $t)
-            <tr>
-                <td><a href="{{ route('taches.show', $t) }}" style="color:var(--accent);text-decoration:none;font-weight:500">{{ \Illuminate\Support\Str::limit($t->intitule, 30) }}</a></td>
-                <td>{{ $t->user->nomComplet() }}</td>
-                <td style="font-size:11px;color:var(--gris)">{{ $t->echeance->format('d/m') }}</td>
-                <td style="white-space:nowrap"><x-voyant :tache="$t" texte /></td>
-            </tr>
-            @empty
-            <tr><td colspan="4" style="color:var(--gris);text-align:center;padding:14px">Aucune</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
+    @include('dashboard._bloc', ['bloc' => 'bloquees', 'du' => $periodeTdb['du'], 'au' => $periodeTdb['au'], 'defDu' => $periodeTdb['du'], 'defAu' => $periodeTdb['au']])
+    @include('dashboard._bloc', ['bloc' => 'retard', 'du' => $periodeTdb['du'], 'au' => $periodeTdb['au'], 'defDu' => $periodeTdb['du'], 'defAu' => $periodeTdb['au'], 'enRetard' => $nbTachesEnRetard])
 </div>
 
 {{-- Mes tâches actives --}}

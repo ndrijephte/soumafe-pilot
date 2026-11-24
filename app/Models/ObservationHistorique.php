@@ -11,6 +11,7 @@ class ObservationHistorique extends Model
     protected $casts = ['created_at' => 'datetime'];
 
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
+    public function observation(): BelongsTo { return $this->belongsTo(Observation::class); }
 
     public function actionLibelle(): string
     {

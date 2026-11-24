@@ -52,6 +52,12 @@ class ImportConsolide
 
     public function importer(string $chemin): array
     {
+        // L'import est tracé en une ligne de synthèse par l'appelant, pas tâche par tâche
+        return JournalActivite::sans(fn() => $this->importerClasseur($chemin));
+    }
+
+    private function importerClasseur(string $chemin): array
+    {
         $this->chemin = $chemin;
         $this->lecteur = new LecteurXlsx($chemin);
         $plan = $this->plan($this->lecteur->feuilles());

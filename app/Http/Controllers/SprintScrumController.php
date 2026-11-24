@@ -102,10 +102,14 @@ class SprintScrumController extends Controller
             ->when(!$r->user()->estAdmin(), fn($q) => $q->where(fn($v) => $v->whereNotNull('publie_le')
                 ->orWhere('roles->scribe', $r->user()->id)))
             ->orderByDesc('date_reunion')->orderByDesc('id');
+        // Rapports du jour, mis en avant en tête de page (sans filtre de dates, première page)
+        $duJour = !$r->du && !$r->au && (int) $r->input('page', 1) === 1
+            ? (clone $q)->whereDate('date_reunion', today())->get() : null;
         $dailies = $q->paginate(25)->withQueryString();
         $ids = $dailies->getCollection()->map(fn($d) => $d->roleUserId('scribe'))->filter()->unique();
         return view('scrum.rapports', [
             'dailies' => $dailies,
+            'duJour' => $duJour,
             'scribes' => User::whereIn('id', $ids)->get()->keyBy('id'),
             'projets' => \App\Models\Projet::where('statut', 'actif')->orWhereHas('sprints.dailyScrums')->orderBy('libelle')->get(['id', 'libelle', 'code']),
             // Création d'un Daily hors sprint : collaborateurs et équipes des projets (pré-sélection)

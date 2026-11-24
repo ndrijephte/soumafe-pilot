@@ -10,6 +10,7 @@ Route::middleware(['auth'])->group(function () {
     // M1 - Tableau de bord (US-16/17/18 - aiguillage par rôle)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/performance-equipe', [DashboardController::class, 'performanceEquipe'])->name('dashboard.performance');
+    Route::get('/dashboard/bloc', [DashboardController::class, 'bloc'])->name('dashboard.bloc');
 
     // M2 - Activités (US-06, US-07, US-08)
     Route::get('/taches', [TacheController::class, 'index'])->name('taches.index');

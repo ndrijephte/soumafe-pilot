@@ -1353,11 +1353,11 @@ function renderBloc(bloc, secEl){
         idxS.forEach(i => {
             const st = sts[i];
             const opts = BE_STATUTS.map(x => `<option ${x === st.statut ? 'selected' : ''}>${x}</option>`).join('') + (st.statut && !BE_STATUTS.includes(st.statut) ? `<option selected>${beEsc(st.statut)}</option>` : '');
-            bodyHtml += `<tr class="be-us"><td><input class="be-st" data-idx="${i}" data-champ="numero" value="${beEsc(st.numero)}" style="width:76px;font-weight:700"> <textarea class="be-st" data-idx="${i}" data-champ="intitule" rows="2">${beEsc(st.intitule)}</textarea>${st.epic && !bloc.module ? `<small style="display:block;color:#64748b;font-size:.72rem">${beEsc(beLib(st.module||''))} › ${beEsc(st.epic)}</small>` : ''}</td>
+            bodyHtml += `<tr class="be-us"><td><input class="be-st" data-idx="${i}" data-champ="numero" value="${beEsc(st.numero)}" style="width:76px;font-weight:700"> <textarea class="be-st" data-idx="${i}" data-champ="intitule" rows="2">${beEsc(st.intitule)}</textarea><small style="display:block;color:#64748b;font-size:.72rem">${st.epic && !bloc.module ? `${beEsc(beLib(st.module||''))} › ${beEsc(st.epic)} · ` : ''}${st.taches_terminees||0}/${st.taches||0} tâche(s) réalisée(s)</small></td>
                 <td><input type="number" min="0" max="100" class="be-st" data-idx="${i}" data-champ="niveau" value="${st.niveau ?? 0}"></td>
                 <td><input type="number" min="0" class="be-st" data-idx="${i}" data-champ="points" value="${st.points ?? ''}"></td>
                 <td><select class="be-st" data-idx="${i}" data-champ="statut">${opts}</select></td>
-                <td style="color:#64748b;font-size:.74rem">${st.taches_terminees||0}/${st.taches||0} tâche(s)</td>
+                <td><textarea class="be-tache-obs be-st" rows="1" data-idx="${i}" data-champ="observation" placeholder="Observation sur la story" title="Observation sur la user story, reprise dans le PDF et le Word">${beEsc(st.observation)}</textarea></td>
                 <td><button type="button" class="btn-rm" onclick="beRetirerLigne('stories',${i})" title="Retirer">&#10005;</button></td></tr>`;
             idxT.filter(j => taches[j].us && taches[j].us === st.numero).forEach(j => bodyHtml += ligneT(j));
         });
@@ -1938,7 +1938,9 @@ function beActualiser(btn){
             const cle = t => t.tache_id ? 'id' + t.tache_id : 't' + t.tache;
             const obs = {};
             (BE_DONNEES.taches || []).forEach(t => { if(t.tache && (t.observation || '') !== (t.observation_auto || '')) obs[cle(t)] = t.observation; });
-            BE_DONNEES.stories = j.stories;
+            const obsUs = {};
+            (BE_DONNEES.stories || []).forEach(s => { if((s.observation || '').trim()) obsUs[s.id ? 'id' + s.id : 'n' + s.numero] = s.observation; });
+            BE_DONNEES.stories = j.stories.map(s => ({...s, observation: obsUs[s.id ? 'id' + s.id : 'n' + s.numero] ?? s.observation ?? ''}));
             BE_DONNEES.taches = j.taches.map(t => ({...t, observation: obs[cle(t)] ?? t.observation}));
             BE_DONNEES.score_manuel = false;
             beRerendre();

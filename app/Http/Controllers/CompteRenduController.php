@@ -299,6 +299,7 @@ class CompteRenduController extends Controller
                 'niveau' => max(0, min(100, (int) ($x['niveau'] ?? 0))), 'origine' => $txt($x['origine'] ?? '', 20),
                 'points' => is_numeric($x['points'] ?? null) ? (int) $x['points'] : null, 'statut' => $txt($x['statut'] ?? '', 40),
                 'taches' => (int) ($x['taches'] ?? 0), 'taches_terminees' => (int) ($x['taches_terminees'] ?? 0),
+                'observation' => $txt($x['observation'] ?? '', 1000),
             ], array_filter(is_array($donnees['stories'] ?? null) ? $donnees['stories'] : [], 'is_array')));
             $donnees['taches'] = array_values(array_map(fn($t) => [
                 'tache_id' => (int) ($t['tache_id'] ?? 0) ?: null, 'user_id' => (int) ($t['user_id'] ?? 0) ?: null,
@@ -619,9 +620,8 @@ class CompteRenduController extends Controller
     {
         if ($cr->estScrum() && !$cr->estReviewV1() && $cr->lienScrum()) return redirect($cr->lienScrum());
         if ($cr->estReviewV1()) abort_unless(auth()->user() && $this->droitsReview(auth()->user(), $cr), 403);
-        if (!$cr->fichier_path || !file_exists(storage_path('app/' . $cr->fichier_path))) {
-            $this->genererDocx($cr);
-        }
+        // Toujours régénéré : le Word reflète le rapport tel qu'enregistré (et la mise en forme en vigueur), jamais une copie périmée
+        $this->genererDocx($cr);
         $path = storage_path('app/' . $cr->fichier_path);
         $typeNom = $cr->estReunion() ? 'Reunion' : ($cr->estReviewV1() ? 'Review_Sprint' : 'Demo');
         $nom = 'CR_' . $typeNom . '_' . $cr->date_reunion->format('d_m_Y') . '.docx';
@@ -1294,17 +1294,19 @@ class CompteRenduController extends Controller
                         $xml .= $this->p('');
 
                     } elseif ($type === 'tableau_livraison' && ($groupes = RapportReview::lignesLivraison($d, $bloc['module'] ?? null))) {
+                        // Même tableau que dans l'éditeur : story puis ses tâches, observation en regard de chaque ligne
                         $rows = [];
                         foreach ($groupes as $g) {
                             $st = $g['story'];
-                            if ($st) $rows[] = ['■ ' . trim(($st['numero'] ?? '') . ' - ' . ($st['intitule'] ?? ''), ' -'), ($st['niveau'] ?? 0) . ' %', (string) ($st['points'] ?? '-'), $st['statut'] ?? ''];
-                            elseif ($g['taches']) $rows[] = ['Autres tâches de la fonctionnalité', '', '', ''];
+                            if ($st) $rows[] = ['■ ' . trim(($st['numero'] ?? '') . ' - ' . ($st['intitule'] ?? ''), ' -'), ($st['niveau'] ?? 0) . ' %', (string) ($st['points'] ?? '-'),
+                                trim(($st['statut'] ?? '') . (!empty($st['taches']) ? ' · ' . ($st['taches_terminees'] ?? 0) . '/' . $st['taches'] . ' tâche(s)' : ''), ' ·'), $st['observation'] ?? ''];
+                            elseif ($g['taches']) $rows[] = ['Autres tâches de la fonctionnalité', '', '', '', ''];
                             foreach ($g['taches'] as $t) {
-                                $obs = \App\Models\Tache::libelleQualification($t['observation'] ?? '');
-                                $rows[] = ['      ' . (!empty($t['termine']) ? '✓ ' : '✗ ') . ($t['tache'] ?? '') . ($obs ? " ({$obs})" : ''), '', (string) ($t['points'] ?? ''), $t['attribution'] ?? ''];
+                                $rows[] = ['      ' . (!empty($t['termine']) ? '✓ ' : '✗ ') . ($t['tache'] ?? ''), !empty($t['termine']) ? 'Réalisée' : 'Non réalisée', (string) ($t['points'] ?? ''),
+                                    $t['attribution'] ?? '', \App\Models\Tache::libelleQualification($t['observation'] ?? '')];
                             }
                         }
-                        $xml .= $this->docxTableMultiAlt(['User story / tâches', 'Exécution', 'Pts', 'Statut / attribution'], $rows, [5600, 1100, 600, 2300], $pal['header'], 'F2F2F2');
+                        $xml .= $this->docxTableMultiAlt(['User story / tâches', 'Exécution', 'Pts', 'Statut / attribution', 'Observation'], $rows, [3900, 1000, 500, 1700, 2500], $pal['header'], 'F2F2F2');
                         $xml .= $this->p('');
 
                     } elseif ($type === 'tableau_taches' && ($lignesT = self::lignesModule($taches, $bloc['module'] ?? null, true))) {

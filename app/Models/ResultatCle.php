@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ResultatCle extends Model
 {
+    use Concerns\JournaliseActivite;
+
+    public function journalModule(): string { return 'objectifs'; }
+    public function journalCible(): string { return 'Résultat clé : ' . $this->libelle; }
+    public function journalChamps(): array { return ['libelle', 'valeur_actuelle', 'valeur_cible', 'valide']; }
+
     protected $table = 'resultats_cles';
 
     protected $fillable = [

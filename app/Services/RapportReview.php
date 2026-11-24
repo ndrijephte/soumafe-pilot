@@ -112,15 +112,66 @@ class RapportReview
             'verdict' => !empty($b['verdict']) || !$vide($b['contenu'] ?? ''),
             'tableau_stories' => (bool) \App\Http\Controllers\CompteRenduController::lignesModule($d['stories'] ?? [], $b['module'] ?? null, false),
             'tableau_taches' => (bool) \App\Http\Controllers\CompteRenduController::lignesModule($d['taches'] ?? [], $b['module'] ?? null, true),
+            'tableau_livraison' => (bool) self::lignesLivraison($d, $b['module'] ?? null),
             'actions', 'tableau_backlog', 'validation' => !empty($b['items']),
             'score', 'indicateurs' => true,
             default => false,
         };
     }
 
+    /**
+     * Un seul tableau par fonctionnalité : dans une même section, le tableau des user stories et celui des tâches de la
+     * même fonctionnalité deviennent un tableau « Stories et tâches livrées » (les tâches sous leur story).
+     * S'applique aussi aux rapports rédigés avant ce format.
+     */
+    public static function fusionnerTableaux(array $d): array
+    {
+        foreach ($d['modules'] ?? [] as $mi => $mod) {
+            foreach ($mod['sections'] ?? [] as $si => $sec) {
+                $blocs = $sec['blocs'] ?? [];
+                foreach ($blocs as $i => $b) {
+                    if (($b['type'] ?? '') !== 'tableau_stories') continue;
+                    foreach ($blocs as $j => $t) {
+                        if (($t['type'] ?? '') === 'tableau_taches' && ($t['module'] ?? null) === ($b['module'] ?? null)) {
+                            $blocs[$i]['type'] = 'tableau_livraison';
+                            unset($blocs[$j]);
+                            break;
+                        }
+                    }
+                }
+                $d['modules'][$mi]['sections'][$si]['blocs'] = array_values($blocs);
+            }
+        }
+        return $d;
+    }
+
+    /**
+     * Lignes du tableau « Stories et tâches livrées » d'une fonctionnalité : chaque story suivie de ses tâches
+     * (rattachées par le numéro de story), puis les tâches de la fonctionnalité sans story reconnue.
+     * @return array<int, array{story: ?array, taches: array}>
+     */
+    public static function lignesLivraison(array $d, ?string $module): array
+    {
+        $C = \App\Http\Controllers\CompteRenduController::class;
+        $stories = array_values($C::lignesModule($d['stories'] ?? [], $module, false));
+        $taches = array_values($C::lignesModule($d['taches'] ?? [], $module, true));
+        $parStory = [];
+        $autres = [];
+        $numeros = array_flip(array_filter(array_map(fn($s) => $s['numero'] ?? '', $stories)));
+        foreach ($taches as $t) {
+            $n = $t['us'] ?? '';
+            if ($n !== '' && isset($numeros[$n])) $parStory[$n][] = $t; else $autres[] = $t;
+        }
+        $res = [];
+        foreach ($stories as $st) $res[] = ['story' => $st, 'taches' => $parStory[$st['numero'] ?? ''] ?? []];
+        if ($autres) $res[] = ['story' => null, 'taches' => $autres];
+        return $res;
+    }
+
     /** Modules et sections tels qu'imprimés : sans les sections vides ni les modules restés vides. */
     public static function modulesVisibles(array $d): array
     {
+        $d = self::fusionnerTableaux($d);
         $modules = [];
         foreach ($d['modules'] ?? [] as $mod) {
             $sections = [];

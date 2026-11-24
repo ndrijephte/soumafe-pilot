@@ -39,8 +39,10 @@
             <input type="file" name="fichiers[]" multiple accept=".{{ implode(',.', \App\Models\Document::EXTENSIONS) }}" onchange="fichiersChoisis(this)" required>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span class="docs-zone-txt"><strong>Choisir des fichiers</strong> ou les glisser ici</span>
-            <span class="docs-zone-aide">PDF, images, Word, Excel — {{ \App\Models\Document::TAILLE_MAX_KO / 1024 }} Mo max. par fichier</span>
+            <span class="docs-zone-aide">Plusieurs fichiers à la fois : PDF, images, Word, Excel — {{ \App\Models\Document::TAILLE_MAX_KO / 1024 }} Mo max. par fichier</span>
         </label>
+        {{-- Fichiers choisis : une légende chacun (vignette pour les images), retrait possible avant l'envoi --}}
+        <div class="docs-choisis" hidden></div>
         <div class="docs-champs">
             <label>Catégorie
                 <select name="categorie" required onchange="categorieDocChange(this)">
@@ -49,7 +51,7 @@
                     @endforeach
                 </select>
             </label>
-            <label>Libellé <input type="text" name="libelle" maxlength="200" placeholder="Facultatif"></label>
+            <label>Libellé commun <input type="text" name="libelle" maxlength="200" placeholder="Si pas de légende par fichier"></label>
             <label>N° / référence <input type="text" name="reference" maxlength="100" placeholder="Police, n° facture…"></label>
             <label>Date du document <input type="date" name="date_document"></label>
             <label class="docs-exp" @if(!\App\Models\Document::aExpiration($categories[0] ?? 'autre')) hidden @endif>Expire le <input type="date" name="date_expiration"></label>

@@ -13,7 +13,8 @@ use Illuminate\Support\Str;
  *
  * Les données produites sont celles de la saisie dans l'application : Sprint Backlog (stories du sprint),
  * tâches du Sprint Planning, Dailys publiés avec leurs lignes, Review et Rétrospective validées.
- * Réimporter le même fichier ne crée pas de doublon ; un sprint déjà clôturé dans l'application n'est pas modifié.
+ * Réimporter le même fichier ne crée pas de doublon ; un sprint déjà clôturé dans l'application n'est pas modifié,
+ * sauf s'il est rouvert en rectification (actions rétrospectives).
  */
 class ImportConsolide
 {
@@ -226,8 +227,8 @@ class ImportConsolide
             if ($maj) { $sprint->update($maj); $this->rapport['sprints_maj']++; }
         }
 
-        if ($sprint->statut === 'termine') {
-            $this->erreur("Sprint {$num} : déjà clôturé dans l'application, Sprint Backlog et planning conservés tels quels.");
+        if ($sprint->statut === 'termine' && !$sprint->enRectification()) {
+            $this->erreur("Sprint {$num} : déjà clôturé dans l'application, Sprint Backlog et planning conservés tels quels (rouvrez-le en rectification pour les corriger).");
         } else {
             if (isset($onglets['backlog'])) $this->sprintBacklog($sprint, $onglets['backlog']);
             if (isset($onglets['planning'])) $this->planning($sprint, $onglets['planning']);
@@ -554,6 +555,14 @@ class ImportConsolide
         $date = self::date($meta['date'] ?? null);
         if (!$date && preg_match('/(\d{1,2})-(\d{1,2})-(\d{4})/', $onglet, $m)) $date = Carbon::create((int) $m[3], (int) $m[2], (int) $m[1])->startOfDay();
         if (!$date) { $this->erreur("{$onglet} : date du daily introuvable, onglet ignoré."); return; }
+        // Daily daté hors de la période du sprint (une semaine de battement après la fin) : rattaché au sprint du projet
+        // qui couvre cette date, sinon écarté (il fausserait le calendrier et la numérotation du sprint)
+        if ($date->lt($sprint->date_debut) || $date->gt($sprint->date_fin->copy()->addDays(7))) {
+            $autre = $this->projet->sprints()->whereDate('date_debut', '<=', $date)->whereDate('date_fin', '>=', $date)->first();
+            if (!$autre) { $this->erreur("{$onglet} : daily du {$date->format('d/m/Y')} hors de la période du Sprint {$sprint->numero} et d'aucun autre sprint, ignoré."); return; }
+            $this->erreur("{$onglet} : daily du {$date->format('d/m/Y')} rattaché au Sprint {$autre->numero}, dont il couvre la période.");
+            $sprint = $autre;
+        }
         if ($sprint->dailyScrums()->whereDate('date_reunion', $date)->exists()) return;
 
         $roles = [];
@@ -776,6 +785,58 @@ class ImportConsolide
             }
         }
         return ['sprints' => $res, 'inconnus' => array_keys($this->nomsInconnus), 'tranches' => $this->nomsTranches];
+    }
+
+    /**
+     * Structure des plannings du classeur, lue sans rien importer : pour chaque tâche (intitulé normalisé), la
+     * fonctionnalité sous laquelle elle figure (ligne de regroupement) et sa user story (colonne « User story »
+     * ou ligne « US » qui la précède), rapprochée des stories du projet.
+     * @return array<int, array<string, array{intitule: string, groupe: ?string, story: ?int, users: int[]}>>
+     */
+    public function structurePlanning(string $chemin): array
+    {
+        $this->lecteur = new LecteurXlsx($chemin);
+        $this->indexerStories();
+        $plan = $this->plan($this->lecteur->feuilles());
+        $res = [];
+        foreach ($plan['sprints'] as $num => $onglets) {
+            if (!isset($onglets['planning'])) continue;
+            $this->equipeFeuille = $this->equipeDeLaFeuille($onglets['planning']);
+            $lignes = $this->lecteur->lignesFeuille($onglets['planning']);
+            [$entete, $cols] = $this->entete($lignes, [
+                'num' => ['n', 'no', 'num', 'numero'], 'tache' => ['tache'], 'story' => ['user story', 'story'], 'assigne' => ['attribution', 'assigne', 'responsable'],
+                'debut' => ['debut'], 'fin' => ['date de fin', 'fin', 'echeance'], 'statut' => ['statut', 'etat'], 'points' => ['point'],
+            ], 'tache');
+            if ($entete === null) continue;
+            $groupe = null;
+            $storyGroupe = null;
+            foreach ($lignes as $n => $c) {
+                if ($n <= $entete) continue;
+                $get = fn($k) => isset($cols[$k]) ? trim((string) ($c[$cols[$k]] ?? '')) : '';
+                // Ligne fusionnée : une fonctionnalité (ou une story écrite en intertitre)
+                if (self::fusionnee($c)) {
+                    $texte = self::valeurs($c)[0] ?? '';
+                    $us = $this->story($texte);
+                    if ($us) { $storyGroupe = $us; } else { $groupe = $this->libelleGroupe($texte); $storyGroupe = null; }
+                    continue;
+                }
+                $intitule = $get('tache');
+                if (preg_match('/^US[\s\-_]*[A-Z]?\d/iu', $get('num'))) { $storyGroupe = $this->story($get('num'), $get('story') ?: $intitule); continue; }
+                if ($intitule === '' || preg_match('/^(total|l[ée]gende|statuts?\s*:)/iu', $intitule) || self::pasUneTache($intitule)) continue;
+                if ($get('assigne') === '' && $get('debut') === '' && $get('statut') === '') {
+                    $us = $this->story($get('story')) ?? $this->story($intitule);
+                    if ($us) $storyGroupe = $us; else { $groupe = $this->libelleGroupe($intitule) ?? $groupe; $storyGroupe = null; }
+                    continue;
+                }
+                $us = $get('story') !== '' ? ($this->story($get('story')) ?? $this->storyParIntitule($get('story'))) : $storyGroupe;
+                $k = self::cleTache($intitule);
+                $res[$num][$k] ??= ['intitule' => Str::limit(preg_replace('/\s+/u', ' ', $intitule), 250, '…'), 'groupe' => $groupe, 'story' => $us?->id, 'users' => []];
+                $res[$num][$k]['story'] ??= $us?->id;
+                $res[$num][$k]['groupe'] ??= $groupe;
+                foreach ($this->utilisateurs($get('assigne'), false) as $u) $res[$num][$k]['users'][] = $u->id;
+            }
+        }
+        return $res;
     }
 
     /** Clé de comparaison d'un intitulé de tâche (celle de l'import). */

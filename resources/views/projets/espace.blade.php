@@ -156,6 +156,7 @@
 @keyframes sp-pouls{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.6);opacity:0}}
 @media(prefers-reduced-motion:reduce){.pouls::after{animation:none}}
 .sp-carte.clos .sp-etat{background:#f0fdf4;color:#15803d;border-bottom-color:#dcfce7}
+.sp-carte.clos .sp-etat.rectif{background:#fff7ed;color:#c2410c;border-bottom-color:#fed7aa}
 .sp-carte.clos .barre>div{background:#86c9a0}
 .sp-carte.arrete{border-color:#fecaca}
 .sp-carte.arrete .sp-etat{background:#fef2f2;color:#b91c1c;border-bottom-color:#fee2e2}
@@ -417,6 +418,8 @@ dialog textarea{resize:vertical}
             <div class="sp-etat"><span class="pouls" aria-hidden="true"></span>En cours · {{ $pct }} %<span class="droite {{ $urg['niveau'] === 'retard' ? 'retard' : '' }}" title="{{ $urg['libelle'] }}">{{ $urg['court'] }}</span></div>
             @elseif($etat === 'arrete')
             <div class="sp-etat" title="Sprint interrompu avant son terme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Arrêté<span class="droite">le {{ $sp->arrete_le->format('d/m/Y') }}</span></div>
+            @elseif($etat === 'clos' && $sp->enRectification())
+            <div class="sp-etat rectif" title="Sprint clôturé rouvert pour harmoniser l'historique : {{ $sp->rectification_motif }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>En rectification<span class="droite">depuis le {{ $sp->rectification_ouverte_le->format('d/m') }}</span></div>
             @elseif($etat === 'clos')
             <div class="sp-etat" title="Sprint mené à son terme : planification effective achevée"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>Clôturé<span class="droite">{{ $sp->date_fin->format('d/m/Y') }}</span></div>
             @else

@@ -62,7 +62,9 @@ class DocumentParcController extends Controller
             'date_document' => ['nullable', 'date'],
             'date_expiration' => ['nullable', 'date', 'after_or_equal:date_document'],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'fichiers' => ['required', 'array', 'min:1', 'max:10'],
+            'fichiers' => ['required', 'array', 'min:1', 'max:20'],
+            'legendes' => ['nullable', 'array'],
+            'legendes.*' => ['nullable', 'string', 'max:200'],
             'fichiers.*' => ['required', File::types(Document::EXTENSIONS)->max(Document::TAILLE_MAX_KO)],
         ], [
             'fichiers.required' => 'Choisissez au moins un fichier.',
@@ -77,7 +79,8 @@ class DocumentParcController extends Controller
 
         $deposes = [];
         DB::transaction(function () use ($r, $type, $objet, $data, $ancien, &$deposes) {
-            foreach ($data['fichiers'] as $f) {
+            foreach ($data['fichiers'] as $i => $f) {
+                $legende = trim((string) ($data['legendes'][$i] ?? ''));
                 $ext = strtolower($f->getClientOriginalExtension() ?: $f->guessExtension() ?: 'bin');
                 $chemin = $f->storeAs("parc/{$type}/" . now()->format('Y'), Str::uuid() . '.' . $ext, self::DISQUE);
                 $nom = mb_substr($f->getClientOriginalName(), 0, 255);
@@ -85,7 +88,9 @@ class DocumentParcController extends Controller
                     'documentable_type' => $type,
                     'documentable_id' => $objet->getKey(),
                     'categorie' => $data['categorie'],
-                    'libelle' => trim($data['libelle'] ?? '') !== '' ? trim($data['libelle']) : Document::CATEGORIES[$data['categorie']][0] . (count($data['fichiers']) > 1 ? ' — ' . pathinfo($nom, PATHINFO_FILENAME) : ''),
+                    // Légende propre au fichier, sinon libellé commun, sinon la catégorie (et le nom du fichier s'il y en a plusieurs)
+                    'libelle' => $legende !== '' ? $legende : (trim($data['libelle'] ?? '') !== '' ? trim($data['libelle']) . (count($data['fichiers']) > 1 ? ' — ' . pathinfo($nom, PATHINFO_FILENAME) : '')
+                        : Document::CATEGORIES[$data['categorie']][0] . (count($data['fichiers']) > 1 ? ' — ' . pathinfo($nom, PATHINFO_FILENAME) : '')),
                     'reference' => $data['reference'] ?? null,
                     'date_document' => $data['date_document'] ?? null,
                     'date_expiration' => $data['date_expiration'] ?? null,

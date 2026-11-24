@@ -81,6 +81,8 @@
         .tache{font-size:12px;padding:8px 24px 8px 10px}
         .tache .meta{flex-direction:column;gap:2px}
     }
+    .ajout-sprint{display:inline-flex;align-items:center;margin-left:4px;padding:1px 6px;border-radius:999px;background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;font-size:10px;font-weight:700;white-space:nowrap;vertical-align:middle}
+    .tache:has(.ajout-sprint){border-left:3px solid #8b5cf6}
 </style>
 @endpush
 
@@ -155,6 +157,7 @@
             <x-voyant :tache="$t" />
             @if($code === 'a_faire' && \App\Http\Controllers\TacheController::estDuJour($t))<span class="du-jour" title="Tâche à réaliser aujourd'hui">Aujourd'hui</span>@endif
             <span class="typ {{ strtolower($t->type) }}">{{ $t->type }}</span><a href="{{ route('taches.show', $t) }}" style="text-decoration:none;color:inherit">{{ $t->intitule }}</a>
+            @if($t->estAjoutEnCours())<span class="ajout-sprint" title="Ajoutée au sprint en cours le {{ $t->ajoutee_en_cours_le->format('d/m/Y à H:i') }}, après la planification">+ Ajout {{ $t->ajoutee_en_cours_le->format('d/m') }}</span>@endif
             <div class="meta">
                 <span>{{ $t->projet?->libelle ?? $t->activite ?? '—' }}</span>
                 @if($code === 'termine')<span>Fait le {{ \App\Http\Controllers\TacheController::dateActivite($t)->format('d/m') }}</span>@else<span>{{ $t->echeance?->format('d/m') ?? 'sans échéance' }}</span>@endif

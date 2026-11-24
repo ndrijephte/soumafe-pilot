@@ -29,7 +29,7 @@ class ProjetController extends Controller
             'date_debut' => 'nullable|date',
             'date_cible' => 'nullable|date|after_or_equal:date_debut',
         ]);
-        Projet::create($r->only(['code', 'libelle', 'client', 'responsable_projet_id', 'statut', 'date_debut', 'date_cible', 'delegation_sprint']));
+        Projet::create($r->only(['code', 'libelle', 'client', 'responsable_projet_id', 'statut', 'date_debut', 'date_cible', 'delegation_sprint', 'delegation_historique']));
         return back()->with('succes', 'Projet créé.');
     }
 
@@ -45,7 +45,9 @@ class ProjetController extends Controller
             'date_debut' => 'nullable|date',
             'date_cible' => 'nullable|date|after_or_equal:date_debut',
         ]);
-        $projet->update($r->only(['code', 'libelle', 'client', 'responsable_projet_id', 'statut', 'date_debut', 'date_cible', 'delegation_sprint']));
+        $avant = (bool) $projet->delegation_historique;
+        $projet->update($r->only(['code', 'libelle', 'client', 'responsable_projet_id', 'statut', 'date_debut', 'date_cible', 'delegation_sprint', 'delegation_historique']));
+        if ($avant !== (bool) $projet->delegation_historique) \App\Models\AuditLog::log('delegation_historique', 'projet', $projet->code, ($projet->delegation_historique ? 'Accordée' : 'Retirée') . ' au responsable du projet : actions rétrospectives (rectification des sprints clôturés)');
         return back()->with('succes', 'Projet mis à jour.');
     }
 }

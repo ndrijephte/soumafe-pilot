@@ -40,8 +40,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sprints/{sprint}/cloturer', [SprintController::class, 'cloturer'])->name('sprints.cloturer');
     Route::post('/sprints/{sprint}/demarrer', [SprintController::class, 'demarrer'])->name('sprints.demarrer');
     Route::post('/sprints/{sprint}/arreter', [SprintController::class, 'arreter'])->name('sprints.arreter');
+    Route::post('/sprints/{sprint}/rectification', [SprintController::class, 'ouvrirRectification'])->name('sprints.rectification.ouvrir');
+    Route::post('/sprints/{sprint}/structure', [SprintController::class, 'restaurerStructure'])->name('sprints.structure.restaurer');
+    Route::delete('/sprints/{sprint}/rectification', [SprintController::class, 'fermerRectification'])->name('sprints.rectification.fermer');
     Route::get('/api/projets/{projet}/sprints', [SprintController::class, 'parProjet'])->name('api.sprints');
     Route::post('/sprints/{sprint}/taches/rattacher', [SprintController::class, 'rattacherTaches'])->name('sprints.taches.rattacher');
+    Route::post('/sprints/{sprint}/taches/rectifier', [SprintController::class, 'rectifierTaches'])->name('sprints.taches.rectifier');
     Route::post('/sprints/{sprint}/taches', [SprintController::class, 'ajouterTache'])->name('sprints.ajouter-tache');
     Route::put('/sprints/{sprint}/taches/{tache}', [SprintController::class, 'modifierTache'])->name('sprints.modifier-tache');
     Route::delete('/sprints/{sprint}/taches/{tache}', [SprintController::class, 'supprimerTache'])->name('sprints.supprimer-tache');

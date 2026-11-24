@@ -165,6 +165,8 @@ class CompteRenduController extends Controller
         $sprintsRattachables = $cr->type === 'demo_sprint' && !$cr->sprint_id && $user->estPilote()
             ? Sprint::with('projet')->whereIn('statut', ['en_cours', 'termine'])->orderByDesc('date_debut')->get() : collect();
         $donnees = $cr->getDonnees();
+        // Rapport de review : un tableau par fonctionnalité (stories et tâches), y compris pour un rapport déjà rédigé
+        if ($cr->type === 'demo_sprint' && ($donnees['format'] ?? '') === 'blocs_v1') $donnees = RapportReview::fusionnerTableaux($donnees);
 
         // Garantir que la liste de présence existe pour les réunions
         if ($cr->estReunion() && empty($donnees['presences'])) {
@@ -380,7 +382,7 @@ class CompteRenduController extends Controller
             foreach (['sprint', 'objectif', 'projet', 'date_debut', 'date_fin', 'taches', 'stories', 'total_points', 'points_realises', 'score_pourcent', 'par_dev'] as $k) $d[$k] = $frais[$k];
             $d['score_manuel'] = false;
             $aDesTableaux = collect($d['modules'] ?? [])->flatMap(fn($m) => collect($m['sections'] ?? [])->flatMap(fn($s) => collect($s['blocs'] ?? [])->pluck('type')))
-                ->intersect(['tableau_stories', 'tableau_taches'])->isNotEmpty();
+                ->intersect(['tableau_stories', 'tableau_taches', 'tableau_livraison'])->isNotEmpty();
             if (!$aDesTableaux) $d['modules'] = $frais['modules'];
             $d['format'] = 'blocs_v1';
             $cr->setDonnees($d);
@@ -694,8 +696,8 @@ class CompteRenduController extends Controller
             ->filter()->unique()->sortBy(fn($m) => $m === self::HORS_US ? 1 : 0)->values();
         $demontres = $fonct->map(fn($m, $i) => ['id' => "sec_d{$i}", 'titre' => $m, 'blocs' => array_values(array_filter([
             $m !== self::HORS_US ? ['id' => "blc_dv{$i}", 'type' => 'verdict', 'verdict' => '', 'contenu' => ''] : null,
-            $m !== self::HORS_US ? ['id' => "blc_ds{$i}", 'type' => 'tableau_stories', 'module' => $m] : null,
-            ['id' => "blc_dt{$i}", 'type' => 'tableau_taches', 'module' => $m],
+            // Une fonctionnalité, un tableau : les user stories et, sous chacune, ses tâches
+            $m !== self::HORS_US ? ['id' => "blc_ds{$i}", 'type' => 'tableau_livraison', 'module' => $m] : ['id' => "blc_dt{$i}", 'type' => 'tableau_taches', 'module' => $m],
         ]))])->all();
         $num = $sprint?->numero;
         $txt = fn($id, $c = '') => ['id' => $id, 'type' => 'texte', 'contenu' => $c];
@@ -1289,6 +1291,20 @@ class CompteRenduController extends Controller
                             $groupe = $ctx;
                         }
                         $xml .= $this->docxTableMultiAlt(['Module > Epic', 'User story', 'Execution', 'Taches', 'Pts', 'Statut'], $rows, [2000, 3600, 1200, 900, 600, 1300], $pal['header'], 'F2F2F2');
+                        $xml .= $this->p('');
+
+                    } elseif ($type === 'tableau_livraison' && ($groupes = RapportReview::lignesLivraison($d, $bloc['module'] ?? null))) {
+                        $rows = [];
+                        foreach ($groupes as $g) {
+                            $st = $g['story'];
+                            if ($st) $rows[] = ['■ ' . trim(($st['numero'] ?? '') . ' - ' . ($st['intitule'] ?? ''), ' -'), ($st['niveau'] ?? 0) . ' %', (string) ($st['points'] ?? '-'), $st['statut'] ?? ''];
+                            elseif ($g['taches']) $rows[] = ['Autres tâches de la fonctionnalité', '', '', ''];
+                            foreach ($g['taches'] as $t) {
+                                $obs = \App\Models\Tache::libelleQualification($t['observation'] ?? '');
+                                $rows[] = ['      ' . (!empty($t['termine']) ? '✓ ' : '✗ ') . ($t['tache'] ?? '') . ($obs ? " ({$obs})" : ''), '', (string) ($t['points'] ?? ''), $t['attribution'] ?? ''];
+                            }
+                        }
+                        $xml .= $this->docxTableMultiAlt(['User story / tâches', 'Exécution', 'Pts', 'Statut / attribution'], $rows, [5600, 1100, 600, 2300], $pal['header'], 'F2F2F2');
                         $xml .= $this->p('');
 
                     } elseif ($type === 'tableau_taches' && ($lignesT = self::lignesModule($taches, $bloc['module'] ?? null, true))) {

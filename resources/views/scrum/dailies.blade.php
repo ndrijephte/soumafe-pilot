@@ -113,6 +113,18 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
             @endif
         @endforeach
     </div>
+    @php
+        // Daily du sprint datés hors de sa période (souvent un import) : signalés à part, ils ne comptent pas dans le calendrier
+        $horsPeriode = $horsProgramme->filter(fn($d) => $d->date_reunion->lt($sprint->date_debut) || $d->date_reunion->gt($sprint->date_fin));
+        $horsProgramme = $horsProgramme->diff($horsPeriode);
+    @endphp
+    @if($horsPeriode->isNotEmpty())
+    <div style="margin-top:10px;font-size:12px;color:#9a3412;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:6px 10px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+        <strong>Daily rattachés à ce sprint mais datés hors de sa période ({{ $sprint->date_debut->format('d/m') }} → {{ $sprint->date_fin->format('d/m') }}) :</strong>
+        @foreach($horsPeriode as $hp)<a href="{{ $hp->url() }}" class="pill p-warn" style="text-decoration:none">{{ $hp->libelle() }} · {{ $hp->date_reunion->format('d/m/Y') }}</a>@endforeach
+        <span>à vérifier : supprimez-les ou rattachez-les au bon sprint.</span>
+    </div>
+    @endif
     @if($horsProgramme->isNotEmpty() || $dailiesHorsSprint->isNotEmpty())
     <div style="margin-top:10px;font-size:12px;color:var(--gris);display:flex;gap:4px;flex-wrap:wrap;align-items:center">Daily hors sprint du projet :
         @foreach($horsProgramme->concat($dailiesHorsSprint) as $hp)

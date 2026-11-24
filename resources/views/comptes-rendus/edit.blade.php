@@ -410,6 +410,10 @@ select.taille:hover{border-color:#93c5fd;color:#1F4E79}
 .be-act-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
 .be-act-row input[type=text]{flex:1;padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:.84rem}
 .be-act-row input[type=date]{width:130px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.82rem}
+.be-livraison tr.be-us>td{background:#f4f7fb;border-top:1px solid #c9d6e6}
+.be-livraison tr.be-sous td:first-child{display:flex;align-items:flex-start;gap:6px;padding-left:18px}
+.be-livraison tr.be-sous textarea{font-size:.82rem}
+.be-livraison .be-fleche{color:#94a3b8;margin-top:5px}
 </style>
 
 <div class="cr-edit {{ $cr->type === 'demo_sprint' ? 'demo' : ($cr->estReunion() ? 'reu' : '') }}">
@@ -1278,11 +1282,11 @@ function renderBloc(bloc, secEl){
     if(bloc.module) div.dataset.module = bloc.module;
     beAppliquerCouleur(div, bloc.couleur || '');
 
-    const typeLabels = {verdict:'Verdict du client',indicateurs:'Indicateurs',tableau_backlog:'User stories issues de la review',validation:'Validation',texte:'Texte',sous_titre:'Sous-titre',commentaire:'Commentaire',tableau_stories:'User stories',tableau_taches:'Tâches',score:'Score global',actions:'Actions à mener',reference:'Référence',note:'Note'};
+    const typeLabels = {verdict:'Verdict du client',indicateurs:'Indicateurs',tableau_backlog:'User stories issues de la review',validation:'Validation',texte:'Texte',sous_titre:'Sous-titre',commentaire:'Commentaire',tableau_stories:'User stories',tableau_taches:'Tâches',tableau_livraison:'Stories et tâches livrées',score:'Score global',actions:'Actions à mener',reference:'Référence',note:'Note'};
     const typeLbl = typeLabels[bloc.type] || bloc.type;
 
     let headHtml = `<div class="be-bloc-head"><span class="be-handle" title="Glisser pour déplacer le bloc">&#8942;&#8942;</span><span class="be-type-lbl">${typeLbl}</span>`;
-    const estTableau = bloc.type === 'tableau_stories' || bloc.type === 'tableau_taches';
+    const estTableau = ['tableau_stories', 'tableau_taches', 'tableau_livraison'].includes(bloc.type);
     const legende = estTableau ? `<div class="be-legende"><span class="be-legende-lbl">${typeLbl}</span><select class="be-filtre-module" onchange="beFiltrerModule(this)" title="Fonctionnalité affichée dans ce tableau"><option value="">Toutes les fonctionnalités</option>${beModulesSprint().map(m => `<option value="${beEsc(m)}" ${m === (bloc.module||'') ? 'selected' : ''}>${beEsc(beLib(m))}</option>`).join('')}</select><button type="button" class="be-actualiser" onclick="beActualiser(this)" title="Reprendre l'état actuel du sprint (les observations saisies sont conservées)">&#10227; Actualiser</button></div>` : '';
     headHtml += `<div class="be-bloc-bar"><span class="be-coul-wrap"><button type="button" onclick="beMenuCouleur(this)" title="Couleur du bloc"><span class="be-pastille"></span></button><span class="be-coul-menu">${Object.entries(BLOC_COULEURS).map(([k, [lib, bg, bd]]) => `<button type="button" title="${lib}" style="background:#${bg};border-color:#${bd}" onclick="beChoisirCouleur(this,'${k}')"></button>`).join('')}<button type="button" class="aucune" title="Sans couleur" onclick="beChoisirCouleur(this,'')">&#8856;</button></span></span><button type="button" class="be-larg" onclick="beLargeur(this)" title="Demi-largeur : deux blocs côte à côte">&#9707;</button><button type="button" onclick="beMoveBloc(this,-1)" title="Monter">&#9650;</button><button type="button" onclick="beMoveBloc(this,1)" title="Descendre">&#9660;</button><button type="button" onclick="beRemoveBloc(this)" title="Supprimer" style="color:#dc2626">&#10005;</button></div></div>`;
 
@@ -1330,6 +1334,38 @@ function renderBloc(bloc, secEl){
         bodyHtml += '</tbody></table>';
         if(!sts.some(st => !bloc.module || (st.module||'') === bloc.module)) bodyHtml += `<div class="be-vide">${BE_SANS_SPRINT ? "Aucune user story : rattachez ce rapport à un sprint dans l'en-tête." : 'Aucune user story pour cette fonctionnalité.'}</div>`;
         bodyHtml += `<button type="button" class="be-add-btn" onclick="beAjouterLigne('stories', this)">+ User story</button>`;
+    }
+    else if(bloc.type === 'tableau_livraison'){
+        // Une fonctionnalité, un tableau : chaque user story suivie de ses tâches (rattachées par le numéro de story)
+        const sts = BE_DONNEES.stories || [], taches = BE_DONNEES.taches || [];
+        const idxS = [], idxT = [];
+        sts.forEach((st, i) => { if(!bloc.module || (st.module||'') === bloc.module) idxS.push(i); });
+        taches.forEach((t, i) => { if(!bloc.module || beModuleTache(t) === bloc.module) idxT.push(i); });
+        const numeros = new Set(idxS.map(i => sts[i].numero).filter(Boolean));
+        const ligneT = i => { const t = taches[i]; const chk = (t.termine == true || t.termine == 1 || t.termine === '1') ? 'checked' : '';
+            return `<tr class="be-sous" data-tache-idx="${i}"><td><span class="be-fleche">&#8627;</span><textarea class="be-t" data-idx="${i}" data-champ="tache" rows="1">${beEsc(t.tache)}</textarea></td>
+                <td style="text-align:center"><input type="checkbox" class="chk be-tache-chk" data-idx="${i}" ${chk} title="Réalisée"></td>
+                <td><input type="number" min="0" class="be-t" data-idx="${i}" data-champ="points" value="${t.points ?? ''}"></td>
+                <td><input class="be-t" data-idx="${i}" data-champ="attribution" value="${beEsc(t.attribution)}" list="be-membres"></td>
+                <td><textarea class="be-tache-obs be-t" rows="1" data-idx="${i}" data-champ="observation" title="Repris des blocages et commentaires du développeur ; modifiable">${beEsc(t.observation)}</textarea></td>
+                <td><button type="button" class="btn-rm" onclick="beRetirerLigne('taches',${i})" title="Retirer">&#10005;</button></td></tr>`; };
+        bodyHtml += `<table class="tbl be-tab be-livraison"><thead><tr><th>User story · tâches</th><th style="width:92px">Exéc. % · fait</th><th style="width:58px">Pts</th><th style="width:150px">Statut · attribution</th><th style="width:180px">Observation</th><th style="width:30px"></th></tr></thead><tbody>`;
+        idxS.forEach(i => {
+            const st = sts[i];
+            const opts = BE_STATUTS.map(x => `<option ${x === st.statut ? 'selected' : ''}>${x}</option>`).join('') + (st.statut && !BE_STATUTS.includes(st.statut) ? `<option selected>${beEsc(st.statut)}</option>` : '');
+            bodyHtml += `<tr class="be-us"><td><input class="be-st" data-idx="${i}" data-champ="numero" value="${beEsc(st.numero)}" style="width:76px;font-weight:700"> <textarea class="be-st" data-idx="${i}" data-champ="intitule" rows="2">${beEsc(st.intitule)}</textarea>${st.epic && !bloc.module ? `<small style="display:block;color:#64748b;font-size:.72rem">${beEsc(beLib(st.module||''))} › ${beEsc(st.epic)}</small>` : ''}</td>
+                <td><input type="number" min="0" max="100" class="be-st" data-idx="${i}" data-champ="niveau" value="${st.niveau ?? 0}"></td>
+                <td><input type="number" min="0" class="be-st" data-idx="${i}" data-champ="points" value="${st.points ?? ''}"></td>
+                <td><select class="be-st" data-idx="${i}" data-champ="statut">${opts}</select></td>
+                <td style="color:#64748b;font-size:.74rem">${st.taches_terminees||0}/${st.taches||0} tâche(s)</td>
+                <td><button type="button" class="btn-rm" onclick="beRetirerLigne('stories',${i})" title="Retirer">&#10005;</button></td></tr>`;
+            idxT.filter(j => taches[j].us && taches[j].us === st.numero).forEach(j => bodyHtml += ligneT(j));
+        });
+        const autres = idxT.filter(j => !taches[j].us || !numeros.has(taches[j].us));
+        if(autres.length){ bodyHtml += `<tr class="be-grp"><td colspan="6">Autres tâches de la fonctionnalité</td></tr>`; autres.forEach(j => bodyHtml += ligneT(j)); }
+        bodyHtml += '</tbody></table>';
+        if(!idxS.length && !idxT.length) bodyHtml += `<div class="be-vide">${BE_SANS_SPRINT ? "Aucune user story : rattachez ce rapport à un sprint dans l'en-tête." : 'Rien de livré pour cette fonctionnalité.'}</div>`;
+        bodyHtml += `<button type="button" class="be-add-btn" onclick="beAjouterLigne('stories', this)">+ User story</button> <button type="button" class="be-add-btn" onclick="beAjouterLigne('taches', this)">+ Tâche</button>`;
     }
     else if(bloc.type === 'tableau_taches'){
         const taches = BE_DONNEES.taches || [];
@@ -1446,6 +1482,7 @@ function renderSection(sec, modEl){
             <button type="button" onclick="beInsertBloc(this,'texte')"><b>Texte</b><small>Paragraphe, listes, couleur du texte</small></button>
             <button type="button" onclick="beInsertBloc(this,'commentaire')"><b>Commentaire</b><small>Signé et daté</small></button>
             <button type="button" onclick="beShowRefMenu(this)"><b>Encadré</b><small>Remarque, attention, à retenir…</small></button>
+            <button type="button" onclick="beInsertBloc(this,'tableau_livraison')"><b>Stories et tâches</b><small>Un tableau par fonctionnalité : chaque story et ses tâches</small></button>
             <button type="button" onclick="beInsertBloc(this,'tableau_stories')"><b>User stories</b><small>Tableau du sprint, par fonctionnalité</small></button>
             <button type="button" onclick="beInsertBloc(this,'tableau_taches')"><b>Tâches</b><small>Tableau du sprint, par fonctionnalité</small></button>
             <button type="button" onclick="beInsertBloc(this,'verdict')"><b>Verdict du client</b><small>Acceptée, à reprendre, refusée + retours</small></button>
@@ -1527,7 +1564,7 @@ function beInsertBloc(btn, type){
     if(type === 'validation') bloc.items = [{role:'Rédigé par'}, {role:'Validé par (pilote)'}, {role:'Représentant du client'}];
     if(type === 'commentaire'){ bloc.contenu = ''; bloc.auteur = BE_MOI; bloc.date = BE_AUJOURDHUI; }
     // Un tableau ajouté dans une section de fonctionnalité en reprend le module
-    if(type === 'tableau_stories' || type === 'tableau_taches'){ const t = secEl.querySelector('.be-sec-titre')?.value; if(beModulesSprint().includes(t)) bloc.module = t; }
+    if(['tableau_stories', 'tableau_taches', 'tableau_livraison'].includes(type)){ const t = secEl.querySelector('.be-sec-titre')?.value; if(beModulesSprint().includes(t)) bloc.module = t; }
     renderBloc(bloc, secEl);
     beRenumeroter();
 }
@@ -1676,7 +1713,7 @@ function beSerialize(){
                     bloc.auteur = blcEl.querySelector('.be-com-auteur')?.textContent || '';
                     bloc.date = blcEl.querySelector('.be-com-date')?.textContent || '';
                 }
-                else if(type === 'tableau_stories' || type === 'tableau_taches') bloc.module = blcEl.dataset.module || null;
+                else if(['tableau_stories', 'tableau_taches', 'tableau_livraison'].includes(type)) bloc.module = blcEl.dataset.module || null;
                 if(blcEl.dataset.couleur) bloc.couleur = blcEl.dataset.couleur;
                 if(blcEl.classList.contains('demi')) bloc.largeur = 'demi';
                 sec.blocs.push(bloc);

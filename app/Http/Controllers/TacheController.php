@@ -212,7 +212,7 @@ class TacheController extends Controller
                 $faites++;
                 continue;
             }
-            if ($t->sprint_id && $t->sprint?->statut !== 'en_cours') { $ecartees[] = "{$nom} : sprint " . ($t->sprint?->statut === 'termine' ? 'clôturé' : 'non démarré'); continue; }
+            if ($t->sprint_id && $t->sprint?->statut !== 'en_cours' && !($t->sprint?->enRectification() && $u->peutRectifier($t->sprint->projet))) { $ecartees[] = "{$nom} : sprint " . ($t->sprint?->statut === 'termine' ? 'clôturé' : 'non démarré'); continue; }
             if ($t->statut === $cible) continue;
             if ($t->statut === 'termine' && !$u->estPilote()) { $ecartees[] = "{$nom} : déjà terminée (seul un pilote peut la rétrograder)"; continue; }
             if ($cible === 'termine') {

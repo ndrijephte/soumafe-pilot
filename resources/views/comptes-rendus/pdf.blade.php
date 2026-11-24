@@ -115,6 +115,14 @@ body{font-family:{!! \App\Http\Controllers\CompteRenduController::police($cr->ge
 .kpi .v{font-size:14pt;font-weight:700;color:#1F4E79}
 .kpi .l{font-size:8pt;font-weight:700;color:#2E74B5;text-transform:uppercase;letter-spacing:.3px}
 .kpi .d{font-size:8pt;color:#64748b;margin-top:1px}
+.tbl.livraison tr.l-us td{background:#f4f7fb;border-top:1px solid #c9d6e6}
+.tbl.livraison tr.l-tache td{font-size:9pt;color:#334155;border-top:1px dotted #e2e8f0}
+.tbl.livraison tr.l-tache td:first-child{padding-left:22px}
+.tbl.livraison .l-ctx{font-size:8.5pt;color:#64748b;font-weight:normal}
+.tbl.livraison .l-obs{color:#64748b;font-size:8.5pt}
+.tbl.livraison .l-jauge{display:inline-block;width:40px;height:5px;background:#e5eaf1;border-radius:5px;vertical-align:middle;overflow:hidden}
+.tbl.livraison .l-jauge span{display:block;height:100%}
+.tbl.livraison .ok{color:#15803d;font-weight:bold}.tbl.livraison .ko{color:#b91c1c;font-weight:bold}
 </style>
 @php $mef = $cr->getDonnees()['mise_en_forme'] ?? []; @endphp
 <style>
@@ -348,6 +356,32 @@ body{font-family:{!! \App\Http\Controllers\CompteRenduController::police($cr->ge
                                 <td>{{ $st['statut'] ?? '' }}</td>
                             </tr>
                             @php $grp = $ctx; @endphp
+                            @endforeach
+                            </tbody>
+                        </table>
+                    @elseif($bloc['type'] === 'tableau_livraison' && ($groupes = \App\Services\RapportReview::lignesLivraison($d, $bloc['module'] ?? null)))
+                        <table class="tbl livraison">
+                            <thead><tr><th>User story · tâches</th><th style="width:96px">Exécution</th><th style="width:36px;text-align:center">Pts</th><th style="width:140px">Statut · attribution</th></tr></thead>
+                            <tbody>
+                            @foreach($groupes as $g)
+                                @if($st = $g['story'])
+                                <tr class="l-us">
+                                    <td><strong>{{ $st['numero'] ?? '' }}</strong> {{ $st['intitule'] ?? '' }}@if(!empty($st['epic']))<div class="l-ctx">{{ ($bloc['module'] ?? null) ? $st['epic'] : \App\Http\Controllers\CompteRenduController::libelleModule($d, $st['module'] ?? '') . ' › ' . $st['epic'] }}</div>@endif</td>
+                                    <td><span class="l-jauge"><span style="width:{{ min(100, (int) ($st['niveau'] ?? 0)) }}%;background:{{ ($st['niveau'] ?? 0) >= 100 ? '#16a34a' : '#2e74b5' }}"></span></span> <strong>{{ $st['niveau'] ?? 0 }} %</strong></td>
+                                    <td style="text-align:center"><strong>{{ $st['points'] ?? '-' }}</strong></td>
+                                    <td><strong>{{ $st['statut'] ?? '' }}</strong></td>
+                                </tr>
+                                @elseif($g['taches'])
+                                <tr class="l-us"><td colspan="4" style="color:#475569">Autres tâches de la fonctionnalité</td></tr>
+                                @endif
+                                @foreach($g['taches'] as $t)
+                                <tr class="l-tache">
+                                    <td><span class="{{ !empty($t['termine']) ? 'ok' : 'ko' }}">{!! !empty($t['termine']) ? '&#10003;' : '&#10007;' !!}</span> {{ $t['tache'] }}@if($obs = \App\Models\Tache::libelleQualification($t['observation'] ?? ''))<span class="l-obs"> · {{ $obs }}</span>@endif</td>
+                                    <td></td>
+                                    <td style="text-align:center">{{ $t['points'] ?? '' }}</td>
+                                    <td>{{ $t['attribution'] ?? '' }}</td>
+                                </tr>
+                                @endforeach
                             @endforeach
                             </tbody>
                         </table>

@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Relations\{BelongsTo, BelongsToMany, HasMany};
 
 class Sprint extends Model
 {
-    protected $fillable = ['projet_id', 'numero', 'objectif', 'date_debut', 'date_fin', 'engagement_points', 'statut', 'visible_collaborateurs', 'collaborateurs_exclus', 'justification_arret', 'arrete_le', 'periode_exercice', 'periode_arbitree_par', 'periode_arbitree_le'];
-    protected $casts = ['date_debut' => 'date', 'date_fin' => 'date', 'arrete_le' => 'datetime', 'periode_exercice' => 'date', 'periode_arbitree_le' => 'datetime'];
+    protected $fillable = ['projet_id', 'numero', 'objectif', 'date_debut', 'date_fin', 'engagement_points', 'statut', 'visible_collaborateurs', 'collaborateurs_exclus', 'justification_arret', 'arrete_le', 'periode_exercice', 'periode_arbitree_par', 'periode_arbitree_le', 'rectification_ouverte_le', 'rectification_par', 'rectification_motif'];
+    protected $casts = ['date_debut' => 'date', 'date_fin' => 'date', 'arrete_le' => 'datetime', 'periode_exercice' => 'date', 'periode_arbitree_le' => 'datetime', 'rectification_ouverte_le' => 'datetime'];
 
     /* ─── Période d'exercice (05 → 04) ─── */
 
@@ -65,18 +65,64 @@ class Sprint extends Model
      * Clôture : chaque story du Sprint Backlog est figée telle qu'elle est (intitulé, fonctionnalité, epic, points…).
      * Le sprint se lit ensuite à travers cet instantané, quelles que soient les évolutions du Product Backlog.
      */
-    public function figerBacklog(): int
+    public function figerBacklog(bool $apresRectification = false): int
     {
         $stories = $this->userStories()->get();
         foreach ($stories as $us) {
             $valeurs = collect(UserStory::CHAMPS_FIGES)->mapWithKeys(fn($c) => [$c => $us->valeurActuelle($c)])->all();
             $valeurs['effort_estime'] = $valeurs['effort_estime'] === null ? null : (int) $valeurs['effort_estime'];
-            $valeurs['statut'] = $us->statut;
+            // Après une rectification, le statut « à la clôture » est celui de la story dans ce sprint (pas son statut d'aujourd'hui)
+            $valeurs['statut'] = !$apresRectification ? $us->statut
+                : (($us->pivot->statut_sprint ?? null) === 'termine' ? ($us->estFinie() ? $us->statut : 'terminee') : ($us->estFinie() ? 'en_cours' : $us->statut));
             $this->userStories()->updateExistingPivot($us->id, ['instantane' => json_encode($valeurs, JSON_UNESCAPED_UNICODE), 'fige_le' => now()]);
         }
         $this->unsetRelation('userStories');
         return $stories->count();
     }
+    /*
+     * Rectification (actions rétrospectives) : un sprint clôturé rouvert par un pilote, ou par le responsable du projet
+     * sur délégation, pour harmoniser l'historique ; il reste « clôturé » mais tous ses onglets redeviennent modifiables.
+     */
+    public function rectificateur(): BelongsTo { return $this->belongsTo(User::class, 'rectification_par'); }
+
+    public function enRectification(): bool
+    {
+        return $this->statut === 'termine' && $this->rectification_ouverte_le !== null;
+    }
+
+    /** Ouvert, ou clôturé mais en rectification : Sprint Backlog, planning, tâches et Daily modifiables. */
+    public function modifiable(): bool
+    {
+        return $this->statut !== 'termine' || $this->enRectification();
+    }
+
+    /**
+     * Ouverture : ce qui faisait foi à la clôture (instantané, règle des stories livrées) est reporté dans le statut de
+     * chaque story du sprint, puis l'instantané est levé pour que les corrections se voient aussitôt.
+     */
+    public function ouvrirRectification(User $par, string $motif): void
+    {
+        foreach ($this->userStories()->get() as $us) {
+            $pivot = ['instantane' => null, 'fige_le' => null];
+            if ($this->storyLivree($us) && ($us->pivot->statut_sprint ?? null) !== 'termine') $pivot['statut_sprint'] = 'termine';
+            $this->userStories()->updateExistingPivot($us->id, $pivot);
+        }
+        $this->update(['rectification_ouverte_le' => now(), 'rectification_par' => $par->id, 'rectification_motif' => $motif]);
+        $this->unsetRelation('userStories');
+    }
+
+    /** Fermeture : statuts recalculés d'après les tâches, Sprint Backlog figé de nouveau. */
+    public function fermerRectification(): int
+    {
+        foreach ($this->userStories()->pluck('user_stories.id')->merge($this->taches()->whereNotNull('user_story_id')->pluck('user_story_id'))->unique() as $id) {
+            \App\Services\AvancementScrum::synchroniser($id);
+        }
+        $this->unsetRelation('userStories');
+        $n = $this->figerBacklog(true);
+        $this->update(['rectification_ouverte_le' => null, 'rectification_par' => null, 'rectification_motif' => null]);
+        return $n;
+    }
+
     /** Ajustements d'équipe propres au sprint (ajouts hors équipe projet, retraits). */
     public function equipeAjustements(): HasMany { return $this->hasMany(SprintEquipe::class); }
     public function dailyScrums(): HasMany { return $this->hasMany(DailyScrum::class)->orderBy('numero_jour'); }
@@ -190,9 +236,16 @@ class Sprint extends Model
     {
         // Sprint clôturé ou base tâches : ce qui est réalisé est ce qui est livré
         if ($this->basePoints() !== 'stories' || $this->statut === 'termine') return $this->pointsLivres();
-        $taches = $this->taches()->get(['id', 'user_story_id', 'statut']);
-        return (int) round($this->userStories->sum(fn($us) => (int) $us->effort_estime
-            * \App\Services\AvancementScrum::pctStory($us, $taches->where('user_story_id', $us->id)) / 100));
+        $taches = $this->taches()->get(['id', 'user_story_id', 'statut', 'points']);
+        return (int) round($this->userStories->sum(function ($us) use ($taches) {
+            $pts = (int) $us->effort_estime;
+            if (!$pts) return 0;
+            if ($this->storyLivree($us)) return $pts;
+            // Points répartis sur les tâches : la part réalisée est celle des tâches terminées
+            $t = $taches->where('user_story_id', $us->id)->where('statut', '!=', 'reporte');
+            if ($us->avancement === null && $t->isNotEmpty() && $t->sum('points') > 0) return min($pts, (int) $t->where('statut', 'termine')->sum('points'));
+            return $pts * \App\Services\AvancementScrum::pctStory($us, $t) / 100;
+        }));
     }
 
     /** Stories du Sprint Backlog sans story points : leur travail n'entre pas dans les points. */

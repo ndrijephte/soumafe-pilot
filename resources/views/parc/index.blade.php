@@ -151,6 +151,18 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .docs-zone-txt{font-size:13px;color:#334155}.docs-zone-txt strong{color:var(--accent)}
 .docs-zone-aide{font-size:11px;color:var(--gris)}
 .docs-zone.choisi{border-style:solid;border-color:#93c5fd;background:#f5f9ff}
+.docs-choisis{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:10px}
+.docs-choisis[hidden]{display:none}
+.docs-fichier{display:flex;gap:8px;align-items:flex-start;background:#fff;border:1px solid var(--bord);border-radius:9px;padding:7px}
+.docs-fichier .vig{flex:none;width:46px;height:46px;border-radius:6px;background:#f1f5f9 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#475569}
+.docs-fichier .corps{flex:1;min-width:0}
+.docs-fichier .nom{font-size:11px;color:var(--gris);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.docs-fichier input{width:100%;box-sizing:border-box;margin-top:3px;padding:5px 7px;border:1px solid var(--bord);border-radius:6px;font-size:12px;font-family:inherit}
+.docs-fichier input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.docs-fichier .retirer{flex:none;border:0;background:none;color:#94a3b8;cursor:pointer;font-size:14px;line-height:1;padding:2px}
+.docs-fichier .retirer:hover{color:var(--ko)}
+.doc-vignette{flex:none;width:52px;height:52px;border-radius:8px;overflow:hidden;border:1px solid var(--bord);padding:0;background:#f8fafc;cursor:zoom-in}
+.doc-vignette img{width:100%;height:100%;object-fit:cover;display:block}
 .docs-champs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 10px;margin-top:10px}
 .docs-champs label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:#475569;font-weight:600}
 .docs-champs label[hidden]{display:none}
@@ -217,6 +229,20 @@ dialog input:focus,dialog select:focus,dialog textarea:focus{outline:none;border
 .docs-bandeau li .q.v-retard{color:#b91c1c}.docs-bandeau li .q.v-proche{color:#c2410c}.docs-bandeau li .q.v-semaine{color:#b45309}
 .docs-bandeau li .o{color:var(--gris);font-size:11.5px}
 @media(max-width:700px){.docs-champs{grid-template-columns:1fr 1fr}.docs-champs .docs-notes{grid-column:span 2}.docs-tete{flex-direction:column;align-items:flex-start}.doc{flex-wrap:wrap}.doc-act{width:100%;justify-content:flex-end}}
+.parc-periode{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:10px 14px;margin:4px 0 12px}
+.parc-periode .titre{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#475569;flex-wrap:wrap}
+.parc-periode .titre svg{width:16px;height:16px;color:#2e74b5;flex:none}
+.parc-periode .titre strong{color:#1f4e79}
+.parc-periode .titre .ex{color:var(--gris)}
+.parc-periode form{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:0 0 0 auto;font-size:12px;color:var(--gris)}
+.parc-periode select,.parc-periode input{padding:6px 9px;border:1px solid var(--bord);border-radius:8px;background:#fff;color:#334155;font-size:12px;font-family:inherit}
+.parc-periode input{width:134px}
+.parc-periode select:focus-visible,.parc-periode input:focus-visible{outline:2px solid #2e74b5;outline-offset:1px}
+.parc-periode button{padding:6px 12px;border-radius:8px;border:1px solid #2e74b5;background:#2e74b5;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.parc-periode button:hover{background:#245f96}
+.parc-periode .reinit{font-size:12px;color:#2e74b5;text-decoration:none;font-weight:600}
+.parc-periode .reinit:hover{text-decoration:underline}
+@media(max-width:800px){.parc-periode form{margin-left:0}}
 </style>
 @endpush
 @section('contenu')
@@ -291,25 +317,34 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 @endif
 
 {{-- KPI --}}
-<form method="GET" action="{{ route('parc.index') }}" id="form-exercice" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 12px;padding:8px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;font-size:13px;color:#1e40af">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    <label for="sel-exercice" style="font-weight:600">Exercice affiché</label>
-    <select name="exercice" id="sel-exercice" onchange="changerExercice()" style="padding:6px 10px;border:1px solid #93c5fd;border-radius:8px;font-size:13px;font-weight:600;color:#1e3a8a;background:#fff">
-        @foreach($exercicesParc as $cle => $ex)
-        <option value="{{ $cle }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $cle === $exerciceCourant ? ' - en cours' : '' }}</option>
-        @endforeach
-        <option value="tous" @selected($exercice === 'tous')>Toutes les périodes</option>
-    </select>
-    <input type="hidden" name="tab" id="ex-tab" value="{{ request('tab') }}">
-    @if(request('date_recette'))<input type="hidden" name="date_recette" value="{{ request('date_recette') }}">@endif
-    <span style="color:#475569;font-size:12px">Listes, totaux et indicateurs ci-dessous portent sur cet exercice.</span>
-    @if($exercice !== $exerciceCourant)<a href="{{ route('parc.index', ['tab' => request('tab')]) }}" style="margin-left:auto;font-weight:600;color:#1e40af">Revenir à l'exercice en cours</a>@endif
-</form>
+{{-- Période affichée : exercice (05 → 04) ou période libre, comme au tableau de bord --}}
+<div class="parc-periode">
+    <div class="titre">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>Période : <strong>{{ $exDebut ? $exDebut->format('d/m/Y') . ' → ' . $exFin->format('d/m/Y') : 'toutes les périodes' }}</strong>@if(isset($exercicesParc[$exercice])) <span class="ex">({{ $exercicesParc[$exercice]['libelle'] }}{{ $exercice === $exerciceCourant ? ', en cours' : '' }})</span>@endif</span>
+        @if($exercice !== $exerciceCourant)<a class="reinit" href="{{ route('parc.index', ['tab' => request('tab')]) }}">Revenir à l'exercice en cours</a>@endif
+    </div>
+    <form method="GET" action="{{ route('parc.index') }}" id="form-exercice">
+        <input type="hidden" name="tab" id="ex-tab" value="{{ request('tab') }}">
+        @if(request('date_recette'))<input type="hidden" name="date_recette" value="{{ request('date_recette') }}">@endif
+        <input type="hidden" name="exercice" id="ex-cle" value="{{ $exercice === 'periode' ? '' : $exercice }}">
+        <select id="sel-exercice" aria-label="Exercice" onchange="choisirExercice(this)">
+            <option value="">Exercice…</option>
+            @foreach($exercicesParc as $cle => $ex)
+            <option value="{{ $cle }}" data-du="{{ $ex['debut'] }}" data-au="{{ $ex['fin'] }}" @selected($exercice === $cle)>{{ $ex['libelle'] }}{{ $cle === $exerciceCourant ? ' - en cours' : '' }}</option>
+            @endforeach
+            <option value="tous" @selected($exercice === 'tous')>Toutes les périodes</option>
+        </select>
+        <label for="ex-du">du</label><input type="date" id="ex-du" name="du" value="{{ $exDebut?->toDateString() }}">
+        <label for="ex-au">au</label><input type="date" id="ex-au" name="au" value="{{ $exFin?->toDateString() }}">
+        <button type="submit" onclick="document.getElementById('ex-cle').value='';changerExercice(false)">Afficher</button>
+    </form>
+</div>
 <div class="kpis">
     <div class="kpi"><div class="lbl">En service</div><div class="val">{{ $kpi['actifs'] }}<span style="font-size:13px;color:var(--gris);font-weight:400">/{{ $kpi['total'] }}</span></div><div class="sub">{{ $kpi['taxis'] }} Taxis · {{ $kpi['vtcs'] }} VTC</div></div>
     <div class="kpi" @if($kpi['pannes_ouvertes']>0) style="background:#fff7ed;border-color:#fed7aa" @endif><div class="lbl">Pannes ouvertes</div><div class="val" style="color:{{ $kpi['pannes_ouvertes']>0 ? '#b45309' : 'var(--ok)' }}">{{ $kpi['pannes_ouvertes'] }}</div></div>
-    <div class="kpi"><div class="lbl">Coût pannes (exercice)</div><div class="val" style="font-size:22px">{{ number_format($kpi['cout_mois'], 0, ',', ' ') }}</div><div class="sub">FCFA</div></div>
-    <div class="kpi"><div class="lbl">Recettes de l'exercice</div><div class="val" style="font-size:20px">{{ number_format($kpi['recette_totale'], 0, ',', ' ') }}</div><div class="sub">dont recouv. {{ number_format($kpi['recouvrement_mois'], 0, ',', ' ') }} F · obj. {{ number_format($kpi['objectif_mois'], 0, ',', ' ') }}</div></div>
+    <div class="kpi"><div class="lbl">Coût pannes (période)</div><div class="val" style="font-size:22px">{{ number_format($kpi['cout_mois'], 0, ',', ' ') }}</div><div class="sub">FCFA</div></div>
+    <div class="kpi"><div class="lbl">Recettes de la période</div><div class="val" style="font-size:20px">{{ number_format($kpi['recette_totale'], 0, ',', ' ') }}</div><div class="sub">dont recouv. {{ number_format($kpi['recouvrement_mois'], 0, ',', ' ') }} F · obj. {{ number_format($kpi['objectif_mois'], 0, ',', ' ') }}</div></div>
     <div class="kpi"><div class="lbl">Taux recette / obj.</div><div class="val" style="color:{{ $kpi['taux_recette'] >= 100 ? 'var(--ok)' : ($kpi['taux_recette'] >= 80 ? '#b45309' : 'var(--ko)') }}">{{ $kpi['taux_recette'] }}%</div></div>
     <div class="kpi" @if($kpi['echeances_retard']>0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">Échéances en retard</div><div class="val" style="color:{{ $kpi['echeances_retard']>0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $kpi['echeances_retard'] }}</div></div>
     <div class="kpi" @if($kpi['penalites_non_payees']>0) style="background:#fef2f2;border-color:#fecaca" @endif><div class="lbl">Pénalités impayées</div><div class="val" style="color:{{ $kpi['penalites_non_payees']>0 ? 'var(--ko)' : 'var(--ok)' }}">{{ $kpi['penalites_non_payees'] }}</div></div>
@@ -2507,10 +2542,19 @@ foreach($vehicules as $_v) {
 
 @push('scripts')
 <script>
-function changerExercice(){
+function changerExercice(soumettre){
     var actif=document.querySelector('.tab-panel.actif');
     if(actif) document.getElementById('ex-tab').value=actif.id.replace('tab-','');
-    document.getElementById('form-exercice').submit();
+    if(soumettre !== false) document.getElementById('form-exercice').submit();
+}
+/* Exercice choisi : ses bornes remplissent « du / au » ; « Toutes les périodes » les vide */
+function choisirExercice(sel){
+    var o=sel.selectedOptions[0], f=sel.form;
+    if(!sel.value) return;
+    f.querySelector('#ex-cle').value=sel.value;
+    f.du.value=o.dataset.du||''; f.au.value=o.dataset.au||'';
+    if(sel.value==='tous'){ f.du.value=''; f.au.value=''; }
+    changerExercice();
 }
 function changerOnglet(nom){
     document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('actif')});
@@ -3495,7 +3539,7 @@ function ficheVehicule(vehiculeId){
     contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
     dlg.showModal();
     var fmt=function(n){return new Intl.NumberFormat('fr-FR').format(n||0)};
-    fetch('{{ url("parc/vehicules") }}/'+vehiculeId+'/fiche?exercice={{ $exercice }}')
+    fetch('{{ url("parc/vehicules") }}/'+vehiculeId+'/fiche?exercice={{ $exercice }}&du={{ $exDebut?->toDateString() }}&au={{ $exFin?->toDateString() }}')
         .then(function(r){return r.json()})
         .then(function(d){
             var html='';
@@ -3619,7 +3663,7 @@ function ficheChauffeur(chauffeurId){
     contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
     dlg.showModal();
     var fmt=function(n){return new Intl.NumberFormat('fr-FR').format(n||0)};
-    fetch('{{ url("parc/chauffeurs") }}/'+chauffeurId+'/fiche?exercice={{ $exercice }}')
+    fetch('{{ url("parc/chauffeurs") }}/'+chauffeurId+'/fiche?exercice={{ $exercice }}&du={{ $exDebut?->toDateString() }}&au={{ $exFin?->toDateString() }}')
         .then(function(r){return r.json()})
         .then(function(d){
             var html='';
@@ -3975,18 +4019,53 @@ function erreurs(j){
     return (j && j.message) || 'L\'opération a échoué.';
 }
 
-window.fichiersChoisis = function(input){
-    const lab = input.closest('.docs-zone'), n = input.files.length, t = lab.querySelector('.docs-zone-txt');
+/* Fichiers choisis : cumulés d'un choix à l'autre, chacun avec sa légende (vignette pour une image) */
+const listeFichiers = new WeakMap();
+function majChoix(form){
+    const input = form.querySelector('input[type=file]'), lab = input.closest('.docs-zone'), t = lab.querySelector('.docs-zone-txt');
+    const fichiers = listeFichiers.get(form) || [];
+    const dt = new DataTransfer(); fichiers.forEach(x => dt.items.add(x.f)); input.files = dt.files;
+    const n = fichiers.length;
     lab.classList.toggle('choisi', n > 0);
     t.textContent = '';
     const b = document.createElement('strong');
-    if (n) { b.textContent = n > 1 ? n + ' fichiers' : input.files[0].name; t.append(b, ' prêt' + (n > 1 ? 's' : '') + ' à joindre'); }
+    if (n) { b.textContent = n + ' fichier' + (n > 1 ? 's' : ''); t.append(b, ' prêt' + (n > 1 ? 's' : '') + ' à joindre — cliquez pour en ajouter'); }
     else { b.textContent = 'Choisir des fichiers'; t.append(b, ' ou les glisser ici'); }
+    const zone = form.querySelector('.docs-choisis');
+    zone.hidden = !n; zone.innerHTML = '';
+    fichiers.forEach((x, i) => {
+        const el = document.createElement('div'); el.className = 'docs-fichier';
+        const vig = document.createElement('span'); vig.className = 'vig';
+        if (x.f.type.startsWith('image/')) { x.url = x.url || URL.createObjectURL(x.f); vig.style.backgroundImage = 'url(' + x.url + ')'; }
+        else vig.textContent = (x.f.name.split('.').pop() || '').toUpperCase().slice(0, 4);
+        const corps = document.createElement('div'); corps.className = 'corps';
+        const nom = document.createElement('div'); nom.className = 'nom'; nom.textContent = x.f.name; nom.title = x.f.name;
+        const leg = document.createElement('input'); leg.type = 'text'; leg.maxLength = 200; leg.placeholder = 'Légende (facultatif)'; leg.value = x.legende || '';
+        leg.setAttribute('aria-label', 'Légende de ' + x.f.name);
+        leg.addEventListener('input', () => { x.legende = leg.value; });
+        corps.append(nom, leg);
+        const rm = document.createElement('button'); rm.type = 'button'; rm.className = 'retirer'; rm.innerHTML = '&#10005;'; rm.title = 'Retirer ce fichier';
+        rm.addEventListener('click', () => { if (x.url) URL.revokeObjectURL(x.url); fichiers.splice(i, 1); majChoix(form); });
+        el.append(vig, corps, rm); zone.appendChild(el);
+    });
+}
+function ajouterFichiers(form, liste){
+    const fichiers = listeFichiers.get(form) || [];
+    const unique = form.querySelector('input[type=file]').multiple === false;
+    if (unique) fichiers.length = 0;
+    [...liste].forEach(f => { if (!fichiers.some(x => x.f.name === f.name && x.f.size === f.size)) fichiers.push({f, legende: ''}); });
+    if (unique) fichiers.splice(1);
+    listeFichiers.set(form, fichiers);
+    majChoix(form);
+}
+window.fichiersChoisis = function(input){
+    const form = input.closest('form');
+    const nouveaux = [...input.files];
+    ajouterFichiers(form, nouveaux);
 };
 window.deposerGlisser = function(e, lab){
     e.preventDefault(); lab.classList.remove('survol');
-    const input = lab.querySelector('input[type=file]');
-    input.files = e.dataTransfer.files; fichiersChoisis(input);
+    ajouterFichiers(lab.closest('form'), e.dataTransfer.files);
 };
 window.categorieDocChange = function(sel){
     const exp = sel.form.querySelector('.docs-exp');
@@ -4001,6 +4080,9 @@ window.deposerDocuments = function(e, form){
     const fd = new FormData(form);
     const sel = form.querySelector('select[name=categorie]');
     if (sel.disabled) fd.set('categorie', sel.value);
+    // Une légende par fichier, dans l'ordre des fichiers
+    fd.delete('legendes[]');
+    (listeFichiers.get(form) || []).forEach(x => fd.append('legendes[]', x.legende || ''));
     fetch(form.dataset.action, {method: 'POST', body: fd, headers: {'X-CSRF-TOKEN': jeton, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
         .then(r => r.json().then(j => ({ok: r.ok, j})))
         .then(({ok, j}) => { if (ok) appliquer(j); else { btn.disabled = false; msg.className = 'docs-msg ko'; msg.textContent = erreurs(j); } })

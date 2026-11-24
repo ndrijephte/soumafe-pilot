@@ -26,6 +26,24 @@
 @media(max-width:700px){#dlg-regles td:first-child{white-space:normal}}
 .scrum-nav .export{margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:#fff;color:#166534;text-decoration:none;font-size:12px;font-weight:600;padding:5px 11px;border:1px solid #bbf7d0;border-radius:7px;margin-bottom:6px}
 .scrum-nav .export:hover{background:#f0fdf4}
+/* Actions rétrospectives : rectification d'un sprint clôturé */
+.rectif{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-radius:10px;padding:9px 14px;margin:-6px 0 14px;font-size:12.5px}
+.rectif svg{width:16px;height:16px;flex:none}
+.rectif.cloture{background:#f8fafc;border:1px solid var(--bord);color:#475569}
+.rectif.ouverte{background:#fff7ed;border:1px solid #fdba74;color:#9a3412}
+.rectif.ouverte strong{color:#7c2d12}
+.rectif .motif{color:#9a3412;font-style:italic}
+.rectif form{margin:0 0 0 auto}
+.rectif .btn-rectif{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:6px 12px;font:inherit;font-weight:600;cursor:pointer;border:1px solid #cbd5e1;background:#fff;color:#334155}
+.rectif .btn-rectif:hover{border-color:#93c5fd;color:#1f4e79}
+.rectif.ouverte .btn-rectif{background:#c2410c;border-color:#c2410c;color:#fff}
+.rectif.ouverte .btn-rectif:hover{background:#9a3412}
+#dlg-rectif{border:none;border-radius:14px;padding:22px;width:520px;max-width:94vw;box-shadow:0 12px 40px rgba(15,23,42,.2)}
+#dlg-rectif h3{margin:0 0 6px;font-size:16px;color:#1f4e79}
+#dlg-rectif p{margin:0 0 10px;font-size:12.5px;color:#475569;line-height:1.5}
+#dlg-rectif ul{margin:0 0 12px 18px;padding:0;font-size:12.5px;color:#475569;line-height:1.55}
+#dlg-rectif textarea{width:100%;box-sizing:border-box;min-height:80px;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font:inherit;font-size:13px;resize:vertical}
+#dlg-rectif .pied{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 @media(max-width:700px){.scrum-nav .export{margin-left:0}}
 </style>
 @endpush
@@ -59,6 +77,44 @@
     <a class="onglet" href="{{ route('scrum.rapports') }}">Tous les rapports Daily</a>
     @endif
 </nav>
+@if($voitProjet && $sprint->statut === 'termine')
+@php $peutRectifier = auth()->user()->peutRectifier($sprint->projet); @endphp
+@if($sprint->enRectification())
+<div class="rectif ouverte" role="status">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    <span><strong>Rectification en cours</strong> — sprint clôturé rouvert le {{ $sprint->rectification_ouverte_le->format('d/m/Y à H:i') }}{{ $sprint->rectificateur ? ' par ' . $sprint->rectificateur->nomComplet() : '' }} : tous les onglets sont modifiables. <span class="motif">« {{ $sprint->rectification_motif }} »</span></span>
+    @if($peutRectifier)
+    <form method="POST" action="{{ route('sprints.rectification.fermer', $sprint) }}" onsubmit="return confirm('Terminer la rectification ? Les statuts seront recalculés d\'après les tâches et le Sprint Backlog figé de nouveau.')">@csrf @method('DELETE')
+        <button class="btn-rectif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Terminer la rectification</button>
+    </form>
+    @endif
+</div>
+@elseif($peutRectifier)
+<div class="rectif cloture">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    <span>Sprint clôturé : son historique est figé. Pour l'harmoniser (stories, tâches, attributions, Daily, rapports), rouvrez-le en rectification.</span>
+    <form onsubmit="event.preventDefault();document.getElementById('dlg-rectif').showModal()"><button class="btn-rectif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 9.9-1"/></svg>Rectifier ce sprint</button></form>
+</div>
+<dialog id="dlg-rectif" aria-labelledby="dr-titre">
+    <form method="POST" action="{{ route('sprints.rectification.ouvrir', $sprint) }}">@csrf
+        <h3 id="dr-titre">Rectifier le Sprint {{ $sprint->numero }}</h3>
+        <p>Le sprint reste clôturé, mais ses onglets redeviennent modifiables le temps de la rectification :</p>
+        <ul>
+            <li>Sprint Backlog : ajouter, retirer, estimer les user stories ;</li>
+            <li>Sprint Planning : créer, modifier, réattribuer, importer les tâches ;</li>
+            <li>Daily Scrum et rapports de la cérémonie.</li>
+        </ul>
+        <p>À la fin, les statuts sont recalculés d'après les tâches et le Sprint Backlog est figé de nouveau. L'ouverture et la fermeture sont tracées au journal d'audit.</p>
+        <label for="dr-motif" style="display:block;font-size:12px;font-weight:600;color:#475569;margin-bottom:4px">Motif (obligatoire)</label>
+        <textarea id="dr-motif" name="motif" required minlength="10" maxlength="500" placeholder="Ex. : harmoniser les attributions et les stories du sprint importé de l'historique"></textarea>
+        <div class="pied">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Rouvrir en rectification</button>
+        </div>
+    </form>
+</dialog>
+@endif
+@endif
 @if($voitProjet)
 <div class="scrum-suite">
     <span>Prochaine étape : @if($lienSuite)<a href="{{ $lienSuite }}">{{ $suite }}</a>@else{{ $suite }}@endif</span>

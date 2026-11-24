@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Projet extends Model
 {
     use SoftDeletes;
-    protected $fillable = ['code', 'libelle', 'client', 'responsable_projet_id', 'statut', 'delegation_sprint', 'date_debut', 'date_cible', 'daily_config'];
-    protected $casts = ['date_debut' => 'date', 'date_cible' => 'date', 'delegation_sprint' => 'boolean', 'daily_config' => 'array'];
+    protected $fillable = ['code', 'libelle', 'client', 'responsable_projet_id', 'statut', 'delegation_sprint', 'delegation_historique', 'date_debut', 'date_cible', 'daily_config'];
+    protected $casts = ['date_debut' => 'date', 'date_cible' => 'date', 'delegation_sprint' => 'boolean', 'delegation_historique' => 'boolean', 'daily_config' => 'array'];
 
     /** Jours possibles du Daily Scrum (numéro ISO => libellé). */
     public const JOURS_DAILY = [1 => 'Lundi', 2 => 'Mardi', 3 => 'Mercredi', 4 => 'Jeudi', 5 => 'Vendredi', 6 => 'Samedi'];

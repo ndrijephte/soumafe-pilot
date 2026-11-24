@@ -9,10 +9,10 @@ class Tache extends Model
 {
     use SoftDeletes;
     protected $table = 'taches';
-    protected $fillable = ['user_id', 'type', 'intitule', 'projet_id', 'sprint_id', 'activite',
+    protected $fillable = ['user_id', 'type', 'intitule', 'projet_id', 'sprint_id', 'ajoutee_en_cours_le', 'activite',
         'priorite', 'date_debut', 'echeance', 'date_fin_reelle', 'points', 'statut',
         'qualification', 'effort_volontaire', 'justification_requise', 'user_story_id', 'teste'];
-    protected $casts = ['date_debut' => 'date', 'echeance' => 'date', 'date_fin_reelle' => 'date', 'teste' => 'boolean'];
+    protected $casts = ['date_debut' => 'date', 'echeance' => 'date', 'date_fin_reelle' => 'date', 'teste' => 'boolean', 'ajoutee_en_cours_le' => 'datetime'];
 
     /** Qualification posée à la clôture (ClotureService, SprintController::cloturer). */
     public const QUALIFICATIONS = [
@@ -27,17 +27,49 @@ class Tache extends Model
     }
 
     /** Module Scrum : l'avancement des tâches fait progresser la user story (backlog + sprint). */
+    /** Sprints qui avaient déjà des tâches au début de l'opération en cours (requête, commande) : id => bool. */
+    private static array $planifies = [];
+
+    /**
+     * Tâche qui entre dans un sprint en cours dont la planification existait déjà au début de l'opération :
+     * c'est un ajout en cours de sprint (un premier import du planning, même après le démarrage, n'en est pas un).
+     */
+    private static function marquerAjout(Tache $t): void
+    {
+        if (!$t->sprint_id || $t->ajoutee_en_cours_le) return;
+        $sprint = Sprint::find($t->sprint_id, ['id', 'statut']);
+        if (!$sprint || $sprint->statut !== 'en_cours') return;
+        self::$planifies[$sprint->id] ??= Tache::where('sprint_id', $sprint->id)->exists();
+        if (self::$planifies[$sprint->id]) $t->ajoutee_en_cours_le = now();
+    }
+
+    /** Ajout en cours de sprint : date, pour l'identifier dans les écrans. */
+    public function estAjoutEnCours(): bool { return $this->ajoutee_en_cours_le !== null; }
+
     protected static function booted(): void
     {
+        static::creating(fn(Tache $t) => self::marquerAjout($t));
+        static::updating(function (Tache $t) { if ($t->isDirty('sprint_id')) self::marquerAjout($t); });
         // Hiérarchie dynamique : la user story (et donc son epic et son module) suit ses tâches
         static::saved(function (Tache $t) {
             if ($t->wasRecentlyCreated || $t->wasChanged(['statut', 'user_story_id', 'sprint_id'])) {
                 \App\Services\AvancementScrum::synchroniser($t->user_story_id);
                 if ($t->wasChanged('user_story_id')) \App\Services\AvancementScrum::synchroniser($t->getOriginal('user_story_id'), true);
             }
+            // Story points répartis sur les tâches : toute tâche ajoutée, déplacée, redimensionnée ou reportée recompose le partage
+            if ($t->sprint_id && ($t->wasRecentlyCreated || $t->wasChanged(['user_story_id', 'sprint_id', 'date_debut', 'echeance', 'statut', 'points']))) {
+                \App\Services\RepartitionPoints::story($t->user_story_id);
+                if ($t->wasChanged('user_story_id')) \App\Services\RepartitionPoints::story($t->getOriginal('user_story_id'));
+            }
         });
-        static::deleted(fn (Tache $t) => \App\Services\AvancementScrum::synchroniser($t->user_story_id, true));
-        static::restored(fn (Tache $t) => \App\Services\AvancementScrum::synchroniser($t->user_story_id));
+        static::deleted(function (Tache $t) {
+            \App\Services\AvancementScrum::synchroniser($t->user_story_id, true);
+            \App\Services\RepartitionPoints::story($t->user_story_id);
+        });
+        static::restored(function (Tache $t) {
+            \App\Services\AvancementScrum::synchroniser($t->user_story_id);
+            \App\Services\RepartitionPoints::story($t->user_story_id);
+        });
     }
 
     public function user(): BelongsTo { return $this->belongsTo(User::class); }

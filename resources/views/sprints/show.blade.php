@@ -11,22 +11,26 @@
 .badge-statut{padding:4px 12px;border-radius:8px;font-size:12px;font-weight:600}
 .s-planifie{background:#e2e8f0;color:#475569}.s-en_cours{background:#dbeafe;color:#1d4ed8}.s-termine{background:#dcfce7;color:var(--ok)}
 .av-sp{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:12px 16px;margin-bottom:16px}
-.av-sp .ligne{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.av-sp .pct{display:flex;align-items:baseline;gap:8px;min-width:150px}
-.av-sp .pct b{font-size:22px;font-weight:700;color:#1f4e79;line-height:1}
-.av-sp .pct span{font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
-.av-sp .barre{flex:1;min-width:160px;height:6px;background:#e9eef5;border-radius:6px;overflow:hidden;display:flex}
+.av-sp .grille{display:grid;grid-template-columns:110px 84px minmax(140px,1fr) auto;align-items:center;gap:10px 14px}
+.av-sp .lib{font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.av-sp .val{font-size:22px;font-weight:700;line-height:1;color:#1f4e79;text-align:right;white-space:nowrap}
+.av-sp .val.pts{color:#15803d}
+.av-sp .barre{height:8px;background:#e9eef5;border-radius:8px;overflow:hidden;display:flex}
 .av-sp .barre i{display:block;height:100%}
 .av-sp .barre .t{background:#2e74b5}.av-sp .barre .c{background:#93c5fd}.av-sp .barre .b{background:#f87171}
-.av-sp .ligne.pts{margin-top:10px;padding-top:10px;border-top:1px dashed #e5ebf2}
-.av-sp .ligne.pts .pct b{color:#15803d}
 .av-sp .barre .l{background:#16a34a}.av-sp .barre .r{background:#86efac}
-.av-sp .chiffres .non-est{background:#fff7ed;border-color:#fdba74;color:#9a3412}.av-sp .chiffres .non-est b{color:#c2410c}
-.av-sp .vide{font-size:12px;color:#64748b}
+.av-sp .vide{font-size:12px;color:#64748b;grid-column:3 / -1}
 .av-sp .chiffres{display:flex;gap:4px;flex-wrap:wrap}
 .av-sp .chiffres span{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;background:#f8fafc;border:1px solid #edf1f6;font-size:11.5px;color:#64748b;white-space:nowrap}
 .av-sp .chiffres b{color:#1e293b;font-weight:700}
 .av-sp .chiffres i{width:7px;height:7px;border-radius:50%}
+.av-sp .chiffres .non-est{background:#fff7ed;border-color:#fdba74;color:#9a3412}.av-sp .chiffres .non-est b{color:#c2410c}
+.av-sp .tete{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.av-sp .tete h4{margin:0;font-size:12px;font-weight:700;color:#334155}
+.av-sp .ecart{margin-top:10px;padding:8px 12px;border-radius:8px;background:#f8fafc;border:1px solid #edf1f6;font-size:12px;color:#475569;line-height:1.5}
+.av-sp .ecart strong{color:#1f4e79}
+.av-sp .ecart ul{margin:3px 0 0 16px;padding:0}
+@media(max-width:800px){.av-sp .grille{grid-template-columns:1fr 60px}.av-sp .barre,.av-sp .chiffres{grid-column:1 / -1}}
 .av-sp .actions{display:flex;gap:4px;margin-left:auto}
 .av-sp .ico-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;border:1px solid transparent;background:none;color:#64748b;cursor:pointer;transition:all .15s}
 .av-sp .ico-btn:hover{background:#eef4fb;color:#2e74b5;border-color:#d6e4f3}
@@ -44,6 +48,9 @@
 .rattacher{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 12px;margin-bottom:10px;background:#f8fafc;border:1px solid var(--bord);border-radius:10px;font-size:12.5px;color:#475569}
 .rattacher select{flex:1 1 280px;min-width:0;max-width:640px;padding:5px 8px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px}
 .rattacher .btn:disabled{opacity:.5;cursor:not-allowed}
+.rattacher.rectif-lot{background:#fff7ed;border-color:#fdba74;color:#9a3412}
+.rattacher.rectif-lot select{flex:0 1 220px}
+.rattacher .sep-lot{width:1px;height:22px;background:#fdba74;margin:0 4px}
 .t-coche,.t-tout{width:15px;height:15px;accent-color:#2e74b5;cursor:pointer;vertical-align:middle}
 .taches-table th.col-duree,.taches-table th.col-pts,.taches-table th.col-edit{text-align:center}
 .col-coche{width:30px}.col-tache{width:30%}.col-assigne{width:12%}.col-prio{width:9%}.col-debut{width:6%}.col-ech{width:6%}.col-duree{width:6%;text-align:center}.col-pts{width:4%;text-align:center}.col-statut{width:13%}.col-edit{width:13%;text-align:center}
@@ -52,7 +59,9 @@
 .sc-d b{background:#e0f2fe;color:#0369a1}.sc-e b{background:#dbeafe;color:#1d4ed8}.sc-t b{background:#dcfce7;color:#166534}.sc-tt b{background:#166534;color:#fff}
 .sc-er b{background:#fee2e2;color:#991b1b}.sc-bloque b{background:#fee2e2;color:#991b1b}.sc-autre b{background:#f1f5f9;color:#64748b}
 .sc-legende{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--gris);margin:-4px 0 10px}
-.groupe-us td{background:var(--fond);font-size:11.5px;font-weight:600;color:var(--bleu);padding:7px 10px}
+.groupe-us td{background:var(--fond);font-size:11.5px;font-weight:600;color:var(--bleu);padding:7px 10px 7px 22px}
+.groupe-mod td{background:#e8f0fa;border-top:2px solid #c9d9ee;font-size:12.5px;font-weight:700;color:#1f4e79;padding:9px 10px;letter-spacing:.2px}
+.groupe-mod .gm-nb{margin-left:10px;font-size:11px;font-weight:600;color:#64748b}
 .groupe-us .gu-num{color:var(--accent);margin-right:6px}
 .sb-liste{display:grid;gap:8px}
 .sb-us{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--bord);border-radius:10px;padding:10px 12px}
@@ -123,6 +132,11 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 .tache-nom:hover{color:var(--accent)}
 @media(max-width:900px){.form-row{grid-template-columns:1fr}.sprint-header{flex-direction:column}.filtre-bar{flex-direction:column}.taches-table{display:block;overflow-x:auto;table-layout:auto}.col-tache,.col-assigne,.col-prio,.col-debut,.col-ech,.col-pts,.col-statut,.col-edit{width:auto}}
 @media(max-width:600px){dialog{padding:16px}.btn{padding:6px 12px;font-size:12px}.stats-row{gap:12px;font-size:12px}}
+.ajout-sprint{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 7px;border-radius:999px;background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;font-size:10.5px;font-weight:700;white-space:nowrap;vertical-align:middle}
+.taches-table tr.ligne-ajout td:first-child,.taches-table tr.ligne-ajout td:nth-child(2){box-shadow:inset 3px 0 0 #8b5cf6}
+.filtre-ajout{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#475569;cursor:pointer;white-space:nowrap}
+.filtre-ajout input{accent-color:#7c3aed;margin:0;width:auto!important;flex:none}
+.filtre-ajout{width:auto!important;text-transform:none!important;letter-spacing:0!important;font-weight:500!important}
 </style>
 @endpush
 @section('contenu')
@@ -171,22 +185,26 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     $baseStories = $sprint->basePoints() === 'stories';
     $pctPts = $ptsEng ? min(100, (int) round($ptsReal / $ptsEng * 100)) : 0;
     $nonEst = $sprint->storiesNonEstimees();
+    // Pourquoi les deux taux diffèrent : ce que les tâches comptent et que les points ne comptent pas, et inversement
+    $tachesSp = $sprint->taches()->with('userStory:id,numero')->where('statut', '!=', 'reporte')->get(['id', 'user_story_id', 'statut', 'points']);
+    $livrees = $sprint->userStories->filter(fn($us) => $sprint->storyLivree($us))->keyBy('id');
+    $nonFiniesLivrees = $tachesSp->filter(fn($t) => $t->user_story_id && $livrees->has($t->user_story_id) && $t->statut !== 'termine');
+    $horsStory = $tachesSp->whereNull('user_story_id');
+    $nonEstIds = $sprint->userStories->filter(fn($us) => !$us->effort_estime)->pluck('id');
+    $tachesNonEst = $tachesSp->whereIn('user_story_id', $nonEstIds);
+    $ecarts = array_filter([
+        $nonFiniesLivrees->isNotEmpty() ? $nonFiniesLivrees->count() . ' tâche(s) non terminée(s) dans des user stories déclarées livrées (' . $nonFiniesLivrees->map(fn($t) => $t->userStory?->numero)->unique()->join(', ') . ') : la story compte entière dans les points, la tâche manque aux tâches' : null,
+        $horsStory->isNotEmpty() ? $horsStory->count() . ' tâche(s) hors user story (' . $horsStory->where('statut', 'termine')->count() . ' terminée(s)) : comptées dans les tâches, sans story points' : null,
+        $tachesNonEst->isNotEmpty() ? $tachesNonEst->count() . ' tâche(s) de stories non estimées : comptées dans les tâches, absentes des points' : null,
+    ]);
+    $pctPtsAff = $ptsEng ? $pctPts : null;
 @endphp
 <div class="av-sp">
-    <div class="ligne">
-        <div class="pct" title="Tâches terminées sur l'ensemble des tâches du sprint"><b>{{ $pct }} %</b><span>Tâches</span></div>
-        <div class="barre" role="img" aria-label="{{ $terminees }} terminées, {{ $enCours }} en cours, {{ $bloquees }} bloquées sur {{ $totalTaches }} tâches">
-            <i class="t" style="width:{{ $pT }}%"></i><i class="c" style="width:{{ $pC }}%"></i><i class="b" style="width:{{ $pB }}%"></i>
-        </div>
-        <div class="chiffres">
-            <span><b>{{ $totalTaches }}</b> tâches</span>
-            <span><i style="background:#2e74b5"></i><b>{{ $terminees }}</b> terminées</span>
-            <span><i style="background:#93c5fd"></i><b>{{ $enCours }}</b> en cours</span>
-            @if($bloquees)<span><i style="background:#f87171"></i><b>{{ $bloquees }}</b> bloquées</span>@endif
-        </div>
+    <div class="tete">
+        <h4>Progression du sprint</h4>
         @if($canEditSprint)
         <div class="actions">
-            @if($sprint->statut !== 'termine')
+            @if($sprint->modifiable())
             <button type="button" class="ico-btn" onclick="document.getElementById('dlg-edit-sprint').showModal()" title="Modifier le sprint" aria-label="Modifier le sprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
             @endif
             @if($sprint->statut !== 'en_cours')
@@ -198,9 +216,23 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         </div>
         @endif
     </div>
-    {{-- Story points : livrés (stories terminées) et réalisés (exécution des stories en cours), sur les points engagés --}}
-    <div class="ligne pts">
-        <div class="pct" title="Points réalisés sur les points engagés"><b>{{ $ptsEng ? $pctPts . ' %' : '—' }}</b><span>Story points</span></div>
+    <div class="grille">
+        {{-- Tâches : nombre de tâches terminées (chaque tâche compte pour une) --}}
+        <span class="lib" title="Tâches terminées sur l'ensemble des tâches du sprint (hors tâches reportées)">Tâches</span>
+        <span class="val">{{ $pct }} %</span>
+        <div class="barre" role="img" aria-label="{{ $terminees }} terminées, {{ $enCours }} en cours, {{ $bloquees }} bloquées sur {{ $totalTaches }} tâches">
+            <i class="t" style="width:{{ $pT }}%"></i><i class="c" style="width:{{ $pC }}%"></i><i class="b" style="width:{{ $pB }}%"></i>
+        </div>
+        <div class="chiffres">
+            <span><i style="background:#2e74b5"></i><b>{{ $terminees }}</b> terminées</span>
+            <span><i style="background:#93c5fd"></i><b>{{ $enCours }}</b> en cours</span>
+            @if($bloquees)<span><i style="background:#f87171"></i><b>{{ $bloquees }}</b> bloquées</span>@endif
+            <span>sur <b>{{ $totalTaches }}</b></span>
+        </div>
+
+        {{-- Story points : stories livrées (entières) et part réalisée des stories en cours (points répartis sur leurs tâches) --}}
+        <span class="lib" title="Story points réalisés sur les points engagés">Story points</span>
+        <span class="val pts">{{ $pctPtsAff !== null ? $pctPtsAff . ' %' : '—' }}</span>
         @if($ptsEng)
         <div class="barre" role="img" aria-label="{{ $ptsLiv }} points livrés et {{ $ptsReal }} réalisés sur {{ $ptsEng }} engagés">
             <i class="l" style="width:{{ min(100, $ptsLiv / $ptsEng * 100) }}%"></i><i class="r" style="width:{{ max(0, min(100, $ptsReal / $ptsEng * 100) - min(100, $ptsLiv / $ptsEng * 100)) }}%"></i>
@@ -208,17 +240,22 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <div class="chiffres">
             @if($baseStories)
             <span title="Points des user stories terminées"><i style="background:#16a34a"></i><b>{{ $ptsLiv }}</b> livrés</span>
-            @if($ptsReal > $ptsLiv)<span title="Points livrés + part exécutée des stories en cours (tâches terminées ou niveau déclaré)"><i style="background:#86efac"></i><b>{{ $ptsReal }}</b> réalisés</span>@endif
-            <span title="Somme des story points du Sprint Backlog"><b>{{ $ptsEng }}</b> engagés</span>
+            @if($ptsReal > $ptsLiv)<span title="Livrés + points des tâches terminées des stories en cours"><i style="background:#86efac"></i><b>{{ $ptsReal }}</b> réalisés</span>@endif
+            <span title="Somme des story points du Sprint Backlog">sur <b>{{ $ptsEng }}</b></span>
             @else
-            <span title="Aucune user story estimée : les points sont ceux des tâches"><i style="background:#16a34a"></i><b>{{ $ptsLiv }}</b> / {{ $ptsEng }} pts de tâches terminées</span>
+            <span title="Aucune user story estimée : les points sont ceux des tâches"><i style="background:#16a34a"></i><b>{{ $ptsLiv }}</b> / {{ $ptsEng }} pts de tâches</span>
             @endif
-            @if($nonEst && $sprint->statut !== 'termine')<span class="non-est" title="Leur travail n'entre pas dans les story points : estimez-les dans le Sprint Backlog ci-dessous"><b>{{ $nonEst }}</b> {{ $nonEst > 1 ? 'stories' : 'story' }} non estimée{{ $nonEst > 1 ? 's' : '' }}</span>@endif
+            @if($nonEst && $sprint->modifiable())<span class="non-est" title="Leur travail n'entre pas dans les story points : estimez-les dans le Sprint Backlog ci-dessous"><b>{{ $nonEst }}</b> {{ $nonEst > 1 ? 'stories' : 'story' }} non estimée{{ $nonEst > 1 ? 's' : '' }}</span>@endif
         </div>
         @else
         <div class="vide">Aucun point engagé : estimez les user stories du Sprint Backlog pour suivre la progression en story points.</div>
         @endif
     </div>
+    @if($ptsEng && $ecarts && abs($pct - $pctPts) >= 1)
+    <div class="ecart"><strong>Pourquoi deux taux différents ?</strong> Les tâches comptent une par une ; les story points suivent les user stories (points répartis sur leurs tâches selon leur durée).
+        <ul>@foreach($ecarts as $e)<li>{{ $e }}</li>@endforeach</ul>
+    </div>
+    @endif
     {{-- Période d'exercice (05 → 04) : un sprint à cheval est arbitré par un pilote --}}
     @php $periodeEx = $sprint->periodeExercice(); @endphp
     <div class="periode-ex {{ $periodeEx ? '' : 'a-arbitrer' }}">
@@ -241,9 +278,12 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 
 @if($canEdit)
 <div class="actions-bar">
-    @if($vue === 'planning' && $sprint->statut !== 'termine')
+    @if($vue === 'planning' && $sprint->modifiable())
     <button class="btn" onclick="document.getElementById('dlg-tache').showModal()">+ Ajouter une t&acirc;che</button>
     <button class="btn sec" onclick="document.getElementById('dlg-import').showModal()">Importer (.xlsx)</button>
+    @endif
+    @if($vue === 'planning' && (auth()->user()->estAdmin() || auth()->user()->peutRectifier($sprint->projet)))
+    <button class="btn sec" onclick="document.getElementById('dlg-structure').showModal()" title="Rattache les tâches à leur fonctionnalité et à leur user story d'après le classeur Scrum, sans toucher à l'avancement ni aux points">Restaurer la structure</button>
     @endif
     @if($sprint->statut === 'termine')
     <a href="{{ route('scrum.demo', $sprint) }}" class="btn sec">Rapport de review</a>
@@ -273,7 +313,8 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </div>
 @elseif($sprint->statut === 'termine')
 <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:10px 14px;font-size:13px;color:#475569;margin-bottom:12px">
-    <strong>Sprint termin&eacute;</strong> - ex&eacute;cution fig&eacute;e.
+    @if($sprint->enRectification())<strong>Sprint termin&eacute;, en rectification</strong> - t&acirc;ches, statuts et attributions corrigeables jusqu'&agrave; la fin de la rectification.
+    @else<strong>Sprint termin&eacute;</strong> - ex&eacute;cution fig&eacute;e.@endif
     @if($manquants = \App\Services\CeremoniesScrum::rapportsManquants($sprint))
     <span style="margin-left:6px;color:#92400e">Rapports &agrave; finaliser : {{ implode(' · ', $manquants) }}.</span>
     @endif
@@ -287,7 +328,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 {{-- ═══ Onglet Sprint Backlog : équipe et user stories ═══ --}}
 @if($vue === 'backlog' || !$voitProjet)
 @if($voitProjet)
-@php $editEquipe = $canEdit && $sprint->statut !== 'termine'; @endphp
+@php $editEquipe = $canEdit && $sprint->modifiable(); @endphp
 <div class="carte" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
         <h3 style="font-size:14px;color:var(--bleu);margin:0">&Eacute;quipe du sprint <span class="pill p-attente">{{ $equipe->count() }}</span></h3>
@@ -345,7 +386,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </div>
 @endif
 
-@include('scrum._actions_retro', ['sprint' => $sprint, 'enTache' => $canEdit && $sprint->statut !== 'termine'])
+@include('scrum._actions_retro', ['sprint' => $sprint, 'enTache' => $canEdit && $sprint->modifiable()])
 
 {{-- ═══ SPRINT BACKLOG : user stories retenues ═══ --}}
 <div class="carte" style="margin-bottom:16px">
@@ -381,7 +422,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
             <span class="cx {{ $us->dor ? 'cx-simple' : 'cx-aucune' }}" title="Definition of Ready">DoR {{ $us->dor ? 'Oui' : 'Non' }}</span>
             <span class="avance">@include('scrum._niveau_us', ['us' => $us, 'taches' => $tUs])<small style="display:block;color:#94a3b8;font-size:10.5px;margin-top:2px">{{ $tUs->where('statut', 'termine')->count() }}/{{ $tUs->count() }} tâche(s) terminée(s)</small></span>
             @php $cx = $us->complexiteStory(); @endphp
-            @if($canEdit && $sprint->statut !== 'termine')
+            @if($canEdit && $sprint->modifiable())
             <form method="POST" action="{{ route('sprints.user-stories.planifier', [$sprint, $us]) }}" class="sb-pts" style="margin:0" title="Story points (complexité estimée)">@csrf @method('PATCH')
                 <select name="effort_estime" onchange="this.form.submit()">
                     <option value="">— pts</option>
@@ -447,6 +488,10 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <option value="bloque">Bloqu&eacute;</option>
         <option value="termine">Termin&eacute;</option>
     </select>
+    @php $nbAjouts = $sprint->taches()->whereNotNull('ajoutee_en_cours_le')->count(); @endphp
+    @if($nbAjouts)
+    <label class="filtre-ajout" title="Tâches ajoutées au sprint après sa planification"><input type="checkbox" id="fAjout" onchange="filtrerSprint()"> Ajouts en cours de sprint <span class="ajout-sprint">{{ $nbAjouts }}</span></label>
+    @endif
 </div>
 <div class="sc-legende">
     <span class="sc sc-d"><b>D</b> D&eacute;marr&eacute;</span><span class="sc sc-e"><b>E</b> En cours</span><span class="sc sc-t"><b>T</b> Termin&eacute;</span>
@@ -468,6 +513,25 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </select>
     <button class="btn sm" id="ratt-btn" disabled>Rattacher <span id="ratt-nb"></span></button>
 </form>
+@if($sprint->enRectification() && auth()->user()->peutRectifier($sprint->projet))
+<form method="POST" id="f-rectif-taches" class="rattacher rectif-lot" action="{{ route('sprints.taches.rectifier', $sprint) }}" onsubmit="return rectifierLot(this)">@csrf
+    <input type="hidden" name="action" value="statut">
+    <span><strong>Rectification</strong> — t&acirc;ches coch&eacute;es :</span>
+    <select name="statut" aria-label="Statut">
+        <option value="termine">Termin&eacute;e</option>
+        <option value="a_faire">Non termin&eacute;e (&agrave; faire)</option>
+        <option value="en_cours">Non termin&eacute;e (en cours)</option>
+        <option value="reporte">Report&eacute;e</option>
+    </select>
+    <button class="btn sm rect-btn" data-action="statut" disabled>Appliquer le statut</button>
+    <span class="sep-lot" aria-hidden="true"></span>
+    <select name="user_id" aria-label="Collaborateur">
+        @foreach($equipe->isNotEmpty() ? $equipe : $users as $u)<option value="{{ $u->id }}">{{ $u->nomComplet() }}</option>@endforeach
+        @if($equipe->isNotEmpty())<optgroup label="Autres collaborateurs">@foreach($users->whereNotIn('id', $equipe->pluck('id')) as $u)<option value="{{ $u->id }}">{{ $u->nomComplet() }}</option>@endforeach</optgroup>@endif
+    </select>
+    <button class="btn sm rect-btn" data-action="attribuer" disabled>R&eacute;attribuer</button>
+</form>
+@endif
 @endif
 <table class="taches-table">
 <thead>
@@ -481,29 +545,38 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         <th class="col-duree" title="Durée planifiée en jours ouvrés">Dur&eacute;e</th>
         <th class="col-pts">Pts</th>
         <th class="col-statut">Statut</th>
-        @if($canEdit && $sprint->statut !== 'termine')<th class="col-edit"></th>@endif
+        @if($canEdit && $sprint->modifiable())<th class="col-edit"></th>@endif
     </tr>
 </thead>
 <tbody>
 @php
-    $nbCol = 8 + ($canEdit && $sprint->statut !== 'termine' ? 1 : 0) + ($peutRattacher ? 1 : 0);
-    // Regroupement par user story (ordre du Sprint Backlog), puis tâches hors story
+    $nbCol = 8 + ($canEdit && $sprint->modifiable() ? 1 : 0) + ($peutRattacher ? 1 : 0);
+    // Structure du planning : fonctionnalité (celle du planning d'origine, sinon celle de la story) → user story → tâches
     $ordreUs = $storiesSprint->pluck('id')->flip();
-    $groupes = $sprint->taches->groupBy(fn($t) => $t->user_story_id ?: 0)
-        ->sortBy(fn($g, $k) => $k === 0 ? PHP_INT_MAX : ($ordreUs[$k] ?? PHP_INT_MAX - 1));
+    $rangUs = fn($usId) => $usId ? ($ordreUs[$usId] ?? PHP_INT_MAX - 1) : PHP_INT_MAX;
+    $modTache = fn($t) => trim((string) ($t->activite ?: $t->userStory?->module));
+    $parModule = $sprint->taches->groupBy($modTache)
+        ->sortBy(fn($g, $m) => [$m === '' ? 1 : 0, $g->min(fn($t) => $rangUs($t->user_story_id)), $g->min('id')]);
+    $avecModules = $parModule->keys()->filter()->isNotEmpty();
 @endphp
-@foreach($groupes as $usId => $tachesGroupe)
+@foreach($parModule as $module => $tachesModule)
+@if($avecModules)
+<tr class="groupe-mod" data-mod="{{ $loop->index }}"><td colspan="{{ $nbCol }}">{{ $module !== '' ? $module : 'Sans fonctionnalité' }}<span class="gm-nb">{{ $tachesModule->count() }} tâche{{ $tachesModule->count() > 1 ? 's' : '' }} · {{ $tachesModule->where('statut', 'termine')->count() }} terminée{{ $tachesModule->where('statut', 'termine')->count() > 1 ? 's' : '' }}</span></td></tr>
+@endif
+@php $iMod = $loop->index; @endphp
+@foreach($tachesModule->groupBy(fn($t) => $t->user_story_id ?: 0)->sortBy(fn($g, $k) => $rangUs($k)) as $usId => $tachesGroupe)
 @php $usG = $usId ? ($tachesGroupe->first()->userStory) : null; @endphp
 @if($storiesSprint->isNotEmpty() || $usId)
-<tr class="groupe-us" data-groupe="{{ $usId ?: 'aucune' }}"><td colspan="{{ $nbCol }}">@if($usG)<span class="gu-num">{{ $usG->numero }}</span>{{ \Illuminate\Support\Str::limit($usG->intitule, 140) }}@if($usG->effort_estime)<span class="gu-pts cx cx-{{ $usG->complexiteStory()['cle'] }}">{{ $usG->effort_estime }} story pts · {{ $usG->complexiteStory()['libelle'] }}</span>@endif @else Hors user story @endif</td></tr>
+<tr class="groupe-us" data-groupe="{{ $iMod }}|{{ $usId ?: 'aucune' }}" data-mod="{{ $iMod }}"><td colspan="{{ $nbCol }}">@if($usG)<span class="gu-num">{{ $usG->numero }}</span>{{ \Illuminate\Support\Str::limit($usG->intitule, 140) }}@if($usG->effort_estime)<span class="gu-pts cx cx-{{ $usG->complexiteStory()['cle'] }}">{{ $usG->effort_estime }} story pts · {{ $usG->complexiteStory()['libelle'] }}</span>@endif @else Hors user story @endif</td></tr>
 @endif
 @foreach($tachesGroupe->sortBy([['date_debut', 'asc'], ['echeance', 'asc']]) as $t)
 @php $sc = $t->codeScrum(); @endphp
-<tr data-row data-us="{{ $t->user_story_id ?: 'aucune' }}" data-nom="{{ strtolower($t->intitule) }}" data-user="{{ $t->user_id }}" data-prio="{{ $t->priorite }}" data-statut="{{ $t->statut }}" @if($sprint->statut !== 'en_cours') style="opacity:0.55" @endif>
+<tr data-row data-us="{{ $t->user_story_id ?: 'aucune' }}" data-grp="{{ $iMod }}|{{ $t->user_story_id ?: 'aucune' }}" data-mod="{{ $iMod }}" data-nom="{{ strtolower($t->intitule) }}" data-user="{{ $t->user_id }}" data-prio="{{ $t->priorite }}" data-statut="{{ $t->statut }}" data-ajout="{{ $t->estAjoutEnCours() ? 1 : 0 }}" class="{{ $t->estAjoutEnCours() ? 'ligne-ajout' : '' }}" @if($sprint->statut !== 'en_cours') style="opacity:0.55" @endif>
     @if($peutRattacher)<td style="text-align:center"><input type="checkbox" class="t-coche" form="f-rattacher" name="taches[]" value="{{ $t->id }}" aria-label="Sélectionner {{ $t->intitule }}"></td>@endif
     <td>
         <span class="typ t1">T1</span>
         <a href="{{ route('taches.show', $t) }}" class="tache-nom">{{ $t->intitule }}</a>
+        @if($t->estAjoutEnCours())<span class="ajout-sprint" title="Ajoutée au sprint en cours le {{ $t->ajoutee_en_cours_le->format('d/m/Y à H:i') }}, après la planification">+ Ajout {{ $t->ajoutee_en_cours_le->format('d/m') }}</span>@endif
     </td>
     <td style="font-size:12px">{{ $t->user?->nomComplet() ?? '—' }}</td>
     <td>
@@ -515,7 +588,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     <td style="text-align:center;font-size:12px">{{ $t->dureeJours() ?: '—' }}</td>
     <td style="text-align:center;font-weight:600;font-size:12px">{{ $t->points ?? '—' }}</td>
     <td><span class="sc {{ $sc['classe'] }}" title="{{ $sc['libelle'] }} - statut : {{ $t->labelStatut() }}"><b>{{ $sc['code'] }}</b>{{ $sc['code'] === 'ER' ? preg_replace('/\D+/', '', $sc['libelle']) . ' j' : ($sc['code'] === 'TT' ? 'Testé' : $sc['libelle']) }}</span></td>
-    @if($canEdit && $sprint->statut !== 'termine')
+    @if($canEdit && $sprint->modifiable())
     <td style="text-align:center;white-space:nowrap">
         @if($t->statut === 'termine')
         <form method="POST" action="{{ route('sprints.taches.teste', [$sprint, $t]) }}" style="display:inline;margin:0">@csrf @method('PATCH')
@@ -523,7 +596,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         </form>
         @endif
         @if($canEditSprint)
-        <button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }}, {{ $t->user_story_id ?? 'null' }})" title="Modifier"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="btn-edit-row" onclick="ouvrirEditTache({{ $t->id }}, '{{ addslashes($t->intitule) }}', {{ $t->user_id ?? 'null' }}, '{{ $t->priorite }}', '{{ $t->date_debut?->format('Y-m-d') ?? '' }}', '{{ $t->echeance?->format('Y-m-d') ?? '' }}', {{ $t->points ?? 'null' }}, {{ $t->user_story_id ?? 'null' }}, '{{ $t->statut }}', '{{ $t->date_fin_reelle ? \Carbon\Carbon::parse($t->date_fin_reelle)->format('Y-m-d') : '' }}')" title="Modifier"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <form method="POST" action="{{ route('sprints.supprimer-tache', [$sprint, $t]) }}" style="display:inline;margin:0" onsubmit="return demanderMotifSuppression(this,'cette tâche')">@csrf @method('DELETE')
             <input type="hidden" name="motif_suppression" class="motif-suppr-input">
             <button type="submit" class="btn-edit-row" style="color:var(--ko)" title="Supprimer"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
@@ -532,6 +605,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
     </td>
     @endif
 </tr>
+@endforeach
 @endforeach
 @endforeach
 </tbody>
@@ -701,7 +775,7 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </dialog>
 
 {{-- Dialog modification sprint (pilotes uniquement) --}}
-@if($canEditSprint && $sprint->statut !== 'termine')
+@if($canEditSprint && $sprint->modifiable())
 <dialog id="dlg-edit-sprint">
     <h3 style="color:var(--bleu);margin-bottom:4px">Modifier le sprint</h3>
     <form method="POST" action="{{ route('sprints.update', $sprint) }}">@csrf @method('PUT')
@@ -763,6 +837,16 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
         </div>
         <label>Points (story points)</label>
         <input type="number" name="points" id="et-points" min="1">
+        @if($sprint->enRectification())
+        <div class="form-row" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;margin-top:10px">
+            <div><label>Statut (rectification)</label>
+                <select name="statut" id="et-statut">
+                    <option value="termine">Termin&eacute;e</option><option value="a_faire">Non termin&eacute;e (&agrave; faire)</option>
+                    <option value="en_cours">Non termin&eacute;e (en cours)</option><option value="bloque">Bloqu&eacute;e</option><option value="reporte">Report&eacute;e</option>
+                </select></div>
+            <div><label>Fin r&eacute;elle (si termin&eacute;e)</label><input type="date" name="date_fin_reelle" id="et-fin"></div>
+        </div>
+        @endif
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
             <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
             <button class="btn">Enregistrer</button>
@@ -771,12 +855,30 @@ dialog input:focus,dialog select:focus{outline:none;border-color:var(--accent);b
 </dialog>
 @endif
 @endif
+@if(auth()->user()->estAdmin() || auth()->user()->peutRectifier($sprint->projet))
+<dialog id="dlg-structure" style="width:520px;max-width:94vw">
+    <h3 style="color:var(--bleu);margin-bottom:4px">Restaurer la structure du Sprint Planning</h3>
+    <p style="font-size:12.5px;color:#475569;line-height:1.5;margin:0 0 10px">Le classeur Scrum (consolidé ou archive) donne, pour chaque tâche, sa <strong>fonctionnalité</strong> et sa <strong>user story</strong>. Les tâches du Sprint {{ $sprint->numero }} y sont rattachées, même sprint clôturé.<br>
+    <strong>Rien d'autre ne change</strong> : statuts des tâches et des stories, Sprint Backlog, story points et score restent tels quels (contrôlé avant/après). Une tâche déjà rattachée garde sa story.</p>
+    <form method="POST" action="{{ route('sprints.structure.restaurer', $sprint) }}" enctype="multipart/form-data">@csrf
+        <label>Classeur Scrum (.xlsx) <span class="req">*</span></label>
+        <input type="file" name="fichier" accept=".xlsx" required>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;font-weight:600;font-size:12.5px;color:#334155;cursor:pointer"><input type="checkbox" name="simulation" value="1" checked style="width:auto;margin:0;accent-color:#2e74b5"> Simulation d'abord (rien n'est enregistré)</label>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Restaurer</button>
+        </div>
+    </form>
+</dialog>
+@endif
 @endsection
 
 @push('scripts')
 <script>
 @if($canEditSprint)
-function ouvrirEditTache(id, intitule, userId, priorite, debut, echeance, points, usId){
+function ouvrirEditTache(id, intitule, userId, priorite, debut, echeance, points, usId, statut, fin){
+    const st = document.getElementById('et-statut');
+    if (st) { st.value = statut || 'a_faire'; document.getElementById('et-fin').value = fin || ''; }
     document.getElementById('form-edit-tache').action = '/sprints/{{ $sprint->id }}/taches/' + id;
     document.getElementById('et-intitule').value = intitule;
     document.getElementById('et-user').value = userId || '';
@@ -810,7 +912,9 @@ function ouvrirTachesUs(action, numero, texte){
         const n = document.querySelectorAll('.t-coche:checked').length;
         btn.disabled = !n;
         document.getElementById('ratt-nb').textContent = n ? '(' + n + ')' : '';
+        document.querySelectorAll('.rect-btn').forEach(b => b.disabled = !n);
     };
+    document.querySelectorAll('.rect-btn').forEach(b => b.addEventListener('click', () => { b.form.action.value = b.dataset.action; }));
     document.addEventListener('change', e => {
         if (e.target === tout) document.querySelectorAll('[data-row]').forEach(tr => {
             if (tr.style.display !== 'none') tr.querySelector('.t-coche').checked = tout.checked;
@@ -819,13 +923,24 @@ function ouvrirTachesUs(action, numero, texte){
     });
 })();
 
+/* Rectification en lot : les tâches cochées partent avec le formulaire */
+function rectifierLot(f){
+    const ids = [...document.querySelectorAll('.t-coche:checked')].map(c => c.value);
+    if (!ids.length) return false;
+    const quoi = f.action.value === 'attribuer' ? 'Réattribuer ' + ids.length + ' tâche(s) à ' + f.user_id.selectedOptions[0].text : 'Passer ' + ids.length + ' tâche(s) au statut « ' + f.statut.selectedOptions[0].text + ' »';
+    if (!confirm(quoi + ' ?')) return false;
+    f.querySelectorAll('input[name="taches[]"]').forEach(i => i.remove());
+    ids.forEach(id => { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'taches[]'; i.value = id; f.appendChild(i); });
+    return true;
+}
+
 function filtrerSprint(){
     const nom=document.getElementById('fNom').value.toLowerCase();
     const user=document.getElementById('fAssigne').value;
     const prio=document.getElementById('fPrio').value;
     const statut=document.getElementById('fStatut').value;
     const us=(document.getElementById('fUs')||{}).value||'';
-    const groupesVisibles=new Set();
+    const groupesVisibles=new Set(), modulesVisibles=new Set();
     document.querySelectorAll('[data-row]').forEach(tr=>{
         let ok=true;
         if(us && tr.dataset.us!==us) ok=false;
@@ -833,10 +948,12 @@ function filtrerSprint(){
         if(user && tr.dataset.user!==user) ok=false;
         if(prio && tr.dataset.prio!==prio) ok=false;
         if(statut && tr.dataset.statut!==statut) ok=false;
+        if(document.getElementById('fAjout')?.checked && tr.dataset.ajout!=='1') ok=false;
         tr.style.display=ok?'':'none';
-        if(ok) groupesVisibles.add(tr.dataset.us);
+        if(ok){ groupesVisibles.add(tr.dataset.grp); modulesVisibles.add(tr.dataset.mod); }
     });
     document.querySelectorAll('tr.groupe-us').forEach(g=>{ g.style.display=groupesVisibles.has(g.dataset.groupe)?'':'none'; });
+    document.querySelectorAll('tr.groupe-mod').forEach(g=>{ g.style.display=modulesVisibles.has(g.dataset.mod)?'':'none'; });
 }
 </script>
 @endpush

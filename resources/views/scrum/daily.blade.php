@@ -179,8 +179,8 @@
     @if($tout && !$daily->estPublie() && !$daily->estSoumis())
     <button type="submit" form="f-publier" class="btn vert" title="Diffuse le rapport à tous les collaborateurs">Publier le rapport</button>
     @endif
-    @if($tout)
-    <button type="submit" form="f-recalc" class="btn sec" title="Recharge les tâches d’hier et du jour depuis la planification. Les défis saisis sont conservés.">Recalculer depuis la planification</button>
+    @if($tout && !$daily->estPublie() && !$daily->estSoumis())
+    <button type="submit" form="f-recalc" class="btn sec" title="{{ $daily->date_reunion->lt(today()) ? 'Reconstitue les lignes telles qu’elles étaient le ' . $daily->date_reunion->format('d/m/Y') . ' (dates des tâches et des blocages)' : 'Recharge les tâches d’hier et du jour depuis la planification' }}. Les défis saisis sont conservés.">Recalculer depuis la planification</button>
     @endif
     @if($peutGerer)
     <button type="submit" form="f-suppr" class="btn ko" style="margin-left:auto">Supprimer ce Daily</button>
@@ -191,7 +191,7 @@
 @if($tout)
 <form method="POST" action="{{ $daily->url('entree.ajouter') }}" id="f-ajout-part">@csrf</form>
 
-<form method="POST" action="{{ $daily->url('recalculer') }}" id="f-recalc" onsubmit="return confirm('Recalculer les lignes à partir de l\'état actuel des tâches ? Les colonnes Réalisé et À faire seront remplacées (les défis saisis sont conservés).')">@csrf
+<form method="POST" action="{{ $daily->url('recalculer') }}" id="f-recalc" onsubmit="return confirm(@js($daily->date_reunion->lt(today()) ? 'Recalculer les lignes telles qu’elles étaient le ' . $daily->date_reunion->format('d/m/Y') . ' ? Les colonnes Réalisé et À faire seront remplacées (les défis saisis sont conservés).' : 'Recalculer les lignes à partir de l’état actuel des tâches ? Les colonnes Réalisé et À faire seront remplacées (les défis saisis sont conservés).'))">@csrf
     <input type="hidden" name="roles" value="0">
 </form>
 @foreach($entrees as $e)

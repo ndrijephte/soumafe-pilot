@@ -1,6 +1,10 @@
 @php $v = $d->validite(); @endphp
 <div class="doc{{ $ancien ? ' ancien' : '' }}">
+    @if($d->estImage())
+    <button type="button" class="doc-vignette" title="Agrandir" aria-label="Agrandir {{ $d->libelle }}" onclick="apercuDocument('{{ route('parc.documents.apercu', $d) }}', 'img', @js($d->libelle), '{{ route('parc.documents.telecharger', $d) }}')"><img src="{{ route('parc.documents.apercu', $d) }}" alt="" loading="lazy"></button>
+    @else
     <span class="doc-ic {{ $ic[0] }}" aria-hidden="true">{{ $ic[1] }}</span>
+    @endif
     <div class="doc-corps">
         <div class="doc-titre">
             @if($d->estApercu())

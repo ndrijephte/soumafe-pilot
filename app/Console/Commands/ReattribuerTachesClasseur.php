@@ -109,7 +109,11 @@ class ReattribuerTachesClasseur extends Command
             foreach ($nouveauxMembres as $uid => $depuis) {
                 $m = ProjetCollaborateur::where('projet_id', $projet->id)->where('user_id', $uid)->first();
                 if (!$m) {
-                    ProjetCollaborateur::create(['projet_id' => $projet->id, 'user_id' => $uid, 'role_projet' => 'developpeur', 'date_ajout' => $depuis, 'actif' => true]);
+                    // Collaborateur parti depuis : membre de l'historique, retiré à sa date de départ
+                    $u = User::find($uid);
+                    $parti = !$u->actif && $u->date_depart;
+                    ProjetCollaborateur::create(['projet_id' => $projet->id, 'user_id' => $uid, 'role_projet' => 'developpeur', 'date_ajout' => $depuis,
+                        'actif' => !$parti, 'date_retrait' => $parti ? $u->date_depart : null]);
                     $ajoutes[] = $noms[$uid];
                 } elseif ($m->date_ajout && $m->date_ajout->toDateString() > $depuis) {
                     $m->update(['date_ajout' => $depuis]);

@@ -102,6 +102,14 @@
             </label>
             <div class="hint">Si activ&eacute;, le responsable projet pourra cr&eacute;er et importer des sprints.</div>
         </div>
+        <div style="margin-top:8px">
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px">
+                <input type="hidden" name="delegation_historique" value="0">
+                <input type="checkbox" name="delegation_historique" id="fDelegHisto" value="1" style="width:auto;accent-color:var(--accent)" {{ old('delegation_historique') ? 'checked' : '' }}>
+                Autoriser le responsable projet &agrave; mener des actions r&eacute;trospectives
+            </label>
+            <div class="hint">Rouvrir un sprint cl&ocirc;tur&eacute; en rectification pour harmoniser l'historique du projet (Sprint Backlog, planning, t&acirc;ches, Daily, rapports). N&eacute;cessite la d&eacute;l&eacute;gation des sprints ; chaque rectification est motiv&eacute;e et trac&eacute;e.</div>
+        </div>
 
         <div class="form-actions">
             <button class="btn" id="btnSubmit">Enregistrer</button>
@@ -114,7 +122,7 @@
 
 <div class="carte" style="padding:0;overflow-x:auto">
 <table class="admin-tbl">
-<thead><tr><th>Code</th><th>Libell&eacute;</th><th>Client</th><th>Responsable</th><th>D&eacute;l&eacute;g.</th><th>Statut</th><th>T&acirc;ches</th><th>Actions</th></tr></thead>
+<thead><tr><th>Code</th><th>Libell&eacute;</th><th>Client</th><th>Responsable</th><th>D&eacute;l&eacute;g.</th><th title="Actions r&eacute;trospectives d&eacute;l&eacute;gu&eacute;es au responsable">R&eacute;tro.</th><th>Statut</th><th>T&acirc;ches</th><th>Actions</th></tr></thead>
 <tbody>
 @foreach($projets as $p)
 <tr>
@@ -123,9 +131,10 @@
     <td>{{ $p->client ?? '—' }}</td>
     <td>{{ $p->responsable?->nomComplet() ?? '—' }}</td>
     <td style="text-align:center">{!! $p->delegation_sprint ? '<span style="color:var(--ok);font-weight:700">&#10003;</span>' : '' !!}</td>
+    <td style="text-align:center">{!! $p->delegation_historique ? '<span style="color:var(--ok);font-weight:700">&#10003;</span>' : '' !!}</td>
     <td><span class="pill s-{{ str_replace('en_', '', $p->statut) }}">{{ ucfirst(str_replace('_',' ',$p->statut)) }}</span></td>
     <td>{{ $p->taches_count }}</td>
-    <td><button class="btn sm sec" onclick="editMode({{ $p->id }}, {{ json_encode($p->code) }}, {{ json_encode($p->libelle) }}, {{ json_encode($p->client ?? '') }}, '{{ $p->responsable_projet_id ?? '' }}', '{{ $p->statut }}', '{{ $p->date_debut ? \Carbon\Carbon::parse($p->date_debut)->format('Y-m-d') : '' }}', '{{ $p->date_cible ? \Carbon\Carbon::parse($p->date_cible)->format('Y-m-d') : '' }}', {{ $p->delegation_sprint ? 'true' : 'false' }})">Modifier</button></td>
+    <td><button class="btn sm sec" onclick="editMode({{ $p->id }}, {{ json_encode($p->code) }}, {{ json_encode($p->libelle) }}, {{ json_encode($p->client ?? '') }}, '{{ $p->responsable_projet_id ?? '' }}', '{{ $p->statut }}', '{{ $p->date_debut ? \Carbon\Carbon::parse($p->date_debut)->format('Y-m-d') : '' }}', '{{ $p->date_cible ? \Carbon\Carbon::parse($p->date_cible)->format('Y-m-d') : '' }}', {{ $p->delegation_sprint ? 'true' : 'false' }}, {{ $p->delegation_historique ? 'true' : 'false' }})">Modifier</button></td>
 </tr>
 @endforeach
 </tbody>
@@ -135,7 +144,7 @@
 
 @push('scripts')
 <script>
-function editMode(id, code, libelle, client, respId, statut, debut, cible, deleg) {
+function editMode(id, code, libelle, client, respId, statut, debut, cible, deleg, delegHisto) {
     document.getElementById('formTitre').textContent = 'Modifier le projet';
     document.getElementById('formProjet').action = '{{ url("admin/projets") }}/' + id;
     document.getElementById('fEditing').value = id;
@@ -147,6 +156,7 @@ function editMode(id, code, libelle, client, respId, statut, debut, cible, deleg
     document.getElementById('fDebut').value = debut;
     document.getElementById('fCible').value = cible;
     document.getElementById('fDeleg').checked = deleg;
+    document.getElementById('fDelegHisto').checked = !!delegHisto;
     // Ajouter _method PUT
     var mf = document.querySelector('#formProjet input[name="_method"]');
     if (!mf) { mf = document.createElement('input'); mf.type='hidden'; mf.name='_method'; document.getElementById('formProjet').appendChild(mf); }
@@ -166,6 +176,7 @@ function resetForm() {
     document.getElementById('fDebut').value = '';
     document.getElementById('fCible').value = '';
     document.getElementById('fDeleg').checked = false;
+    document.getElementById('fDelegHisto').checked = false;
     var mf = document.querySelector('#formProjet input[name="_method"]');
     if (mf) mf.remove();
 }

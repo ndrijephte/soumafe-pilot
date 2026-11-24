@@ -55,13 +55,14 @@ class CeremoniesScrum
     /** Chaque verrou renvoie le motif du refus, ou null si l'action est permise. */
     public static function verrouBacklog(Sprint $sprint): ?string
     {
-        return $sprint->statut === 'termine' ? 'Sprint clôturé : le Sprint Backlog est figé.' : null;
+        return $sprint->statut === 'termine' && !$sprint->enRectification() ? 'Sprint clôturé : le Sprint Backlog est figé (un pilote peut le rouvrir en rectification).' : null;
     }
 
     /** Puiser dans le Product Backlog : le gestionnaire tant que le sprint n'est pas clos, l'équipe du projet avant son démarrage. */
     public static function peutPuiser(User $u, Sprint $sprint): bool
     {
-        if ($sprint->statut === 'termine') return false;
+        // Sprint clôturé : seulement pendant une rectification, par qui peut rectifier
+        if ($sprint->statut === 'termine') return $sprint->enRectification() && $u->peutRectifier($sprint->projet);
         if ($u->peutGererProjet($sprint->projet_id) || $sprint->projet->peutAlimenterBacklog($u)) return true;
         return $sprint->statut === 'planifie' && !$u->aRole('direction') && !$u->aRole('invite') && $sprint->projet->estVisiblePour($u);
     }
@@ -71,7 +72,7 @@ class CeremoniesScrum
         return match ($sprint->statut) {
             'en_cours' => null,
             'planifie' => 'Le Daily Scrum commence au démarrage du sprint.',
-            default => 'Sprint clôturé : plus de nouveau Daily Scrum.',
+            default => $sprint->enRectification() ? null : 'Sprint clôturé : plus de nouveau Daily Scrum.',
         };
     }
 

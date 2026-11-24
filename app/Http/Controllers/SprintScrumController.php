@@ -257,8 +257,8 @@ class SprintScrumController extends Controller
                 if (!$e || ($mode === 'ligne' && $e->user_id !== $r->user()->id)) continue;
                 $ancienJour = $e->taches_jour;
                 $e->update(array_intersect_key($champs, array_flip(['taches_hier', 'taches_jour', 'duree_restante', 'defis'])));
-                // Le « hier » du Daily suivant suit le « à faire ce jour » tant qu'il n'a pas été retouché
-                if ($suivant && $ancienJour !== $e->taches_jour) {
+                // Le « hier » du Daily suivant suit le « à faire ce jour » tant qu'il n'a pas été retouché (jamais un Daily publié)
+                if ($suivant && !$suivant->estPublie() && !$suivant->estSoumis() && $ancienJour !== $e->taches_jour) {
                     DailyScrumEntree::where('daily_scrum_id', $suivant->id)->where('user_id', $e->user_id)
                         ->where(fn($q) => $q->where('taches_hier', $ancienJour)->orWhereNull('taches_hier'))
                         ->update(['taches_hier' => $e->taches_jour]);
@@ -273,8 +273,11 @@ class SprintScrumController extends Controller
     {
         $daily->load('entrees');
         abort_unless($this->editionDaily($r, $daily) === 'tout', 403);
+        // Un rapport publié est un document : son contenu ne bouge plus
+        if ($daily->estPublie() || $daily->estSoumis()) return back()->with('erreur', 'Daily publié : son contenu est figé. Remettez-le en brouillon pour le recalculer.');
         $n = ScrumService::remplir($daily, true);
-        return back()->with('succes', "{$n} ligne(s) recalculée(s).");
+        AuditLog::log('recalcul_daily', 'daily', $daily->contexte(), $daily->libelle() . " : {$n} ligne(s) recalculée(s)" . ($daily->date_reunion->lt(today()) ? ' à la date du Daily' : ''));
+        return back()->with('succes', "{$n} ligne(s) recalculée(s)" . ($daily->date_reunion->lt(today()) ? ', telles qu\'elles étaient le ' . $daily->date_reunion->format('d/m/Y') . '.' : '.'));
     }
 
     /**

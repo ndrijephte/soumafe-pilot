@@ -32,6 +32,8 @@ class UserStory extends Model
         });
         static::updated(function (self $us) {
             if (self::$signaler && $us->wasChanged('contenu_modifie_le')) self::signalerModifications(collect([$us]));
+            // Nouvelle estimation : les points sont de nouveau répartis sur les tâches des sprints ouverts
+            if ($us->wasChanged('effort_estime')) \App\Services\RepartitionPoints::story($us->id);
         });
     }
 

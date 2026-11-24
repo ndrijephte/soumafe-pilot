@@ -41,6 +41,14 @@ class ParcController extends Controller
         $exercice = $r->get('exercice', $exerciceCourant);
         if ($exercice !== 'tous' && !isset($exercicesParc[$exercice])) $exercice = $exerciceCourant;
         [$exDebut, $exFin] = $exercice === 'tous' ? [null, null] : ExerciceParc::bornes($exercice);
+        // Période libre (du / au), comme au tableau de bord : elle remplace l'exercice choisi
+        $periodeDu = $r->filled('du') ? \Carbon\Carbon::make($r->get('du')) : null;
+        $periodeAu = $r->filled('au') ? \Carbon\Carbon::make($r->get('au')) : null;
+        if ($periodeDu && $periodeAu && $periodeDu->lte($periodeAu)) {
+            [$exDebut, $exFin] = [$periodeDu->copy()->startOfDay(), $periodeAu->copy()->endOfDay()];
+            // Une période qui correspond exactement à un exercice reste cet exercice
+            $exercice = collect($exercicesParc)->search(fn($ex) => $ex['debut'] === $exDebut->toDateString() && $ex['fin'] === $exFin->toDateString()) ?: 'periode';
+        }
         $borne = fn($q, string $col) => $exDebut ? $q->whereBetween($col, [$exDebut, $exFin]) : $q;
 
         $pannes = $borne(Panne::with(['vehicule', 'emprunt', 'lignes']), 'date_declaration')->orderByDesc('date_declaration')->get();
@@ -110,7 +118,7 @@ class ParcController extends Controller
             'motifsAbsence', 'dateJour', 'grilleJour', 'alertesManquants', 'recouvrements',
             'depenses', 'typesDepense', 'emprunts',
             'pretsAccordes', 'autresRessources', 'typesRessource', 'caisses',
-            'exercicesParc', 'exerciceCourant', 'exercice', 'reports', 'echeancier'
+            'exercicesParc', 'exerciceCourant', 'exercice', 'reports', 'echeancier', 'exDebut', 'exFin'
         ));
     }
 
@@ -1663,6 +1671,9 @@ class ParcController extends Controller
     {
         $ex = $r->get('exercice');
         if ($ex === 'tous') return [\Carbon\Carbon::create(2000, 1, 1), today()->endOfDay()];
+        if ($r->filled('du') && $r->filled('au') && ($du = \Carbon\Carbon::make($r->get('du'))) && ($au = \Carbon\Carbon::make($r->get('au'))) && $du->lte($au)) {
+            return [$du->startOfDay(), $au->endOfDay()];
+        }
         return $ex && preg_match('/^\d{4}-\d{2}$/', $ex) ? ExerciceParc::bornes($ex) : ExerciceParc::courant();
     }
 

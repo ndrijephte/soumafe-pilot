@@ -86,7 +86,7 @@ class SprintController extends Controller
 
         $peutPuiser = \App\Services\CeremoniesScrum::peutPuiser($user, $sprint);
         $peutAlimenter = $sprint->projet->peutAlimenterBacklog($user);
-        $peutRattacher = ($canEdit || $peutAlimenter) && $sprint->statut !== 'termine';
+        $peutRattacher = ($canEdit || $peutAlimenter) && $sprint->modifiable();
 
         return view('sprints.show', compact('sprint', 'users', 'canEdit', 'canEditSprint', 'storiesSprint', 'backlogDispo', 'equipe', 'retiresSprint', 'rolesProjet', 'voitProjet', 'peutPuiser', 'peutAlimenter', 'peutRattacher', 'vue'));
     }
@@ -110,7 +110,8 @@ class SprintController extends Controller
 
     public function update(Request $r, Sprint $sprint)
     {
-        abort_unless($r->user()->estPilote(), 403);
+        // Pilote ; pendant une rectification, aussi le responsable délégué aux actions rétrospectives
+        abort_unless($r->user()->estPilote() || ($sprint->enRectification() && $r->user()->peutRectifier($sprint->projet)), 403);
         $r->validate([
             'objectif' => 'required|string|max:1000',
             'date_debut' => 'required|date',
@@ -250,6 +251,69 @@ class SprintController extends Controller
     }
 
     /** Arrêter un sprint en cours (avec justification obligatoire). */
+    /**
+     * Actions rétrospectives : un sprint clôturé est rouvert en rectification (motif obligatoire) pour harmoniser
+     * l'historique du projet ; tous ses onglets redeviennent modifiables jusqu'à la fin de la rectification.
+     */
+    public function ouvrirRectification(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->peutRectifier($sprint->projet), 403, "Les actions rétrospectives sont réservées au pilote (ou au responsable du projet, sur délégation).");
+        if ($sprint->statut !== 'termine') return back()->with('erreur', "Seul un sprint clôturé se rouvre en rectification : ce sprint est encore modifiable.");
+        if ($sprint->enRectification()) return back()->with('erreur', "Ce sprint est déjà en rectification.");
+        $v = $r->validate(['motif' => 'required|string|min:10|max:500'], [
+            'motif.required' => 'Le motif de la rectification est obligatoire.', 'motif.min' => 'Le motif doit compter au moins 10 caractères.',
+        ]);
+        $sprint->ouvrirRectification($r->user(), trim($v['motif']));
+        \App\Models\AuditLog::log('rectification_ouverte', 'sprints', "{$sprint->projet->code} - Sprint {$sprint->numero}", 'Motif : ' . trim($v['motif']));
+        // Un responsable de projet qui rouvre un sprint : les pilotes en sont informés
+        if (!$r->user()->estAdmin()) {
+            foreach (User::where('actif', true)->whereIn('role', ['administrateur', 'charge_operations'])->get() as $pilote) {
+                \App\Models\NotificationApp::create([
+                    'user_id' => $pilote->id, 'type' => 'rectification_sprint', 'lien' => route('sprints.show', $sprint), 'lu' => false, 'canal' => 'in_app',
+                    'contenu' => $r->user()->nomComplet() . " a rouvert en rectification le Sprint {$sprint->numero} de {$sprint->projet->libelle}. Motif : " . trim($v['motif']),
+                ]);
+            }
+        }
+        return back()->with('succes', "Sprint {$sprint->numero} rouvert en rectification : Sprint Backlog, planning, tâches, Daily et rapports sont modifiables. Terminez la rectification une fois l'historique harmonisé.");
+    }
+
+    /** Fin de la rectification : statuts recalculés d'après les tâches et Sprint Backlog figé de nouveau. */
+    public function fermerRectification(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->peutRectifier($sprint->projet), 403);
+        if (!$sprint->enRectification()) return back()->with('erreur', "Ce sprint n'est pas en rectification.");
+        $depuis = $sprint->rectification_ouverte_le;
+        $motif = $sprint->rectification_motif;
+        $par = $sprint->rectificateur?->nomComplet();
+        $n = $sprint->fermerRectification();
+        $traces = \App\Models\AuditLog::where('created_at', '>=', $depuis)
+            ->whereNotIn('action', ['rectification_ouverte', 'rectification_fermee', 'connexion', 'deconnexion'])->count();
+        \App\Models\AuditLog::log('rectification_fermee', 'sprints', "{$sprint->projet->code} - Sprint {$sprint->numero}",
+            "Rectification ouverte le {$depuis->format('d/m/Y H:i')}" . ($par ? " par {$par}" : '') . " (motif : {$motif}), close : {$n} user story(s) figée(s) de nouveau ; {$traces} action(s) tracée(s) au journal pendant la rectification.");
+        return back()->with('succes', "Rectification du Sprint {$sprint->numero} terminée : statuts recalculés, Sprint Backlog figé de nouveau ({$n} user story(s)).");
+    }
+
+    /**
+     * Restaure la structure du Sprint Planning (fonctionnalités, user stories) d'après le classeur Scrum, y compris après
+     * la clôture : seuls les rattachements des tâches changent, jamais l'avancement ni le score (contrôlé avant/après).
+     */
+    public function restaurerStructure(Request $r, Sprint $sprint)
+    {
+        abort_unless($r->user()->estAdmin() || $r->user()->peutRectifier($sprint->projet), 403);
+        $r->validate(['fichier' => 'required|file|mimes:xlsx|max:20480'], ['fichier.mimes' => 'Le classeur doit être au format .xlsx.']);
+        $simulation = $r->boolean('simulation');
+        try {
+            $res = \App\Services\RestaurationStructure::executer($sprint->projet, $r->file('fichier')->getRealPath(), [$sprint->numero], !$simulation);
+        } catch (\Throwable $e) {
+            return back()->with('erreur', 'Restauration impossible : ' . $e->getMessage());
+        }
+        if ($res['controle']) return back()->with('erreur', "Restauration annulée : elle aurait modifié l'avancement ou les points du sprint.");
+        if (!$res['lignes']) return back()->with('succes', "Rien à restaurer : ce classeur ne contient pas le planning du Sprint {$sprint->numero}, ou ses tâches ont déjà leur structure.");
+        [, , $nS, $nF, $abs] = $res['lignes'][0];
+        $msg = "{$nS} tâche(s) rattachée(s) à leur user story, {$nF} à leur fonctionnalité" . ($abs ? ", {$abs} ligne(s) du classeur sans tâche correspondante" : '') . ' ; avancement et story points inchangés.';
+        return back()->with('succes', ($simulation ? 'SIMULATION (rien n\'est enregistré) : ' : 'Structure restaurée : ') . $msg);
+    }
+
     public function arreter(Request $r, Sprint $sprint)
     {
         abort_unless($r->user()->peutGererProjet($sprint->projet_id), 403);
@@ -388,7 +452,8 @@ class SprintController extends Controller
     /** Modifier une tâche existante du sprint. */
     public function modifierTache(Request $r, Sprint $sprint, Tache $tache)
     {
-        abort_unless($r->user()->estPilote(), 403);
+        // Pilote ; pendant une rectification, aussi le responsable délégué aux actions rétrospectives
+        abort_unless($r->user()->estPilote() || ($sprint->enRectification() && $r->user()->peutRectifier($sprint->projet)), 403);
         abort_unless($tache->sprint_id === $sprint->id, 404);
         if ($fige = $this->backlogFige($sprint)) return $fige;
 
@@ -405,8 +470,59 @@ class SprintController extends Controller
 
         $tache->update($r->only(['intitule', 'user_id', 'priorite', 'date_debut', 'echeance', 'points', 'user_story_id']));
         if ($r->user_story_id) $sprint->userStories()->syncWithoutDetaching([$r->user_story_id]);
+        // Rectification d'un sprint clôturé : le statut d'exécution se corrige aussi
+        if ($sprint->enRectification() && $r->filled('statut')) {
+            $r->validate(['statut' => 'in:a_faire,en_cours,bloque,termine,reporte', 'date_fin_reelle' => 'nullable|date']);
+            $this->rectifierStatut($sprint, $tache->fresh(), $r->statut, $r->date_fin_reelle);
+            if ($tache->user_story_id) \App\Services\AvancementScrum::synchroniser($tache->user_story_id);
+        }
 
         return back()->with('succes', 'Tâche mise à jour.');
+    }
+
+    /**
+     * Statut d'exécution corrigé pendant une rectification : une tâche terminée est qualifiée à sa date de fin réelle
+     * (à défaut son échéance) ; une tâche non terminée d'un sprint clôturé reste « non terminée dans le sprint ».
+     * L'historique ne réclame pas de justification.
+     */
+    private function rectifierStatut(Sprint $sprint, Tache $t, string $statut, ?string $fin = null): bool
+    {
+        if ($statut === 'termine') {
+            if ($t->statut === 'termine' && !$fin) return false;
+            $date = $fin ? \Carbon\Carbon::parse($fin) : ($t->date_fin_reelle ? \Carbon\Carbon::parse($t->date_fin_reelle) : ($t->echeance ?? $sprint->date_fin));
+            (new ClotureService())->cloturer($t, $date->copy());
+            $t->update(['justification_requise' => false]);
+            return true;
+        }
+        if ($t->statut === $statut) return false;
+        $t->update([
+            'statut' => $statut, 'date_fin_reelle' => null, 'teste' => false,
+            'qualification' => $statut === 'reporte' ? null : 'non_termine_sprint', 'justification_requise' => false,
+        ]);
+        return true;
+    }
+
+    /** Rectification : statut ou attribution de plusieurs tâches du sprint en une fois. */
+    public function rectifierTaches(Request $r, Sprint $sprint)
+    {
+        abort_unless($sprint->enRectification() && $r->user()->peutRectifier($sprint->projet), 403, "Réservé à une rectification en cours, par qui peut rectifier.");
+        $v = $r->validate([
+            'taches' => 'required|array|min:1',
+            'taches.*' => [\Illuminate\Validation\Rule::exists('taches', 'id')->where('sprint_id', $sprint->id)->whereNull('deleted_at')],
+            'action' => 'required|in:statut,attribuer',
+            'statut' => 'required_if:action,statut|nullable|in:a_faire,en_cours,bloque,termine,reporte',
+            'user_id' => 'required_if:action,attribuer|nullable|exists:users,id',
+        ], ['taches.required' => 'Cochez au moins une tâche.']);
+        $taches = Tache::whereIn('id', $v['taches'])->get();
+        $n = 0;
+        foreach ($taches as $t) {
+            if ($v['action'] === 'attribuer') { if ((int) $t->user_id !== (int) $v['user_id']) { $t->update(['user_id' => $v['user_id']]); $n++; } }
+            elseif ($this->rectifierStatut($sprint, $t, $v['statut'])) $n++;
+        }
+        foreach ($taches->pluck('user_story_id')->filter()->unique() as $us) \App\Services\AvancementScrum::synchroniser($us);
+        $libelle = $v['action'] === 'attribuer' ? 'attribuée(s) à ' . User::find($v['user_id'])->nomComplet() : 'passée(s) au statut « ' . (new Tache(['statut' => $v['statut']]))->labelStatut() . ' »';
+        \App\Models\AuditLog::log('rectification_taches', 'sprints', "{$sprint->projet->code} - Sprint {$sprint->numero}", "{$n} tâche(s) {$libelle} : " . $taches->pluck('id')->join(', '));
+        return back()->with('succes', "{$n} tâche(s) {$libelle}." . ($n < $taches->count() ? ' ' . ($taches->count() - $n) . ' déjà dans cet état.' : ''));
     }
 
     /* ═══════ SPRINT PLANNING : user stories du sprint ═══════ */
@@ -471,7 +587,8 @@ class SprintController extends Controller
     /** Supprimer une tâche du sprint. */
     public function supprimerTache(Request $r, Sprint $sprint, Tache $tache)
     {
-        abort_unless($r->user()->estPilote(), 403);
+        // Pilote ; pendant une rectification, aussi le responsable délégué aux actions rétrospectives
+        abort_unless($r->user()->estPilote() || ($sprint->enRectification() && $r->user()->peutRectifier($sprint->projet)), 403);
         abort_unless($tache->sprint_id === $sprint->id, 404);
         if ($fige = $this->backlogFige($sprint)) return $fige;
         $r->validate(['motif_suppression' => 'required|string|min:5']);

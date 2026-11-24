@@ -16,15 +16,19 @@ class ScrumService
     public static function membres(Sprint $sprint): Collection
     {
         $ajust = SprintEquipe::where('sprint_id', $sprint->id)->pluck('statut', 'user_id');
+        $avecTache = $sprint->taches()->whereNotNull('user_id')->pluck('user_id');
         $ids = $sprint->projet->collaborateurs()
             ->whereDate('date_ajout', '<=', $sprint->date_fin)
             ->where(fn($q) => $q->where('actif', true)->orWhereDate('date_retrait', '>=', $sprint->date_debut))
             ->pluck('user_id')
-            ->merge($sprint->taches()->whereNotNull('user_id')->pluck('user_id'))
+            ->merge($avecTache)
             ->merge($ajust->filter(fn($s) => $s === 'ajoute')->keys())
             ->unique()
             ->reject(fn($id) => ($ajust[$id] ?? null) === 'retire');
-        return User::whereIn('id', $ids)->orderBy('name')->get();
+        // Parti de l'entreprise avant le début du sprint, sans tâche ni ajout dans ce sprint : pas membre
+        return User::whereIn('id', $ids)->orderBy('name')->get()
+            ->reject(fn($u) => $u->date_depart && $u->date_depart->lt($sprint->date_debut)
+                && !$avecTache->contains($u->id) && ($ajust[$u->id] ?? null) !== 'ajoute')->values();
     }
 
     /**
@@ -168,6 +172,26 @@ class ScrumService
     }
 
     /** Filtre « tâches du jour » : commencées, ou prévues à la date ; les urgences T3 restent visibles tant qu'actives. */
+    /** Tâches en cours à une date passée : commencées au plus tard ce jour et pas encore terminées ce jour-là. */
+    private static function enCoursLe($q, Carbon $date)
+    {
+        return $q->where('statut', '!=', 'reporte')
+            ->where(fn($w) => $w->whereDate('date_debut', '<=', $date)->orWhere(fn($t) => $t->whereNull('date_debut')->whereDate('created_at', '<=', $date)))
+            ->where(fn($w) => $w->whereNull('date_fin_reelle')->orWhereDate('date_fin_reelle', '>=', $date))
+            // Une tâche jamais terminée n'est « du jour » que jusqu'à son échéance ; au-delà elle compte dans les retards
+            ->where(fn($w) => $w->whereNotNull('date_fin_reelle')->orWhereNull('echeance')->orWhereDate('echeance', '>=', $date))
+            ->orderByRaw("type = 'T3' desc")->orderBy('echeance')->orderBy('id');
+    }
+
+    /** Tâches en retard à une date passée : échéance dépassée ce jour-là, non terminées à cette date. */
+    private static function enRetardLe(\Closure $perimetre, int $userId, Carbon $date): Collection
+    {
+        return Tache::where('user_id', $userId)->where('statut', '!=', 'reporte')->where($perimetre)
+            ->whereNotNull('echeance')->whereDate('echeance', '<', $date)
+            ->where(fn($w) => $w->whereNull('date_fin_reelle')->orWhereDate('date_fin_reelle', '>=', $date))
+            ->get(['id', 'intitule']);
+    }
+
     private static function actives($q, Carbon $date)
     {
         return $q->whereNotIn('statut', ['termine', 'reporte'])
@@ -269,6 +293,9 @@ class ScrumService
     {
         $sprint = $daily->sprint;
         $date = $daily->date_reunion->copy()->startOfDay();
+        // Daily d'un jour passé (créé après coup ou recalculé) : chaque ligne est reconstituée telle qu'elle était ce
+        // jour-là, d'après les dates des tâches et des blocages, et non d'après leur état d'aujourd'hui
+        $aDate = $date->lt(today());
 
         // Période couverte : depuis le Daily précédent (à défaut, depuis le jour ouvré précédent)
         $precedent = self::dailyPrecedent($daily);
@@ -284,14 +311,20 @@ class ScrumService
         if ($hier === '' && $precedent) $hier = DailyScrumEntree::where('daily_scrum_id', $precedent->id)->where('user_id', $userId)->value('taches_jour');
 
         // Ce jour : Daily de sprint = tâches du sprint puis hors sprint ; Daily hors sprint = tâches des sprints en cours et hors sprint
-        $taches = $sprint
-            ? self::tachesDuJour($sprint, $userId, $date)->concat(self::tachesHorsSprint($userId, $date))
-            : self::actives(Tache::with('sprint:id,numero,date_fin')->where('user_id', $userId)->where(self::perimetre($daily, true)), $date)->get();
-        $retard = self::tachesEnRetard(self::perimetre($daily, true), $userId, $date);
+        $taches = $aDate
+            ? self::enCoursLe(Tache::with('sprint:id,numero,date_fin')->where('user_id', $userId)->where($sprint ? fn($q) => $q->where('sprint_id', $sprint->id)->orWhereNull('sprint_id') : self::perimetre($daily, true)), $date)->get()
+            : ($sprint
+                ? self::tachesDuJour($sprint, $userId, $date)->concat(self::tachesHorsSprint($userId, $date))
+                : self::actives(Tache::with('sprint:id,numero,date_fin')->where('user_id', $userId)->where(self::perimetre($daily, true)), $date)->get());
+        $retard = $aDate ? self::enRetardLe(self::perimetre($daily, true), $userId, $date) : self::tachesEnRetard(self::perimetre($daily, true), $userId, $date);
 
         // Défis = blocages ouverts, saisies manuelles de la saisie quotidienne (tâches non réalisées, événements), retards
         $ids = Tache::where('user_id', $userId)->where($dansSprintOuHors)->pluck('id');
-        $defis = Blocage::whereNull('date_levee')->whereIn('tache_id', $ids)->pluck('motif')->map(fn($m) => 'Blocage : ' . $m);
+        // Blocages ouverts ce jour-là : déclarés au plus tard ce jour et pas encore levés
+        $defis = Blocage::whereIn('tache_id', $ids)
+            ->whereRaw('DATE(COALESCE(date_blocage, created_at)) <= ?', [$date->toDateString()])
+            ->where(fn($q) => $q->whereNull('date_levee')->orWhereDate('date_levee', '>', $date))
+            ->pluck('motif')->map(fn($m) => 'Blocage : ' . $m);
         foreach (ConfirmationTache::with('tache:id,intitule')->where('user_id', $userId)->where('statut', 'infirmee')
             ->whereDate('date', '>=', $depuis)->whereDate('date', '<=', $date)->orderBy('date')->get() as $c) {
             $defis->push('Non réalisé : ' . ($c->tache?->intitule ?? 'tâche') . ($c->motif ? ' - ' . $c->motif : '') . ($c->plan_action ? ' (plan : ' . $c->plan_action . ')' : ''));
@@ -299,7 +332,7 @@ class ScrumService
         foreach (Evenement::where('user_id', $userId)->whereDate('date', '>=', $depuis)->whereDate('date', '<=', $date)->orderBy('date')->get() as $ev) {
             $defis->push($ev->labelType() . ' : ' . $ev->description);
         }
-        if ($retard->isNotEmpty()) $defis->push($retard->count() . ' tâche(s) en retard non commencée(s)');
+        if ($retard->isNotEmpty()) $defis->push($retard->count() . ($aDate ? ' tâche(s) en retard ce jour-là' : ' tâche(s) en retard non commencée(s)'));
 
         return [
             'taches_hier' => $hier ?: null,

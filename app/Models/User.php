@@ -81,6 +81,17 @@ class User extends Authenticatable
         return $projet->delegation_sprint && $projet->responsable_projet_id === $this->id;
     }
 
+    /**
+     * Actions rétrospectives sur un projet (rouvrir un sprint clôturé pour en rectifier l'historique) :
+     * pilote (administrateur, chargé des opérations) ; responsable du projet si le pilote lui a délégué la gestion
+     * des sprints et les actions rétrospectives.
+     */
+    public function peutRectifier(Projet $projet): bool
+    {
+        if ($this->estAdmin()) return true;
+        return $projet->delegation_sprint && ($projet->delegation_historique ?? false) && (int) $projet->responsable_projet_id === (int) $this->id;
+    }
+
     /** Peut accéder au module parc automobile (pilote ou collaborateur délégué). */
     public function peutGererParc(): bool
     {

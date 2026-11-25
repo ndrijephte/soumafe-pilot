@@ -14,16 +14,14 @@
 .rp-filtres .btn-raz:hover{border-color:var(--ko);color:var(--ko);background:#fef2f2}
 
 /* Évolution */
-.evo-totaux{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:8px 0 12px}
-.evo-tot{border:1px solid var(--bord);border-left:4px solid var(--c);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column}
-.evo-tot span{font-size:11.5px;color:var(--gris);font-weight:600}
-.evo-tot strong{font-size:16px;color:#1e293b;font-variant-numeric:tabular-nums}
-.evo-tot em{font-size:10.5px;color:var(--gris);font-style:normal}
-.evo-legende{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}
-.evo-legende button{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--bord);border-radius:20px;background:#fff;font-size:12px;color:#334155;cursor:pointer;opacity:.45;transition:opacity .15s}
+.evo-legende{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:center;margin:6px 0 10px}
+.evo-legende button{display:inline-flex;align-items:center;gap:6px;padding:2px 0;border:none;background:none;font-size:12px;color:#475569;cursor:pointer;font-family:inherit;opacity:.4}
 .evo-legende button.on{opacity:1}
-.evo-legende button i{display:inline-block;width:16px;height:3px;border-radius:2px}
-.evo-aide{font-size:11px;color:var(--gris);margin-left:auto}
+.evo-legende button b,.evo-solde b{color:#1e293b;font-weight:600;font-variant-numeric:tabular-nums}
+.evo-legende i.carre{width:10px;height:10px;border-radius:2px}
+.evo-legende i.trait{width:14px;height:2px;border-radius:1px}
+.evo-solde{margin-left:auto;font-size:12px;color:var(--gris)}
+.evo-solde b.ok{color:var(--ok)}.evo-solde b.ko{color:var(--ko)}
 .evo-zone{position:relative}
 .evo-bulle{position:absolute;top:8px;width:230px;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:10px 12px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .12s}
 .evo-bulle.on{opacity:1}
@@ -36,10 +34,11 @@
 .periode-bandeau strong{color:var(--bleu)}
 .periode-bandeau svg{color:var(--accent)}
 
-.rp-titre{font-size:13px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;margin:22px 0 10px}
+.rp-titre{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:600;color:var(--bleu);margin:22px 0 10px}
+.rp-section h3 .h3-sous{font-size:12.5px;font-weight:400;color:var(--gris)}
 
 /* L'essentiel */
-.essentiel{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.essentiel{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
 .ess{background:#fff;border:1px solid var(--bord);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
 .ess .lbl{font-size:12px;color:var(--gris);font-weight:600}
 .ess .val{font-size:24px;font-weight:700;color:var(--bleu);font-variant-numeric:tabular-nums;line-height:1.2}
@@ -47,6 +46,10 @@
 .ess .aide{font-size:11.5px;color:var(--gris)}
 .ess.ok{background:#f0fdf4;border-color:#86efac}.ess.ok .val{color:var(--ok)}
 .ess.ko{background:#fef2f2;border-color:#fca5a5}.ess.ko .val{color:var(--ko)}
+.ind-a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;border-bottom:1px dotted #94a3b8}
+.ind-a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.ind-sig{display:inline-flex;align-items:center;padding:3px;margin-left:2px;vertical-align:middle}
+.ind-sig:hover .pr-pt{box-shadow:0 0 0 3px rgba(46,116,181,.15)}
 .var{font-size:11.5px;font-weight:700}
 .var.up{color:var(--ok)}.var.down{color:var(--ko)}.var.eq{color:var(--gris)}
 .mini{display:flex;justify-content:space-between;font-size:11.5px;color:#475569;border-top:1px dashed var(--bord);padding-top:3px}
@@ -60,6 +63,10 @@
 .taux-cell .t{font-weight:700;font-size:12px}
 
 /* À traiter */
+/* Points à traiter : niveau (point de couleur) et compteurs du titre de section */
+.pr-compte{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:400;color:var(--gris)}
+.pr-compte i,.pr-pt{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gris);flex:none}
+.pr-compte.pr-ko i,.pr-pt.pr-ko{background:var(--ko)}.pr-compte.pr-warn i,.pr-pt.pr-warn{background:#f59e0b}.pr-compte.pr-info i,.pr-pt.pr-info{background:var(--accent)}
 .todo{display:grid;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:2px 16px}
 .todo-item{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--bord)}
 .todo-item:last-child{border-bottom:none}
@@ -207,10 +214,34 @@
 </div>
 
 {{-- ═══ 1. L'ESSENTIEL ═══ --}}
-<div class="rp-titre">1. L'essentiel de la période</div>
+@php
+    // Chaque point à traiter rejoint la carte qu'il concerne (recettes, charges, résultat, régularité)
+    $niveaux = ['ko' => ['urgent', 0], 'warn' => ['à surveiller', 1], 'info' => ['pour info', 2]];
+    $points = collect($aTraiter ?? [])->sortBy(fn($p) => $niveaux[$p['niveau']][1] ?? 9)->values();
+    // Sujet de chaque point (le déficit et l'immobilisation partagent l'onglet Véhicules)
+    $sujet = fn($p) => $p['onglet'] === 'vehicules' ? (str_contains($p['titre'], 'déficit') ? 'deficit' : 'immobilises') : $p['onglet'];
+    $parSujet = $points->keyBy($sujet);
+    $bulle = fn($p) => e($p['titre'] . ($p['detail'] ? ' — ' . $p['detail'] : ''));
+    // L'indicateur lui-même devient le lien quand un point le concerne
+    $lien = function (string $cle, string $html) use ($parSujet, $bulle) {
+        $p = $parSujet->get($cle);
+        return $p ? '<a class="ind-a" href="' . route('parc.index', ['tab' => $p['onglet']]) . '" title="' . $bulle($p) . '"><span class="pr-pt pr-' . $p['niveau'] . '"></span>' . $html . '</a>' : $html;
+    };
+    // Signal à côté d'un libellé, pour les sujets sans indicateur dédié
+    $signal = function (array $cles) use ($parSujet, $bulle) {
+        return collect($cles)->map(fn($c) => $parSujet->get($c))->filter()
+            ->map(fn($p) => '<a class="ind-sig" href="' . route('parc.index', ['tab' => $p['onglet']]) . '" title="' . $bulle($p) . '"><span class="pr-pt pr-' . $p['niveau'] . '"></span></a>')->join('');
+    };
+@endphp
+<div class="rp-titre">L'essentiel de la période
+    @foreach($niveaux as $cle => [$lib])
+    @php $n = $points->where('niveau', $cle)->count(); @endphp
+    @if($n)<span class="pr-compte pr-{{ $cle }}"><i></i>{{ $n }} {{ $lib }}</span>@endif
+    @endforeach
+</div>
 <div class="essentiel">
     <div class="ess">
-        <div class="lbl">Recettes encaissées</div>
+        <div class="lbl">Recettes encaissées {!! $signal(['recettes', 'recouv']) !!}</div>
         <div class="val">{{ $F($kpi['recettes']) }} <small>F</small></div>
         <div class="aide">{{ $P($kpi['taux']) }} % de l'objectif ({{ $F($kpi['objectif']) }} F)</div>
         <div class="gauge"><div class="{{ $classeTaux($kpi['objectif'] ? $kpi['taux'] : null) }}" style="width:{{ min(100, $kpi['taux']) }}%"></div></div>
@@ -220,14 +251,14 @@
     <div class="ess">
         <div class="lbl">Charges</div>
         <div class="val" style="color:var(--ko)">{{ $F($kpi['charges']) }} <small>F</small></div>
-        <div class="mini"><span>Pannes ({{ $kpi['nb_pannes'] }})</span><strong>{{ $F($kpi['pannes']) }}</strong></div>
-        <div class="mini"><span>Maintenance</span><strong>{{ $F($kpi['maintenance']) }}</strong></div>
-        <div class="mini"><span>Pénalités ({{ $kpi['nb_penalites'] }})</span><strong>{{ $F($kpi['penalites']) }}</strong></div>
+        <div class="mini"><span>{!! $lien('pannes', 'Pannes (' . $kpi['nb_pannes'] . ')') !!}</span><strong>{{ $F($kpi['pannes']) }}</strong></div>
+        <div class="mini"><span>{!! $lien('maint', 'Maintenance') !!}</span><strong>{{ $F($kpi['maintenance']) }}</strong></div>
+        <div class="mini"><span>{!! $lien('penal', 'Pénalités (' . $kpi['nb_penalites'] . ')') !!}</span><strong>{{ $F($kpi['penalites']) }}</strong></div>
         <div class="mini"><span>Autres dépenses</span><strong>{{ $F($kpi['autres_depenses']) }}</strong></div>
         {!! $variation($kpi['charges'], $kpiPrec['charges'], false) !!}
     </div>
     <div class="ess {{ $kpi['resultat'] >= 0 ? 'ok' : 'ko' }}">
-        <div class="lbl">Résultat net</div>
+        <div class="lbl">Résultat net {!! $signal(['emprunts', 'immobilises']) !!}</div>
         <div class="val">{{ $signe($kpi['resultat']) }} <small>F</small></div>
         <div class="aide">Recettes − charges @if($kpi['marge'] !== null) · marge {{ $P($kpi['marge']) }} %@endif</div>
         {!! $variation($kpi['resultat'], $kpiPrec['resultat'], true, true) !!}
@@ -236,38 +267,19 @@
         <div class="lbl">Régularité des recettes</div>
         @php $pctJours = $kpi['jours'] ? round($kpi['jours_atteints'] / $kpi['jours'] * 100, 2) : 0; @endphp
         <div class="val">{{ $kpi['jours_atteints'] }} <small>/ {{ $kpi['jours'] }} jours</small></div>
-        <div class="aide">journées-chauffeur où l'objectif a été atteint ({{ $P($pctJours) }} %)</div>
+        <div class="aide">{!! $lien('chauffeurs', 'journées-chauffeur où l\'objectif a été atteint (' . $P($pctJours) . ' %)') !!}</div>
         <div class="gauge"><div class="{{ $classeTaux($kpi['jours'] ? $pctJours : null) }}" style="width:{{ $pctJours }}%"></div></div>
         @php
             $nbDeficit = $parVehicule->where('verdict', 'deficit')->count();
             $nbRentables = $parVehicule->where('verdict', 'rentable')->count();
         @endphp
-        <div class="aide" style="margin-top:2px"><strong style="color:var(--ok)">{{ $nbRentables }}</strong> véhicule(s) rentable(s) · <strong style="color:{{ $nbDeficit ? 'var(--ko)' : 'var(--gris)' }}">{{ $nbDeficit }}</strong> en déficit</div>
+        <div class="aide" style="margin-top:2px"><strong style="color:var(--ok)">{{ $nbRentables }}</strong> véhicule(s) rentable(s) · {!! $lien('deficit', '<strong style="color:' . ($nbDeficit ? 'var(--ko)' : 'var(--gris)') . '">' . $nbDeficit . '</strong> en déficit') !!}</div>
     </div>
 </div>
-
-{{-- ═══ 2. À TRAITER ═══ --}}
-<div class="rp-titre">2. À traiter en priorité</div>
-@if(empty($aTraiter))
-<div class="todo-ok">Aucun point bloquant : pas de déficit, de retard de maintenance, de panne ouverte ni d'impayé.</div>
-@else
-<div class="todo">
-    @foreach($aTraiter as $pt)
-    <div class="todo-item {{ $pt['niveau'] }}">
-        <div>
-            <div class="tt">{{ $pt['titre'] }}</div>
-            @if($pt['detail'])<div class="dd">{{ $pt['detail'] }}</div>@endif
-        </div>
-        <a href="{{ route('parc.index', ['tab' => $pt['onglet']]) }}">Voir →</a>
-    </div>
-    @endforeach
-</div>
-@endif
 
 {{-- ═══ 3. RENTABILITÉ PAR VÉHICULE ═══ --}}
-<div class="rp-titre">3. Rentabilité par véhicule</div>
 <div class="rp-section">
-    <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Quels véhicules rapportent, lesquels coûtent ?</h3>
+    <h3>{!! $ico('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>') !!} Rentabilité par véhicule <span class="h3-sous">quels véhicules rapportent, lesquels coûtent</span></h3>
     <div class="intro">Cliquez sur une immatriculation pour ouvrir sa fiche rapport détaillée. Classés du moins rentable au plus rentable. Résultat = recettes (y compris recouvrements) − pannes − maintenance − pénalités du véhicule. Les autres dépenses (bureau) ne sont imputées à aucun véhicule.</div>
     @if($parVehicule->isEmpty())
     <p style="color:var(--gris);font-size:13px">Aucun véhicule dans ce périmètre.</p>
@@ -316,9 +328,8 @@
 </div>
 
 {{-- ═══ 4. CHAUFFEURS ═══ --}}
-<div class="rp-titre">4. Performance des chauffeurs</div>
 <div class="rp-section">
-    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!} Qui atteint ses objectifs ?</h3>
+    <h3>{!! $ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>') !!} Performance des chauffeurs <span class="h3-sous">qui atteint ses objectifs</span></h3>
     <div class="intro">Les {{ $chauffeurs->count() }} chauffeur(s) du formulaire Chauffeurs, du taux d'atteinte le plus faible au plus élevé. « Reste dû » = créances de recouvrement encore actives.</div>
     @if($chauffeurs->isEmpty())
     <p style="color:var(--gris);font-size:13px">Aucun chauffeur enregistré dans le formulaire Chauffeurs.</p>
@@ -352,144 +363,114 @@
 </div>
 
 {{-- ═══ 5. ÉVOLUTION : RECETTES FACE AUX DÉPENSES ═══ --}}
-<div class="rp-titre">5. Évolution des recettes et des dépenses</div>
 <div class="rp-section">
-    <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Recettes {{ $evolution['par_semaine'] ? 'hebdomadaires' : 'journalières' }} face à l'objectif et aux dépenses</h3>
+    <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Évolution des recettes et des dépenses <span class="h3-sous">par {{ $evolution['par_semaine'] ? 'semaine' : 'jour' }}</span></h3>
     @php $pts = collect($evolution['points']); @endphp
     @if($pts->isEmpty() || ($pts->sum('recette') + $pts->sum('objectif') + $pts->sum('bureau') + $pts->sum('vehicule')) === 0)
     <p style="color:var(--gris);font-size:13px">Aucune recette ni dépense sur cette période.</p>
     @else
     @php
         $n = $pts->count();
-        $vmax = max($pts->max('recette'), $pts->max('objectif'), $pts->max('bureau'), $pts->max('vehicule'), 1);
-        // Graduation « ronde » : 1, 2 ou 5 × 10^k
-        $brut = $vmax / 5; $p10 = 10 ** floor(log10($brut)); $pas = (int) (collect([1, 2, 5, 10])->first(fn($m) => $m * $p10 >= $brut) * $p10);
+        $vmax = max($pts->max('recette'), $pts->max('objectif'), $pts->max(fn($p) => $p['vehicule'] + $p['bureau']), 1);
+        $brut = $vmax / 4; $p10 = 10 ** floor(log10($brut)); $pas = (int) (collect([1, 2, 2.5, 5, 10])->first(fn($m) => $m * $p10 >= $brut) * $p10);
         $vmax = (int) (ceil($vmax / $pas) * $pas);
-        $W = 960; $H = 300; $L = 58; $R = 14; $T = 16; $B = 36;
+        $W = 960; $H = 260; $L = 52; $R = 10; $T = 12; $B = 30;
         $cw = $W - $L - $R; $chH = $H - $T - $B; $base = $T + $chH;
         $col = $cw / $n;
-        $xOf = fn($i) => round($L + ($i + 0.5) * $col, 1);
+        $x0 = fn($i) => $L + $i * $col;
         $yOf = fn($v) => round($base - ($v / $vmax) * $chH, 1);
-        $bw = round(min(26, $col * 0.62), 1);
+        // Deux barres par période : recettes (gauche) et dépenses (droite), séparées d'un fin espace
+        $bw = round(min(18, max(2, $col * 0.34)), 1);
+        $ecart = min(3, $col * 0.06);
+        $xr = fn($i) => round($x0($i) + $col / 2 - $bw - $ecart / 2, 1);
+        $xd = fn($i) => round($x0($i) + $col / 2 + $ecart / 2, 1);
         $kfmt = fn($v) => $v >= 1000000 ? rtrim(rtrim(number_format($v / 1000000, 1, ',', ' '), '0'), ',') . ' M' : ($v >= 1000 ? number_format($v / 1000, 0, ',', ' ') . ' k' : (string) $v);
-        // Courbe lissée (Catmull-Rom → Bézier), bornée entre le haut du graphe et l'axe
-        // $vals : [index => valeur] ; les index absents ne sont pas tracés (la courbe les enjambe)
-        $courbe = function (array $vals) use ($xOf, $yOf, $T, $base) {
-            $p = array_map(fn($v, $i) => [$xOf($i), $yOf($v)], $vals, array_keys($vals));
-            if (count($p) === 1) return 'M' . $p[0][0] . ',' . $p[0][1];
-            $d = 'M' . $p[0][0] . ',' . $p[0][1];
-            $cl = fn($y) => round(max($T, min($base, $y)), 1);
-            for ($i = 0; $i < count($p) - 1; $i++) {
-                $p0 = $p[max($i - 1, 0)]; $p1 = $p[$i]; $p2 = $p[$i + 1]; $p3 = $p[min($i + 2, count($p) - 1)];
-                $c1 = [round($p1[0] + ($p2[0] - $p0[0]) / 6, 1), $cl($p1[1] + ($p2[1] - $p0[1]) / 6)];
-                $c2 = [round($p2[0] - ($p3[0] - $p1[0]) / 6, 1), $cl($p2[1] - ($p3[1] - $p1[1]) / 6)];
-                $d .= " C{$c1[0]},{$c1[1]} {$c2[0]},{$c2[1]} {$p2[0]},{$p2[1]}";
-            }
-            return $d;
-        };
-        $aire = fn(string $d, array $vals) => $d . ' L' . $xOf(array_key_last($vals)) . ',' . $base . ' L' . $xOf(array_key_first($vals)) . ',' . $base . ' Z';
-        $series = [
-            // Objectif : uniquement les jours travaillés (un jour sans saisie n'a pas d'objectif, pas « 0 »)
-            'objectif' => ['Objectif recette', '#94a3b8', $pts->pluck('objectif')->filter(fn($v) => $v > 0)->all()],
-            'vehicule' => ['Dépenses véhicules', '#f59e0b', $pts->pluck('vehicule')->all()],
-            'bureau'   => ['Dépenses bureau', '#dc2626', $pts->pluck('bureau')->all()],
-        ];
-        $tous = max(1, (int) ceil($n / 15));
+        $tous = max(1, (int) ceil($n / 12));
         $fmtDate = fn($d) => \Carbon\Carbon::parse($d)->format('d/m');
         $totaux = ['recette' => $pts->sum('recette'), 'objectif' => $pts->sum('objectif'), 'vehicule' => $pts->sum('vehicule'), 'bureau' => $pts->sum('bureau')];
+        $solde = $totaux['recette'] - $totaux['vehicule'] - $totaux['bureau'];
         $infos = $pts->map(fn($p) => [
-            'd' => $evolution['par_semaine'] ? 'Semaine du ' . \Carbon\Carbon::parse($p['date'])->translatedFormat('d M Y') : ucfirst(\Carbon\Carbon::parse($p['date'])->translatedFormat('l d M Y')),
+            'd' => $evolution['par_semaine'] ? 'Semaine du ' . \Carbon\Carbon::parse($p['date'])->translatedFormat('j F Y') : ucfirst(\Carbon\Carbon::parse($p['date'])->translatedFormat('l j F Y')),
             'r' => $p['recette'], 'o' => $p['objectif'], 'v' => $p['vehicule'], 'b' => $p['bureau'], 's' => $p['saisi'],
         ])->values();
+        $C = ['recette' => '#2e74b5', 'objectif' => '#1f2937', 'vehicule' => '#f59e0b', 'bureau' => '#dc2626'];
     @endphp
 
-    <div class="evo-totaux">
-        <div class="evo-tot" style="--c:var(--accent)"><span>Recettes</span><strong>{{ $F($totaux['recette']) }} F</strong></div>
-        <div class="evo-tot" style="--c:#94a3b8"><span>Objectif</span><strong>{{ $F($totaux['objectif']) }} F</strong></div>
-        <div class="evo-tot" style="--c:#f59e0b"><span>Dépenses véhicules</span><strong>{{ $F($totaux['vehicule']) }} F</strong><em>pannes + maintenance + pénalités</em></div>
-        <div class="evo-tot" style="--c:#dc2626"><span>Dépenses bureau</span><strong>{{ $F($totaux['bureau']) }} F</strong></div>
-    </div>
-
     <div class="evo-legende" id="evo-legende">
-        <button type="button" data-serie="recette" class="on"><i style="background:var(--accent);height:10px;border-radius:2px"></i>Recettes</button>
-        @foreach($series as $cle => [$lib, $coul])
-        <button type="button" data-serie="{{ $cle }}" class="on"><i style="background:{{ $coul }}{{ $cle === 'objectif' ? ';height:0;border-top:2px dashed ' . $coul . ';background:none' : '' }}"></i>{{ $lib }}</button>
-        @endforeach
-        <span class="evo-aide">Cliquez sur une légende pour masquer ou afficher la série.</span>
+        <button type="button" data-serie="recette" class="on"><i class="carre" style="background:{{ $C['recette'] }}"></i>Recettes <b>{{ $F($totaux['recette']) }} F</b></button>
+        <button type="button" data-serie="objectif" class="on"><i class="trait" style="background:{{ $C['objectif'] }}"></i>Objectif <b>{{ $F($totaux['objectif']) }} F</b></button>
+        <button type="button" data-serie="vehicule" class="on"><i class="carre" style="background:{{ $C['vehicule'] }}"></i>Dépenses véhicules <b>{{ $F($totaux['vehicule']) }} F</b></button>
+        <button type="button" data-serie="bureau" class="on"><i class="carre" style="background:{{ $C['bureau'] }}"></i>Dépenses bureau <b>{{ $F($totaux['bureau']) }} F</b></button>
+        <span class="evo-solde">Solde <b class="{{ $solde >= 0 ? 'ok' : 'ko' }}">{{ $solde >= 0 ? '+' : '−' }}{{ $F(abs($solde)) }} F</b></span>
     </div>
 
     <div class="rp-scroll evo-zone">
         <svg id="evo-svg" viewBox="0 0 {{ $W }} {{ $H }}" width="100%" style="min-width:600px;font-family:inherit;display:block" role="img" aria-label="Évolution des recettes et des dépenses">
-            <defs>
-                @foreach($series as $cle => [$lib, $coul])
-                <linearGradient id="evo-g-{{ $cle }}" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stop-color="{{ $coul }}" stop-opacity="{{ $cle === 'objectif' ? 0 : .18 }}"/>
-                    <stop offset="1" stop-color="{{ $coul }}" stop-opacity="0"/>
-                </linearGradient>
-                @endforeach
-            </defs>
             @for($g = 0; $g <= $vmax; $g += $pas)
-                <line x1="{{ $L }}" y1="{{ $yOf($g) }}" x2="{{ $W - $R }}" y2="{{ $yOf($g) }}" stroke="{{ $g === 0 ? '#cbd5e1' : '#eef2f7' }}"/>
+                <line x1="{{ $L }}" y1="{{ $yOf($g) }}" x2="{{ $W - $R }}" y2="{{ $yOf($g) }}" stroke="{{ $g === 0 ? '#cbd5e1' : '#f1f5f9' }}"/>
                 <text x="{{ $L - 8 }}" y="{{ $yOf($g) + 3.5 }}" fill="#94a3b8" font-size="10.5" text-anchor="end">{{ $kfmt($g) }}</text>
             @endfor
-
             <g data-serie="recette">
             @foreach($pts as $i => $p)
                 @if($p['recette'] > 0)
-                <rect x="{{ round($xOf($i) - $bw / 2, 1) }}" y="{{ $yOf($p['recette']) }}" width="{{ $bw }}" height="{{ round($base - $yOf($p['recette']), 1) }}" rx="3"
-                      fill="var(--accent)" opacity="{{ $p['objectif'] > 0 && $p['recette'] < $p['objectif'] ? .45 : .85 }}"/>
+                <rect x="{{ $xr($i) }}" y="{{ $yOf($p['recette']) }}" width="{{ $bw }}" height="{{ round($base - $yOf($p['recette']), 1) }}" rx="2" fill="{{ $C['recette'] }}" opacity="{{ $p['objectif'] > 0 && $p['recette'] < $p['objectif'] ? .5 : .9 }}"/>
                 @endif
             @endforeach
             </g>
-
-            @foreach($series as $cle => [$lib, $coul, $vals])
-            @if(array_sum($vals) > 0)
-            @php $d = $courbe($vals); @endphp
-            <g data-serie="{{ $cle }}">
-                @if($cle !== 'objectif')<path d="{{ $aire($d, $vals) }}" fill="url(#evo-g-{{ $cle }})" stroke="none"/>@endif
-                <path d="{{ $d }}" fill="none" stroke="{{ $coul }}" stroke-width="{{ $cle === 'objectif' ? 1.6 : 2.2 }}" stroke-linecap="round" stroke-linejoin="round" @if($cle === 'objectif') stroke-dasharray="6,5" @endif/>
-                @foreach($vals as $i => $v)
-                    @if($cle === 'objectif')<circle cx="{{ $xOf($i) }}" cy="{{ $yOf($v) }}" r="2.2" fill="{{ $coul }}"/>
-                    @elseif($v > 0)<circle cx="{{ $xOf($i) }}" cy="{{ $yOf($v) }}" r="3.2" fill="#fff" stroke="{{ $coul }}" stroke-width="2"/>@endif
-                @endforeach
-            </g>
-            @endif
+            <g data-serie="objectif">
+            @foreach($pts as $i => $p)
+                @if($p['objectif'] > 0)
+                <line x1="{{ $xr($i) - 2 }}" x2="{{ $xr($i) + $bw + 2 }}" y1="{{ $yOf($p['objectif']) }}" y2="{{ $yOf($p['objectif']) }}" stroke="{{ $C['objectif'] }}" stroke-width="2" stroke-linecap="round"/>
+                @endif
             @endforeach
-
+            </g>
+            <g data-serie="vehicule">
+            @foreach($pts as $i => $p)
+                @if($p['vehicule'] > 0)
+                <rect x="{{ $xd($i) }}" y="{{ $yOf($p['vehicule']) }}" width="{{ $bw }}" height="{{ round($base - $yOf($p['vehicule']), 1) }}" rx="2" fill="{{ $C['vehicule'] }}" opacity=".85"/>
+                @endif
+            @endforeach
+            </g>
+            <g data-serie="bureau">
+            @foreach($pts as $i => $p)
+                @if($p['bureau'] > 0)
+                <rect x="{{ $xd($i) }}" y="{{ $yOf($p['vehicule'] + $p['bureau']) }}" width="{{ $bw }}" height="{{ round($yOf($p['vehicule']) - $yOf($p['vehicule'] + $p['bureau']), 1) }}" rx="2" fill="{{ $C['bureau'] }}" opacity=".85"/>
+                @endif
+            @endforeach
+            </g>
             @foreach($pts as $i => $p)
                 @if($i % $tous === 0)
-                <text x="{{ $xOf($i) }}" y="{{ $H - $B + 16 }}" fill="#64748b" font-size="10" text-anchor="middle">{{ $fmtDate($p['date']) }}</text>
+                <text x="{{ round($x0($i) + $col / 2, 1) }}" y="{{ $H - $B + 16 }}" fill="#64748b" font-size="10" text-anchor="middle">{{ $fmtDate($p['date']) }}</text>
                 @endif
             @endforeach
-
-            <line id="evo-curseur" x1="0" y1="{{ $T }}" x2="0" y2="{{ $base }}" stroke="#334155" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
             @foreach($pts as $i => $p)
-                <rect class="evo-zone-survol" data-i="{{ $i }}" x="{{ round($L + $i * $col, 1) }}" y="{{ $T }}" width="{{ round($col, 1) }}" height="{{ $chH }}" fill="transparent"/>
+                <rect class="evo-zone-survol" data-i="{{ $i }}" x="{{ round($x0($i), 1) }}" y="{{ $T }}" width="{{ round($col, 1) }}" height="{{ $chH }}" fill="transparent"/>
             @endforeach
         </svg>
         <div class="evo-bulle" id="evo-bulle"></div>
     </div>
-    <div class="intro" style="margin:6px 0 0">Barres pâles : {{ $evolution['par_semaine'] ? 'semaines' : 'jours' }} sous l'objectif. Les dépenses sont rattachées à leur date : déclaration de la panne, date de la dépense ou de l'infraction.</div>
+    <div class="intro" style="margin:6px 0 0">Barre bleue : recettes, le trait marque l'objectif (barre pâle sous l'objectif). Barre orange et rouge : dépenses, à leur date (panne, entretien, dépense, infraction).</div>
     <script>
     (function(){
-        var infos = @json($infos), svg = document.getElementById('evo-svg'), bulle = document.getElementById('evo-bulle'), curseur = document.getElementById('evo-curseur');
+        var infos = @json($infos), svg = document.getElementById('evo-svg'), bulle = document.getElementById('evo-bulle');
         var fmt = function(v){ return Math.round(v).toLocaleString('fr-FR') + ' F'; };
         var ligne = function(c, l, v){ return '<div><i style="background:'+c+'"></i>'+l+'<b>'+fmt(v)+'</b></div>'; };
         svg.querySelectorAll('.evo-zone-survol').forEach(function(z){
             z.addEventListener('mouseenter', function(){
+                svg.querySelectorAll('.evo-zone-survol').forEach(function(x){ x.setAttribute('fill', 'transparent'); });
+                z.setAttribute('fill', 'rgba(46,116,181,.06)');
                 var p = infos[+z.dataset.i], x = +z.getAttribute('x') + (+z.getAttribute('width')) / 2;
-                curseur.setAttribute('x1', x); curseur.setAttribute('x2', x); curseur.setAttribute('opacity', .5);
-                var taux = p.o > 0 ? ' <span style="color:'+(p.r >= p.o ? '#16a34a' : '#dc2626')+'">('+(p.r / p.o * 100).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})+' %)</span>' : '';
+                var taux = p.o > 0 ? ' <span style="color:'+(p.r >= p.o ? '#16a34a' : '#dc2626')+'">('+Math.round(p.r / p.o * 100)+' %)</span>' : '';
                 bulle.innerHTML = '<strong>'+p.d+'</strong>'
-                    + (p.s ? ligne('var(--accent)', 'Recettes', p.r).replace('</b>', '</b>'+taux) : '<div style="color:#94a3b8">Aucune recette saisie</div>')
-                    + (p.o ? ligne('#94a3b8', 'Objectif', p.o) : '')
-                    + ligne('#f59e0b', 'Dépenses véhicules', p.v) + ligne('#dc2626', 'Dépenses bureau', p.b);
+                    + (p.s ? ligne('#2e74b5', 'Recettes', p.r).replace('</b>', '</b>'+taux) : '<div style="color:#94a3b8">Aucune recette saisie</div>')
+                    + (p.o ? ligne('#1f2937', 'Objectif', p.o) : '')
+                    + (p.v ? ligne('#f59e0b', 'Dépenses véhicules', p.v) : '') + (p.b ? ligne('#dc2626', 'Dépenses bureau', p.b) : '');
                 var r = svg.getBoundingClientRect(), px = x / {{ $W }} * r.width;
                 bulle.style.left = Math.min(Math.max(px - 110, 0), r.width - 230) + 'px';
                 bulle.classList.add('on');
             });
         });
-        svg.addEventListener('mouseleave', function(){ bulle.classList.remove('on'); curseur.setAttribute('opacity', 0); });
+        svg.addEventListener('mouseleave', function(){ bulle.classList.remove('on'); svg.querySelectorAll('.evo-zone-survol').forEach(function(x){ x.setAttribute('fill', 'transparent'); }); });
         document.querySelectorAll('#evo-legende button').forEach(function(b){
             b.addEventListener('click', function(){
                 b.classList.toggle('on');
@@ -502,7 +483,7 @@
 </div>
 
 {{-- ═══ 6. OÙ PASSE L'ARGENT ═══ --}}
-<div class="rp-titre">6. Où passe l'argent ?</div>
+<div class="rp-titre">Où passe l'argent</div>
 <div class="rp-grid2">
     <div class="rp-section">
         <h3>{!! $ico('<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>') !!} Répartition des charges</h3>

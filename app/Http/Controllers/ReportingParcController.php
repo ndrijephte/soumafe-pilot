@@ -435,7 +435,8 @@ class ReportingParcController extends Controller
             }
         }
 
-        $parSemaine = $debut->diffInDays($finEffective) > 100;
+        // Au-delà de 45 jours, une barre par semaine : le graphe reste lisible
+        $parSemaine = $debut->diffInDays($finEffective) > 45;
         $points = [];
         for ($d = $debut->copy()->startOfDay(); $d->lte($finEffective); $d->addDay()) {
             $j = $d->toDateString();

@@ -373,6 +373,7 @@ class CompteRenduController extends Controller
         } elseif (isset($cr->getDonnees()['mise_en_forme'])) {
             $donnees['mise_en_forme'] = $cr->getDonnees()['mise_en_forme'];
         }
+        $donneesAvant = $cr->getDonnees();
         $cr->setDonnees($donnees);
         // Rattachement d'un sprint à un rapport qui n'en avait pas : tableaux, score et Sprint Goal repris du sprint
         if ($cr->type === 'demo_sprint' && !$cr->sprint_id && $user->estPilote() && $r->filled('sprint_id')) {
@@ -412,6 +413,23 @@ class CompteRenduController extends Controller
         }
         $cr->save();
 
+        // Rapport de review : ce qui est coché ou décoché agit sur le sprint (Sprint Planning, review des développeurs)
+        $synchro = '';
+        if ($cr->type === 'demo_sprint' && $cr->sprint_id && $r->filled('bloc_data')) {
+            $res = RapportReview::appliquerAuSprint($cr, $donneesAvant, $cr->getDonnees());
+            if ($txt = RapportReview::resumeSynchro($res)) {
+                $synchro = ' Sprint mis à jour : ' . $txt . '.';
+                // Décomptes des stories du rapport remis à jour
+                $frais = collect(\App\Services\AvancementScrum::lignesSprint(Sprint::with('projet')->find($cr->sprint_id)))->keyBy('id');
+                $d = $cr->getDonnees();
+                foreach ($d['stories'] ?? [] as $i => $st) {
+                    if ($f = $frais->get($st['id'] ?? 0)) { $d['stories'][$i]['taches'] = $f['taches']; $d['stories'][$i]['taches_terminees'] = $f['taches_terminees']; }
+                }
+                $cr->setDonnees($d);
+                $cr->save();
+            }
+        }
+
         if ((int) $cr->redacteur_id !== (int) $ancienRedacteur && ($redacteur = User::find($cr->redacteur_id))) {
             $msg = "Vous êtes désigné(e) rédacteur du {$cr->typeCourt()} du " . $cr->date_reunion->format('d/m/Y');
             if (Schema::hasTable('notifications_app')) {
@@ -423,10 +441,10 @@ class CompteRenduController extends Controller
         // Régénérer le DOCX si le CR est déjà confirmé
         if ($cr->estConfirme()) {
             $this->genererDocx($cr);
-            return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu modifié et DOCX régénéré.');
+            return redirect()->route('comptes-rendus.show', $cr)->with('ok', 'Compte rendu modifié et DOCX régénéré.' . $synchro);
         }
 
-        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Brouillon enregistré.');
+        return redirect()->route('comptes-rendus.edit', $cr)->with('ok', 'Brouillon enregistré.' . $synchro);
     }
 
     /* ===== CONFIRMATION ===== */

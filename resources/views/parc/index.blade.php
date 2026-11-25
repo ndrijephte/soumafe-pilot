@@ -296,19 +296,38 @@ dialog.dlg-sr{width:440px;padding:0;overflow:visible}
 .totaux-parc{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .totaux-parc>span{display:flex;flex-direction:column;font-size:10.5px;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;background:var(--fond);border-radius:8px;padding:7px 12px}
 .totaux-parc>span strong{font-size:15px;text-transform:none;letter-spacing:0;margin-top:2px}
+.m-ind .m-ind-b{display:flex;flex-direction:column;align-items:flex-start;font:inherit;font-size:10.5px;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;background:var(--fond);border:1px solid transparent;border-radius:8px;padding:7px 12px;cursor:pointer;text-align:left}
+.m-ind .m-ind-b strong{display:flex;align-items:center;gap:6px;font-size:15px;color:#1e293b;text-transform:none;letter-spacing:0;margin-top:2px}
+.m-ind .m-ind-b:hover:not(:disabled),.m-ind .m-ind-b.actif{border-color:var(--accent);background:#fff}
+.m-ind .m-ind-b:disabled{cursor:default;opacity:.7}
+.m-ind .pr-pt{display:inline-block;width:7px;height:7px;border-radius:50%}
+.m-ind .pr-ko{background:var(--ko)}.m-ind .pr-warn{background:#f59e0b}
+.m-planifier{display:flex;flex-wrap:wrap;gap:4px 18px;margin:-2px 0 12px;padding:8px 12px;border:1px dashed var(--bord);border-radius:8px;font-size:12px;color:#334155}
+.m-planifier[hidden]{display:none}
+.m-planifier em{font-style:normal;color:var(--gris);margin-left:6px}
+.m-planifier .lien-b{border:none;background:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;margin-left:6px;padding:0}
+.m-planifier .lien-b:hover{text-decoration:underline}
 .reports-parc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:#fffbeb;border-radius:8px;font-size:12.5px;color:#92400e}
 .reports-parc a{margin-left:auto;font-weight:600;color:#92400e;text-decoration:none}
 .reports-parc a:hover{text-decoration:underline}
-.maint-suivi{border:1px solid var(--bord);border-radius:10px;margin:0 0 12px;overflow:hidden}
-.maint-suivi-tete{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--fond);font-size:12px;font-weight:600;color:var(--bleu)}
-.maint-suivi-tete em{font-style:normal;font-weight:400;color:var(--gris);margin-left:4px}
-.maint-suivi-tete .pill:empty{display:none}
-.maint-suivi-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
-.maint-suivi-tbl th{text-align:left;padding:6px 12px;font-size:10.5px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--bord);background:#fff}
-.maint-suivi-tbl td{padding:6px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
-.maint-suivi-tbl tr:last-child td{border-bottom:none}
-.maint-suivi-tbl .fort{font-weight:600;color:#1e293b}.maint-suivi-tbl .att{color:var(--gris)}.maint-suivi-tbl .dr{text-align:right}
-.maint-suivi-tbl .btn.sm{padding:3px 10px;font-size:11.5px}
+/* Pannes : véhicule, ancienneté, urgence et avancement lisibles d'un coup d'œil */
+#tbl-pannes .dr{text-align:right}#tbl-pannes .nw{white-space:nowrap}
+.pn-veh strong{display:block}.pn-veh span{font-size:11px;color:var(--gris)}
+.pn-date{white-space:nowrap}.pn-date span{display:block;font-size:11px;color:var(--gris)}.pn-date span.ko{color:var(--ko);font-weight:600}
+.pn-desc{max-width:280px}.pn-desc span{display:block;color:#1e293b}.pn-desc em{display:block;font-style:normal;font-size:11.5px;color:var(--gris);margin-top:1px}
+.pn-urg{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.pn-urg i{width:8px;height:8px;border-radius:50%;background:#94a3b8}
+.pn-urg.u-critique{color:var(--ko)}.pn-urg.u-critique i{background:var(--ko);box-shadow:0 0 0 3px #fee2e2}
+.pn-urg.u-haute{color:#c2410c}.pn-urg.u-haute i{background:#ea580c}
+.pn-urg.u-moyenne{color:#b45309}.pn-urg.u-moyenne i{background:#f59e0b}
+.pn-urg.u-faible{color:#475569}
+.pn-etapes{display:flex;gap:3px;width:96px}
+.pn-etapes i{flex:1;height:5px;border-radius:3px;background:#e2e8f0}
+.pn-etapes i.fait{background:var(--accent)}
+.pn-etapes i.fait.clos,.pn-etapes:has(i.clos) i.fait{background:var(--ok)}
+.pn-etape-lib{display:block;font-size:11px;color:var(--accent);font-weight:600;margin-top:3px}
+.pn-etape-lib.clos{color:var(--ok)}
+.pn-emp{display:block;width:max-content;margin:3px 0 0 auto;font-size:9.5px}
 .maint-alerte{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 6px 6px 12px;border:1px solid var(--bord);border-left:4px solid var(--gris);border-radius:8px;font-size:12.5px;background:#fff}
 .maint-alerte em{color:var(--gris);font-style:normal}
 .maint-alerte.ko{border-left-color:var(--ko);background:#fffafa}.maint-alerte.warn{border-left-color:#f59e0b;background:#fffdf5}
@@ -690,14 +709,25 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @include('parc._reports', ['onglet' => 'pannes'])
     <div class="panneau liste" style="overflow-x:auto">
 <div class="panel-head">
-        <h3>{!! $icWrench !!} Pannes @if($kpi['pannes_ouvertes']>0)<span class="pill p-ko">{{ $kpi['pannes_ouvertes'] }} ouvertes</span>@endif</h3>
+        <h3>{!! $icWrench !!} Pannes @if($kpi['pannes_ouvertes']>0)<span class="pill p-ko">{{ $kpi['pannes_ouvertes'] }} ouverte{{ $kpi['pannes_ouvertes'] > 1 ? 's' : '' }}</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-panne').showModal()">{!! $icPlus !!} Panne</button>@endif
     </div>
-    @php $coutTotalPannes = $pannes->sum('cout_reel'); @endphp
-    @if($coutTotalPannes > 0)
-    <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12.5px">
-        <span style="font-weight:700;color:var(--ko)">Coût total pannes : {{ number_format($coutTotalPannes, 0, ',', ' ') }} F</span>
-        <span style="color:var(--gris)">({{ $pannes->count() }} panne(s))</span>
+    @php
+        $pnOuvertes = $pannes->where('statut', '!=', 'cloturee');
+        $pnCloturees = $pannes->where('statut', 'cloturee');
+        $pnDelai = $pnCloturees->whereNotNull('delai_resolution')->avg('delai_resolution');
+        // Ouvertes d'abord (la plus urgente puis la plus ancienne), puis l'historique, le plus récent en tête
+        $rangUrg = ['critique' => 0, 'haute' => 1, 'moyenne' => 2, 'faible' => 3];
+        $pannesTriees = $pnOuvertes->sortBy(fn($x) => [$rangUrg[$x->urgence] ?? 9, $x->date_declaration?->timestamp ?? 0])
+            ->concat($pnCloturees->sortByDesc(fn($x) => $x->date_declaration?->timestamp ?? 0));
+        $etapes = ['declaree' => 'Déclarée', 'en_diagnostic' => 'Diagnostic', 'en_intervention' => 'Intervention', 'cloturee' => 'Clôturée'];
+    @endphp
+    @if($pannes->isNotEmpty())
+    <div class="totaux-parc">
+        <span>Ouvertes<strong style="color:{{ $pnOuvertes->count() ? 'var(--ko)' : 'var(--ok)' }}">{{ $pnOuvertes->count() }}</strong></span>
+        <span>Clôturées<strong>{{ $pnCloturees->count() }}</strong></span>
+        <span>Coût des réparations<strong>{{ number_format($pannes->sum('cout_reel'), 0, ',', ' ') }} F</strong></span>
+        <span>Délai moyen<strong>{{ $pnDelai !== null ? round($pnDelai, 1) . ' j' : '—' }}</strong></span>
     </div>
     @endif
     @include('parc._filtre', ['cible' => 'tbl-pannes', 'champs' => [
@@ -707,17 +737,25 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         'recherche' => 'Description, diagnostic…']])
 
     <table id="tbl-pannes">
-    <thead><tr><th>Véhicule</th><th>Date</th><th>Description</th><th>Urgence</th><th>Statut</th><th>Coût</th><th>Délai</th><th></th></tr></thead>
+    <thead><tr><th>Véhicule</th><th>Déclarée le</th><th>Panne</th><th>Urgence</th><th>Avancement</th><th class="dr">Coût</th><th class="dr">Délai</th><th></th></tr></thead>
     <tbody>
-    @forelse($pannes as $p)
+    @forelse($pannesTriees as $p)
     <tr data-ligne class="apx-ligne-clic" data-apercu="panne-{{ $p->id }}" onclick="if(!event.target.closest('button,a,form'))ouvrirApercu('panne', {{ $p->id }})" data-date="{{ $p->date_declaration?->format('Y-m-d') }}" data-vehicule="{{ $p->vehicule_id }}" data-statut="{{ $p->statut }}{{ $p->statut !== 'cloturee' ? '|ouverte' : '' }}" data-type="{{ $p->urgence }}" data-montant="{{ (int) $p->cout_reel }}">
-        <td><strong>{{ $p->vehicule->immatriculation ?? '?' }}</strong></td>
-        <td>{{ $p->date_declaration ? $p->date_declaration->format('d/m/Y') : '—' }}</td>
-        <td style="max-width:200px">{{ Str::limit($p->description, 60) }}</td>
-        <td><span class="urgence-{{ $p->urgence }}">{{ ucfirst($p->urgence) }}</span></td>
-        <td><span class="pill {{ $p->statut === 'cloturee' ? 'p-ok' : ($p->statut === 'declaree' ? 'p-ko' : 'p-cours') }}">{{ $p->statutLabel() }}</span></td>
-        <td>{{ $p->cout_reel ? number_format($p->cout_reel, 0, ',', ' ') : '—' }} @if($p->emprunt_id) <span class="pill p-ko" style="font-size:9px">Emprunt</span> @endif</td>
-        <td>{{ $p->delai_resolution !== null ? $p->delai_resolution.'j' : '—' }}</td>
+        @php
+            $ouverte = $p->statut !== 'cloturee';
+            $depuis = $p->date_declaration ? (int) $p->date_declaration->copy()->startOfDay()->diffInDays(today()) : null;
+            $rangEtape = array_search($p->statut, array_keys($etapes), true);
+        @endphp
+        <td class="pn-veh"><strong>{{ $p->vehicule->immatriculation ?? '?' }}</strong><span>{{ $p->vehicule?->categorieLabel() }}</span></td>
+        <td class="pn-date">{{ $p->date_declaration ? $p->date_declaration->format('d/m/Y') : '—' }}@if($ouverte && $depuis !== null)<span class="{{ $depuis > 7 ? 'ko' : '' }}">{{ $depuis === 0 ? "aujourd'hui" : 'il y a ' . $depuis . ' j' }}</span>@endif</td>
+        <td class="pn-desc"><span>{{ Str::limit($p->description, 70) }}</span>@if($p->diagnostic)<em>{{ Str::limit($p->diagnostic, 70) }}</em>@endif</td>
+        <td><span class="pn-urg u-{{ $p->urgence }}"><i></i>{{ ucfirst($p->urgence) }}</span></td>
+        <td>
+            <span class="pn-etapes" title="{{ $p->statutLabel() }}">@foreach($etapes as $cle => $lib)<i class="{{ $rangEtape !== false && $loop->index <= $rangEtape ? 'fait' : '' }} {{ $cle === 'cloturee' && $p->statut === 'cloturee' ? 'clos' : '' }}"></i>@endforeach</span>
+            <span class="pn-etape-lib {{ $ouverte ? '' : 'clos' }}">{{ $p->statutLabel() }}</span>
+        </td>
+        <td class="dr nw">{{ $p->cout_reel ? number_format($p->cout_reel, 0, ',', ' ') . ' F' : '—' }}@if($p->emprunt_id)<span class="pill p-ko pn-emp">Emprunt</span>@endif</td>
+        <td class="dr nw">{{ $p->delai_resolution !== null ? $p->delai_resolution . ' j' : '—' }}</td>
         <td>
             <div class="act-row">
                 <button class="act-btn info" title="Aperçu : détail, photos et pièces" aria-label="Aperçu" onclick="event.stopPropagation();ouvrirApercu('panne', {{ $p->id }})">{!! $icEye !!}</button>
@@ -1036,47 +1074,33 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         $coutTotalMaint = $maintenances->sum('cout');
         $nbInterv = $maintenances->where('cout', '>', 0)->count();
     @endphp
-    @if($aSuivre->isNotEmpty())
-    {{-- Plan d'entretien à suivre : une ligne par véhicule et type, de la plus urgente à la moins urgente --}}
-    <div class="maint-suivi">
-        <div class="maint-suivi-tete">À suivre <span class="pill p-ko">{{ $aSuivre->whereIn('alerte', ['en_retard', 'non_planifiee'])->count() ?: '' }}</span><em>{{ $aSuivre->count() }} point(s) du plan d'entretien</em></div>
-        <table class="maint-suivi-tbl">
-            <thead><tr><th>Véhicule</th><th>Entretien</th><th>Échéance</th><th>État</th><th>Dernière réalisation</th><th></th></tr></thead>
-            <tbody>
-            @foreach($aSuivre as $ech)
-            @php
-                [$lib, $cls] = match($ech['alerte']) {
-                    'en_retard' => [abs($ech['jours']) . ' j de retard', 'p-ko'],
-                    'proche' => [$ech['jours'] === 0 ? "Aujourd'hui" : 'Dans ' . $ech['jours'] . ' j', 'p-warn'],
-                    'non_planifiee' => ['Non planifiée', 'p-ko'],
-                    default => ['Aucun plan', 'p-gris'],
-                };
-            @endphp
-            <tr>
-                <td class="fort">{{ $ech['vehicule']->immatriculation }}</td>
-                <td>{{ $ech['type_label'] ?? '—' }}</td>
-                <td class="att">{{ $ech['prochaine']?->format('d/m/Y') ?? '—' }}</td>
-                <td><span class="pill {{ $cls }}">{{ $lib }}</span></td>
-                <td class="att">{{ $ech['derniere']?->format('d/m/Y') ?? '—' }}</td>
-                <td class="dr">
-                    @if(!$estDG)
-                    @if($ech['prochaine_id'])<button type="button" class="btn sm" onclick="realiserMaint({{ $ech['prochaine_id'] }})">Réaliser</button>
-                    @else<button type="button" class="btn sm sec" onclick="planifierMaint({{ $ech['vehicule']->id }}, '{{ $ech['type'] }}', '{{ $ech['derniere']?->format('Y-m-d') }}')">Planifier</button>@endif
-                    @endif
-                </td>
-            </tr>
-            @endforeach
-            </tbody>
-        </table>
+    @php
+        $mRetard = $aSuivre->where('alerte', 'en_retard')->count();
+        $mProche = $aSuivre->where('alerte', 'proche')->count();
+        $aPlanifier = $aSuivre->whereIn('alerte', ['non_planifiee', 'aucune'])->values();
+    @endphp
+    {{-- Indicateurs du plan d'entretien : chacun mène à ce qu'il compte (filtre de la liste, véhicules à planifier) --}}
+    <div class="totaux-parc m-ind">
+        <button type="button" class="m-ind-b" onclick="maintFiltre('en_retard')" @disabled(!$mRetard) title="Afficher les entretiens en retard">
+            En retard<strong>@if($mRetard)<span class="pr-pt pr-ko"></span>@endif{{ $mRetard }}</strong></button>
+        <button type="button" class="m-ind-b" onclick="maintFiltre('proche')" @disabled(!$mProche) title="Afficher les entretiens des 15 prochains jours">
+            Sous 15 jours<strong>@if($mProche)<span class="pr-pt pr-warn"></span>@endif{{ $mProche }}</strong></button>
+        <button type="button" class="m-ind-b" onclick="document.getElementById('m-planifier').hidden=!document.getElementById('m-planifier').hidden" @disabled($aPlanifier->isEmpty()) title="Véhicules sans prochaine échéance">
+            À planifier<strong>@if($aPlanifier->isNotEmpty())<span class="pr-pt pr-ko"></span>@endif{{ $aPlanifier->count() }}</strong></button>
+        @if($coutTotalMaint > 0)
+        <span>Coût des entretiens<strong>{{ number_format($coutTotalMaint, 0, ',', ' ') }} F</strong></span>
+        <span>Interventions facturées<strong>{{ $nbInterv }}</strong></span>
+        @endif
+    </div>
+    @if($aPlanifier->isNotEmpty())
+    <div class="m-planifier" id="m-planifier" hidden>
+        @foreach($aPlanifier as $ech)
+        <span><strong>{{ $ech['vehicule']->immatriculation }}</strong>{{ $ech['type_label'] ? ' · ' . $ech['type_label'] : '' }}<em>{{ $ech['derniere'] ? 'dernière le ' . $ech['derniere']->format('d/m/Y') : 'aucun entretien enregistré' }}</em>
+            @if(!$estDG)<button type="button" class="lien-b" onclick="planifierMaint({{ $ech['vehicule']->id }}, '{{ $ech['type'] }}', '{{ $ech['derniere']?->format('Y-m-d') }}')">Planifier</button>@endif</span>
+        @endforeach
     </div>
     @endif
 
-    @if($coutTotalMaint > 0)
-    <div class="totaux-parc">
-        <span>Coût des entretiens<strong>{{ number_format($coutTotalMaint, 0, ',', ' ') }} F</strong></span>
-        <span>Interventions facturées<strong>{{ $nbInterv }}</strong></span>
-    </div>
-    @endif
     @include('parc._filtre', ['cible' => 'tbl-maint', 'champs' => [
         'vehicule' => true,
         'type' => ['Tous les types', $typesMaintenance->pluck('libelle', 'code')->all()],
@@ -4009,6 +4033,13 @@ function fvTab(nom){
 }
 
 /* Filtres de liste : éléments [data-ligne] du conteneur cible ; les data-* peuvent contenir plusieurs valeurs séparées par « | » */
+/* Maintenance : l'indicateur cliqué filtre la liste sur son alerte (un second clic l'enlève) */
+function maintFiltre(alerte){
+    var sel=document.querySelector('.filtre-bar[data-cible="tbl-maint"] [data-f="statut"]'); if(!sel) return;
+    sel.value = sel.value === alerte ? '' : alerte;
+    filtrerListe('tbl-maint');
+    document.querySelectorAll('.m-ind-b').forEach(function(b){ b.classList.toggle('actif', b.getAttribute('onclick') === "maintFiltre('"+sel.value+"')"); });
+}
 function filtrerListe(cible){
     var bar=document.querySelector('.filtre-bar[data-cible="'+cible+'"]'), cont=document.getElementById(cible);
     if(!bar||!cont) return;

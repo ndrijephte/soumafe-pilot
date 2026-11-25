@@ -101,6 +101,81 @@ class RapportReview
 
     /* ───────────── Contenu ───────────── */
 
+    /**
+     * Le rapport de review confirme ce que les développeurs ont réellement livré : ce qui y est coché ou décoché agit
+     * sur le sprint (Sprint Planning, Sprint Backlog, Review des développeurs, qui se lisent tous à partir des tâches).
+     * Seuls les changements faits dans le rapport (avant → après l'enregistrement) sont appliqués : une tâche achevée
+     * par un développeur après la rédaction n'est jamais défaite par un rapport resté tel quel.
+     * @return array{taches_faites: int, taches_rouvertes: int, stories: int}
+     */
+    public static function appliquerAuSprint(CompteRendu $cr, array $avant, array $apres): array
+    {
+        $res = ['taches_faites' => 0, 'taches_rouvertes' => 0, 'stories' => 0];
+        $sprint = $cr->sprint_id ? Sprint::with(['userStories', 'projet'])->find($cr->sprint_id) : null;
+        if (!$sprint) return $res;
+        $finJour = $sprint->date_fin && $sprint->date_fin->lt(today()) ? $sprint->date_fin->copy() : today();
+        $terminer = function (Tache $t) use ($finJour, &$res) {
+            if ($t->statut === 'termine') return;
+            $t->update(['statut' => 'termine', 'date_fin_reelle' => $t->date_fin_reelle ?? $finJour]);
+            $res['taches_faites']++;
+        };
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($sprint, $avant, $apres, $terminer, &$res) {
+            // Tâches : cochée = réalisée, décochée = remise en cours
+            $anc = collect($avant['taches'] ?? [])->filter(fn($t) => !empty($t['tache_id']))->keyBy('tache_id');
+            foreach ($apres['taches'] ?? [] as $t) {
+                $id = (int) ($t['tache_id'] ?? 0);
+                if (!$id) continue;
+                $voulu = !empty($t['termine']);
+                if ($anc->has($id) && !empty($anc[$id]['termine']) === $voulu) continue;
+                $tache = Tache::where('sprint_id', $sprint->id)->find($id);
+                if (!$tache || ($tache->statut === 'termine') === $voulu) continue;
+                if ($voulu) $terminer($tache);
+                else { $tache->update(['statut' => 'en_cours', 'date_fin_reelle' => null]); $res['taches_rouvertes']++; }
+            }
+            // User stories : statut changé dans le rapport
+            $ancS = collect($avant['stories'] ?? [])->filter(fn($x) => !empty($x['id']))->keyBy('id');
+            foreach ($apres['stories'] ?? [] as $x) {
+                $id = (int) ($x['id'] ?? 0);
+                if (!$id || !$ancS->has($id) || ($ancS[$id]['statut'] ?? '') === ($x['statut'] ?? '')) continue;
+                $us = $sprint->userStories->firstWhere('id', $id);
+                if (!$us) continue;
+                $lib = $x['statut'] ?? '';
+                $code = array_search($lib, UserStory::STATUTS, true) ?: match (array_search($lib, UserStory::STATUTS_SPRINT, true)) {
+                    'termine' => 'terminee', 'en_cours' => 'en_cours', 'a_faire' => 'a_faire', default => null,
+                };
+                if (!$code) continue;
+                if (in_array($code, UserStory::FINIES, true)) {
+                    // Livrée : ses tâches du sprint le sont aussi
+                    Tache::where('sprint_id', $sprint->id)->where('user_story_id', $us->id)->whereNotIn('statut', ['termine', 'reporte'])->get()->each($terminer);
+                    $sprint->userStories()->updateExistingPivot($us->id, ['statut_sprint' => 'termine']);
+                } else {
+                    $sprint->userStories()->updateExistingPivot($us->id, ['statut_sprint' => $code === 'a_faire' ? 'a_faire' : 'en_cours']);
+                }
+                UserStory::whereKey($us->id)->update(['statut' => $code]);
+                $res['stories']++;
+            }
+            // Sprint clôturé : ce qui fait foi à la clôture est mis à jour
+            if (($res['taches_faites'] + $res['taches_rouvertes'] + $res['stories']) && $sprint->statut === 'termine' && !$sprint->enRectification()) {
+                $sprint->figerBacklog(true);
+            }
+        });
+
+        if ($res['taches_faites'] + $res['taches_rouvertes'] + $res['stories']) {
+            AuditLog::log('synchro_rapport', 'sprints', ($sprint->projet?->code ?? '') . ' - Sprint ' . $sprint->numero, self::resumeSynchro($res));
+        }
+        return $res;
+    }
+
+    public static function resumeSynchro(array $res): string
+    {
+        return collect([
+            $res['taches_faites'] ? $res['taches_faites'] . ' tâche(s) confirmée(s) réalisée(s)' : null,
+            $res['taches_rouvertes'] ? $res['taches_rouvertes'] . ' tâche(s) remise(s) en cours' : null,
+            $res['stories'] ? $res['stories'] . ' user story(s) ajustée(s)' : null,
+        ])->filter()->join(', ');
+    }
+
     /** Le bloc produit-il quelque chose à l'impression ? (mêmes règles que le PDF et le Word) */
     public static function blocVisible(array $b, array $d): bool
     {

@@ -35,6 +35,94 @@
 /* Accueil « Aujourd'hui » : panneaux et tableaux du tableau de bord */
 .acc .grille{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px;align-items:start}
 .acc .acc-haut{align-items:stretch}
+/* Pièces jointes des formulaires (panne, maintenance) */
+.pj{margin-top:14px;border-top:1px solid var(--bord);padding-top:10px}
+.pj-tete{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pj-tete>span{font-size:12px;font-weight:600;color:var(--bleu);margin-right:auto}
+.pj-tete em{font-style:normal;font-weight:400;color:var(--gris);margin-left:4px}
+.pj-btn{display:inline-flex!important;align-items:center;gap:5px;margin:0!important;padding:5px 10px;border:1px solid var(--accent);border-radius:8px;color:var(--accent)!important;font-size:12px!important;font-weight:600;cursor:pointer;background:#fff}
+.pj-btn:hover{background:#eef5fc}
+.pj-liste{display:grid;gap:6px;margin-top:8px}
+.pj-item{display:flex;align-items:center;gap:10px;border:1px solid var(--bord);border-radius:10px;padding:6px 8px}
+.pj-item img,.pj-ext{flex:none;width:44px;height:44px;border-radius:8px;object-fit:cover}
+.pj-ext{display:flex;align-items:center;justify-content:center;background:#2563eb;color:#fff;font-size:9.5px;font-weight:700}
+.pj-ext.pdf{background:#dc2626}
+.pj-corps{flex:1;min-width:0}
+.pj-nom{font-size:12px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pj-nom span{color:var(--gris);font-size:11px}
+.pj-champs{display:grid;grid-template-columns:150px 1fr;gap:6px;margin-top:4px}
+.pj-champs select,.pj-champs input{padding:5px 8px!important;font-size:12px!important}
+.pj-retirer{flex:none;border:none;background:none;font-size:18px;color:#94a3b8;cursor:pointer;padding:0 4px}
+.pj-retirer:hover{color:var(--ko)}
+/* Aperçu sur le même écran : la liste et, à côté, le volet du véhicule ou du chauffeur choisi */
+.tab-panel.avec-apx.actif{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;align-items:start}
+.tab-panel.avec-apx>*{grid-column:1}
+.tab-panel.avec-apx>.apx-zone{grid-column:2;grid-row:1 / span 20;position:sticky;top:12px}
+@media(max-width:1100px){.tab-panel.avec-apx.actif{display:block}.tab-panel.avec-apx>.apx-zone{position:static;margin-bottom:14px}}
+.tab-panel.avec-apx #tbl-vehicules th:nth-child(5),.tab-panel.avec-apx #tbl-vehicules td:nth-child(5),.tab-panel.avec-apx #tbl-vehicules th:nth-child(6),.tab-panel.avec-apx #tbl-vehicules td:nth-child(6),
+.tab-panel.avec-apx #tbl-chauffeurs th:nth-child(2),.tab-panel.avec-apx #tbl-chauffeurs td:nth-child(2),.tab-panel.avec-apx #tbl-chauffeurs th:nth-child(3),.tab-panel.avec-apx #tbl-chauffeurs td:nth-child(3){display:none}
+.tab-panel.avec-apx #tbl-pannes th:nth-child(6),.tab-panel.avec-apx #tbl-pannes td:nth-child(6),.tab-panel.avec-apx #tbl-pannes th:nth-child(7),.tab-panel.avec-apx #tbl-pannes td:nth-child(7),
+.tab-panel.avec-apx #tbl-maint th:nth-child(4),.tab-panel.avec-apx #tbl-maint td:nth-child(4),.tab-panel.avec-apx #tbl-maint th:nth-child(6),.tab-panel.avec-apx #tbl-maint td:nth-child(6),.tab-panel.avec-apx #tbl-maint th:nth-child(9),.tab-panel.avec-apx #tbl-maint td:nth-child(9){display:none}
+.apx-ligne-clic{cursor:pointer}
+.apx-galerie{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:6px}
+.apx-vig{margin:0;position:relative;min-width:0}
+.apx-vig-img{display:block;width:100%;aspect-ratio:4/3;border-radius:8px;border:1px solid var(--bord);background:#f1f5f9 center/cover no-repeat;cursor:zoom-in;padding:0}
+.apx-vig figcaption{font-size:10.5px;color:#475569;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apx-vig-act{position:absolute;top:5px;right:5px;display:flex;gap:3px;opacity:0;transition:opacity .15s}
+.apx-vig:hover .apx-vig-act,.apx-vig:focus-within .apx-vig-act{opacity:1}
+.apx-vig-act button,.apx-vig-act a,.apx-doc-act button,.apx-doc-act a{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;border:1px solid var(--bord);background:#fff;color:#475569;cursor:pointer;padding:0;text-decoration:none}
+.apx-vig-act button:hover,.apx-vig-act a:hover,.apx-doc-act button:hover,.apx-doc-act a:hover{color:var(--accent);border-color:var(--accent)}
+.apx-doc-act{display:flex;gap:4px;flex:none}
+@media(hover:none){.apx-vig-act{opacity:1}}
+.apx-ligne-clic.apx-actif td{background:#eef5fc!important}
+.apx-zone{background:var(--carte);border:1px solid var(--bord);border-radius:12px;overflow:hidden}
+.apx-zone[hidden]{display:none}
+.acc-apercu.apx-zone{padding:0}
+.apx-zone-tete{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--bord);font-size:11px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.4px}
+.apx-zone-tete button{border:none;background:none;font-size:20px;line-height:1;color:#94a3b8;cursor:pointer;padding:0 2px}
+.apx-zone-tete button:hover{color:var(--ko)}
+.apx-zone .apx-corps{padding:14px 16px;max-height:calc(100vh - 90px);overflow-y:auto}
+.apx-charge{font-size:12.5px;color:var(--gris);padding:18px 0;text-align:center}
+.apx-tete{display:flex;align-items:center;gap:12px}
+.apx-photo{flex:none;width:52px;height:52px;border-radius:12px;border:1px solid var(--bord);background:#f1f5f9 center/cover no-repeat;cursor:zoom-in;padding:0}
+.apx-photo.vide{display:flex;align-items:center;justify-content:center;color:var(--bleu);font-size:15px;font-weight:700;cursor:default;background:#e0ecf8;border:none}
+.apx-id{flex:1;min-width:0}
+.apx-id strong{display:block;font-size:16px;color:var(--bleu);letter-spacing:.2px}
+.apx-id span{display:block;font-size:12px;color:var(--gris);overflow:hidden;text-overflow:ellipsis}
+.apx-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:12px}
+.apx-stats>div{background:var(--fond);border-radius:8px;padding:7px 8px;display:flex;flex-direction:column;min-width:0}
+.apx-stats b{font-size:13.5px;font-weight:700;color:var(--bleu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apx-stats span{font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:.2px;margin-top:1px;line-height:1.2}
+.apx .ok{color:var(--ok)!important}.apx .wa{color:#b45309!important}.apx .ko{color:var(--ko)!important}
+.apx-periode{font-size:10.5px;color:#94a3b8;text-align:right;margin-top:3px}
+.apx-infos{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:12px 0 0}
+.apx-infos div{min-width:0}
+.apx-infos dt{font-size:10.5px;color:var(--gris);text-transform:uppercase;letter-spacing:.3px}
+.apx-infos dd{margin:1px 0 0;font-size:12.5px;color:#1e293b;overflow-wrap:anywhere}
+.apx-notes{font-size:12px;color:#475569;background:var(--fond);border-radius:8px;padding:8px 10px;margin:10px 0 0}
+.apx-section{display:flex;align-items:center;gap:6px;margin:14px 0 6px;font-size:11px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.3px}
+.apx-section span{background:#f1f5f9;border-radius:8px;padding:0 6px;font-size:10.5px}
+.apx-lien{margin-left:auto;border:none;background:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;padding:0;text-transform:none;letter-spacing:0;font-family:inherit}
+.apx-lien.bas{display:block;margin:6px 0 0}
+.apx-lien:hover{text-decoration:underline}
+.apx-doc{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;border-top:1px solid var(--bord);padding:7px 2px;font-family:inherit}
+.apx-doc:hover{background:#f8fafc}
+.apx-doc img,.apx-ext{flex:none;width:36px;height:36px;border-radius:7px;object-fit:cover;border:1px solid var(--bord)}
+.apx-ext{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;background:#2563eb;border:none}
+.apx-ext.pdf{background:#dc2626}
+.apx-doc-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.apx-doc-t b{font-size:12.5px;font-weight:600;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apx-doc-t span{font-size:11px;color:var(--gris)}
+.apx-vide{font-size:12px;color:var(--gris);margin:2px 0 0}
+.apx-plus{margin-top:14px;border-top:1px solid var(--bord);padding-top:10px}
+.apx-plus summary{font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer;list-style:none}
+.apx-plus summary::-webkit-details-marker{display:none}
+.apx-plus summary::after{content:' ▾';font-size:11px}
+.apx-plus[open] summary::after{content:' ▴'}
+.apx-ligne{display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:12px;padding:5px 0;border-top:1px solid #f1f5f9}
+.apx-ligne span:first-child{color:var(--gris)}
+.apx-ligne span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#334155}
+.apx-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:12px}
 /* Indicateurs : trois blocs (Flotte, Finances, À traiter) */
 .parc-ind{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.05fr);gap:10px;margin-bottom:16px}
 @media(max-width:1100px){.parc-ind{grid-template-columns:1fr 1fr}.ind-traiter{grid-column:1/-1}}
@@ -132,7 +220,7 @@ tbody tr:hover{background:#f8fafc}
 .btn.sm{padding:5px 12px;font-size:11.5px}
 .btn.ko{background:var(--ko)}
 .btn svg{width:14px;height:14px}
-.pill{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600}
+.pill{padding:2px 9px;border-radius:10px;font-size:10.5px;font-weight:600;white-space:nowrap}
 .p-ok{background:#dcfce7;color:var(--ok)}
 .p-warn{background:#fef3c7;color:#b45309}
 .p-ko{background:#fee2e2;color:var(--ko)}
@@ -211,7 +299,16 @@ dialog.dlg-sr{width:440px;padding:0;overflow:visible}
 .reports-parc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:#fffbeb;border-radius:8px;font-size:12.5px;color:#92400e}
 .reports-parc a{margin-left:auto;font-weight:600;color:#92400e;text-decoration:none}
 .reports-parc a:hover{text-decoration:underline}
-.maint-alertes{display:grid;gap:6px;margin:2px 0 14px}
+.maint-suivi{border:1px solid var(--bord);border-radius:10px;margin:0 0 12px;overflow:hidden}
+.maint-suivi-tete{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--fond);font-size:12px;font-weight:600;color:var(--bleu)}
+.maint-suivi-tete em{font-style:normal;font-weight:400;color:var(--gris);margin-left:4px}
+.maint-suivi-tete .pill:empty{display:none}
+.maint-suivi-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.maint-suivi-tbl th{text-align:left;padding:6px 12px;font-size:10.5px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--bord);background:#fff}
+.maint-suivi-tbl td{padding:6px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.maint-suivi-tbl tr:last-child td{border-bottom:none}
+.maint-suivi-tbl .fort{font-weight:600;color:#1e293b}.maint-suivi-tbl .att{color:var(--gris)}.maint-suivi-tbl .dr{text-align:right}
+.maint-suivi-tbl .btn.sm{padding:3px 10px;font-size:11.5px}
 .maint-alerte{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 6px 6px 12px;border:1px solid var(--bord);border-left:4px solid var(--gris);border-radius:8px;font-size:12.5px;background:#fff}
 .maint-alerte em{color:var(--gris);font-style:normal}
 .maint-alerte.ko{border-left-color:var(--ko);background:#fffafa}.maint-alerte.warn{border-left-color:#f59e0b;background:#fffdf5}
@@ -535,6 +632,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB VÉHICULES ==================== --}}
 <div class="tab-panel" id="tab-vehicules">
+    <div class="apx-zone" id="apx-vehicules" data-apx-zone hidden>
+        <div class="apx-zone-tete"><span>Aperçu</span><button type="button" onclick="fermerApercu(this)" aria-label="Fermer l'aperçu">&times;</button></div>
+        <div class="apx-corps"></div>
+    </div>
     <div class="panneau liste" style="overflow-x:auto">
 <div class="panel-head">
         <h3>{!! $icCar !!} Véhicules <span class="pill p-cours">{{ $vehicules->count() }}</span></h3>
@@ -549,7 +650,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <thead><tr><th>Immatriculation</th><th>Cat.</th><th>Marque / Modèle</th><th>Chauffeur</th><th>Km</th><th>Mise en service</th><th>Statut</th><th></th></tr></thead>
     <tbody>
     @forelse($vehicules as $v)
-    <tr data-ligne data-categorie="{{ $v->categorie }}" data-statut="{{ $v->statut }}" data-chauffeur="{{ $v->chauffeurs->where('pivot.actif', true)->map(fn($c) => $c->nomComplet())->join('|') }}">
+    <tr data-ligne class="apx-ligne-clic" data-apercu="vehicule-{{ $v->id }}" onclick="if(!event.target.closest('button,a,form'))ouvrirApercu('vehicule', {{ $v->id }})" data-categorie="{{ $v->categorie }}" data-statut="{{ $v->statut }}" data-chauffeur="{{ $v->chauffeurs->where('pivot.actif', true)->map(fn($c) => $c->nomComplet())->join('|') }}">
         <td><strong>{{ $v->immatriculation }}</strong></td>
         <td><span class="cat-pill cat-{{ $v->categorie }}">{{ $v->categorieLabel() }}</span></td>
         <td>{{ $v->marque }} {{ $v->modele }}</td>
@@ -560,12 +661,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill {{ $v->statut === 'en_service' ? 'p-ok' : ($v->statut === 'immobilise' ? 'p-warn' : 'p-ko') }}">{{ $v->statutLabel() }}</span></td>
         <td>
             <div class="act-row">
+                <button class="act-btn info" title="Aperçu : informations et documents" aria-label="Aperçu" onclick="event.stopPropagation();ouvrirApercu('vehicule', {{ $v->id }})">{!! $icEye !!}</button>
                 @include('parc._doc_btn', ['t' => 'vehicule', 'id' => $v->id])
-                @if($v->observations)
-                <button class="act-btn info" title="Détails" onclick="toggleDetail('veh-{{ $v->id }}')">{!! $icEye !!}</button>
-                @endif
-                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $v->id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
-                <button class="act-btn" title="Modifier" onclick="editVehicule({{ $v->id }})">{!! $icEdit !!}</button>
+                @if(!$estDG)<button class="act-btn" title="Modifier" aria-label="Modifier" onclick="editVehicule({{ $v->id }})">{!! $icEdit !!}</button>@endif
                 @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.vehicules.destroy', $v) }}" onsubmit="return demanderMotifSuppression(this,'ce véhicule')">@csrf @method('DELETE')
                     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
@@ -575,9 +673,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
-    @if($v->observations)
-    <tr class="detail-row" id="veh-{{ $v->id }}" style="display:none"><td colspan="8"><div class="detail-content"><strong>Observations :</strong> {{ $v->observations }}</div></td></tr>
-    @endif
     @empty
     <tr><td colspan="8" class="empty-msg">Aucun véhicule enregistré.</td></tr>
     @endforelse
@@ -588,6 +683,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB PANNES ==================== --}}
 <div class="tab-panel" id="tab-pannes">
+    <div class="apx-zone" id="apx-pannes" data-apx-zone hidden>
+        <div class="apx-zone-tete"><span>Aperçu</span><button type="button" onclick="fermerApercu(this)" aria-label="Fermer l'aperçu">&times;</button></div>
+        <div class="apx-corps"></div>
+    </div>
     @include('parc._reports', ['onglet' => 'pannes'])
     <div class="panneau liste" style="overflow-x:auto">
 <div class="panel-head">
@@ -611,7 +710,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <thead><tr><th>Véhicule</th><th>Date</th><th>Description</th><th>Urgence</th><th>Statut</th><th>Coût</th><th>Délai</th><th></th></tr></thead>
     <tbody>
     @forelse($pannes as $p)
-    <tr data-ligne data-date="{{ $p->date_declaration?->format('Y-m-d') }}" data-vehicule="{{ $p->vehicule_id }}" data-statut="{{ $p->statut }}{{ $p->statut !== 'cloturee' ? '|ouverte' : '' }}" data-type="{{ $p->urgence }}" data-montant="{{ (int) $p->cout_reel }}">
+    <tr data-ligne class="apx-ligne-clic" data-apercu="panne-{{ $p->id }}" onclick="if(!event.target.closest('button,a,form'))ouvrirApercu('panne', {{ $p->id }})" data-date="{{ $p->date_declaration?->format('Y-m-d') }}" data-vehicule="{{ $p->vehicule_id }}" data-statut="{{ $p->statut }}{{ $p->statut !== 'cloturee' ? '|ouverte' : '' }}" data-type="{{ $p->urgence }}" data-montant="{{ (int) $p->cout_reel }}">
         <td><strong>{{ $p->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $p->date_declaration ? $p->date_declaration->format('d/m/Y') : '—' }}</td>
         <td style="max-width:200px">{{ Str::limit($p->description, 60) }}</td>
@@ -621,11 +720,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>{{ $p->delai_resolution !== null ? $p->delai_resolution.'j' : '—' }}</td>
         <td>
             <div class="act-row">
+                <button class="act-btn info" title="Aperçu : détail, photos et pièces" aria-label="Aperçu" onclick="event.stopPropagation();ouvrirApercu('panne', {{ $p->id }})">{!! $icEye !!}</button>
                 @include('parc._doc_btn', ['t' => 'panne', 'id' => $p->id])
-                @if($p->description || $p->diagnostic || $p->decision || $p->lignes->count())
-                <button class="act-btn info" title="Détails" onclick="toggleDetail('panne-{{ $p->id }}')">{!! $icEye !!}</button>
-                @endif
-                <button class="act-btn" title="Fiche" onclick="ficheVehicule({{ $p->vehicule_id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
                 @if($p->statut !== 'cloturee')
                 <button class="act-btn" title="Statuer" onclick="statuerPanne({{ $p->id }})" style="color:var(--accent)">{!! $icWrench !!}</button>
                 @endif
@@ -639,32 +735,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
-    @if($p->description || $p->diagnostic || $p->decision || $p->lignes->count())
-    <tr class="detail-row" id="panne-{{ $p->id }}" style="display:none"><td colspan="8"><div class="detail-content">
-        @if($p->description)<strong>Description :</strong> {{ $p->description }}<br>@endif
-        @if($p->diagnostic)<strong>Diagnostic :</strong> {{ $p->diagnostic }}<br>@endif
-        @if($p->decision)<strong>Decision :</strong> {{ $p->decision }}<br>@endif
-        @if($p->lignes->count())
-        <div style="margin-top:8px">
-            <strong>Details intervention :</strong>
-            <table style="width:100%;max-width:500px;border-collapse:collapse;font-size:12px;margin-top:4px">
-                <thead><tr style="background:var(--fond)"><th style="text-align:left;padding:3px 6px">Designation</th><th style="text-align:center;padding:3px 4px">Qte</th><th style="text-align:right;padding:3px 4px">P.U.</th><th style="text-align:right;padding:3px 4px">Montant</th></tr></thead>
-                <tbody>
-                @foreach($p->lignes as $li)
-                <tr style="border-bottom:1px solid var(--bord)">
-                    <td style="padding:3px 6px">{{ $li->designation }}</td>
-                    <td style="text-align:center;padding:3px 4px">{{ $li->quantite }}</td>
-                    <td style="text-align:right;padding:3px 4px">{{ number_format($li->prix_unitaire, 0, ',', ' ') }}</td>
-                    <td style="text-align:right;padding:3px 4px">{{ number_format($li->montant, 0, ',', ' ') }}</td>
-                </tr>
-                @endforeach
-                </tbody>
-                <tfoot><tr style="border-top:2px solid var(--accent)"><td colspan="3" style="text-align:right;padding:3px 6px;font-weight:700">Total</td><td style="text-align:right;padding:3px 4px;font-weight:700">{{ number_format($p->lignes->sum('montant'), 0, ',', ' ') }} F</td></tr></tfoot>
-            </table>
-        </div>
-        @endif
-    </div></td></tr>
-    @endif
     @empty
     <tr><td colspan="8" class="empty-msg">Aucune panne enregistrée.</td></tr>
     @endforelse
@@ -952,40 +1022,59 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB MAINTENANCE ==================== --}}
 <div class="tab-panel" id="tab-maint">
+    <div class="apx-zone" id="apx-maint" data-apx-zone hidden>
+        <div class="apx-zone-tete"><span>Aperçu</span><button type="button" onclick="fermerApercu(this)" aria-label="Fermer l'aperçu">&times;</button></div>
+        <div class="apx-corps"></div>
+    </div>
     <div class="panneau liste" style="overflow-x:auto">
 <div class="panel-head">
         <h3>{!! $icCalCheck !!} Maintenance @if($kpi['echeances_retard']>0)<span class="pill p-ko">{{ $kpi['echeances_retard'] }} en retard</span>@endif</h3>
         @if(!$estDG)<button class="btn sm" onclick="document.getElementById('dlg-maint').showModal()">{!! $icPlus !!} Échéance</button>@endif
     </div>
-    @php $aSuivre = collect($echeancier)->where('alerte', '!=', 'ok'); @endphp
+    @php
+        $aSuivre = collect($echeancier)->where('alerte', '!=', 'ok');
+        $coutTotalMaint = $maintenances->sum('cout');
+        $nbInterv = $maintenances->where('cout', '>', 0)->count();
+    @endphp
     @if($aSuivre->isNotEmpty())
-    <div class="maint-alertes">
-        @foreach($aSuivre as $ech)
-        @php
-            $cls = ['en_retard' => 'ko', 'non_planifiee' => 'ko', 'aucune' => 'gris', 'proche' => 'warn'][$ech['alerte']];
-            $txt = match($ech['alerte']) {
-                'en_retard' => 'en retard de ' . abs($ech['jours']) . ' j (prévue le ' . $ech['prochaine']->format('d/m') . ')',
-                'proche' => 'prévue le ' . $ech['prochaine']->format('d/m') . ' (dans ' . $ech['jours'] . ' j)',
-                'non_planifiee' => 'aucune prochaine échéance',
-                default => 'aucune maintenance planifiée',
-            };
-        @endphp
-        <div class="maint-alerte {{ $cls }}">
-            <span><strong>{{ $ech['vehicule']->immatriculation }}</strong>@if($ech['type_label']) · {{ $ech['type_label'] }}@endif : {{ $txt }}@if($ech['derniere']) <em>- dernière réalisation le {{ $ech['derniere']->format('d/m/Y') }}</em>@endif</span>
-            @if(!$estDG)
-                @if($ech['prochaine_id'])<button class="btn sm" onclick="realiserMaint({{ $ech['prochaine_id'] }})" style="background:var(--ok)">Réaliser</button>
-                @else<button class="btn sm sec" onclick="planifierMaint({{ $ech['vehicule']->id }}, '{{ $ech['type'] }}', '{{ $ech['derniere']?->format('Y-m-d') }}')">Planifier</button>@endif
-            @endif
-        </div>
-        @endforeach
+    {{-- Plan d'entretien à suivre : une ligne par véhicule et type, de la plus urgente à la moins urgente --}}
+    <div class="maint-suivi">
+        <div class="maint-suivi-tete">À suivre <span class="pill p-ko">{{ $aSuivre->whereIn('alerte', ['en_retard', 'non_planifiee'])->count() ?: '' }}</span><em>{{ $aSuivre->count() }} point(s) du plan d'entretien</em></div>
+        <table class="maint-suivi-tbl">
+            <thead><tr><th>Véhicule</th><th>Entretien</th><th>Échéance</th><th>État</th><th>Dernière réalisation</th><th></th></tr></thead>
+            <tbody>
+            @foreach($aSuivre as $ech)
+            @php
+                [$lib, $cls] = match($ech['alerte']) {
+                    'en_retard' => [abs($ech['jours']) . ' j de retard', 'p-ko'],
+                    'proche' => [$ech['jours'] === 0 ? "Aujourd'hui" : 'Dans ' . $ech['jours'] . ' j', 'p-warn'],
+                    'non_planifiee' => ['Non planifiée', 'p-ko'],
+                    default => ['Aucun plan', 'p-gris'],
+                };
+            @endphp
+            <tr>
+                <td class="fort">{{ $ech['vehicule']->immatriculation }}</td>
+                <td>{{ $ech['type_label'] ?? '—' }}</td>
+                <td class="att">{{ $ech['prochaine']?->format('d/m/Y') ?? '—' }}</td>
+                <td><span class="pill {{ $cls }}">{{ $lib }}</span></td>
+                <td class="att">{{ $ech['derniere']?->format('d/m/Y') ?? '—' }}</td>
+                <td class="dr">
+                    @if(!$estDG)
+                    @if($ech['prochaine_id'])<button type="button" class="btn sm" onclick="realiserMaint({{ $ech['prochaine_id'] }})">Réaliser</button>
+                    @else<button type="button" class="btn sm sec" onclick="planifierMaint({{ $ech['vehicule']->id }}, '{{ $ech['type'] }}', '{{ $ech['derniere']?->format('Y-m-d') }}')">Planifier</button>@endif
+                    @endif
+                </td>
+            </tr>
+            @endforeach
+            </tbody>
+        </table>
     </div>
     @endif
 
-    @php $coutTotalMaint = $maintenances->sum('cout'); @endphp
     @if($coutTotalMaint > 0)
-    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;font-size:12.5px">
-        <span style="font-weight:700;color:#92400e">Coût total maintenance : {{ number_format($coutTotalMaint, 0, ',', ' ') }} F</span>
-        <span style="color:var(--gris)">({{ $maintenances->whereNotNull('cout')->where('cout', '>', 0)->count() }} intervention(s))</span>
+    <div class="totaux-parc">
+        <span>Coût des entretiens<strong>{{ number_format($coutTotalMaint, 0, ',', ' ') }} F</strong></span>
+        <span>Interventions facturées<strong>{{ $nbInterv }}</strong></span>
     </div>
     @endif
     @include('parc._filtre', ['cible' => 'tbl-maint', 'champs' => [
@@ -999,7 +1088,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <tbody>
     @forelse($maintenances as $m)
     @php $al = $m->alerte(); $jr = $m->joursRestants(); $estReal = $m->estRealisee(); @endphp
-    <tr data-ligne data-date="{{ ($estReal ? $m->date_realisation : $m->prochaine_echeance)?->format('Y-m-d') }}" data-vehicule="{{ $m->vehicule_id }}" data-type="{{ $m->type_echeance }}" data-statut="{{ $estReal ? 'fait' : $al }}" data-montant="{{ (int) $m->cout }}">
+    <tr data-ligne class="apx-ligne-clic" data-apercu="maintenance-{{ $m->id }}" onclick="if(!event.target.closest('button,a,form'))ouvrirApercu('maintenance', {{ $m->id }})" data-date="{{ ($estReal ? $m->date_realisation : $m->prochaine_echeance)?->format('Y-m-d') }}" data-vehicule="{{ $m->vehicule_id }}" data-type="{{ $m->type_echeance }}" data-statut="{{ $estReal ? 'fait' : $al }}" data-montant="{{ (int) $m->cout }}">
         <td><strong>{{ $m->vehicule->immatriculation ?? '?' }}</strong></td>
         <td>{{ $m->typeLabel() }}</td>
         <td><span class="pill {{ $estReal ? 'p-ok' : 'p-warn' }}">{{ $m->statutLabel() }}</span></td>
@@ -1012,10 +1101,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td style="max-width:150px">{{ Str::limit($m->observations, 40) }}</td>
         <td>
             <div class="act-row">
+                <button class="act-btn info" title="Aperçu : détail, facture et photos" aria-label="Aperçu" onclick="event.stopPropagation();ouvrirApercu('maintenance', {{ $m->id }})">{!! $icEye !!}</button>
                 @include('parc._doc_btn', ['t' => 'maintenance', 'id' => $m->id])
-                @if($m->observations || $m->prestataire || $m->lignes->count())
-                <button class="act-btn info" title="Détails / facture" onclick="toggleDetail('maint-{{ $m->id }}')">{!! $icEye !!}</button>
-                @endif
                 @if(!$estReal && !$estDG)
                 <button class="act-btn" title="Réaliser" onclick="realiserMaint({{ $m->id }})" style="color:var(--ok)">{!! $icWrench !!}</button>
                 @endif
@@ -1031,26 +1118,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
-    @if($m->observations || $m->prestataire || $m->lignes->count())
-    <tr class="detail-row" id="maint-{{ $m->id }}" style="display:none"><td colspan="10"><div class="detail-content">
-        @if($m->observations)<strong>Observations :</strong> {{ $m->observations }}<br>@endif
-        @if($m->prestataire)<strong>Prestataire :</strong> {{ $m->prestataire }}<br>@endif
-        @if($m->lignes->count())
-        <div style="margin-top:8px">
-            <strong>Facture de maintenance :</strong>
-            <table style="width:100%;max-width:520px;border-collapse:collapse;font-size:12px;margin-top:4px">
-                <thead><tr style="background:var(--fond)"><th style="text-align:left;padding:3px 6px">Désignation</th><th style="text-align:center;padding:3px 4px">Qté</th><th style="text-align:right;padding:3px 4px">P.U.</th><th style="text-align:right;padding:3px 4px">Montant</th></tr></thead>
-                <tbody>
-                @foreach($m->lignes as $li)
-                <tr style="border-bottom:1px solid var(--bord)"><td style="padding:3px 6px">{{ $li->designation }}</td><td style="text-align:center;padding:3px 4px">{{ $li->quantite }}</td><td style="text-align:right;padding:3px 4px">{{ number_format($li->prix_unitaire, 0, ',', ' ') }}</td><td style="text-align:right;padding:3px 4px">{{ number_format($li->montant, 0, ',', ' ') }}</td></tr>
-                @endforeach
-                </tbody>
-                <tfoot><tr style="border-top:2px solid var(--accent)"><td colspan="3" style="text-align:right;padding:3px 6px;font-weight:700">Total</td><td style="text-align:right;padding:3px 4px;font-weight:700">{{ number_format($m->lignes->sum('montant'), 0, ',', ' ') }} F</td></tr></tfoot>
-            </table>
-        </div>
-        @elseif($m->cout)<strong>Coût :</strong> {{ number_format($m->cout, 0, ',', ' ') }} F (saisi sans facture détaillée)@endif
-    </div></td></tr>
-    @endif
     @empty
     <tr><td colspan="9" class="empty-msg">Aucune échéance enregistrée.</td></tr>
     @endforelse
@@ -1307,6 +1374,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 
 {{-- ==================== TAB CHAUFFEURS ==================== --}}
 <div class="tab-panel" id="tab-chauffeurs">
+    <div class="apx-zone" id="apx-chauffeurs" data-apx-zone hidden>
+        <div class="apx-zone-tete"><span>Aperçu</span><button type="button" onclick="fermerApercu(this)" aria-label="Fermer l'aperçu">&times;</button></div>
+        <div class="apx-corps"></div>
+    </div>
     <div class="panneau liste" style="overflow-x:auto">
 <div class="panel-head">
         <h3>{!! $icUser !!} Chauffeurs <span class="pill p-cours">{{ $chauffeurs->count() }}</span></h3>
@@ -1333,7 +1404,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @php
         $affectations = $ch->vehicules->where('pivot.actif', true);
     @endphp
-    <tr data-statut="{{ $ch->statut }}" data-affecte="{{ $affectations->count() > 0 ? '1' : '0' }}" data-nom="{{ strtolower($ch->nomComplet()) }}">
+    <tr class="apx-ligne-clic" data-apercu="chauffeur-{{ $ch->id }}" onclick="if(!event.target.closest('button,a,form'))ouvrirApercu('chauffeur', {{ $ch->id }})" data-statut="{{ $ch->statut }}" data-affecte="{{ $affectations->count() > 0 ? '1' : '0' }}" data-nom="{{ strtolower($ch->nomComplet()) }}">
         <td><strong>{{ $ch->nomComplet() }}</strong></td>
         <td>{{ $ch->numero_permis ?? '—' }}</td>
         <td>{{ $ch->telephone ?? '—' }}</td>
@@ -1342,13 +1413,12 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td><span class="pill {{ $ch->statut === 'actif' ? 'p-ok' : 'p-gris' }}">{{ ucfirst($ch->statut) }}</span></td>
         <td>
             <div class="act-row">
+                <button class="act-btn info" title="Aperçu : informations et documents" aria-label="Aperçu" onclick="event.stopPropagation();ouvrirApercu('chauffeur', {{ $ch->id }})">{!! $icEye !!}</button>
                 @include('parc._doc_btn', ['t' => 'chauffeur', 'id' => $ch->id])
-                @if($ch->observations)
-                <button class="act-btn info" title="Détails" onclick="toggleDetail('ch-{{ $ch->id }}')">{!! $icEye !!}</button>
+                @if(!$estDG)
+                <button class="act-btn" title="Affecter à un véhicule" aria-label="Affecter à un véhicule" onclick="affecterChauffeur({{ $ch->id }})">{!! $icCar !!}</button>
+                <button class="act-btn" title="Modifier" aria-label="Modifier" onclick="editChauffeur({{ $ch->id }})">{!! $icEdit !!}</button>
                 @endif
-                <button class="act-btn" title="Résumé" onclick="ficheChauffeur({{ $ch->id }})" style="color:var(--accent)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></button>
-                <button class="act-btn" title="Affecter" onclick="affecterChauffeur({{ $ch->id }})" style="color:var(--accent)">{!! $icCar !!}</button>
-                <button class="act-btn" title="Modifier" onclick="editChauffeur({{ $ch->id }})">{!! $icEdit !!}</button>
                 @if(auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.chauffeurs.destroy', $ch) }}" onsubmit="return demanderMotifSuppression(this,'ce chauffeur')">@csrf @method('DELETE')
                     <input type="hidden" name="motif_suppression" class="motif-suppr-input">
@@ -1358,9 +1428,6 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </div>
         </td>
     </tr>
-    @if($ch->observations)
-    <tr class="detail-row" id="ch-{{ $ch->id }}" style="display:none"><td colspan="7"><div class="detail-content"><strong>Observations :</strong> {{ $ch->observations }}</div></td></tr>
-    @endif
     @empty
     <tr><td colspan="7" class="empty-msg">Aucun chauffeur enregistré.</td></tr>
     @endforelse
@@ -1582,7 +1649,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- Dialog Déclaration panne --}}
 <dialog id="dlg-panne">
 <h3 id="dlg-panne-titre">{!! $icWrench !!} Déclarer une panne</h3>
-<form id="form-panne" method="POST" action="{{ route('parc.pannes.store') }}">
+<form id="form-panne" enctype="multipart/form-data" method="POST" action="{{ route('parc.pannes.store') }}">
     @csrf <div id="panne-method"></div>
     <input type="hidden" name="statut" id="p-statut" value="declaree">
     <input type="hidden" name="diagnostic" id="p-diag" value="">
@@ -1604,6 +1671,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </div>
     <div><label>Description <span class="req">*</span></label><textarea name="description" id="p-desc" required rows="3" placeholder="Décrivez le problème constaté"></textarea></div>
+    @include('parc._pieces', ['type' => 'panne', 'defaut' => 'photo'])
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Déclarer</button>
@@ -1614,7 +1682,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- Dialog Statuer panne --}}
 <dialog id="dlg-statuer">
 <h3 id="dlg-statuer-titre">{!! $icWrench !!} Statuer sur la panne</h3>
-<form id="form-statuer" method="POST" action="">
+<form id="form-statuer" enctype="multipart/form-data" method="POST" action="">
     @csrf <input type="hidden" name="_method" value="PUT">
     <input type="hidden" name="vehicule_id" id="s-vehic">
     <input type="hidden" name="date_declaration" id="s-date">
@@ -1688,6 +1756,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="emprunt-fields" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 12px;font-size:12px;color:#1e40af;margin-top:6px">
         L'emprunt est créé pour le montant de la facture et devra être remboursé (onglet Emprunts).
     </div>
+    @include('parc._pieces', ['type' => 'panne', 'defaut' => 'facture'])
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Enregistrer</button>
@@ -1773,7 +1842,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- Dialog Maintenance --}}
 <dialog id="dlg-maint">
 <h3 id="dlg-maint-titre">{!! $icCalCheck !!} Nouvelle échéance</h3>
-<form id="form-maint" method="POST" action="{{ route('parc.maintenances.store') }}">
+<form id="form-maint" enctype="multipart/form-data" method="POST" action="{{ route('parc.maintenances.store') }}">
     @csrf <div id="maint-method"></div>
     <div class="form-row">
         <div><label>Véhicule <span class="req">*</span></label>
@@ -1792,6 +1861,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div><label>Prochaine échéance</label><input type="date" name="prochaine_echeance" id="m-pe" onchange="this._manuallySet=true" onfocus="this._manuallySet=true"><small style="color:var(--gris);font-size:11px">Calculee automatiquement selon le type</small></div>
     </div>
     <div><label>Observations</label><textarea name="observations" id="m-obs" rows="2"></textarea></div>
+    @include('parc._pieces', ['type' => 'maintenance', 'defaut' => 'devis'])
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Enregistrer</button>
@@ -1802,7 +1872,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- Dialog Réaliser maintenance --}}
 <dialog id="dlg-realiser-maint">
 <h3>{!! $icCalCheck !!} Réaliser la maintenance</h3>
-<form id="form-realiser-maint" method="POST" action="" onsubmit="return validerRealisationMaint()">
+<form id="form-realiser-maint" enctype="multipart/form-data" method="POST" action="" onsubmit="return validerRealisationMaint()">
     @csrf <input type="hidden" name="_method" value="PUT">
     <div class="dlg-section" style="margin-top:0">Échéance planifiée</div>
     <div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
@@ -1859,6 +1929,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="emprunt-fields" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 12px;font-size:12px;color:#1e40af;margin-top:6px">
         L'emprunt est créé pour le montant de la facture et devra être remboursé (onglet Emprunts).
     </div>
+    @include('parc._pieces', ['type' => 'maintenance', 'defaut' => 'facture'])
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Valider la réalisation</button>
@@ -4139,6 +4210,43 @@ document.addEventListener('DOMContentLoaded', function() {
 const dlg = () => document.getElementById('dlg-docs');
 const zone = () => document.getElementById('docs-contenu');
 const jeton = '{{ csrf_token() }}';
+
+/* Aperçu (véhicule ou chauffeur) chargé sur le même écran ; « zone » : conteneur [data-apx-zone] (par défaut celui de l'onglet actif) */
+const APX_URL = @json(url('/parc/apercu'));
+const APX_PERIODE = @json(http_build_query(array_filter(['exercice' => $exercice, 'du' => $exDebut?->toDateString(), 'au' => $exFin?->toDateString()])));
+window.ouvrirApercu = function(type, id, zone){
+    if (!zone) {
+        const onglet = {vehicule: 'vehicules', chauffeur: 'chauffeurs', panne: 'pannes', maintenance: 'maint'}[type];
+        const panneau = document.getElementById('tab-' + onglet);
+        if (panneau && !panneau.classList.contains('actif')) changerOnglet(onglet);
+        zone = document.getElementById('apx-' + onglet);
+        if (panneau) panneau.classList.add('avec-apx');
+    }
+    if (!zone) return;
+    zone.hidden = false;
+    zone.dataset.type = type; zone.dataset.id = id;
+    const corps = zone.querySelector('.apx-corps') || zone;
+    if (!corps.querySelector('.apx[data-id="' + id + '"][data-type="' + type + '"]')) corps.innerHTML = '<div class="apx-charge">Chargement…</div>';
+    document.querySelectorAll('[data-apercu]').forEach(r => r.classList.toggle('apx-actif', r.dataset.apercu === type + '-' + id));
+    fetch(APX_URL + '/' + type + '/' + id + '?' + APX_PERIODE, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(r => r.ok ? r.text() : Promise.reject(r.status))
+        .then(h => { corps.innerHTML = h; })
+        .catch(() => { corps.innerHTML = '<div class="apx-charge">L\'aperçu n\'a pas pu être chargé.</div>'; });
+};
+window.fermerApercu = function(btn){
+    const zone = btn.closest('[data-apx-zone]'); if (!zone) return;
+    zone.hidden = true; delete zone.dataset.id;
+    const panneau = zone.closest('.tab-panel'); if (panneau) panneau.classList.remove('avec-apx');
+    document.querySelectorAll('[data-apercu]').forEach(r => r.classList.remove('apx-actif'));
+};
+/* Un document ajouté, renouvelé ou retiré : les aperçus ouverts se mettent à jour */
+window.rafraichirApercus = function(){
+    document.querySelectorAll('[data-apx-zone]').forEach(z => { if (!z.hidden && z.dataset.id) ouvrirApercu(z.dataset.type, z.dataset.id, z); });
+};
+document.addEventListener('DOMContentLoaded', function(){
+    const d = document.getElementById('dlg-docs');
+    if (d) d.addEventListener('close', () => window.rafraichirApercus());
+});
 
 window.ouvrirDocuments = function(type, id){
     zone().innerHTML = '<div class="docs-chargement">Chargement du dossier…</div>';

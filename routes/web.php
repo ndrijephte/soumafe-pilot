@@ -231,6 +231,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/parc/vehicules/{vehicule}/chauffeurs/{chauffeur}', [ParcController::class, 'detacherChauffeur'])->name('parc.chauffeurs.detacher');
     Route::get('/parc/vehicules/{vehicule}/fiche', [ParcController::class, 'ficheVehicule'])->name('parc.vehicules.fiche');
     Route::get('/parc/chauffeurs/{chauffeur}/fiche', [ParcController::class, 'ficheChauffeur'])->name('parc.chauffeurs.fiche');
+    Route::get('/parc/apercu/{type}/{id}', [ParcController::class, 'apercu'])->whereAlpha('type')->whereNumber('id')->name('parc.apercu');
     // Dépenses
     Route::post('/parc/depenses', [ParcController::class, 'storeDepense'])->name('parc.depenses.store');
     Route::put('/parc/depenses/{depense}', [ParcController::class, 'updateDepense'])->name('parc.depenses.update');

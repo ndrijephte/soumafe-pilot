@@ -140,10 +140,6 @@ class ParcController extends Controller
             'recette_hier' => (int) (clone $recHier)->sum('recette'),
             'objectif_hier' => (int) (clone $recHier)->sum('objectif'),
             'saisies_hier' => (clone $recHier)->count(),
-            // Documents en vigueur de chaque véhicule, pour l'aperçu de l'accueil
-            'docsVehicules' => Schema::hasTable('documents')
-                ? \App\Models\Document::enVigueur()->with('deposePar:id,name')->where('documentable_type', 'vehicule')->orderBy('categorie')->orderByDesc('created_at')->get()->groupBy('documentable_id')
-                : collect(),
             'activite' => Schema::hasTable('audit_logs')
                 ? AuditLog::whereIn('module', \App\Services\JournalActivite::modulesDuDomaine('parc'))->orderByDesc('created_at')->limit(10)->get()
                 : collect(),
@@ -443,6 +439,7 @@ class ParcController extends Controller
     public function storePanne(Request $r)
     {
         $this->autoriser($r);
+        \App\Services\PiecesJointes::valider($r, 'panne');
         $data = $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_declaration' => 'nullable|date',
@@ -479,12 +476,14 @@ class ParcController extends Controller
         }
 
         AuditLog::log('creation', 'panne', $p->vehicule?->immatriculation);
-        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne enregistrée.');
+        $nPj = \App\Services\PiecesJointes::deposer($r, 'panne', $p, 'photo');
+        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne enregistrée.' . \App\Services\PiecesJointes::mention($nPj));
     }
 
     public function updatePanne(Request $r, Panne $panne)
     {
         $this->autoriser($r);
+        \App\Services\PiecesJointes::valider($r, 'panne');
         $data = $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_declaration' => 'nullable|date',
@@ -539,7 +538,8 @@ class ParcController extends Controller
         }
 
         AuditLog::log('modification', 'panne', $panne->vehicule?->immatriculation);
-        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne mise à jour.');
+        $nPj = \App\Services\PiecesJointes::deposer($r, 'panne', $panne, 'facture');
+        return redirect()->route('parc.index', ['tab' => 'pannes'])->with('succes', 'Panne mise à jour.' . \App\Services\PiecesJointes::mention($nPj));
     }
 
     public function destroyPanne(Request $r, Panne $panne)
@@ -1135,6 +1135,7 @@ class ParcController extends Controller
     public function storeMaintenance(Request $r)
     {
         $this->autoriser($r);
+        \App\Services\PiecesJointes::valider($r, 'maintenance');
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'type_echeance' => 'required|string|max:50',
@@ -1157,12 +1158,14 @@ class ParcController extends Controller
         $m = MaintenancePreventive::create($data);
         AuditLog::log('creation', 'maintenance', "Maintenance #{$m->id}", "Type: {$m->type_echeance}, Véhicule ID: {$m->vehicule_id}");
 
-        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance ajoutée.');
+        $nPj = \App\Services\PiecesJointes::deposer($r, 'maintenance', $m, 'devis');
+        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance ajoutée.' . \App\Services\PiecesJointes::mention($nPj));
     }
 
     public function updateMaintenance(Request $r, MaintenancePreventive $maintenance)
     {
         $this->autoriser($r);
+        \App\Services\PiecesJointes::valider($r, 'maintenance');
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'type_echeance' => 'required|string|max:50',
@@ -1179,12 +1182,14 @@ class ParcController extends Controller
         }
         AuditLog::log('modification', 'maintenance', "Maintenance #{$maintenance->id}", "Type: {$maintenance->type_echeance}");
 
-        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance mise à jour.');
+        $nPj = \App\Services\PiecesJointes::deposer($r, 'maintenance', $maintenance, 'facture');
+        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', 'Échéance mise à jour.' . \App\Services\PiecesJointes::mention($nPj));
     }
 
     public function realiserMaintenance(Request $r, MaintenancePreventive $maintenance)
     {
         $this->autoriser($r);
+        \App\Services\PiecesJointes::valider($r, 'maintenance');
         $r->validate([
             'date_realisation' => 'required|date',
             'prestataire'      => 'required|string|max:150',
@@ -1284,7 +1289,8 @@ class ParcController extends Controller
             $msg = 'Maintenance réalisée. Prochaine échéance planifiée au ' . date('d/m/Y', strtotime($dateProchaineEch)) . '.';
         }
 
-        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', $msg);
+        $nPj = \App\Services\PiecesJointes::deposer($r, 'maintenance', $maintenance, 'facture');
+        return redirect()->route('parc.index', ['tab' => 'maint'])->with('succes', $msg . \App\Services\PiecesJointes::mention($nPj));
     }
 
     public function destroyMaintenance(Request $r, MaintenancePreventive $maintenance)
@@ -1703,6 +1709,52 @@ class ParcController extends Controller
             return [$du->startOfDay(), $au->endOfDay()];
         }
         return $ex && preg_match('/^\d{4}-\d{2}$/', $ex) ? ExerciceParc::bornes($ex) : ExerciceParc::courant();
+    }
+
+    /**
+     * Aperçu d'un véhicule ou d'un chauffeur, affiché sur le même écran (accueil, onglets Véhicules et Chauffeurs) :
+     * informations de base, chiffres de la période, documents en vigueur ; le détail est replié sous « Voir plus ».
+     */
+    public function apercu(Request $r, string $type, int $id)
+    {
+        $this->autoriser($r);
+        abort_unless(in_array($type, ['vehicule', 'chauffeur', 'panne', 'maintenance'], true), 404);
+        [$debut, $fin] = $this->bornesFiche($r);
+        $docs = Schema::hasTable('documents')
+            ? \App\Models\Document::enVigueur()->with('deposePar:id,name')->where('documentable_type', $type)->where('documentable_id', $id)
+                ->orderBy('categorie')->orderByDesc('created_at')->get()
+            : collect();
+        $d = ['type' => $type, 'docs' => $docs, 'debut' => $debut, 'fin' => $fin, 'estDG' => $r->user()->aRole('direction')];
+
+        if ($type === 'vehicule') {
+            $v = Vehicule::with('chauffeurs')->findOrFail($id);
+            $rec = RecetteVehicule::where('vehicule_id', $v->id)->whereBetween('date', [$debut, $fin])->orderByDesc('date')->get();
+            $d += [
+                'v' => $v, 'recettes' => $rec,
+                'pannes' => Panne::where('vehicule_id', $v->id)->orderByRaw("statut = 'cloturee'")->orderByDesc('date_declaration')->limit(5)->get(),
+                'pannesOuvertes' => Panne::where('vehicule_id', $v->id)->whereIn('statut', ['declaree', 'en_diagnostic', 'en_intervention'])->count(),
+                'echeances' => MaintenancePreventive::where('vehicule_id', $v->id)->where(fn($q) => $q->whereNull('statut')->orWhere('statut', '!=', 'realisee'))
+                    ->whereNotNull('prochaine_echeance')->orderBy('prochaine_echeance')->get(),
+                'realisees' => MaintenancePreventive::where('vehicule_id', $v->id)->where('statut', 'realisee')->orderByDesc('date_realisation')->limit(3)->get(),
+                'penalites' => Schema::hasTable('penalites') ? Penalite::where('vehicule_id', $v->id)->where('statut', '!=', 'payee')->get() : collect(),
+            ];
+        } elseif ($type === 'panne') {
+            $d += ['pn' => Panne::with(['vehicule', 'lignes', 'emprunt'])->findOrFail($id), 'recettes' => collect()];
+        } elseif ($type === 'maintenance') {
+            $d += ['m' => MaintenancePreventive::with(['vehicule', 'lignes'])->findOrFail($id), 'recettes' => collect()];
+        } else {
+            $c = Chauffeur::with('vehicules')->findOrFail($id);
+            $nom = $c->nomComplet();
+            $d += [
+                'c' => $c,
+                'recettes' => RecetteVehicule::with('vehicule:id,immatriculation')->where('chauffeur', $nom)->whereBetween('date', [$debut, $fin])->orderByDesc('date')->get(),
+                'recouvrements' => Schema::hasTable('recouvrements')
+                    ? Recouvrement::where('statut', 'actif')->where(fn($q) => $q->where('chauffeur_id', $c->id)->orWhere('chauffeur_nom', $nom))->orderByDesc('date_recette')->get()
+                    : collect(),
+                'penalites' => Schema::hasTable('penalites') ? Penalite::with('vehicule:id,immatriculation')->where('chauffeur', $nom)->where('statut', '!=', 'payee')->get() : collect(),
+            ];
+        }
+        return view('parc._apercu', $d);
     }
 
     /* ===== FICHE RÉSUMÉ CHAUFFEUR (JSON) ===== */

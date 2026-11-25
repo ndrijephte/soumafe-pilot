@@ -103,50 +103,8 @@
     </div>
 
     {{-- Aperçu : synthèse et documents du véhicule sélectionné, sans quitter l'écran --}}
-    <div class="panneau acc-apercu">
-        @foreach($vehicules as $v)
-        @php
-            $sv = $synth[$v->id];
-            $docs = $A['docsVehicules']->get($v->id, collect());
-        @endphp
-        <div class="ap" data-veh="{{ $v->id }}" @if(!$vehApercu || $v->id !== $vehApercu->id) hidden @endif>
-            <div class="ap-tete">
-                <div>
-                    <strong>{{ $v->immatriculation }}</strong>
-                    <span>{{ trim($v->marque . ' ' . $v->modele) ?: '—' }} · {{ $v->categorieLabel() }}</span>
-                </div>
-                <span class="pill {{ $v->statut === 'en_service' ? 'p-ok' : 'p-ko' }}">{{ $v->statutLabel() }}</span>
-            </div>
-            <div class="ap-ch">{!! $ico('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', 13) !!} {{ $v->chauffeurs->map(fn($c) => $c->nomComplet() . ($c->pivot->role ?? null ? ' (' . $c->pivot->role . ')' : ''))->join(', ') ?: 'Aucun chauffeur affecté' }}</div>
-            <div class="ap-stats">
-                <div><span class="v">{{ $fcfa($sv['recette']) }}</span><span class="l">recettes</span></div>
-                <div><span class="v {{ $couleurTaux($sv['taux']) }}">{{ $sv['taux'] !== null ? $sv['taux'] . ' %' : '—' }}</span><span class="l">taux</span></div>
-                <div><span class="v {{ $sv['pannes'] ? 'wa' : '' }}">{{ $sv['pannes'] }}</span><span class="l">panne(s)</span></div>
-                <div><span class="v {{ $sv['prochaine'] && $sv['prochaine']['alerte'] === 'en_retard' ? 'ko' : '' }}">{{ $sv['prochaine'] ? ($sv['prochaine']['jours'] < 0 ? abs($sv['prochaine']['jours']) . ' j' : 'J-' . $sv['prochaine']['jours']) : '—' }}</span><span class="l">{{ $sv['prochaine'] ? ($sv['prochaine']['jours'] < 0 ? 'retard ' : '') . \Illuminate\Support\Str::lower($sv['prochaine']['type_label']) : 'entretien' }}</span></div>
-            </div>
-
-            <div class="ap-docs-tete">Documents <span class="att">{{ $docs->count() }}</span></div>
-            @forelse($docs->take(6) as $d)
-            @php
-                $vd = $d->validite();
-                $ext = strtolower(pathinfo($d->nom_original, PATHINFO_EXTENSION));
-                $apercu = $d->estApercu() ? "apercuDocument('" . route('parc.documents.apercu', $d) . "', '" . ($d->estPdf() ? 'pdf' : 'img') . "', " . \Illuminate\Support\Js::from($d->libelle) . ", '" . route('parc.documents.telecharger', $d) . "')" : "location.href='" . route('parc.documents.telecharger', $d) . "'";
-            @endphp
-            <button type="button" class="ap-doc" onclick="{{ $apercu }}" title="{{ $d->estApercu() ? 'Aperçu' : 'Télécharger' }}">
-                @if($d->estImage())<img src="{{ route('parc.documents.apercu', $d) }}" alt="" loading="lazy">@else<span class="ap-ext {{ $d->estPdf() ? 'pdf' : '' }}">{{ strtoupper($ext ?: 'DOC') }}</span>@endif
-                <span class="ap-doc-t"><b>{{ $d->libelle }}</b><span>{{ $d->categorieLibelle() }}{{ $d->date_expiration ? ' · expire le ' . $d->date_expiration->format('d/m/Y') : '' }}</span></span>
-                @if($vd && $vd['niveau'] !== 'ok')<span class="pill {{ $vd['jours'] < 0 ? 'p-ko' : 'p-warn' }}">{{ $vd['jours'] < 0 ? 'Expiré' : 'J-' . $vd['jours'] }}</span>@endif
-            </button>
-            @empty
-            <p class="att" style="margin:4px 0 0">Aucun document pour ce véhicule.</p>
-            @endforelse
-
-            <div class="ap-actions">
-                <button type="button" class="btn sm sec" onclick="ouvrirDocuments('vehicule', {{ $v->id }})">{{ $docs->count() > 6 ? 'Tous les documents (' . $docs->count() . ')' : 'Gérer les documents' }}</button>
-                <button type="button" class="btn sm" onclick="ficheVehicule({{ $v->id }})">Fiche complète</button>
-            </div>
-        </div>
-        @endforeach
+    <div class="panneau acc-apercu apx-zone" id="apx-accueil" data-apx-zone data-type="vehicule" @if($vehApercu) data-id="{{ $vehApercu->id }}" @endif>
+        <div class="apx-corps"><div class="apx-charge">{{ $vehApercu ? 'Chargement…' : 'Aucun véhicule.' }}</div></div>
     </div>
 </div>
 
@@ -175,8 +133,11 @@
 // Aperçu du véhicule choisi dans la flotte
 function accApercu(id){
     document.querySelectorAll('.acc-veh').forEach(function(r){ r.classList.toggle('actif', r.dataset.veh == id); });
-    document.querySelectorAll('.acc-apercu .ap').forEach(function(p){ p.hidden = p.dataset.veh != id; });
+    ouvrirApercu('vehicule', id, document.getElementById('apx-accueil'));
 }
+document.addEventListener('DOMContentLoaded', function(){
+    var z=document.getElementById('apx-accueil'); if(z && z.dataset.id) ouvrirApercu('vehicule', z.dataset.id, z);
+});
 // Activité récente : ouverte ou repliée selon le dernier choix
 (function(){
     var d=document.getElementById('acc-activite'); if(!d) return;

@@ -1159,7 +1159,7 @@ class CompteRenduController extends Controller
         $sprintLabel = ($d['sprint'] ?? null) ?: ($cr->sprint ? "Sprint {$cr->sprint->numero}" : 'Sprint');
         $d['date_debut'] = ($d['date_debut'] ?? null) ?: $cr->sprint?->date_debut?->format('d/m/Y');
         $d['date_fin'] = ($d['date_fin'] ?? null) ?: $cr->sprint?->date_fin?->format('d/m/Y');
-        $headerLine = "SOUMAFÊ  —  {$projetNom}  —  Rapport de Review Sprint\t{$sprintLabel}  |  " . $cr->date_reunion->format('d F Y');
+        $headerLine = "SOUMAFÊ  —  {$projetNom}  —  Rapport de Review Sprint\t{$sprintLabel}  |  " . $cr->date_reunion->translatedFormat('d F Y');
         $footerLine = "Confidentiel  —  Usage interne";
 
         $xml = $this->docxHeader();
@@ -1172,7 +1172,7 @@ class CompteRenduController extends Controller
             "RAPPORT DE REVIEW SPRINT",
             "{$sprintLabel} — {$projetNom}",
             $redLigne,
-            "Date : " . $cr->date_reunion->format('d F Y')
+            "Date : " . $cr->date_reunion->translatedFormat('d F Y')
         );
         $xml .= $this->p('');
 

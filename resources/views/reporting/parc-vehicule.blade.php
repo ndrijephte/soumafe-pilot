@@ -191,33 +191,7 @@
                 @endif
             </div>
             <div>
-                <h3>Évolution {{ $evolution['par_semaine'] ? 'hebdomadaire' : 'journalière' }}</h3>
-                @php $pts = collect($evolution['points']); @endphp
-                @if($pts->isEmpty() || $pts->sum('recette') + $pts->sum('vehicule') === 0)<div class="vide">Aucune donnée sur la période.</div>
-                @else
-                @php
-                    $n = $pts->count(); $max = max($pts->max('recette'), $pts->max('objectif'), $pts->max('vehicule'), 1);
-                    $W = 460; $H = 170; $L = 8; $B = 22; $T = 8; $ch = $H - $B - $T; $col = ($W - 2 * $L) / $n; $bw = max(2, min(14, $col * .62));
-                    $x = fn($i) => round($L + ($i + .5) * $col, 1); $y = fn($v) => round($T + $ch - $v / $max * $ch, 1);
-                    $obj = $pts->map(fn($p, $i) => $p['objectif'] > 0 ? $x($i) . ',' . $y($p['objectif']) : null)->filter()->join(' ');
-                    $veh = $pts->map(fn($p, $i) => $x($i) . ',' . $y($p['vehicule']))->join(' ');
-                    $tous = max(1, (int) ceil($n / 8));
-                @endphp
-                <svg viewBox="0 0 {{ $W }} {{ $H }}" width="100%" role="img" aria-label="Recettes, objectif et charges du véhicule">
-                    <line x1="{{ $L }}" y1="{{ $T + $ch }}" x2="{{ $W - $L }}" y2="{{ $T + $ch }}" stroke="#cbd5e1"/>
-                    @foreach($pts as $i => $p)
-                        @if($p['recette'] > 0)<rect x="{{ round($x($i) - $bw / 2, 1) }}" y="{{ $y($p['recette']) }}" width="{{ round($bw, 1) }}" height="{{ round($T + $ch - $y($p['recette']), 1) }}" rx="2" fill="#2E74B5" opacity="{{ $p['objectif'] > 0 && $p['recette'] < $p['objectif'] ? .45 : .85 }}"><title>{{ \Carbon\Carbon::parse($p['date'])->format('d/m') }} : {{ $F($p['recette']) }} F</title></rect>@endif
-                        @if($i % $tous === 0)<text x="{{ $x($i) }}" y="{{ $H - 6 }}" font-size="9" fill="#64748b" text-anchor="middle">{{ \Carbon\Carbon::parse($p['date'])->format('d/m') }}</text>@endif
-                    @endforeach
-                    @if($obj)<polyline points="{{ $obj }}" fill="none" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5,4"/>@endif
-                    @if($pts->sum('vehicule') > 0)<polyline points="{{ $veh }}" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linejoin="round"/>@endif
-                </svg>
-                <div style="display:flex;gap:12px;font-size:11px;color:var(--gris);flex-wrap:wrap">
-                    <span><i style="display:inline-block;width:10px;height:10px;background:#2E74B5;border-radius:2px;vertical-align:middle"></i> Recettes (pâle : sous l'objectif)</span>
-                    <span><i style="display:inline-block;width:14px;border-top:2px dashed #94a3b8;vertical-align:middle"></i> Objectif</span>
-                    <span><i style="display:inline-block;width:14px;border-top:2px solid #f59e0b;vertical-align:middle"></i> Charges</span>
-                </div>
-                @endif
+                @include('reporting._evolution', ['evolution' => $evolution, 'cle' => 'evo-veh', 'titre' => 'Évolution', 'compact' => true])
             </div>
         </div>
 

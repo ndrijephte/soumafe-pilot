@@ -13,22 +13,6 @@
 .rp-filtres .btn-raz{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:1px solid var(--bord);border-radius:8px;background:#fff;color:#475569;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer}
 .rp-filtres .btn-raz:hover{border-color:var(--ko);color:var(--ko);background:#fef2f2}
 
-/* Évolution */
-.evo-legende{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:center;margin:6px 0 10px}
-.evo-legende button{display:inline-flex;align-items:center;gap:6px;padding:2px 0;border:none;background:none;font-size:12px;color:#475569;cursor:pointer;font-family:inherit;opacity:.4}
-.evo-legende button.on{opacity:1}
-.evo-legende button b,.evo-solde b{color:#1e293b;font-weight:600;font-variant-numeric:tabular-nums}
-.evo-legende i.carre{width:10px;height:10px;border-radius:2px}
-.evo-legende i.trait{width:14px;height:2px;border-radius:1px}
-.evo-solde{margin-left:auto;font-size:12px;color:var(--gris)}
-.evo-solde b.ok{color:var(--ok)}.evo-solde b.ko{color:var(--ko)}
-.evo-zone{position:relative}
-.evo-bulle{position:absolute;top:8px;width:230px;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:10px 12px;font-size:12px;pointer-events:none;opacity:0;transition:opacity .12s}
-.evo-bulle.on{opacity:1}
-.evo-bulle strong{display:block;margin-bottom:6px;color:var(--bleu)}
-.evo-bulle div{display:flex;align-items:center;gap:6px;padding:2px 0;color:#475569}
-.evo-bulle div i{width:9px;height:9px;border-radius:2px;flex:none}
-.evo-bulle div b{margin-left:auto;color:#1e293b;font-variant-numeric:tabular-nums}
 @media(max-width:700px){.evo-totaux{grid-template-columns:repeat(2,1fr)}.evo-aide{display:none}}
 .periode-bandeau{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12.5px;color:#475569;background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:10px 14px;margin-bottom:16px}
 .periode-bandeau strong{color:var(--bleu)}
@@ -362,124 +346,9 @@
     @endif
 </div>
 
-{{-- ═══ 5. ÉVOLUTION : RECETTES FACE AUX DÉPENSES ═══ --}}
+{{-- ═══ 5. ÉVOLUTION : RECETTES FACE À L'OBJECTIF ET AUX DÉPENSES (courbes) ═══ --}}
 <div class="rp-section">
-    <h3>{!! $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>') !!} Évolution des recettes et des dépenses <span class="h3-sous">par {{ $evolution['par_semaine'] ? 'semaine' : 'jour' }}</span></h3>
-    @php $pts = collect($evolution['points']); @endphp
-    @if($pts->isEmpty() || ($pts->sum('recette') + $pts->sum('objectif') + $pts->sum('bureau') + $pts->sum('vehicule')) === 0)
-    <p style="color:var(--gris);font-size:13px">Aucune recette ni dépense sur cette période.</p>
-    @else
-    @php
-        $n = $pts->count();
-        $vmax = max($pts->max('recette'), $pts->max('objectif'), $pts->max(fn($p) => $p['vehicule'] + $p['bureau']), 1);
-        $brut = $vmax / 4; $p10 = 10 ** floor(log10($brut)); $pas = (int) (collect([1, 2, 2.5, 5, 10])->first(fn($m) => $m * $p10 >= $brut) * $p10);
-        $vmax = (int) (ceil($vmax / $pas) * $pas);
-        $W = 960; $H = 260; $L = 52; $R = 10; $T = 12; $B = 30;
-        $cw = $W - $L - $R; $chH = $H - $T - $B; $base = $T + $chH;
-        $col = $cw / $n;
-        $x0 = fn($i) => $L + $i * $col;
-        $yOf = fn($v) => round($base - ($v / $vmax) * $chH, 1);
-        // Deux barres par période : recettes (gauche) et dépenses (droite), séparées d'un fin espace
-        $bw = round(min(18, max(2, $col * 0.34)), 1);
-        $ecart = min(3, $col * 0.06);
-        $xr = fn($i) => round($x0($i) + $col / 2 - $bw - $ecart / 2, 1);
-        $xd = fn($i) => round($x0($i) + $col / 2 + $ecart / 2, 1);
-        $kfmt = fn($v) => $v >= 1000000 ? rtrim(rtrim(number_format($v / 1000000, 1, ',', ' '), '0'), ',') . ' M' : ($v >= 1000 ? number_format($v / 1000, 0, ',', ' ') . ' k' : (string) $v);
-        $tous = max(1, (int) ceil($n / 12));
-        $fmtDate = fn($d) => \Carbon\Carbon::parse($d)->format('d/m');
-        $totaux = ['recette' => $pts->sum('recette'), 'objectif' => $pts->sum('objectif'), 'vehicule' => $pts->sum('vehicule'), 'bureau' => $pts->sum('bureau')];
-        $solde = $totaux['recette'] - $totaux['vehicule'] - $totaux['bureau'];
-        $infos = $pts->map(fn($p) => [
-            'd' => $evolution['par_semaine'] ? 'Semaine du ' . \Carbon\Carbon::parse($p['date'])->translatedFormat('j F Y') : ucfirst(\Carbon\Carbon::parse($p['date'])->translatedFormat('l j F Y')),
-            'r' => $p['recette'], 'o' => $p['objectif'], 'v' => $p['vehicule'], 'b' => $p['bureau'], 's' => $p['saisi'],
-        ])->values();
-        $C = ['recette' => '#2e74b5', 'objectif' => '#1f2937', 'vehicule' => '#f59e0b', 'bureau' => '#dc2626'];
-    @endphp
-
-    <div class="evo-legende" id="evo-legende">
-        <button type="button" data-serie="recette" class="on"><i class="carre" style="background:{{ $C['recette'] }}"></i>Recettes <b>{{ $F($totaux['recette']) }} F</b></button>
-        <button type="button" data-serie="objectif" class="on"><i class="trait" style="background:{{ $C['objectif'] }}"></i>Objectif <b>{{ $F($totaux['objectif']) }} F</b></button>
-        <button type="button" data-serie="vehicule" class="on"><i class="carre" style="background:{{ $C['vehicule'] }}"></i>Dépenses véhicules <b>{{ $F($totaux['vehicule']) }} F</b></button>
-        <button type="button" data-serie="bureau" class="on"><i class="carre" style="background:{{ $C['bureau'] }}"></i>Dépenses bureau <b>{{ $F($totaux['bureau']) }} F</b></button>
-        <span class="evo-solde">Solde <b class="{{ $solde >= 0 ? 'ok' : 'ko' }}">{{ $solde >= 0 ? '+' : '−' }}{{ $F(abs($solde)) }} F</b></span>
-    </div>
-
-    <div class="rp-scroll evo-zone">
-        <svg id="evo-svg" viewBox="0 0 {{ $W }} {{ $H }}" width="100%" style="min-width:600px;font-family:inherit;display:block" role="img" aria-label="Évolution des recettes et des dépenses">
-            @for($g = 0; $g <= $vmax; $g += $pas)
-                <line x1="{{ $L }}" y1="{{ $yOf($g) }}" x2="{{ $W - $R }}" y2="{{ $yOf($g) }}" stroke="{{ $g === 0 ? '#cbd5e1' : '#f1f5f9' }}"/>
-                <text x="{{ $L - 8 }}" y="{{ $yOf($g) + 3.5 }}" fill="#94a3b8" font-size="10.5" text-anchor="end">{{ $kfmt($g) }}</text>
-            @endfor
-            <g data-serie="recette">
-            @foreach($pts as $i => $p)
-                @if($p['recette'] > 0)
-                <rect x="{{ $xr($i) }}" y="{{ $yOf($p['recette']) }}" width="{{ $bw }}" height="{{ round($base - $yOf($p['recette']), 1) }}" rx="2" fill="{{ $C['recette'] }}" opacity="{{ $p['objectif'] > 0 && $p['recette'] < $p['objectif'] ? .5 : .9 }}"/>
-                @endif
-            @endforeach
-            </g>
-            <g data-serie="objectif">
-            @foreach($pts as $i => $p)
-                @if($p['objectif'] > 0)
-                <line x1="{{ $xr($i) - 2 }}" x2="{{ $xr($i) + $bw + 2 }}" y1="{{ $yOf($p['objectif']) }}" y2="{{ $yOf($p['objectif']) }}" stroke="{{ $C['objectif'] }}" stroke-width="2" stroke-linecap="round"/>
-                @endif
-            @endforeach
-            </g>
-            <g data-serie="vehicule">
-            @foreach($pts as $i => $p)
-                @if($p['vehicule'] > 0)
-                <rect x="{{ $xd($i) }}" y="{{ $yOf($p['vehicule']) }}" width="{{ $bw }}" height="{{ round($base - $yOf($p['vehicule']), 1) }}" rx="2" fill="{{ $C['vehicule'] }}" opacity=".85"/>
-                @endif
-            @endforeach
-            </g>
-            <g data-serie="bureau">
-            @foreach($pts as $i => $p)
-                @if($p['bureau'] > 0)
-                <rect x="{{ $xd($i) }}" y="{{ $yOf($p['vehicule'] + $p['bureau']) }}" width="{{ $bw }}" height="{{ round($yOf($p['vehicule']) - $yOf($p['vehicule'] + $p['bureau']), 1) }}" rx="2" fill="{{ $C['bureau'] }}" opacity=".85"/>
-                @endif
-            @endforeach
-            </g>
-            @foreach($pts as $i => $p)
-                @if($i % $tous === 0)
-                <text x="{{ round($x0($i) + $col / 2, 1) }}" y="{{ $H - $B + 16 }}" fill="#64748b" font-size="10" text-anchor="middle">{{ $fmtDate($p['date']) }}</text>
-                @endif
-            @endforeach
-            @foreach($pts as $i => $p)
-                <rect class="evo-zone-survol" data-i="{{ $i }}" x="{{ round($x0($i), 1) }}" y="{{ $T }}" width="{{ round($col, 1) }}" height="{{ $chH }}" fill="transparent"/>
-            @endforeach
-        </svg>
-        <div class="evo-bulle" id="evo-bulle"></div>
-    </div>
-    <div class="intro" style="margin:6px 0 0">Barre bleue : recettes, le trait marque l'objectif (barre pâle sous l'objectif). Barre orange et rouge : dépenses, à leur date (panne, entretien, dépense, infraction).</div>
-    <script>
-    (function(){
-        var infos = @json($infos), svg = document.getElementById('evo-svg'), bulle = document.getElementById('evo-bulle');
-        var fmt = function(v){ return Math.round(v).toLocaleString('fr-FR') + ' F'; };
-        var ligne = function(c, l, v){ return '<div><i style="background:'+c+'"></i>'+l+'<b>'+fmt(v)+'</b></div>'; };
-        svg.querySelectorAll('.evo-zone-survol').forEach(function(z){
-            z.addEventListener('mouseenter', function(){
-                svg.querySelectorAll('.evo-zone-survol').forEach(function(x){ x.setAttribute('fill', 'transparent'); });
-                z.setAttribute('fill', 'rgba(46,116,181,.06)');
-                var p = infos[+z.dataset.i], x = +z.getAttribute('x') + (+z.getAttribute('width')) / 2;
-                var taux = p.o > 0 ? ' <span style="color:'+(p.r >= p.o ? '#16a34a' : '#dc2626')+'">('+Math.round(p.r / p.o * 100)+' %)</span>' : '';
-                bulle.innerHTML = '<strong>'+p.d+'</strong>'
-                    + (p.s ? ligne('#2e74b5', 'Recettes', p.r).replace('</b>', '</b>'+taux) : '<div style="color:#94a3b8">Aucune recette saisie</div>')
-                    + (p.o ? ligne('#1f2937', 'Objectif', p.o) : '')
-                    + (p.v ? ligne('#f59e0b', 'Dépenses véhicules', p.v) : '') + (p.b ? ligne('#dc2626', 'Dépenses bureau', p.b) : '');
-                var r = svg.getBoundingClientRect(), px = x / {{ $W }} * r.width;
-                bulle.style.left = Math.min(Math.max(px - 110, 0), r.width - 230) + 'px';
-                bulle.classList.add('on');
-            });
-        });
-        svg.addEventListener('mouseleave', function(){ bulle.classList.remove('on'); svg.querySelectorAll('.evo-zone-survol').forEach(function(x){ x.setAttribute('fill', 'transparent'); }); });
-        document.querySelectorAll('#evo-legende button').forEach(function(b){
-            b.addEventListener('click', function(){
-                b.classList.toggle('on');
-                svg.querySelectorAll('g[data-serie="'+b.dataset.serie+'"]').forEach(function(g){ g.style.display = b.classList.contains('on') ? '' : 'none'; });
-            });
-        });
-    })();
-    </script>
-    @endif
+    @include('reporting._evolution', ['evolution' => $evolution, 'cle' => 'evo', 'titre' => 'Évolution des recettes et des dépenses', 'icone' => $ico('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>')])
 </div>
 
 {{-- ═══ 6. OÙ PASSE L'ARGENT ═══ --}}

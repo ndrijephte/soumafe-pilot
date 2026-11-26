@@ -37,6 +37,17 @@ final class PiecesJointes
         ]);
     }
 
+    /**
+     * Exige au moins une photo : parmi les fichiers envoyés, ou déjà jointe à l'opération ($objet).
+     * Bloque l'enregistrement sinon (rien n'est créé).
+     */
+    public static function exigerPhoto(Request $r, string $type, ?Model $objet, string $message): void
+    {
+        $envoyee = collect($r->file('pieces', []))->contains(fn($f) => str_starts_with((string) $f->getMimeType(), 'image/'));
+        $deja = $objet && Document::where('documentable_type', $type)->where('documentable_id', $objet->getKey())->where('mime', 'like', 'image/%')->exists();
+        if (!$envoyee && !$deja) throw \Illuminate\Validation\ValidationException::withMessages(['pieces' => $message]);
+    }
+
     /** Enregistre les pièces jointes sur l'opération ; renvoie le nombre de fichiers déposés. */
     public static function deposer(Request $r, string $type, Model $objet, string $categorieDefaut = 'photo'): int
     {

@@ -47,6 +47,51 @@
 .pj-item img,.pj-ext{flex:none;width:44px;height:44px;border-radius:8px;object-fit:cover}
 .pj-ext{display:flex;align-items:center;justify-content:center;background:#2563eb;color:#fff;font-size:9.5px;font-weight:700}
 .pj-ext.pdf{background:#dc2626}
+/* Fiche véhicule : sobre, couleur réservée aux valeurs et aux points d'état */
+#dlg-fiche{width:860px!important}
+.fv-tete{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fv-immat{font-size:19px;font-weight:700;color:var(--bleu);letter-spacing:.3px}
+.fv-det{font-size:12.5px;color:#334155;margin-top:4px}
+.fv-det span{color:var(--gris)}.fv-det b{font-weight:600}
+.fv-obs{font-size:12px;color:var(--gris);font-style:italic;margin-top:4px}
+.fv-etat{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#334155;white-space:nowrap}
+.fv-etat:before{content:"";width:7px;height:7px;border-radius:50%;background:#94a3b8}
+.fv-etat.ok:before{background:var(--ok)}.fv-etat.warn:before{background:#d97706}.fv-etat.ko:before{background:var(--ko)}.fv-etat.bleu:before{background:var(--accent)}
+.fv-etat.mut{color:var(--gris);font-weight:400}
+.fv-perf-t{margin:16px 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gris)}
+.fv-perf-t span{font-weight:400;text-transform:none;letter-spacing:0}
+.fv-perf{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--bord);border-radius:8px;background:#fff}
+.fv-perf>div{padding:10px 12px;border-left:1px solid var(--bord);min-width:0}
+.fv-perf>div:first-child{border-left:none}
+.fv-perf b{display:block;font-size:16px;font-weight:700;color:var(--bleu);white-space:nowrap}
+.fv-perf b.ok{color:var(--ok)}.fv-perf b.warn{color:#b45309}.fv-perf b.ko{color:var(--ko)}
+.fv-perf span{display:block;font-size:11px;color:var(--gris);line-height:1.35;margin-top:2px}
+.fv-barre{display:block;height:3px;background:#e2e8f0;border-radius:2px;margin-top:6px;overflow:hidden}
+.fv-barre i{display:block;height:100%;background:var(--accent)}.fv-barre i.ok{background:var(--ok)}.fv-barre i.ko{background:var(--ko)}.fv-barre i.warn{background:#d97706}
+.fv-sig{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 4px;font-size:12.5px}
+.fv-sig a,.fv-sig span{display:inline-flex;align-items:center;gap:6px;color:#334155;text-decoration:none}
+.fv-sig a:hover{color:var(--accent);text-decoration:underline}
+.fv-sig a:before,.fv-sig span:before{content:"";width:7px;height:7px;border-radius:50%}
+.fv-sig .ok:before{background:var(--ok)}.fv-sig .warn:before{background:#d97706}.fv-sig .ko:before{background:var(--ko)}
+.fv-onglets{display:flex;gap:4px;box-shadow:inset 0 -1px 0 var(--bord);margin:14px 0 8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.fv-onglets button{background:none;border:none;border-bottom:2px solid transparent;padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--gris);cursor:pointer;white-space:nowrap}
+.fv-onglets button:hover{color:var(--bleu)}
+.fv-onglets button.actif{color:var(--accent);border-bottom-color:var(--accent)}
+.fv-onglets button span{font-weight:400;font-size:11px;color:var(--gris);margin-left:2px}
+.fv-table{overflow-x:auto;max-height:340px;overflow-y:auto}
+.fv-table table{width:100%;border-collapse:collapse;font-size:12px}
+.fv-table th{position:sticky;top:0;background:#fff;text-align:left;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--gris);padding:6px 8px;border-bottom:1px solid var(--bord)}
+.fv-table td{padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#1e293b}
+.fv-table tr:hover td{background:#f8fbff}
+.fv-table .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.fv-table td.ok{color:var(--ok)}.fv-table td.ko{color:var(--ko)}.fv-table td.mut{color:var(--gris)}
+.fv-vide,.fv-note{color:var(--gris);font-size:12px;margin:8px 0}
+@media(max-width:700px){.fv-perf{grid-template-columns:1fr 1fr}.fv-perf>div{border-left:none;border-top:1px solid var(--bord)}}
+
+.act-btn.rc-encaisser{color:var(--ok)}.act-btn.rc-encaisser:hover{background:#dcfce7}
+.act-btn.rc-lever{color:var(--accent)}.act-btn.rc-lever:hover{background:#e6f0fa}
+.pj-req{font-weight:600;color:var(--ko);font-size:11px;margin-left:4px}
+.pj.pj-manque .pj-btn{border-color:var(--ko);color:var(--ko)!important;box-shadow:0 0 0 3px #fee2e2}
 .pj-corps{flex:1;min-width:0}
 .pj-nom{font-size:12px;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pj-nom span{color:var(--gris);font-size:11px}
@@ -567,6 +612,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </div>
 <div class="crumb">Opérations &rsaquo; Parc automobile</div>
 
+@if($errors->has('pieces'))<div class="alerte ko">{{ $errors->first('pieces') }}</div>@endif
 @if(session('succes'))<div class="alerte ok">{!! $ic('<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',16) !!} {{ session('succes') }}</div>@endif
 
 {{-- KPI --}}
@@ -1268,9 +1314,14 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <td>
             <div class="act-row">
                 @include('parc._doc_btn', ['t' => 'recouvrement', 'id' => $rc->id])
-                <button type="button" class="act-btn" title="Enregistrer un versement" onclick="ouvrirVersement({{ $rc->id }}, '{{ $rc->chauffeur_nom }}', {{ $rc->solde }})">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                @if(!$estDG)
+                <button type="button" class="act-btn rc-encaisser" title="Encaisser un versement du chauffeur" aria-label="Encaisser" onclick="ouvrirVersement({{ $rc->id }}, @js($rc->chauffeur_nom), {{ $rc->solde }})">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
                 </button>
+                <button type="button" class="act-btn rc-lever" title="Lever le recouvrement sans encaisser le reste (motif obligatoire)" aria-label="Lever" onclick="leverRecouvrement({{ $rc->id }}, @js($rc->chauffeur_nom), {{ (int) $rc->solde }})">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+                </button>
+                @endif
                 @if($rc->montant_recouvre == 0 && auth()->user()->estAdmin())
                 <form method="POST" action="{{ route('parc.recouvrements.annuler', $rc) }}" onsubmit="return demanderMotifAnnulation(this)">@csrf @method('PATCH')
                     <input type="hidden" name="motif_annulation" class="motif-annul-input">
@@ -1302,14 +1353,14 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     @endif
 
     {{-- Recouvrements soldés --}}
-    @php $recSoldes = ($recouvrements ?? collect())->whereIn('statut', ['solde', 'annule']); @endphp
+    @php $recSoldes = ($recouvrements ?? collect())->whereIn('statut', ['solde', 'annule', 'leve']); @endphp
     @if($recSoldes->count() > 0)
     <details style="margin-top:16px">
-        <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--bleu);padding:6px 0">Historique soldés / annulés ({{ $recSoldes->count() }})</summary>
+        <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--bleu);padding:6px 0">Historique soldés, levés, annulés ({{ $recSoldes->count() }})</summary>
         <div style="margin-top:8px">
         @include('parc._filtre', ['cible' => 'tbl-recouv-soldes', 'champs' => [
             'chauffeur' => true,
-            'statut' => ['Tous', ['solde' => 'Soldé', 'annule' => 'Annulé']]]])
+            'statut' => ['Tous', ['solde' => 'Soldé', 'leve' => 'Levé', 'annule' => 'Annulé']]]])
         </div>
         <div style="overflow-x:auto">
         <table id="tbl-recouv-soldes">
@@ -1321,7 +1372,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <td>{{ $rs->chauffeur_nom ?? '—' }}</td>
             <td>{{ number_format($rs->deficit, 0, ',', ' ') }}</td>
             <td>{{ number_format($rs->montant_recouvre, 0, ',', ' ') }}</td>
-            <td><span class="pill {{ $rs->statut === 'solde' ? 'p-ok' : 'p-gris' }}">{{ $rs->statut === 'solde' ? 'Soldé' : 'Annulé' }}</span></td>
+            <td><span class="pill {{ $rs->statut === 'solde' ? 'p-ok' : ($rs->statut === 'leve' ? 'p-cours' : 'p-gris') }}" @if($rs->motif_annulation) title="{{ $rs->motif_annulation }}{{ $rs->annule_par ? ' - ' . $rs->annule_par : '' }}{{ $rs->annule_le ? ', le ' . \Carbon\Carbon::parse($rs->annule_le)->format('d/m/Y') : '' }}" @endif>{{ ['solde' => 'Soldé', 'leve' => 'Levé', 'annule' => 'Annulé'][$rs->statut] ?? ucfirst($rs->statut) }}</span>@if($rs->statut === 'leve')<span style="display:block;font-size:11px;color:var(--gris)">{{ \Illuminate\Support\Str::limit($rs->motif_annulation, 60) }} · reste {{ number_format($rs->solde, 0, ',', ' ') }} F</span>@endif</td>
             @if(auth()->user()->estAdmin())
             <td>
                 <form method="POST" action="{{ route('parc.recouvrements.destroy', $rs) }}" onsubmit="return demanderMotifSuppression(this)">@csrf @method('DELETE')
@@ -1342,7 +1393,30 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
 
     {{-- Dialog versement --}}
-    <dialog id="dlg-versement" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
+    <dialog id="dlg-lever" style="width:90vw;max-width:440px">
+    <h3>Lever le recouvrement</h3>
+    <p id="lv-info" style="font-size:12.5px;color:#475569;margin:-6px 0 8px"></p>
+    <form method="POST" id="form-lever" action="">@csrf @method('PATCH')
+        <label>Motif <span class="req">*</span></label>
+        <select name="motif" required>
+            <option value="">Choisir…</option>
+            <option>Remise accordée par la direction</option>
+            <option>Créance irrécouvrable</option>
+            <option>Erreur de saisie de la recette</option>
+            <option>Compensation (prime, avance, autre règlement)</option>
+            <option>Départ du chauffeur</option>
+            <option>Autre</option>
+        </select>
+        <label>Précision <span style="font-weight:400">(obligatoire pour « Autre »)</span></label>
+        <textarea name="precision" rows="2" maxlength="400" placeholder="Décision, référence, circonstances…"></textarea>
+        <p style="font-size:11.5px;color:var(--gris);margin:8px 0 0">Aucun montant à saisir : le reste dû est abandonné et le recouvrement passe à l'historique (statut « Levé »).</p>
+        <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end">
+            <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn">Lever le recouvrement</button>
+        </div>
+    </form>
+</dialog>
+<dialog id="dlg-versement" style="width:90vw;max-width:440px;border:none;border-radius:14px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15)">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
             <h3 id="dlg-vers-titre" style="font-size:15px;font-weight:700;color:var(--bleu);margin:0">Versement</h3>
             <button onclick="this.closest('dialog').close()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gris)">&times;</button>
@@ -1695,7 +1769,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
     </div>
     <div><label>Description <span class="req">*</span></label><textarea name="description" id="p-desc" required rows="3" placeholder="Décrivez le problème constaté"></textarea></div>
-    @include('parc._pieces', ['type' => 'panne', 'defaut' => 'photo'])
+    @include('parc._pieces', ['type' => 'panne', 'defaut' => 'photo', 'photoRequise' => true])
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Déclarer</button>
@@ -1780,7 +1854,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="emprunt-fields" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 12px;font-size:12px;color:#1e40af;margin-top:6px">
         L'emprunt est créé pour le montant de la facture et devra être remboursé (onglet Emprunts).
     </div>
-    @include('parc._pieces', ['type' => 'panne', 'defaut' => 'facture'])
+    @include('parc._pieces', ['type' => 'panne', 'defaut' => 'facture', 'photoRequise' => true])
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Enregistrer</button>
@@ -1953,7 +2027,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="emprunt-fields" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 12px;font-size:12px;color:#1e40af;margin-top:6px">
         L'emprunt est créé pour le montant de la facture et devra être remboursé (onglet Emprunts).
     </div>
-    @include('parc._pieces', ['type' => 'maintenance', 'defaut' => 'facture'])
+    @include('parc._pieces', ['type' => 'maintenance', 'defaut' => 'facture', 'photoRequise' => true])
     <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">
         <button type="button" class="btn sec" onclick="this.closest('dialog').close()">Annuler</button>
         <button class="btn">Valider la réalisation</button>
@@ -2095,7 +2169,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 {{-- Dialog Fiche véhicule --}}
 <dialog id="dlg-fiche" style="width:820px;max-width:96vw;max-height:90vh;overflow-y:auto">
 <h3>{!! $icCar !!} Fiche véhicule</h3>
-<div id="fiche-contenu" style="font-size:13px;line-height:1.7">
+<div id="fiche-contenu" style="font-size:13px;line-height:1.5">
     <p style="text-align:center;color:var(--gris)">Chargement...</p>
 </div>
 <div style="display:flex;justify-content:flex-end;margin-top:16px">
@@ -2104,9 +2178,9 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
 </dialog>
 
 {{-- Dialog Fiche chauffeur --}}
-<dialog id="dlg-fiche-ch" style="width:780px;max-width:96vw;max-height:90vh;overflow-y:auto">
+<dialog id="dlg-fiche-ch" style="width:860px;max-width:96vw;max-height:90vh;overflow-y:auto">
 <h3>{!! $icUser !!} Fiche chauffeur</h3>
-<div id="fiche-ch-contenu" style="font-size:13px;line-height:1.7">
+<div id="fiche-ch-contenu" style="font-size:13px;line-height:1.5">
     <p style="text-align:center;color:var(--gris)">Chargement...</p>
 </div>
 <div style="display:flex;justify-content:flex-end;margin-top:16px">
@@ -2630,9 +2704,12 @@ foreach($vehicules as $_v) {
         'chauffeurs' => $_vChauffs,
     ];
 }
+$_photosPannes = \App\Models\Document::where('documentable_type', 'panne')->where('mime', 'like', 'image/%')->pluck('documentable_id')->flip();
+$_photosMaint = \App\Models\Document::where('documentable_type', 'maintenance')->where('mime', 'like', 'image/%')->pluck('documentable_id')->flip();
 $_pData = [];
 foreach($pannes as $_p) {
     $_pData[$_p->id] = [
+        'a_photo' => $_photosPannes->has($_p->id),
         'vehicule_id' => $_p->vehicule_id,
         'emprunt_id' => $_p->emprunt_id,
         'date_declaration' => $_p->date_declaration ? $_p->date_declaration->format('Y-m-d') : '',
@@ -2691,6 +2768,7 @@ foreach($grilleJour as $_g) {
 $_mData = [];
 foreach($maintenances as $_m) {
     $_mData[$_m->id] = [
+        'a_photo' => $_photosMaint->has($_m->id),
         'vehicule_id' => $_m->vehicule_id,
         'type_echeance' => $_m->type_echeance,
         'derniere_realisation' => $_m->derniere_realisation ? $_m->derniere_realisation->format('Y-m-d') : '',
@@ -2898,6 +2976,7 @@ function editVehicule(id){
 
 function editPanne(id){
     var d=pannesData[id]; if(!d)return;
+    pjPhotoDeja('dlg-panne', d.a_photo);
     document.getElementById('dlg-panne-titre').innerHTML='{!! $icWrench !!} Modifier la déclaration';
     document.getElementById('form-panne').action='{{ url("parc/pannes") }}/'+id;
     document.getElementById('panne-method').innerHTML='<input type="hidden" name="_method" value="PUT">';
@@ -2915,6 +2994,7 @@ function editPanne(id){
 }
 function statuerPanne(id){
     var d=pannesData[id]; if(!d)return;
+    pjPhotoDeja('dlg-statuer', d.a_photo);
     var vLabel=''; document.querySelectorAll('#p-vehic option').forEach(function(o){if(o.value==d.vehicule_id)vLabel=o.textContent});
     document.getElementById('form-statuer').action='{{ url("parc/pannes") }}/'+id;
     // Une panne déjà financée par emprunt ne peut pas en ouvrir un second (l'emprunt suit la facture)
@@ -3682,6 +3762,7 @@ function editMaint(id){
 
 function realiserMaint(id){
     var d=maintData[id]; if(!d)return;
+    pjPhotoDeja('dlg-realiser-maint', d.a_photo);
     document.getElementById('form-realiser-maint').action='{{ url("parc/maintenances") }}/'+id+'/realiser';
     document.getElementById('rm-info-vehic').textContent=d.vehicule_label||'?';
     document.getElementById('rm-info-type').textContent=d.type_label||d.type_echeance;
@@ -3780,126 +3861,112 @@ function affecterChauffeur(id){
     document.getElementById('dlg-affectation').showModal();
 }
 
+/* Aides communes aux fiches véhicule et chauffeur */
+function ficheFmt(n){return new Intl.NumberFormat('fr-FR').format(n||0)}
+function ficheEsc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function ficheEtat(niv,txt){return '<span class="fv-etat '+niv+'">'+ficheEsc(txt)+'</span>'}
+function ficheTd(v,num,cls){return '<td class="'+(num?'n ':'')+(cls||'')+'">'+v+'</td>'}
+function ficheTable(pref,id,vis,entetes,lignes,vide,note){
+    var t='<div id="'+pref+'-pan-'+id+'" class="fv-panel"'+(vis?'':' style="display:none"')+'>';
+    if(note) t+='<p class="fv-note">'+note+'</p>';
+    if(!lignes.length) return t+'<p class="fv-vide">'+vide+'</p></div>';
+    return t+'<div class="fv-table"><table><thead><tr>'+entetes.map(function(e){return '<th'+(e.charAt(0)==='>'?' class="n"':'')+'>'+e.replace(/^>/,'')+'</th>'}).join('')+'</tr></thead><tbody>'
+      +lignes.join('')+'</tbody></table></div></div>';
+}
+function ficheOnglets(pref,fn,onglets){
+    return '<div class="fv-onglets">'+onglets.map(function(o,i){return '<button type="button" data-sans-icone id="'+pref+'-btn-'+o[0]+'" class="'+(i===0?'actif':'')+'" onclick="'+fn+'(\''+o[0]+'\')">'+o[1]+(o[2]?' <span>'+o[2]+'</span>':'')+'</button>'}).join('')+'</div>';
+}
+function ficheBasculer(zone,pref,nom){
+    document.querySelectorAll('#'+zone+' .fv-panel').forEach(function(p){p.style.display=(p.id===pref+'-pan-'+nom?'':'none')});
+    document.querySelectorAll('#'+zone+' .fv-onglets button').forEach(function(b){b.classList.toggle('actif',b.id===pref+'-btn-'+nom)});
+    var o=document.getElementById(pref+'-btn-'+nom); if(o) o.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+function ficheSignaux(sig,fn){
+    return '<div class="fv-sig">'+(sig.length?sig.map(function(x){return '<a href="#" class="'+x[0]+'" onclick="'+fn+'(\''+x[1]+'\');return false">'+x[2]+'</a>'}).join('')
+        :'<span class="ok">Rien à signaler</span>')+'</div>';
+}
+var FICHE_PANNE={declaree:'ko',en_diagnostic:'warn',en_intervention:'warn',cloturee:'ok'};
+var FICHE_PENALITE={non_payee:'ko',en_cours:'warn',payee:'ok',contestee:'mut'};
+var FICHE_RECOUV={actif:['warn','En cours'],solde:['ok','Soldé'],leve:['bleu','Levé'],annule:['mut','Annulé']};
 function ficheVehicule(vehiculeId){
     var dlg=document.getElementById('dlg-fiche');
     var contenu=document.getElementById('fiche-contenu');
-    contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
+    contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement…</p>';
     dlg.showModal();
-    var fmt=function(n){return new Intl.NumberFormat('fr-FR').format(n||0)};
+    var fmt=ficheFmt, esc=ficheEsc, etat=ficheEtat, td=ficheTd;
+    var table=function(){return ficheTable.apply(null,['fv'].concat([].slice.call(arguments)))};
     fetch('{{ url("parc/vehicules") }}/'+vehiculeId+'/fiche?exercice={{ $exercice }}&du={{ $exDebut?->toDateString() }}&au={{ $exFin?->toDateString() }}')
         .then(function(r){return r.json()})
         .then(function(d){
-            var html='';
-            /* ── En-tête identité ── */
-            html+='<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:14px;margin-bottom:12px">';
-            html+='<div style="font-size:18px;font-weight:700;color:var(--bleu)">'+d.immatriculation+'</div>';
-            html+='<div style="font-size:12px;color:var(--gris);margin-top:4px">'+d.marque+' '+d.modele+' &middot; <span class="cat-pill cat-'+d.categorie+'">'+d.categorie_label+'</span> &middot; <span class="pill '+(d.statut==='en_service'?'p-ok':(d.statut==='immobilise'?'p-warn':'p-ko'))+'">'+d.statut_label+'</span></div>';
-            if(d.kilometrage) html+='<div style="margin-top:6px;font-size:12px">Kilométrage : <strong>'+fmt(d.kilometrage)+' km</strong></div>';
-            if(d.date_mise_en_service) html+='<div style="font-size:11.5px;color:var(--gris);margin-top:2px">En service depuis : '+d.date_mise_en_service+'</div>';
-            if(d.observations) html+='<div style="font-size:11.5px;color:var(--gris);margin-top:4px;font-style:italic">'+d.observations+'</div>';
-            html+='</div>';
+            var h='';
+            /* Identité : une ligne de titre, une ligne de détails */
+            var stNiv=d.statut==='en_service'?'ok':(d.statut==='immobilise'?'warn':'ko');
+            h+='<div class="fv-tete"><div class="fv-immat">'+esc(d.immatriculation)+'</div>'
+              +'<span class="cat-pill cat-'+d.categorie+'">'+esc(d.categorie_label)+'</span>'+etat(stNiv,d.statut_label)+'</div>';
+            var det=[esc((d.marque||'')+' '+(d.modele||'')).trim()];
+            if(d.kilometrage) det.push(fmt(d.kilometrage)+' km');
+            if(d.date_mise_en_service) det.push('en service depuis le '+d.date_mise_en_service);
+            if(d.objectif_recette) det.push('objectif '+fmt(d.objectif_recette)+' F / jour');
+            h+='<div class="fv-det">'+det.filter(Boolean).join(' · ')+'</div>';
+            var ch=(d.chauffeurs_actifs||[]).map(function(c){return '<b>'+esc(c.nom)+'</b> <span>'+esc(c.role.toLowerCase())+(c.telephone?', '+esc(c.telephone):'')+'</span>'});
+            h+='<div class="fv-det">Chauffeur'+(ch.length>1?'s':'')+' : '+(ch.length?ch.join(' · '):'<span>aucun affecté</span>')+'</div>';
+            if(d.observations) h+='<div class="fv-obs">'+esc(d.observations)+'</div>';
 
-            /* ── KPIs grille ── */
-            var tauxCol=d.taux_recette>=100?'var(--ok)':(d.taux_recette>=80?'#b45309':'var(--ko)');
-            html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
-            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_mois_avec_recouv)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recette+Recouv ('+d.nb_jours+' j.)</div></div>';
-            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:10.5px;color:var(--gris)">Taux objectif</div></div>';
-            html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage exercice</div></div>';
-            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ok)">'+d.pannes_total+'</div><div style="font-size:10.5px;color:var(--gris)">Pannes ('+d.pannes_ouvertes+' ouv.)</div></div>';
-            html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:10.5px;color:var(--gris)">Pénalités ('+fmt(d.penalites_montant)+' F)</div></div>';
-            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#b45309">'+d.echeances_retard+'</div><div style="font-size:10.5px;color:var(--gris)">Maint. en retard</div></div>';
-            html+='</div>';
+            /* Performance de la période : une ligne de mesures, la couleur sur les valeurs seulement */
+            var taux=d.taux_recette||0, tNiv=taux>=100?'ok':(taux>=80?'warn':'ko');
+            var depenses=(d.cout_pannes_periode||0)+(d.maintenance_mois||0);
+            h+='<div class="fv-perf-t">Performance <span>'+esc(d.periode)+'</span></div>';
+            h+='<div class="fv-perf">';
+            h+='<div><b>'+fmt(d.recette_mois_avec_recouv)+' F</b><span>recette'+(d.recouvrement_mois?' dont '+fmt(d.recouvrement_mois)+' F recouvrés':'')+'</span></div>';
+            h+='<div><b class="'+(d.objectif_mois?tNiv:'')+'">'+(d.objectif_mois?taux+' %':'—')+'</b><span>de l\'objectif'+(d.objectif_mois?' ('+fmt(d.objectif_mois)+' F)':'')+'</span>'
+              +(d.objectif_mois?'<i class="fv-barre"><i class="'+tNiv+'" style="width:'+Math.min(100,taux)+'%"></i></i>':'')+'</div>';
+            h+='<div><b>'+d.nb_jours+'</b><span>jour'+(d.nb_jours>1?'s':'')+' saisi'+(d.nb_jours>1?'s':'')+(d.nb_jours?', '+fmt(Math.round(d.recette_mois/d.nb_jours))+' F / jour':'')+'</span></div>';
+            h+='<div><b>'+fmt(d.pointage_mois)+' F</b><span>pointage</span></div>';
+            h+='<div><b>'+fmt(depenses)+' F</b><span>dépenses'+(depenses?' (pannes '+fmt(d.cout_pannes_periode)+', entretiens '+fmt(d.maintenance_mois)+')':'')+'</span></div>';
+            h+='</div>';
 
-            /* ── Onglets internes ── */
-            var tabs=['recettes','chauffeurs','pannes','penalites','maintenance','recouvrements'];
-            var labels=['Recettes','Chauffeurs','Pannes','Pénalités','Maintenance','Recouvrements'];
-            html+='<div style="display:flex;gap:2px;border-bottom:2px solid var(--bord);margin-bottom:10px;flex-wrap:wrap">';
-            tabs.forEach(function(t,i){
-                html+='<button type="button" onclick="fvTab(\''+t+'\')" id="fv-btn-'+t+'" style="padding:5px 10px;font-size:11.5px;border:none;cursor:pointer;border-radius:6px 6px 0 0;background:'+(i===0?'var(--accent)':'#e5e7eb')+';color:'+(i===0?'#fff':'var(--gris)')+';font-weight:'+(i===0?'600':'400')+'">'+labels[i]+'</button>';
-            });
-            html+='</div>';
+            /* À surveiller : seulement ce qui demande une action, chaque point ouvre son onglet */
+            var sig=[];
+            if(d.pannes_ouvertes) sig.push(['ko','pannes',d.pannes_ouvertes+' panne'+(d.pannes_ouvertes>1?'s':'')+' en cours']);
+            if(d.echeances_retard) sig.push(['ko','maintenance',d.echeances_retard+' entretien'+(d.echeances_retard>1?'s':'')+' en retard']);
+            if(d.penalites_impayees) sig.push(['warn','penalites',d.penalites_impayees+' pénalité'+(d.penalites_impayees>1?'s':'')+' à solder ('+fmt(d.penalites_montant)+' F)']);
+            if(d.solde_recouvrement) sig.push(['warn','recouvrements',fmt(d.solde_recouvrement)+' F à recouvrer']);
+            h+=ficheSignaux(sig,'fvTab');
 
-            /* ── Panel Recettes ── */
-            html+='<div id="fv-pan-recettes" class="fv-panel">';
-            if(d.recettes_historique && d.recettes_historique.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Chauffeur</th><th style="text-align:right">Recette</th><th style="text-align:right">Objectif</th><th style="text-align:right">Ecart</th><th style="text-align:right">Pointage</th><th>Motif</th></tr></thead><tbody>';
-                d.recettes_historique.forEach(function(r){
-                    var ec=r.ecart<0?'color:var(--ko)':'color:var(--ok)';
-                    html+='<tr><td>'+r.date+'</td><td>'+r.chauffeur+'</td><td style="text-align:right">'+fmt(r.recette)+'</td><td style="text-align:right">'+fmt(r.objectif)+'</td><td style="text-align:right;'+ec+'">'+fmt(r.ecart)+'</td><td style="text-align:right">'+fmt(r.pointage)+'</td><td style="font-size:11px">'+(r.motif||'')+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucune recette enregistrée</p>'; }
-            html+='</div>';
+            /* Détail en onglets soulignés, avec leur nombre de lignes */
+            var onglets=[['recettes','Recettes',(d.recettes_historique||[]).length],['pannes','Pannes',(d.pannes||[]).length],['maintenance','Entretiens',(d.maintenances||[]).length],
+                ['penalites','Pénalités',(d.penalites||[]).length],['recouvrements','Recouvrements',(d.recouvrements||[]).length]];
+            if((d.chauffeurs_passes||[]).length) onglets.push(['chauffeurs','Anciens chauffeurs',d.chauffeurs_passes.length]);
+            h+=ficheOnglets('fv','fvTab',onglets);
 
-            /* ── Panel Chauffeurs ── */
-            html+='<div id="fv-pan-chauffeurs" class="fv-panel" style="display:none">';
-            html+='<div class="dlg-section">Chauffeurs actuels</div>';
-            if(d.chauffeurs_actifs && d.chauffeurs_actifs.length>0){
-                html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
-                d.chauffeurs_actifs.forEach(function(c){
-                    html+='<li>'+c.nom+' <span style="color:var(--gris)">('+c.role+(c.telephone?' - '+c.telephone:'')+')</span></li>';
-                });
-                html+='</ul>';
-            } else { html+='<p style="color:var(--gris);font-size:12px">Aucun chauffeur affecté</p>'; }
-            if(d.chauffeurs_passes && d.chauffeurs_passes.length>0){
-                html+='<div class="dlg-section" style="margin-top:10px">Chauffeurs passés</div>';
-                html+='<ul style="margin:0;padding-left:18px;font-size:12.5px">';
-                d.chauffeurs_passes.forEach(function(c){html+='<li style="color:var(--gris)">'+c.nom+' ('+c.role+')</li>'});
-                html+='</ul>';
-            }
-            html+='</div>';
+            h+=table('recettes',true,['Date','Chauffeur','>Recette','>Objectif','>Écart','>Pointage','Motif'],
+                (d.recettes_historique||[]).map(function(r){return '<tr>'+td(r.date)+td(esc(r.chauffeur))+td(fmt(r.recette),1)+td(fmt(r.objectif),1)
+                    +td((r.ecart>0?'+':'')+fmt(r.ecart),1,r.ecart<0?'ko':(r.ecart>0?'ok':'mut'))+td(r.pointage?fmt(r.pointage):'—',1,r.pointage?'':'mut')+td(esc(r.motif||''),0,'mut')+'</tr>'}),
+                'Aucune recette enregistrée.', d.recettes_hors_periode&&(d.recettes_historique||[]).length?'Aucune recette sur la période : dernières saisies.':'');
 
-            /* ── Panel Pannes ── */
-            html+='<div id="fv-pan-pannes" class="fv-panel" style="display:none">';
-            if(d.pannes && d.pannes.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Description</th><th>Urgence</th><th style="text-align:right">Coût</th><th>Statut</th></tr></thead><tbody>';
-                d.pannes.forEach(function(pa){
-                    html+='<tr><td>'+pa.date+'</td><td>'+pa.description+'</td><td>'+pa.urgence+'</td><td style="text-align:right">'+fmt(pa.cout)+'</td><td>'+pa.statut+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucune panne</p>'; }
-            html+='</div>';
+            var pNiv=FICHE_PANNE;
+            h+=table('pannes',false,['Date','Description','Urgence','>Coût','Statut'],
+                (d.pannes||[]).map(function(p){return '<tr>'+td(p.date)+td(esc(p.description))+td(esc(p.urgence?p.urgence.charAt(0).toUpperCase()+p.urgence.slice(1):'—'),0,'mut')
+                    +td(p.cout?fmt(p.cout):'—',1,p.cout?'':'mut')+td(etat(pNiv[p.statut]||'mut',p.statut_label))+'</tr>'}),'Aucune panne.');
 
-            /* ── Panel Pénalités ── */
-            html+='<div id="fv-pan-penalites" class="fv-panel" style="display:none">';
-            if(d.penalites && d.penalites.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Type</th><th>Chauffeur</th><th style="text-align:right">Montant</th><th>Statut</th></tr></thead><tbody>';
-                d.penalites.forEach(function(p){
-                    var sc=p.statut==='non_payee'?'color:var(--ko)':'color:var(--ok)';
-                    html+='<tr><td>'+p.date+'</td><td>'+p.type+'</td><td>'+p.chauffeur+'</td><td style="text-align:right">'+fmt(p.montant)+'</td><td style="'+sc+'">'+p.statut.replace('_',' ')+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucune pénalité</p>'; }
-            html+='</div>';
+            h+=table('maintenance',false,['Entretien','Dernière réalisation','Prochaine échéance','>Coût','Statut'],
+                (d.maintenances||[]).map(function(m){
+                    var st=m.statut==='realisee'?etat('ok','Réalisée'):(m.retard?etat('ko','En retard'):etat('bleu','Planifiée'));
+                    return '<tr>'+td(esc(m.type))+td(m.derniere_realisation,0,'mut')+td(m.echeance,0,m.retard?'ko':'')+td(m.cout?fmt(m.cout):'—',1,m.cout?'':'mut')+td(st)+'</tr>'}),'Aucun entretien planifié.');
 
-            /* ── Panel Maintenance ── */
-            html+='<div id="fv-pan-maintenance" class="fv-panel" style="display:none">';
-            if(d.maintenances && d.maintenances.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Type</th><th>Dernière réalisation</th><th>Prochaine échéance</th><th style="text-align:right">Coût</th><th>Statut</th></tr></thead><tbody>';
-                d.maintenances.forEach(function(m){
-                    var st=m.statut==='realisee'?'<span style="color:var(--ok);font-weight:600">Réalisée</span>':(m.retard?'<span style="color:var(--ko);font-weight:600">En retard</span>':'<span style="color:var(--ok)">À jour</span>');
-                    var cout=m.cout>0?fmt(m.cout):'—';
-                    html+='<tr><td>'+m.type+'</td><td>'+m.derniere_realisation+'</td><td>'+m.echeance+'</td><td style="text-align:right">'+cout+'</td><td>'+st+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucune maintenance planifiée</p>'; }
-            html+='</div>';
+            var peNiv=FICHE_PENALITE;
+            h+=table('penalites',false,['Date','Infraction','Chauffeur','>Montant','Statut'],
+                (d.penalites||[]).map(function(p){return '<tr>'+td(p.date)+td(esc(p.type))+td(esc(p.chauffeur))+td(fmt(p.montant),1)+td(etat(peNiv[p.statut]||'mut',p.statut_label))+'</tr>'}),'Aucune pénalité.');
 
-            /* Panel Dépenses retiré (correspondait aux dépenses bureau) */
+            var rcLib=FICHE_RECOUV;
+            h+=table('recouvrements',false,['Date','Chauffeur','>Déficit','>Recouvré','>Reste','Statut'],
+                (d.recouvrements||[]).map(function(rc){var l=rcLib[rc.statut]||['mut',rc.statut];
+                    return '<tr>'+td(rc.date)+td(esc(rc.chauffeur))+td(fmt(rc.deficit),1)+td(fmt(rc.recouvre),1)+td(rc.solde&&rc.statut==='actif'?fmt(rc.solde):'—',1,rc.solde&&rc.statut==='actif'?'ko':'mut')+td(etat(l[0],l[1]))+'</tr>'}),'Aucun recouvrement.');
 
-            /* ── Panel Recouvrements ── */
-            html+='<div id="fv-pan-recouvrements" class="fv-panel" style="display:none">';
-            if(d.recouvrements && d.recouvrements.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Chauffeur</th><th style="text-align:right">Déficit</th><th style="text-align:right">Recouvré</th><th style="text-align:right">Solde</th><th>Statut</th></tr></thead><tbody>';
-                d.recouvrements.forEach(function(rc){
-                    var sc2=rc.statut==='actif'?'color:var(--ko)':'color:var(--ok)';
-                    html+='<tr><td>'+rc.date+'</td><td>'+rc.chauffeur+'</td><td style="text-align:right">'+fmt(rc.deficit)+'</td><td style="text-align:right">'+fmt(rc.recouvre)+'</td><td style="text-align:right">'+fmt(rc.solde)+'</td><td style="'+sc2+'">'+rc.statut+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucun recouvrement</p>'; }
-            html+='</div>';
+            if((d.chauffeurs_passes||[]).length) h+=table('chauffeurs',false,['Chauffeur','Rôle'],
+                d.chauffeurs_passes.map(function(c){return '<tr>'+td(esc(c.nom))+td(esc(c.role),0,'mut')+'</tr>'}),'');
 
-            contenu.innerHTML=html;
+            contenu.innerHTML=h;
         })
         .catch(function(){contenu.innerHTML='<p style="color:var(--ko)">Erreur de chargement.</p>'});
 }
@@ -3907,130 +3974,76 @@ function ficheVehicule(vehiculeId){
 function ficheChauffeur(chauffeurId){
     var dlg=document.getElementById('dlg-fiche-ch');
     var contenu=document.getElementById('fiche-ch-contenu');
-    contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement...</p>';
+    contenu.innerHTML='<p style="text-align:center;color:var(--gris)">Chargement…</p>';
     dlg.showModal();
-    var fmt=function(n){return new Intl.NumberFormat('fr-FR').format(n||0)};
+    var fmt=ficheFmt, esc=ficheEsc, etat=ficheEtat, td=ficheTd;
+    var table=function(){return ficheTable.apply(null,['fc'].concat([].slice.call(arguments)))};
     fetch('{{ url("parc/chauffeurs") }}/'+chauffeurId+'/fiche?exercice={{ $exercice }}&du={{ $exDebut?->toDateString() }}&au={{ $exFin?->toDateString() }}')
         .then(function(r){return r.json()})
         .then(function(d){
-            var html='';
-            /* ── En-tête identité ── */
-            html+='<div style="background:#f8fafc;border:1px solid var(--bord);border-radius:8px;padding:14px;margin-bottom:12px">';
-            html+='<div style="font-size:18px;font-weight:700;color:var(--bleu)">'+d.nom+'</div>';
-            html+='<div style="font-size:12px;color:var(--gris);margin-top:4px">';
-            html+='<span class="pill '+(d.statut==='actif'?'p-ok':'p-gris')+'">'+d.statut.charAt(0).toUpperCase()+d.statut.slice(1)+'</span>';
-            if(d.telephone) html+=' &middot; '+d.telephone;
-            if(d.permis) html+=' &middot; Permis: '+d.permis;
-            if(d.date_embauche) html+=' &middot; Depuis: '+d.date_embauche;
-            html+='</div>';
-            if(d.observations) html+='<div style="font-size:11.5px;color:var(--gris);margin-top:4px;font-style:italic">'+d.observations+'</div>';
-            html+='</div>';
+            var h='';
+            /* Identité */
+            var actif=d.statut==='actif';
+            h+='<div class="fv-tete"><div class="fv-immat">'+esc(d.nom)+'</div>'+etat(actif?'ok':'mut',actif?'Actif':(d.statut.charAt(0).toUpperCase()+d.statut.slice(1)))+'</div>';
+            var det=[];
+            if(d.telephone) det.push(esc(d.telephone));
+            if(d.permis) det.push('permis '+esc(d.permis));
+            if(d.date_embauche) det.push('chauffeur depuis le '+d.date_embauche);
+            if(det.length) h+='<div class="fv-det">'+det.join(' · ')+'</div>';
+            var ve=(d.vehicules_actifs||[]).map(function(v){return '<b>'+esc(v.immatriculation)+'</b> <span>'+esc(v.categorie)+', '+esc(v.role.toLowerCase())+'</span>'});
+            h+='<div class="fv-det">Véhicule'+(ve.length>1?'s':'')+' : '+(ve.length?ve.join(' · '):'<span>aucun affecté</span>')+'</div>';
+            if(d.observations) h+='<div class="fv-obs">'+esc(d.observations)+'</div>';
 
-            /* ── KPIs grille ── */
-            html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
-            var tauxCol=d.taux_recette>=100?'var(--ok)':(d.taux_recette>=80?'#b45309':'var(--ko)');
-            html+='<div style="background:#dbeafe;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--accent)">'+fmt(d.recette_totale||d.recette_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Recette+Recouv ('+d.jours_saisis+' j.)</div></div>';
-            html+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:'+tauxCol+'">'+d.taux_recette+'%</div><div style="font-size:10.5px;color:var(--gris)">Taux objectif</div></div>';
-            html+='<div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--bleu)">'+d.jours_atteints+'/'+d.jours_saisis+'</div><div style="font-size:10.5px;color:var(--gris)">Jours atteints</div></div>';
-            html+='<div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#b45309">'+fmt(d.pointage_mois)+' F</div><div style="font-size:10.5px;color:var(--gris)">Pointage exercice</div></div>';
-            html+='<div style="background:#fee2e2;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:var(--ko)">'+d.penalites_impayees+'</div><div style="font-size:10.5px;color:var(--gris)">Pénalités impayées ('+fmt(d.penalites_montant)+' F)</div></div>';
-            html+='<div style="background:#fef9c3;border-radius:8px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:700;color:#92400e">'+d.recouvrements_actifs+'</div><div style="font-size:10.5px;color:var(--gris)">Recouvrements ('+fmt(d.solde_recouvrement)+' F)</div></div>';
-            html+='</div>';
+            /* Performance de la période */
+            var taux=d.taux_recette||0, tNiv=taux>=100?'ok':(taux>=80?'warn':'ko');
+            var js=d.jours_saisis||0, ja=d.jours_atteints||0, rNiv=js?(ja/js>=0.8?'ok':(ja/js>=0.5?'warn':'ko')):'';
+            h+='<div class="fv-perf-t">Performance <span>'+esc(d.periode)+'</span></div>';
+            h+='<div class="fv-perf">';
+            h+='<div><b>'+fmt(d.recette_totale)+' F</b><span>recette'+(d.recouvrement_mois?' dont '+fmt(d.recouvrement_mois)+' F recouvrés':'')+'</span></div>';
+            h+='<div><b class="'+(d.objectif_mois?tNiv:'')+'">'+(d.objectif_mois?taux+' %':'—')+'</b><span>de l\'objectif'+(d.objectif_mois?' ('+fmt(d.objectif_mois)+' F)':'')+'</span>'
+              +(d.objectif_mois?'<i class="fv-barre"><i class="'+tNiv+'" style="width:'+Math.min(100,taux)+'%"></i></i>':'')+'</div>';
+            h+='<div><b class="'+rNiv+'">'+ja+' / '+js+'</b><span>jours à l\'objectif</span></div>';
+            h+='<div><b class="'+(d.ecart_periode<0?'ko':'')+'">'+(d.ecart_periode>0?'+':'')+fmt(d.ecart_periode)+' F</b><span>écart cumulé</span></div>';
+            h+='<div><b>'+fmt(d.pointage_mois)+' F</b><span>pointage</span></div>';
+            h+='</div>';
 
-            /* ── Onglets internes ── */
-            var tabs=['recettes','vehicules','penalites','recouvrements','pannes'];
-            var labels=['Recettes','Véhicules','Pénalités','Recouvrements','Pannes'];
-            html+='<div style="display:flex;gap:2px;border-bottom:2px solid var(--bord);margin-bottom:10px">';
-            tabs.forEach(function(t,i){
-                html+='<button type="button" onclick="fcTab(\''+t+'\')" id="fc-btn-'+t+'" style="padding:6px 12px;font-size:12px;border:none;cursor:pointer;border-radius:6px 6px 0 0;background:'+(i===0?'var(--accent)':'#e5e7eb')+';color:'+(i===0?'#fff':'var(--gris)')+';font-weight:'+(i===0?'600':'400')+'">'+labels[i]+'</button>';
-            });
-            html+='</div>';
+            /* À surveiller */
+            var sig=[];
+            if(d.penalites_impayees) sig.push(['ko','penalites',d.penalites_impayees+' pénalité'+(d.penalites_impayees>1?'s':'')+' à solder ('+fmt(d.penalites_montant)+' F)']);
+            if(d.recouvrements_actifs) sig.push(['warn','recouvrements',fmt(d.solde_recouvrement)+' F à recouvrer ('+d.recouvrements_actifs+' dossier'+(d.recouvrements_actifs>1?'s':'')+')']);
+            if(!actif) sig.push(['warn','recettes','chauffeur inactif']);
+            h+=ficheSignaux(sig,'fcTab');
 
-            /* ── Panel Recettes ── */
-            html+='<div id="fc-pan-recettes" class="fc-panel">';
-            if(d.recettes_historique && d.recettes_historique.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Véhicule</th><th style="text-align:right">Recette</th><th style="text-align:right">Objectif</th><th style="text-align:right">Ecart</th><th style="text-align:right">Pointage</th><th>Motif</th></tr></thead><tbody>';
-                d.recettes_historique.forEach(function(r){
-                    var ec=r.ecart<0?'color:var(--ko)':'color:var(--ok)';
-                    html+='<tr><td>'+r.date+'</td><td>'+r.vehicule+'</td><td style="text-align:right">'+fmt(r.recette)+'</td><td style="text-align:right">'+fmt(r.objectif)+'</td><td style="text-align:right;'+ec+'">'+fmt(r.ecart)+'</td><td style="text-align:right">'+fmt(r.pointage)+'</td><td style="font-size:11px">'+( r.motif||'')+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucune recette enregistrée</p>'; }
-            html+='</div>';
+            /* Détail */
+            var onglets=[['recettes','Recettes',(d.recettes_historique||[]).length],['penalites','Pénalités',(d.penalites||[]).length],
+                ['recouvrements','Recouvrements',(d.recouvrements||[]).length],['pannes','Pannes des véhicules',(d.pannes||[]).length]];
+            if((d.vehicules_passes||[]).length) onglets.push(['vehicules','Anciens véhicules',d.vehicules_passes.length]);
+            h+=ficheOnglets('fc','fcTab',onglets);
 
-            /* ── Panel Véhicules ── */
-            html+='<div id="fc-pan-vehicules" class="fc-panel" style="display:none">';
-            html+='<div class="dlg-section">Véhicules actuels</div>';
-            if(d.vehicules_actifs && d.vehicules_actifs.length>0){
-                html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
-                d.vehicules_actifs.forEach(function(v){html+='<li>'+v.immatriculation+' <span style="color:var(--gris)">('+v.categorie+' - '+v.role+')</span></li>'});
-                html+='</ul>';
-            } else { html+='<p style="color:var(--gris);font-size:12px">Aucun véhicule affecté actuellement</p>'; }
-            if(d.vehicules_passes && d.vehicules_passes.length>0){
-                html+='<div class="dlg-section" style="margin-top:10px">Véhicules passés</div>';
-                html+='<ul style="margin:0 0 10px;padding-left:18px;font-size:12.5px">';
-                d.vehicules_passes.forEach(function(v){html+='<li style="color:var(--gris)">'+v.immatriculation+' ('+v.categorie+' - '+v.role+')</li>'});
-                html+='</ul>';
-            }
-            html+='</div>';
+            h+=table('recettes',true,['Date','Véhicule','>Recette','>Objectif','>Écart','>Pointage','Motif'],
+                (d.recettes_historique||[]).map(function(r){return '<tr>'+td(r.date)+td(esc(r.vehicule))+td(fmt(r.recette),1)+td(fmt(r.objectif),1)
+                    +td((r.ecart>0?'+':'')+fmt(r.ecart),1,r.ecart<0?'ko':(r.ecart>0?'ok':'mut'))+td(r.pointage?fmt(r.pointage):'—',1,r.pointage?'':'mut')+td(esc(r.motif||''),0,'mut')+'</tr>'}),
+                'Aucune recette enregistrée.', d.recettes_hors_periode&&(d.recettes_historique||[]).length?'Aucune recette sur la période : dernières saisies.':'');
 
-            /* ── Panel Pénalités ── */
-            html+='<div id="fc-pan-penalites" class="fc-panel" style="display:none">';
-            if(d.penalites && d.penalites.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Type</th><th>Véhicule</th><th style="text-align:right">Montant</th><th>Statut</th></tr></thead><tbody>';
-                d.penalites.forEach(function(p){
-                    var sc=p.statut==='non_payee'?'color:var(--ko)':'color:var(--ok)';
-                    html+='<tr><td>'+p.date+'</td><td>'+p.type+'</td><td>'+p.vehicule+'</td><td style="text-align:right">'+fmt(p.montant)+'</td><td style="'+sc+'">'+p.statut.replace('_',' ')+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucune pénalité</p>'; }
-            html+='</div>';
+            h+=table('penalites',false,['Date','Infraction','Véhicule','>Montant','Statut'],
+                (d.penalites||[]).map(function(p){return '<tr>'+td(p.date)+td(esc(p.type))+td(esc(p.vehicule))+td(fmt(p.montant),1)+td(etat(FICHE_PENALITE[p.statut]||'mut',p.statut_label))+'</tr>'}),'Aucune pénalité.');
 
-            /* ── Panel Recouvrements ── */
-            html+='<div id="fc-pan-recouvrements" class="fc-panel" style="display:none">';
-            if(d.recouvrements && d.recouvrements.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th style="text-align:right">Déficit</th><th style="text-align:right">Recouvré</th><th style="text-align:right">Solde</th><th>Statut</th></tr></thead><tbody>';
-                d.recouvrements.forEach(function(rc){
-                    var sc2=rc.statut==='actif'?'color:var(--ko)':'color:var(--ok)';
-                    html+='<tr><td>'+rc.date+'</td><td style="text-align:right">'+fmt(rc.deficit)+'</td><td style="text-align:right">'+fmt(rc.recouvre)+'</td><td style="text-align:right">'+fmt(rc.solde)+'</td><td style="'+sc2+'">'+rc.statut+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucun recouvrement</p>'; }
-            html+='</div>';
+            h+=table('recouvrements',false,['Date','>Déficit','>Recouvré','>Reste','Statut'],
+                (d.recouvrements||[]).map(function(rc){var l=FICHE_RECOUV[rc.statut]||['mut',rc.statut];
+                    return '<tr>'+td(rc.date)+td(fmt(rc.deficit),1)+td(fmt(rc.recouvre),1)+td(rc.solde&&rc.statut==='actif'?fmt(rc.solde):'—',1,rc.solde&&rc.statut==='actif'?'ko':'mut')+td(etat(l[0],l[1]))+'</tr>'}),'Aucun recouvrement.');
 
-            /* ── Panel Pannes ── */
-            html+='<div id="fc-pan-pannes" class="fc-panel" style="display:none">';
-            if(d.pannes && d.pannes.length>0){
-                html+='<div style="overflow-x:auto"><table class="table" style="font-size:12px;width:100%"><thead><tr><th>Date</th><th>Véhicule</th><th>Description</th><th style="text-align:right">Coût</th><th>Statut</th></tr></thead><tbody>';
-                d.pannes.forEach(function(pa){
-                    html+='<tr><td>'+pa.date+'</td><td>'+pa.vehicule+'</td><td>'+pa.description+'</td><td style="text-align:right">'+fmt(pa.cout)+'</td><td>'+pa.statut+'</td></tr>';
-                });
-                html+='</tbody></table></div>';
-            } else { html+='<p style="color:var(--gris)">Aucune panne liée</p>'; }
-            html+='</div>';
+            h+=table('pannes',false,['Date','Véhicule','Description','>Coût','Statut'],
+                (d.pannes||[]).map(function(p){return '<tr>'+td(p.date)+td(esc(p.vehicule))+td(esc(p.description))+td(p.cout?fmt(p.cout):'—',1,p.cout?'':'mut')+td(etat(FICHE_PANNE[p.statut]||'mut',p.statut_label))+'</tr>'}),'Aucune panne sur ses véhicules.');
 
-            contenu.innerHTML=html;
+            if((d.vehicules_passes||[]).length) h+=table('vehicules',false,['Véhicule','Catégorie','Rôle'],
+                d.vehicules_passes.map(function(v){return '<tr>'+td(esc(v.immatriculation))+td(esc(v.categorie),0,'mut')+td(esc(v.role),0,'mut')+'</tr>'}),'');
+
+            contenu.innerHTML=h;
         })
         .catch(function(){contenu.innerHTML='<p style="color:var(--ko)">Erreur de chargement.</p>'});
 }
-function fcTab(nom){
-    var tabs=['recettes','vehicules','penalites','recouvrements','pannes'];
-    tabs.forEach(function(t){
-        var pan=document.getElementById('fc-pan-'+t);
-        var btn=document.getElementById('fc-btn-'+t);
-        if(pan) pan.style.display=(t===nom?'':'none');
-        if(btn){btn.style.background=(t===nom?'var(--accent)':'#e5e7eb');btn.style.color=(t===nom?'#fff':'var(--gris)');btn.style.fontWeight=(t===nom?'600':'400')}
-    });
-}
-function fvTab(nom){
-    var tabs=['recettes','chauffeurs','pannes','penalites','maintenance','depenses','recouvrements'];
-    tabs.forEach(function(t){
-        var pan=document.getElementById('fv-pan-'+t);
-        var btn=document.getElementById('fv-btn-'+t);
-        if(pan) pan.style.display=(t===nom?'':'none');
-        if(btn){btn.style.background=(t===nom?'var(--accent)':'#e5e7eb');btn.style.color=(t===nom?'#fff':'var(--gris)');btn.style.fontWeight=(t===nom?'600':'400')}
-    });
-}
+function fcTab(nom){ ficheBasculer('fiche-ch-contenu','fc',nom); }
+function fvTab(nom){ ficheBasculer('fiche-contenu','fv',nom); }
 
 /* Filtres de liste : éléments [data-ligne] du conteneur cible ; les data-* peuvent contenir plusieurs valeurs séparées par « | » */
 /* Maintenance : l'indicateur cliqué filtre la liste sur son alerte (un second clic l'enlève) */
@@ -4112,6 +4125,13 @@ document.querySelectorAll('dialog').forEach(function(dlg){
     });
 });
 
+function leverRecouvrement(id, chauffeur, solde){
+    var f=document.getElementById('form-lever');
+    f.action='{{ url("parc/recouvrements") }}/'+id+'/lever';
+    f.reset();
+    document.getElementById('lv-info').textContent=(chauffeur||'Chauffeur')+' · reste dû '+Number(solde).toLocaleString('fr-FR')+' F';
+    document.getElementById('dlg-lever').showModal();
+}
 function demanderMotifAnnulation(form){
     var motif=prompt('Motif de l\'annulation (obligatoire) :');
     if(!motif||motif.trim().length<5){alert('Le motif est obligatoire (5 caractères minimum).');return false;}

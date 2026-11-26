@@ -440,6 +440,7 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         \App\Services\PiecesJointes::valider($r, 'panne');
+        \App\Services\PiecesJointes::exigerPhoto($r, 'panne', null, 'Ajoutez au moins une photo de la panne.');
         $data = $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_declaration' => 'nullable|date',
@@ -484,6 +485,7 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         \App\Services\PiecesJointes::valider($r, 'panne');
+        \App\Services\PiecesJointes::exigerPhoto($r, 'panne', $panne, 'Cette panne n\'a encore aucune photo : ajoutez-en au moins une.');
         $data = $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_declaration' => 'nullable|date',
@@ -1190,6 +1192,7 @@ class ParcController extends Controller
     {
         $this->autoriser($r);
         \App\Services\PiecesJointes::valider($r, 'maintenance');
+        \App\Services\PiecesJointes::exigerPhoto($r, 'maintenance', $maintenance, 'Ajoutez au moins une photo de l\'entretien réalisé.');
         $r->validate([
             'date_realisation' => 'required|date',
             'prestataire'      => 'required|string|max:150',
@@ -1575,12 +1578,12 @@ class ParcController extends Controller
         $penalitesImpayees = $vehicule->penalites->where('statut', 'non_payee')->count();
         $penalitesMontant = (int) $vehicule->penalites->where('statut', 'non_payee')->sum('montant');
 
-        // Recouvrement perçu ce mois (versements chauffeur)
+        // Recouvrement perçu sur les dettes nées dans la période (versements chauffeur)
         $recouvMois = 0;
         if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
             $recouvMois = (int) VersementRecouvrement::recetteChauffeurs()
                 ->where('recouvrements.vehicule_id', $vehicule->id)
-                ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
+                ->whereBetween('recouvrements.date_recette', [$moisDebut, $moisFin])
                 ->sum('versements_recouvrement.montant');
         }
         $recetteMoisAvecRecouv = $recetteMois + $recouvMois;
@@ -1599,9 +1602,11 @@ class ParcController extends Controller
             'nom' => $c->nomComplet(), 'role' => $c->pivot->role === 'principal' ? 'Principal' : 'Alternant',
         ])->values();
 
-        // Historique recettes (30 dernières)
-        $recettesHistorique = RecetteVehicule::where('vehicule_id', $vehicule->id)
-            ->orderByDesc('date')->limit(30)->get()
+        // Recettes de la période (à défaut, les 10 dernières)
+        $recettesPeriode = RecetteVehicule::where('vehicule_id', $vehicule->id)->whereBetween('date', [$moisDebut, $moisFin]);
+        $recettesHorsPeriode = !(clone $recettesPeriode)->exists();
+        $recettesHistorique = ($recettesHorsPeriode ? RecetteVehicule::where('vehicule_id', $vehicule->id)->limit(10) : $recettesPeriode->limit(62))
+            ->orderByDesc('date')->get()
             ->map(fn($rv) => [
                 'date' => $rv->date->format('d/m/Y'),
                 'chauffeur' => $rv->chauffeur ?? '—',
@@ -1616,8 +1621,9 @@ class ParcController extends Controller
             'description' => mb_substr($pa->description ?? '', 0, 80),
             'cout' => (int) ($pa->cout_reel ?? 0),
             'urgence' => $pa->urgence,
-            'statut' => $pa->statut,
+            'statut' => $pa->statut, 'statut_label' => $pa->statutLabel(),
         ])->values();
+        $coutPannesPeriode = (int) $vehicule->pannes->whereBetween('date_declaration', [$moisDebut, $moisFin])->sum('cout_reel');
 
         // Pénalités (20 dernières)
         $penalites = collect();
@@ -1626,15 +1632,15 @@ class ParcController extends Controller
                 ->orderByDesc('date_infraction')->limit(20)->get()
                 ->map(fn($p) => [
                     'date' => $p->date_infraction->format('d/m/Y'),
-                    'type' => $p->type_penalite,
+                    'type' => $p->typeLabel(),
                     'chauffeur' => $p->chauffeur ?? '—',
-                    'montant' => (int) $p->montant, 'statut' => $p->statut,
+                    'montant' => (int) $p->montant, 'statut' => $p->statut, 'statut_label' => $p->statutLabel(),
                 ]);
         }
 
         // Maintenance préventive
         $maintenances = $vehicule->maintenances->sortByDesc('prochaine_echeance')->map(fn($m) => [
-            'type' => $m->type_echeance,
+            'type' => $m->typeLabel(),
             'echeance' => $m->prochaine_echeance?->format('d/m/Y') ?? '—',
             'retard' => !$m->estRealisee() && $m->prochaine_echeance && $m->prochaine_echeance < today(),
             'derniere_realisation' => $m->derniere_realisation?->format('d/m/Y') ?? '—',
@@ -1692,6 +1698,9 @@ class ParcController extends Controller
             'penalites_impayees' => $penalitesImpayees, 'penalites_montant' => $penalitesMontant,
             'maintenance_mois' => $maintenanceMois,
             'solde_recouvrement' => $soldeRecouvr,
+            'cout_pannes_periode' => $coutPannesPeriode,
+            'periode' => $moisDebut->year <= 2000 ? 'depuis le début' : 'du ' . $moisDebut->format('d/m/Y') . ' au ' . $moisFin->format('d/m/Y'),
+            'recettes_hors_periode' => $recettesHorsPeriode,
             // Historiques
             'chauffeurs_actifs' => $chauffeursActifs, 'chauffeurs_passes' => $chauffeursPasses,
             'recettes_historique' => $recettesHistorique,
@@ -1791,19 +1800,22 @@ class ParcController extends Controller
         $pointageMois = RecetteVehicule::where('chauffeur', $nomComplet)
             ->whereBetween('date', [$moisDebut, $moisFin])->sum('pointage');
 
-        // Recouvrement perçu ce mois (versements chauffeur)
+        // Recouvrement perçu sur les dettes nées dans la période (versements chauffeur)
         $recouvMois = 0;
         if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
             $recouvMois = (int) VersementRecouvrement::recetteChauffeurs()
                 ->where('recouvrements.chauffeur_nom', $nomComplet)
-                ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
+                ->whereBetween('recouvrements.date_recette', [$moisDebut, $moisFin])
                 ->sum('versements_recouvrement.montant');
         }
         $recetteTotale = (int) $recetteMois + $recouvMois;
 
-        // Historique recettes (30 derniers jours)
-        $recettesHistorique = RecetteVehicule::where('chauffeur', $nomComplet)
-            ->orderByDesc('date')->limit(30)->get()
+        // Recettes de la période (à défaut, les 10 dernières)
+        $recettesPeriode = RecetteVehicule::where('chauffeur', $nomComplet)->whereBetween('date', [$moisDebut, $moisFin]);
+        $recettesHorsPeriode = !(clone $recettesPeriode)->exists();
+        $ecartPeriode = (int) (clone $recettesPeriode)->sum('ecart');
+        $recettesHistorique = ($recettesHorsPeriode ? RecetteVehicule::where('chauffeur', $nomComplet)->limit(10) : $recettesPeriode->limit(62))
+            ->with('vehicule')->orderByDesc('date')->get()
             ->map(fn($rv) => [
                 'date' => $rv->date->format('d/m/Y'),
                 'vehicule' => $rv->vehicule?->immatriculation ?? '—',
@@ -1821,9 +1833,9 @@ class ParcController extends Controller
                 ->orderByDesc('date_infraction')->limit(20)->get()
                 ->map(fn($p) => [
                     'date' => $p->date_infraction->format('d/m/Y'),
-                    'type' => $p->type_penalite,
+                    'type' => $p->typeLabel(),
                     'montant' => (int) $p->montant,
-                    'statut' => $p->statut,
+                    'statut' => $p->statut, 'statut_label' => $p->statutLabel(),
                     'vehicule' => $p->vehicule?->immatriculation ?? '—',
                 ]);
         }
@@ -1856,7 +1868,7 @@ class ParcController extends Controller
                     'vehicule' => $pa->vehicule?->immatriculation ?? '—',
                     'description' => mb_substr($pa->description ?? '', 0, 60),
                     'cout' => (int) ($pa->cout_reel ?? 0),
-                    'statut' => $pa->statut,
+                    'statut' => $pa->statut, 'statut_label' => $pa->statutLabel(),
                 ]);
         }
 
@@ -1882,6 +1894,9 @@ class ParcController extends Controller
             'jours_saisis' => $nbJoursSaisis,
             'jours_atteints' => $joursAtteints,
             'pointage_mois' => (int) $pointageMois,
+            'ecart_periode' => $ecartPeriode,
+            'periode' => $moisDebut->year <= 2000 ? 'depuis le début' : 'du ' . $moisDebut->format('d/m/Y') . ' au ' . $moisFin->format('d/m/Y'),
+            'recettes_hors_periode' => $recettesHorsPeriode,
             'recettes_historique' => $recettesHistorique,
             'penalites' => $penalites,
             'penalites_impayees' => $penalitesImpayees,
@@ -1974,11 +1989,11 @@ class ParcController extends Controller
         $objectifMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('objectif');
         $pointageMois = (int) RecetteVehicule::whereBetween('date', [$moisDebut, $moisFin])->sum('pointage');
 
-        // Recouvrement perçu ce mois (versements chauffeur)
+        // Recouvrement perçu sur les dettes nées dans la période (versements chauffeur)
         $recouvMois = 0;
         if (Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')) {
             $recouvMois = (int) VersementRecouvrement::recetteChauffeurs()
-                ->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
+                ->whereBetween('recouvrements.date_recette', [$moisDebut, $moisFin])
                 ->sum('versements_recouvrement.montant');
         }
         $recetteTotale = $recetteMois + $recouvMois;
@@ -2082,6 +2097,32 @@ class ParcController extends Controller
         ]);
         AuditLog::log('annulation', 'recouvrement', "Recouvrement #{$recouvrement->id}", "Chauffeur: {$recouvrement->chauffeur}, Montant: {$recouvrement->montant_initial} F, Motif: {$r->motif_annulation}");
         return redirect()->route('parc.index', ['tab' => 'recouv'])->with('succes', 'Recouvrement annulé.');
+    }
+
+    /**
+     * Lever un recouvrement : il est clos sans que le reste dû soit encaissé (remise, créance irrécouvrable, erreur…).
+     * Aucun montant à saisir, motif obligatoire ; le solde abandonné reste visible dans l'historique et au journal.
+     */
+    public function leverRecouvrement(Request $r, Recouvrement $recouvrement)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403, 'La direction consulte les recouvrements sans les modifier.');
+        $v = $r->validate(['motif' => 'required|string|max:120', 'precision' => 'nullable|string|max:400'],
+            ['motif.required' => 'Choisissez le motif de la levée.']);
+        if ($v['motif'] === 'Autre' && mb_strlen(trim($v['precision'] ?? '')) < 5) {
+            return back()->withErrors(['motif' => 'Précisez le motif de la levée (5 caractères au moins).']);
+        }
+        if (!$recouvrement->estActif()) return back()->withErrors(['motif' => 'Ce recouvrement n\'est plus actif.']);
+        $motif = trim($v['motif'] . (trim($v['precision'] ?? '') !== '' ? ' - ' . trim($v['precision']) : ''));
+        $abandonne = (int) $recouvrement->solde;
+        $recouvrement->update([
+            'statut' => 'leve', 'motif_annulation' => $motif,
+            'annule_par' => $r->user()->nomComplet(), 'annule_le' => now(),
+        ]);
+        AuditLog::log('levee', 'recouvrement', "Recouvrement #{$recouvrement->id}",
+            "Chauffeur : {$recouvrement->chauffeur_nom}, reste abandonné : " . number_format($abandonne, 0, ',', ' ') . " F, motif : {$motif}");
+        return redirect()->route('parc.index', ['tab' => 'recouv'])
+            ->with('succes', "Recouvrement de {$recouvrement->chauffeur_nom} levé (" . number_format($abandonne, 0, ',', ' ') . ' F abandonnés).');
     }
 
     public function destroyRecouvrement(Request $r, Recouvrement $recouvrement)

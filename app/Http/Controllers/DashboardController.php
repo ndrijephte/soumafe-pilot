@@ -328,7 +328,7 @@ class DashboardController extends Controller
 
             // Recette = recettes saisies + recouvrements de recette payés par les chauffeurs sur l'exercice
             $recouvParVehicule = Schema::hasTable('versements_recouvrement') && Schema::hasTable('recouvrements')
-                ? \App\Models\VersementRecouvrement::recetteChauffeurs()->whereBetween('versements_recouvrement.date_versement', [$moisDebut, $moisFin])
+                ? \App\Models\VersementRecouvrement::recetteChauffeurs()->whereBetween('recouvrements.date_recette', [$moisDebut, $moisFin])
                     ->selectRaw('recouvrements.vehicule_id as vid, recouvrements.chauffeur_nom as nom, SUM(versements_recouvrement.montant) as total')
                     ->groupBy('recouvrements.vehicule_id', 'recouvrements.chauffeur_nom')->get()
                 : collect();

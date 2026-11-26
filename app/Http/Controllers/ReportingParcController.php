@@ -225,13 +225,13 @@ class ReportingParcController extends Controller
             ->whereBetween('date_realisation', [$debut, $fin]);
     }
 
-    /** Recouvrements de recette payés par les chauffeurs, à la date du versement. */
+    /** Recouvrements de recette payés par les chauffeurs, rattachés à la période où la dette est née. */
     private function versementsChauffeurs(Collection $vehiculeIds, Carbon $debut, Carbon $fin, ?string $nomChauffeur)
     {
         return VersementRecouvrement::recetteChauffeurs()
             ->whereIn('recouvrements.vehicule_id', $vehiculeIds)
             ->when($nomChauffeur, fn($q) => $q->where('recouvrements.chauffeur_nom', $nomChauffeur))
-            ->whereBetween('versements_recouvrement.date_versement', [$debut, $fin]);
+            ->whereBetween('recouvrements.date_recette', [$debut, $fin]);
     }
 
     private function avecRecouvrements(): bool

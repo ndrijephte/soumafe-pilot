@@ -23,8 +23,15 @@ class VersementRecouvrement extends Model
 
     /**
      * Versements qui s'ajoutent à la recette d'un chauffeur : déficits de recette (pas les remboursements de pénalité)
-     * payés par le chauffeur lui-même, comptés à la date du versement, quel que soit l'exercice du déficit d'origine.
+     * payés par le chauffeur lui-même. Ils se rattachent à la période où la dette est née (date de la recette en déficit,
+     * recouvrements.date_recette), pas à celle du versement : voir periodeDeLaDette().
      */
+    /** Versements dont la dette d'origine est née dans la période (date de la recette en déficit). */
+    public static function periodeDeLaDette(Builder $q, $debut, $fin): Builder
+    {
+        return $q->whereBetween('recouvrements.date_recette', [$debut, $fin]);
+    }
+
     public static function recetteChauffeurs(): Builder
     {
         return static::join('recouvrements', 'versements_recouvrement.recouvrement_id', '=', 'recouvrements.id')

@@ -63,12 +63,12 @@
     <div class="panneau">
         <h3>{!! $ico('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>') !!} Saisies rapides</h3>
         <div class="acc-rapides">
-            <button type="button" class="btn sm" onclick="changerOnglet('recettes')">Recettes</button>
-            <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-panne').showModal()">Panne</button>
-            <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-depense').showModal()">Dépense</button>
-            <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-penal').showModal()">Pénalité</button>
-            <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-maint').showModal()">Entretien</button>
-            <button type="button" class="btn sm sec" onclick="document.getElementById('dlg-vehicule').showModal()">Véhicule</button>
+            <button type="button" class="btn sm" data-ic="wallet" onclick="changerOnglet('recettes')">Recettes</button>
+            <button type="button" class="btn sm sec" data-ic="plus" onclick="document.getElementById('dlg-panne').showModal()">Panne</button>
+            <button type="button" class="btn sm sec" data-ic="plus" onclick="document.getElementById('dlg-depense').showModal()">Dépense</button>
+            <button type="button" class="btn sm sec" data-ic="plus" onclick="document.getElementById('dlg-penal').showModal()">Pénalité</button>
+            <button type="button" class="btn sm sec" data-ic="plus" onclick="document.getElementById('dlg-maint').showModal()">Entretien</button>
+            <button type="button" class="btn sm sec" data-ic="plus" onclick="document.getElementById('dlg-vehicule').showModal()">Véhicule</button>
         </div>
     </div>
     @endif

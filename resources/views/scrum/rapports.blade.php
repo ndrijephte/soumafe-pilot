@@ -10,22 +10,26 @@
 .col-dt{width:12%}.col-pj{width:25%}.col-dl{width:13%}.col-sc{width:17%}.col-st{width:13%}.col-pa{width:10%}.col-df{width:8%}
 .vide{text-align:center;color:var(--gris);padding:30px}
 /* Rapports du jour : mis en avant (fond, liseré, étiquette) */
-.sc-tbl tr.auj td{background:#fff8e6}
-.sc-tbl tr.auj td:first-child{box-shadow:inset 4px 0 0 #f59e0b}
-.sc-tbl tr.auj:hover td{background:#fff1cc}
+.sc-tbl tr.auj td{background:#f2f7fc}
+.sc-tbl tr.auj td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.sc-tbl tr.auj:hover td{background:#e6f0fa}
 .sc-tbl tr.passe td{color:#64748b}
-.etq-auj{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;background:#f59e0b;color:#fff;border-radius:6px;padding:1px 7px;margin-bottom:2px}
-.sep-jour td{background:#f8fafc!important;font-size:10.5px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.4px;padding:6px 10px!important;box-shadow:none!important}
-.du-jour{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:12px 14px;margin-bottom:14px}
-.du-jour .titre{display:flex;flex-direction:column;justify-content:center;min-width:150px}
-.du-jour .titre b{font-size:13px;color:#92400e}
-.du-jour .titre span{font-size:11.5px;color:#b45309}
-.du-jour a.carte-jour{display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid #fde68a;border-radius:10px;padding:8px 12px;text-decoration:none;color:#1e293b;min-width:190px}
-.du-jour a.carte-jour:hover{border-color:#f59e0b;box-shadow:0 2px 8px rgba(245,158,11,.18)}
-.du-jour a.carte-jour strong{font-size:12.5px;font-weight:600}
-.du-jour a.carte-jour small{font-size:11px;color:var(--gris)}
-.du-jour .aucun{font-size:12px;color:#b45309;align-self:center}
-.type-hs{display:inline-block;font-size:10px;font-weight:600;background:#fff7ed;color:#c2410c;border-radius:8px;padding:1px 7px;margin-left:4px}
+.etq-auj{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;background:#dbe8f6;color:var(--bleu);border-radius:6px;padding:1px 7px;margin-bottom:3px}
+.sep-jour td{background:#f4f7fb!important;font-size:10.5px;font-weight:600;color:#4b6b8f;text-transform:uppercase;letter-spacing:.4px;padding:6px 10px!important;box-shadow:none!important}
+.du-jour{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;align-items:center;background:#f2f7fc;border:1px solid #d6e4f3;border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.du-jour .titre{display:flex;flex-direction:column;gap:2px;padding-right:12px;border-right:1px solid #d6e4f3}
+.du-jour .titre b{font-size:14px;font-weight:600;color:var(--bleu)}
+.du-jour .titre span{font-size:12px;color:#4b6b8f}
+.du-jour .titre em{font-style:normal;font-size:11px;color:#6b8db3}
+.du-jour .cartes{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.du-jour a.carte-jour{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;background:#fff;border:1px solid #d6e4f3;border-radius:10px;padding:9px 12px;text-decoration:none;color:#1e293b;transition:border-color .15s,box-shadow .15s}
+.du-jour a.carte-jour:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(46,116,181,.12)}
+.du-jour a.carte-jour strong{font-size:12.5px;font-weight:600;color:var(--bleu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.du-jour a.carte-jour small{grid-column:1;font-size:11px;color:#64748b}
+.du-jour a.carte-jour .etats{grid-column:2;grid-row:1 / span 2;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.du-jour .aucun{font-size:12.5px;color:#4b6b8f}
+@media(max-width:700px){.du-jour{grid-template-columns:1fr}.du-jour .titre{border-right:none;padding-right:0}}
+.type-hs{display:inline-block;font-size:10px;font-weight:600;background:#e6f0fa;color:#1f4e79;border-radius:8px;padding:1px 7px;margin-left:4px}
 dialog.dlg{border:none;border-radius:14px;padding:22px;width:620px;max-width:95vw;box-shadow:0 8px 30px rgba(0,0,0,.18);max-height:90vh;overflow-y:auto}
 dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
 .grille2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
@@ -67,17 +71,21 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
 
 @if($duJour !== null)
 <div class="du-jour">
-    <div class="titre"><b>Aujourd'hui</b><span>{{ ucfirst(today()->translatedFormat('l j F')) }}</span></div>
-    @forelse($duJour as $d)
-    @php [$libS, $clsS] = $d->statutPublication(); @endphp
-    <a href="{{ $d->url() }}" class="carte-jour">
-        <strong>{{ $d->contexte() }}</strong>
-        <small>Daily - jour {{ $d->numero_jour }}{{ $d->heure_debut ? ' · ' . substr($d->heure_debut, 0, 5) : '' }} · {{ $d->entrees_count }} participant(s)</small>
-        <span><span class="pill {{ $clsS }}">{{ $libS }}</span>@if($d->defis_count) <span class="pill p-warn">{{ $d->defis_count }} défi(s)</span>@endif</span>
-    </a>
-    @empty
+    <div class="titre"><b>Aujourd'hui</b><span>{{ ucfirst(today()->translatedFormat('l j F')) }}</span>@if($duJour->isNotEmpty())<em>{{ $duJour->count() }} Daily</em>@endif</div>
+    @if($duJour->isEmpty())
     <span class="aucun">Aucun Daily Scrum tenu aujourd'hui pour l'instant.</span>
-    @endforelse
+    @else
+    <div class="cartes">
+        @foreach($duJour as $d)
+        @php [$libS, $clsS] = $d->statutPublication(); @endphp
+        <a href="{{ $d->url() }}" class="carte-jour" title="Ouvrir le Daily">
+            <strong>{{ $d->contexte() }}</strong>
+            <small>Jour {{ $d->numero_jour }}{{ $d->heure_debut ? ' · ' . substr($d->heure_debut, 0, 5) : '' }} · {{ $d->entrees_count }} participant(s)</small>
+            <span class="etats"><span class="pill {{ $clsS }}">{{ $libS }}</span>@if($d->defis_count)<span class="pill p-cours">{{ $d->defis_count }} défi(s)</span>@endif</span>
+        </a>
+        @endforeach
+    </div>
+    @endif
 </div>
 @endif
 
@@ -100,7 +108,7 @@ dialog.dlg::backdrop{background:rgba(22,56,92,.35)}
             @php [$libS, $clsS] = $d->statutPublication(); @endphp
             <td class="ctr"><span class="pill {{ $clsS }}" @if($d->estPublie()) title="Publié le {{ $d->publie_le->format('d/m/Y') }}" @endif>{{ $libS }}</span></td>
             <td class="ctr">{{ $d->entrees_count }}</td>
-            <td class="ctr">@if($d->defis_count)<span class="pill p-warn">{{ $d->defis_count }}</span>@else - @endif</td>
+            <td class="ctr">@if($d->defis_count)<span class="pill p-cours">{{ $d->defis_count }}</span>@else - @endif</td>
         </tr>
     @empty
         <tr><td colspan="7" class="vide">Aucun Daily Scrum enregistré.</td></tr>

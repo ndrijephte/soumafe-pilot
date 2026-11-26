@@ -97,6 +97,19 @@ class PointageController extends Controller
         return true;
     }
 
+    /** Registre de pointage d'une période, au format Excel de l'entreprise (synthèse + détail jour par jour). */
+    public function exporter(Request $r)
+    {
+        abort_unless($r->user()->estPilote() || $r->user()->estAdmin(), 403);
+        $v = $r->validate(['du' => 'required|date', 'au' => 'required|date|after_or_equal:du'],
+            ['au.after_or_equal' => 'La fin de période doit suivre son début.']);
+        $du = Carbon::parse($v['du']); $au = Carbon::parse($v['au']);
+        if ($du->diffInDays($au) > 400) return back()->with('erreur', 'Période trop longue : 13 mois au plus.');
+        \App\Models\AuditLog::log('export_pointage', 'pointage', 'Du ' . $du->format('d/m/Y') . ' au ' . $au->format('d/m/Y'));
+        return \App\Services\ExportPointage::classeur($du, $au, $r->user())
+            ->telecharger('pointage_soumafe_' . $du->format('Ymd') . '_' . $au->format('Ymd') . '.xlsx');
+    }
+
     /** Auto-pointage arrivée */
     public function pointerArrivee(Request $r)
     {

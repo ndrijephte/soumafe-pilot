@@ -45,6 +45,7 @@ class HoraireTravailController extends Controller
             'pause_debut' => 'nullable|date_format:H:i|required_with:pause_fin', 'pause_fin' => 'nullable|date_format:H:i|required_with:pause_debut|after:pause_debut',
             'tolerance_arrivee' => 'nullable|integer|between:0,120', 'tolerance_depart' => 'nullable|integer|between:0,120',
             'heure_controle_saisie' => 'required|date_format:H:i', 'heure_daily_auto' => 'required|date_format:H:i',
+            'exc_arrivee' => 'nullable|date_format:H:i', 'exc_depart' => 'nullable|date_format:H:i|after:exc_arrivee',
         ], [
             'pause_fin.after' => 'La fin de la pause doit suivre son début.',
             'pause_debut.required_with' => 'Indiquez le début et la fin de la pause (ou laissez les deux vides).',
@@ -68,6 +69,9 @@ class HoraireTravailController extends Controller
             if ($d <= $a) return back()->withInput()->with('erreur', HoraireTravail::JOURS[$j] . " : l'heure de fin doit être postérieure à l'heure de début.");
             if ($a !== $v['heure_arrivee'] || $d !== $v['heure_depart']) $parJour[$j] = ['arrivee' => $a, 'depart' => $d];
         }
+        // Jours exceptionnels travaillés (samedi, dimanche, férié déclarés ouvrables) : 08:00 → 12:00 par défaut
+        $exc = [$v['exc_arrivee'] ?? HoraireTravail::EXCEPTIONNEL[0], $v['exc_depart'] ?? HoraireTravail::EXCEPTIONNEL[1]];
+        if ($exc !== HoraireTravail::EXCEPTIONNEL) $parJour['exceptionnel'] = ['arrivee' => $exc[0], 'depart' => $exc[1]];
         $champs = [
             'heure_arrivee' => $v['heure_arrivee'] . ':00', 'heure_depart' => $v['heure_depart'] . ':00', 'jours' => $jours,
             'horaires_jours' => $parJour ?: null,

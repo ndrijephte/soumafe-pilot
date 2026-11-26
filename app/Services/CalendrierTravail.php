@@ -73,13 +73,22 @@ final class CalendrierTravail
     public static function heureArrivee(CarbonInterface|string|null $date = null): string
     {
         $d = Carbon::parse($date ?? today());
+        // Jour exceptionnel travaillé (férié, samedi ou dimanche déclarés ouvrables) : horaire des jours exceptionnels
+        if (self::estJourExceptionnel($d)) return self::regle($d)->exceptionnel()[0];
         return self::regle($d)->arrivee($d->dayOfWeekIso);
+    }
+
+    /** Jour ouvrable spécial qui n'est pas un jour de travail ordinaire (férié, ou jour non travaillé de la semaine). */
+    public static function estJourExceptionnel(CarbonInterface|string $date): bool
+    {
+        return self::estJourSpecial($date) && (self::estFerie($date) || !self::estJourTravaille($date));
     }
 
     /** Heure de départ attendue ce jour-là (« 18:00 »). */
     public static function heureDepart(CarbonInterface|string|null $date = null): string
     {
         $d = Carbon::parse($date ?? today());
+        if (self::estJourExceptionnel($d)) return self::regle($d)->exceptionnel()[1];
         return self::regle($d)->depart($d->dayOfWeekIso);
     }
 

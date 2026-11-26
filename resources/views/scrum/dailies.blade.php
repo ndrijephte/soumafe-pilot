@@ -12,9 +12,9 @@
 .jour.fait{border-color:#93c5fd;background:#f8fbff}
 .jour.fait:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(46,116,181,.14)}
 .jour.fait .num{color:var(--accent)}
-.jour.auj{outline:2px solid var(--warn);outline-offset:-1px;background:#fffbeb}
-.jour.auj.fait{background:#fff8e6;border-color:#f59e0b;box-shadow:0 2px 10px rgba(245,158,11,.18)}
-.jour .etq-auj{position:absolute;top:8px;right:8px;font-size:9.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;background:#f59e0b;color:#fff;border-radius:6px;padding:1px 6px}
+.jour.auj{outline:2px solid var(--accent);outline-offset:-1px;background:#f2f7fc}
+.jour.auj.fait{background:#eef5fc;border-color:var(--accent);box-shadow:0 2px 10px rgba(46,116,181,.14)}
+.jour .etq-auj{position:absolute;top:8px;right:8px;font-size:9.5px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;background:#dbe8f6;color:var(--bleu);border-radius:6px;padding:1px 6px}
 .jour.futur{opacity:.6}
 .jour .roles{font-size:11px;color:var(--gris);line-height:1.4}
 .jour .roles b{color:#334155;font-weight:600}

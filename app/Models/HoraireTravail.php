@@ -32,9 +32,31 @@ class HoraireTravail extends Model
         return !empty($h['arrivee']) && !empty($h['depart']) ? $h : null;
     }
 
-    /** Heure de début (« 08:00 ») : du jour si elle lui est propre, sinon générale. */
-    public function arrivee(?int $jourIso = null): string { return substr($this->horaireDuJour($jourIso)['arrivee'] ?? $this->heure_arrivee, 0, 5); }
-    public function depart(?int $jourIso = null): string { return substr($this->horaireDuJour($jourIso)['depart'] ?? $this->heure_depart, 0, 5); }
+    /** Horaire par défaut des jours exceptionnels travaillés (samedi, dimanche, férié déclaré ouvrable). */
+    public const EXCEPTIONNEL = ['08:00', '12:00'];
+
+    /** Horaire des jours exceptionnels travaillés : [« 08:00 », « 12:00 »] sauf réglage contraire. */
+    public function exceptionnel(): array
+    {
+        $h = $this->horaires_jours['exceptionnel'] ?? null;
+        return !empty($h['arrivee']) && !empty($h['depart']) ? [substr($h['arrivee'], 0, 5), substr($h['depart'], 0, 5)] : self::EXCEPTIONNEL;
+    }
+
+    /**
+     * Heure de début (« 08:00 ») : celle propre au jour si elle existe ; le samedi et le dimanche, à défaut,
+     * l'horaire des jours exceptionnels (08:00 → 12:00) ; sinon l'horaire général.
+     */
+    public function arrivee(?int $jourIso = null): string
+    {
+        if ($h = $this->horaireDuJour($jourIso)) return substr($h['arrivee'], 0, 5);
+        return $jourIso >= 6 ? $this->exceptionnel()[0] : substr($this->heure_arrivee, 0, 5);
+    }
+
+    public function depart(?int $jourIso = null): string
+    {
+        if ($h = $this->horaireDuJour($jourIso)) return substr($h['depart'], 0, 5);
+        return $jourIso >= 6 ? $this->exceptionnel()[1] : substr($this->heure_depart, 0, 5);
+    }
 
     /** Pause déjeuner [« 12:30 », « 13:30 »] ou null. */
     public function pause(): ?array

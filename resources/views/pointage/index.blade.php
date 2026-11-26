@@ -53,6 +53,10 @@ dialog textarea{resize:vertical}
 .act-btn:hover{background:var(--fond)}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.filtre-bar{flex-direction:column;align-items:stretch}.pointage-banner{flex-direction:column;text-align:center}.mini-table{display:block;overflow-x:auto}}
 @media(max-width:600px){.kpis{grid-template-columns:1fr}.kpi .val{font-size:20px}.kpi{padding:10px}dialog{padding:16px}}
+.ptg-export{display:flex;align-items:center;gap:6px;margin:0}
+.ptg-export label{font-size:12px;color:var(--gris)}
+.ptg-export input{padding:5px 8px;border:1px solid var(--bord);border-radius:8px;font-size:12px;font-family:inherit}
+.ptg-export .btn{display:inline-flex;align-items:center;gap:5px}
 </style>
 @endpush
 @section('contenu')
@@ -137,6 +141,14 @@ dialog textarea{resize:vertical}
     </form>
     <div style="flex:1"></div>
     <input type="text" id="filtreNom" placeholder="Filtrer par nom..." oninput="filtrerPresence()" style="min-width:160px">
+    @if(auth()->user()->estPilote() || auth()->user()->estAdmin())
+    {{-- Registre Excel de la période : synthèse par collaborateur et détail jour par jour --}}
+    <form method="GET" action="{{ route('pointage.export') }}" class="ptg-export" title="Registre de pointage au format Excel">
+        <label>Exporter du</label><input type="date" name="du" value="{{ $date->copy()->startOfMonth()->toDateString() }}" required>
+        <label>au</label><input type="date" name="au" value="{{ $date->copy()->min(today())->toDateString() }}" required>
+        <button class="btn sm"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Excel</button>
+    </form>
+    @endif
 </div>
 
 {{-- Liste de présence --}}

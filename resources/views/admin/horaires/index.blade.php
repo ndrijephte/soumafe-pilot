@@ -116,6 +116,15 @@
                 </table>
             </div>
             <div class="hor-bloc">
+                <h4>Jours exceptionnels travaillés</h4>
+                <p class="sous">Samedi, dimanche ou jour férié déclarés ouvrables (et samedi travaillé sans horaire propre) : 08:00 → 12:00 par défaut.</p>
+                @php $exc = $modele->exceptionnel(); @endphp
+                <div class="hor-ligne">
+                    <div><label>Début</label><input type="time" name="exc_arrivee" value="{{ old('exc_arrivee', $exc[0]) }}"></div>
+                    <div><label>Fin</label><input type="time" name="exc_depart" value="{{ old('exc_depart', $exc[1]) }}"></div>
+                </div>
+            </div>
+            <div class="hor-bloc">
                 <h4>Pause et tolérances</h4>
                 <p class="sous">La pause est déduite de la durée de travail et de la durée de présence. La tolérance évite de compter un retard ou un départ anticipé de quelques minutes.</p>
                 <div class="hor-ligne">

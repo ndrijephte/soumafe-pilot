@@ -286,6 +286,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/planning/instance', [PlanningReunionController::class, 'supprimerInstance'])->name('planning.instance.destroy');
 
     Route::get('/pointage', [PointageController::class, 'index'])->name('pointage.index');
+    Route::get('/pointage/export', [PointageController::class, 'exporter'])->name('pointage.export');
     Route::post('/pointage/arrivee', [PointageController::class, 'pointerArrivee'])->name('pointage.arrivee');
     Route::post('/pointage/depart', [PointageController::class, 'pointerDepart'])->name('pointage.depart');
     Route::post('/pointage/{pointage}/motif', [PointageController::class, 'sauverMotif'])->name('pointage.motif');

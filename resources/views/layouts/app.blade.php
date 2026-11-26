@@ -342,5 +342,6 @@ function demanderMotifSuppression(form,label){
 }
 </script>
 @stack('scripts')
+@include('layouts._boutons')
 </body>
 </html>

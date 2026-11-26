@@ -7,12 +7,11 @@ use Illuminate\Http\Request;
 
 class TitrePosteController extends Controller
 {
+    /** Écran remplacé par Administration > Listes de choix. */
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        return view('admin.titres_poste.index', [
-            'titres' => TitrePoste::orderBy('libelle')->get(),
-        ]);
+        return redirect()->route('admin.listes.index', ['liste' => 'titre_poste']);
     }
 
     public function store(Request $r)

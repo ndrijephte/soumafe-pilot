@@ -55,25 +55,33 @@ class SaisieController extends Controller
         $evenementsDuJour = Evenement::where('user_id', $userId)
             ->whereDate('date', today())->get();
 
-        // Historique 30 jours
-        $historique = JourSaisie::where('user_id', $userId)
+        // Historique 30 jours (+ nombre de tâches confirmées / infirmées par jour, en une requête)
+        $historique = JourSaisie::with('justification')->where('user_id', $userId)
             ->orderByDesc('date')->limit(30)->get();
+        $confParJour = Schema::hasTable('confirmations_taches')
+            ? ConfirmationTache::where('user_id', $userId)->whereDate('date', '>=', today()->subDays(60))
+                ->selectRaw('DATE(date) as jour, statut, count(*) as n')->groupBy('jour', 'statut')->get()
+                ->groupBy('jour')->map(fn($g) => $g->pluck('n', 'statut'))
+            : collect();
 
-        // Événements récents (pour l'historique)
-        $evenementsRecents = Evenement::where('user_id', $userId)
-            ->orderByDesc('date')->limit(10)->get();
+        // Mes signalements des 30 derniers jours (repris par le reporting, le Daily et les comptes rendus)
+        $evenementsRecents = Evenement::with('traitePar')->where('user_id', $userId)
+            ->whereDate('date', '>=', today()->subDays(30))
+            ->orderByDesc('date')->orderByDesc('created_at')->get();
+
+        $typesAbsence = \App\Models\TypeAbsence::liste();
 
         // Types d'événements paramétrables
         $typesEvenement = Schema::hasTable('types_evenement')
             ? TypeEvenement::orderBy('libelle')->get()
             : collect();
 
-        // Absences déclarées (à venir ou en cours)
+        // Mes absences : en cours, à venir, et terminées depuis moins de 30 jours
         $absences = collect();
         if (Schema::hasTable('absences')) {
-            $absences = Absence::where('user_id', $userId)
-                ->whereDate('date_fin', '>=', today())
-                ->orderBy('date_debut')->get();
+            $absences = Absence::with('declarant')->where('user_id', $userId)
+                ->whereDate('date_fin', '>=', today()->subDays(30))
+                ->orderByDesc('date_debut')->get();
         }
 
         // === Section pilote : collaborateurs sans saisie hier + justifications en attente ===
@@ -145,7 +153,7 @@ class SaisieController extends Controller
             'tachesDuJour', 'confirmations', 'jours', 'evenementsDuJour',
             'historique', 'evenementsRecents', 'typesEvenement',
             'sanseSaisie', 'justificationsEnAttente', 'absences', 'absencesEquipe',
-            'rappelsAujourdhui', 'collaborateurs'
+            'rappelsAujourdhui', 'collaborateurs', 'confParJour', 'typesAbsence'
         ));
     }
 
@@ -190,33 +198,48 @@ class SaisieController extends Controller
         return back()->with('succes', $msg);
     }
 
-    /** Enregistrer un événement / fait marquant (pilotes uniquement). */
+    /**
+     * Signaler un événement / fait marquant. Ouvert à tous les collaborateurs (la direction consulte) :
+     * il alimente le reporting, le Daily et les comptes rendus ; les pilotes sont prévenus pour y réagir (Arbitrages).
+     * Un événement des 7 derniers jours peut être signalé après coup.
+     */
     public function evenement(Request $r)
     {
-        abort_unless($r->user()->estPilote(), 403);
+        abort_if($r->user()->aRole('direction'), 403);
         $r->validate([
-            'type' => 'required|string|max:50',
+            'type' => ['required', 'string', 'max:50', \Illuminate\Validation\Rule::when(Schema::hasTable('types_evenement') && TypeEvenement::exists(), [\Illuminate\Validation\Rule::exists('types_evenement', 'code')])],
+            'date' => 'nullable|date|before_or_equal:today|after_or_equal:' . today()->subDays(7)->toDateString(),
             'description' => 'required|string|max:500',
             'action_engagee' => 'nullable|string|max:500',
             'impact' => 'nullable|string|max:255',
-        ]);
+        ], ['type.exists' => "Cette nature d'événement n'est pas paramétrée : utilisez « + Autre nature… » pour l'ajouter.", 'date.after_or_equal' => 'Un événement peut être signalé jusqu\'à 7 jours après.', 'date.before_or_equal' => 'La date ne peut pas être dans le futur.'],
+           ['description' => 'description', 'action_engagee' => 'action engagée']);
 
-        Evenement::create([
+        $date = $r->filled('date') ? \Carbon\Carbon::parse($r->date) : today();
+        $evt = Evenement::create([
             'user_id' => $r->user()->id,
-            'date' => today(),
+            'date' => $date,
             'type' => $r->type,
             'description' => $r->description,
             'action_engagee' => $r->action_engagee,
             'impact' => $r->impact,
         ]);
 
-        // Marquer le jour comme saisi
-        JourSaisie::firstOrCreate(
-            ['user_id' => $r->user()->id, 'date' => today()],
-            ['statut' => 'saisi']
-        );
+        // Le jour du signalement compte comme saisi
+        if ($date->isToday()) {
+            JourSaisie::firstOrCreate(['user_id' => $r->user()->id, 'date' => today()], ['statut' => 'saisi']);
+        }
 
-        return back()->with('succes', 'Événement enregistré.');
+        // Prévenir les pilotes (ils réagissent depuis Arbitrages > Événements)
+        foreach (User::where('actif', true)->get()->filter(fn($u) => $u->estPilote() && (int) $u->id !== (int) $r->user()->id) as $p) {
+            NotificationApp::create([
+                'user_id' => $p->id, 'type' => 'evenement',
+                'contenu' => $r->user()->nomComplet() . ' signale un événement (' . $evt->labelType() . ') : « ' . Str::limit($evt->description, 120) . ' ».',
+                'lien' => route('arbitrages.index', ['tab' => 'evt']),
+            ]);
+        }
+
+        return back()->with('succes', 'Événement signalé : il figurera dans le reporting de la période.');
     }
 
     /** Justifier un jour manquant. */
@@ -276,8 +299,12 @@ class SaisieController extends Controller
             'user_id' => 'nullable|exists:users,id',
             'date_debut' => 'required|date|after_or_equal:today',
             'date_fin' => 'required|date|after_or_equal:date_debut',
-            'type' => 'required|in:conge,mission,maladie,formation,autre',
-            'motif' => 'nullable|string|max:500',
+            'type' => ['required', 'string', 'max:50', \Illuminate\Validation\Rule::when(Schema::hasTable('types_absence') && \App\Models\TypeAbsence::exists(),
+                [\Illuminate\Validation\Rule::exists('types_absence', 'code')], ['in:conge,mission,maladie,formation,autre'])],
+            'motif' => 'required|string|min:3|max:500',
+        ], [
+            'type.exists' => "Cette nature d'absence n'est pas paramétrée : utilisez « + Autre nature… » pour l'ajouter.",
+            'motif.required' => "Précisez le motif de l'absence.",
         ]);
 
         $userId = $r->user_id && $r->user()->estPilote() ? (int) $r->user_id : $r->user()->id;

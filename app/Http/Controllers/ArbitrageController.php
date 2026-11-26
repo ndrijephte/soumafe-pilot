@@ -34,16 +34,19 @@ class ArbitrageController extends Controller
     public function index(Request $r)
     {
         abort_unless($r->user()->estPilote(), 403);
-        $arbitrages = ArbitrageT3::with(['tache.user', 'demandeur'])
+        $arbitrages = ArbitrageT3::with(['tache.user', 'tache.projet', 'demandeur', 'decideur'])
             ->whereHas('tache')
             ->orderByRaw("FIELD(decision,'en_attente','accorde','refuse')")
             ->orderByDesc('created_at')->get();
 
-        // Événements marquants récents (non traités en priorité)
-        $evenements = Evenement::with('user')
-            ->orderByRaw("FIELD(recommandation, '', NULL) DESC")
-            ->orderByDesc('date')->orderByDesc('created_at')
-            ->limit(30)->get();
+        // Événements marquants : tous ceux à traiter, puis les 30 derniers traités
+        $aTraiter = Evenement::with('user')
+            ->where(fn($q) => $q->whereNull('recommandation')->orWhere('recommandation', ''))
+            ->orderByDesc('date')->orderByDesc('created_at')->get();
+        $traites = Evenement::with(['user', 'traitePar'])
+            ->whereNotNull('recommandation')->where('recommandation', '!=', '')
+            ->orderByDesc('date')->orderByDesc('created_at')->limit(30)->get();
+        $evenements = $aTraiter->concat($traites);
 
         // Blocages actifs nécessitant une action pilote (exclut tâches supprimées)
         $blocages = collect();

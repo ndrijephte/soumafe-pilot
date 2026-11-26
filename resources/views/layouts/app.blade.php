@@ -96,6 +96,7 @@
         .notif-txt{line-height:1.5}
     </style>
     @stack('styles')
+    @include('layouts._nuit')
 </head>
 <body>
 @php
@@ -175,6 +176,10 @@
             <div id="search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:60;max-height:380px;overflow-y:auto;margin-top:4px"></div>
         </div>
         <div class="user">
+            <button type="button" class="bt-nuit" data-sans-icone onclick="basculerNuit()" title="Passer en mode nuit" aria-label="Mode nuit">
+                <svg class="lune" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <svg class="soleil" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            </button>
             <div class="notif-wrap" style="position:relative;cursor:pointer" onclick="toggleNotifs()">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
                 <span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--ko);color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;border-radius:8px;text-align:center;line-height:16px"></span>
@@ -341,7 +346,9 @@ function demanderMotifSuppression(form,label){
     return true;
 }
 </script>
+<script>window.ERREURS_CHAMPS = @json($errors->getMessages());</script>
 @stack('scripts')
 @include('layouts._boutons')
+@include('layouts._formulaires')
 </body>
 </html>

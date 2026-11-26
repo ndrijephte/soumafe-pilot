@@ -178,7 +178,7 @@ dialog textarea{min-height:70px;resize:vertical}
         @php
             $ctx = $c->contexte ? (\App\Models\Commentaire::CONTEXTES[$c->contexte] ?? null) : null;
         @endphp
-        <div class="com" style="{{ $ctx ? 'border-left:3px solid '.$ctx['color'].';padding-left:12px' : '' }}">
+        <div class="com">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 @if($ctx)<span style="font-size:11px;font-weight:700;color:{{ $ctx['color'] }}">{{ $ctx['icon'] }} {{ $ctx['label'] }}</span>@endif
                 <span class="auteur">{{ $c->user?->nomComplet() ?? 'Système' }}</span>
@@ -218,7 +218,7 @@ dialog textarea{min-height:70px;resize:vertical}
     <h3 style="color:var(--ko);margin-bottom:4px">Signaler un blocage</h3>
     <form method="POST" action="{{ route('blocages.store', $tache) }}">@csrf
         <label>Type de blocage <span style="color:var(--ko)">*</span></label>
-        <select name="type" required style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px">
+        <select name="type" required style="width:100%;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px" @unless(auth()->user()->aRole('direction')) data-modalite="type_blocage" data-modalite-url="{{ route('modalites.store') }}" data-modalite-nom="un type de blocage" @endunless>
             @if(isset($typesBlocage) && $typesBlocage->count() > 0)
                 @foreach($typesBlocage as $tb)
                 <option value="{{ $tb->code }}">{{ $tb->libelle }}</option>

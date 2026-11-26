@@ -51,7 +51,7 @@ final class JournalActivite
         'motif_recette' => 'parc', 'versement' => 'parc', 'recouvrement' => 'parc', 'penalite' => 'parc',
         'paiement_penalite' => 'parc', 'maintenance' => 'parc', 'panne' => 'parc', 'ligne_intervention' => 'parc',
         'depense' => 'parc', 'emprunt' => 'parc', 'remboursement_emprunt' => 'parc', 'pret_accorde' => 'parc',
-        'remboursement_pret' => 'parc', 'autre_ressource' => 'parc', 'document_parc' => 'parc', 'caisse' => 'parc',
+        'remboursement_pret' => 'parc', 'autre_ressource' => 'parc', 'document_parc' => 'parc', 'caisse' => 'parc', 'parametre_parc' => 'parc',
         // Projets & Scrum
         'projet' => 'scrum', 'sprint' => 'scrum', 'sprints' => 'scrum', 'daily' => 'scrum', 'collaborateur' => 'scrum',
         // Tâches
@@ -77,7 +77,7 @@ final class JournalActivite
         'recouvrement' => 'Recouvrement', 'penalite' => 'Pénalité', 'paiement_penalite' => 'Paiement de pénalité',
         'maintenance' => 'Maintenance', 'panne' => 'Panne', 'ligne_intervention' => "Ligne d'intervention", 'depense' => 'Dépense',
         'emprunt' => 'Emprunt', 'remboursement_emprunt' => "Remboursement d'emprunt", 'pret_accorde' => 'Prêt accordé',
-        'remboursement_pret' => 'Remboursement de prêt', 'autre_ressource' => 'Autre ressource', 'document_parc' => 'Document',
+        'remboursement_pret' => 'Remboursement de prêt', 'autre_ressource' => 'Autre ressource', 'document_parc' => 'Document', 'parametre_parc' => 'Paramétrage du parc',
         'vehicule' => 'Véhicule', 'chauffeur' => 'Chauffeur', 'parc' => 'Parc', 'projet' => 'Projet', 'sprint' => 'Sprint',
         'sprints' => 'Sprint', 'daily' => 'Daily Scrum', 'collaborateur' => 'Équipe projet', 'taches' => 'Tâche', 'blocages' => 'Blocage',
         'saisie' => 'Saisie', 'objectifs' => 'Objectif', 'observations' => 'Observation', 'pointage' => 'Pointage',

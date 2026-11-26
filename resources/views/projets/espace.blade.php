@@ -31,7 +31,7 @@
 .module-titre .nom{font-size:14px;font-weight:700;color:#1f4e79;text-transform:uppercase;letter-spacing:.5px}
 .module-titre .stats,.epic-titre .stats{font-size:12px;color:#475569;white-space:nowrap}
 .module-corps{padding:10px 14px 4px}
-.epic-titre{display:grid;grid-template-columns:minmax(0,1fr) auto 110px;gap:12px;align-items:center;margin:6px 0 8px;padding:6px 0 6px 10px;border-left:3px solid #93c5fd}
+.epic-titre{display:grid;grid-template-columns:minmax(0,1fr) auto 110px;gap:12px;align-items:center;margin:6px 0 8px;padding:6px 0}
 .epic-titre .nom{font-size:14.5px;font-weight:700;color:#1f4e79}
 .epic-titre .ren{background:none;border:none;padding:2px 4px;margin-left:6px;color:#94a3b8;cursor:pointer;vertical-align:middle;border-radius:5px;opacity:0;transition:opacity .15s}
 .epic-titre:hover .ren,.epic-titre .ren:focus-visible{opacity:1}

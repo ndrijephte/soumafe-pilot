@@ -40,52 +40,62 @@
 </style>
 @endpush
 @section('contenu')
-<h2>Gestion des comptes</h2>
-<div class="crumb">Administration &rsaquo; Comptes utilisateurs</div>
+@include('admin._ui')
+@php
+    $libProfils = \Illuminate\Support\Facades\Schema::hasTable('profils_mesure') ? \App\Models\ProfilMesure::pluck('libelle', 'code') : collect();
+    $filtre = request()->hasAny(['q', 'role', 'profil', 'actif']) && collect(request()->only(['q', 'role', 'profil', 'actif']))->filter(fn($v) => $v !== null && $v !== '')->isNotEmpty();
+    $ic = [
+        'edit' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+        'off' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/></svg>',
+        'on' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>',
+        'cle' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>',
+    ];
+@endphp
+<h2>Administration</h2>
+<div class="crumb">Administration &rsaquo; Comptes et accès &rsaquo; Comptes</div>
 @include('admin._nav')
 
-@if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
-@if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
+@if(session('succes'))<div class="ad-alerte ok">{{ session('succes') }}</div>@endif
+@if(session('erreur'))<div class="ad-alerte ko">{{ session('erreur') }}</div>@endif
 
-<form class="filtres" method="GET">
-    <input name="q" placeholder="Rechercher…" value="{{ request('q') }}">
-    <select name="role"><option value="">Tous les rôles</option>@foreach($roles as $r)<option value="{{ $r }}" @selected(request('role')==$r)>{{ \App\Models\User::libelleRole($r) }}</option>@endforeach</select>
-    <select name="profil"><option value="">Tous les profils</option>@foreach($profils as $p)<option value="{{ $p }}" @selected(request('profil')==$p)>{{ ucfirst($p) }}</option>@endforeach</select>
-    <select name="actif"><option value="">Tous</option><option value="1" @selected(request('actif')==='1')>Actifs</option><option value="0" @selected(request('actif')==='0')>Inactifs</option></select>
-    <button class="btn sm">Filtrer</button>
-    <a href="{{ route('admin.utilisateurs.index') }}" class="btn sm sec">Réinitialiser</a>
+<form class="ad-barre" method="GET" id="cp-filtres">
+    <div class="ad-recherche">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" name="q" placeholder="Nom, e-mail…" value="{{ request('q') }}" data-sans-controle>
+    </div>
+    <select name="role" class="fm-champ" style="width:auto" onchange="this.form.submit()"><option value="">Tous les rôles</option>@foreach($roles as $r)<option value="{{ $r }}" @selected(request('role') == $r)>{{ \App\Models\User::libelleRole($r) }}</option>@endforeach</select>
+    <select name="profil" class="fm-champ" style="width:auto" onchange="this.form.submit()"><option value="">Tous les profils</option>@foreach($profils as $p)<option value="{{ $p }}" @selected(request('profil') == $p)>{{ $libProfils[$p] ?? ucfirst($p) }}</option>@endforeach</select>
+    <select name="actif" class="fm-champ" style="width:auto" onchange="this.form.submit()"><option value="">Actifs et inactifs</option><option value="1" @selected(request('actif') === '1')>Actifs</option><option value="0" @selected(request('actif') === '0')>Inactifs</option></select>
+    @if($filtre)<a href="{{ route('admin.utilisateurs.index') }}" class="compte" style="color:var(--accent)">Effacer les filtres</a>@endif
+    <span class="espace"></span>
+    <span class="compte">{{ $users->total() }} compte{{ $users->total() > 1 ? 's' : '' }}</span>
+    <a href="{{ route('admin.utilisateurs.create') }}" class="btn-p" data-sans-icone><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nouveau compte</a>
 </form>
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-    <span style="font-size:13px;color:var(--gris)">{{ $users->total() }} compte(s)</span>
-    <a href="{{ route('admin.utilisateurs.create') }}" class="btn">+ Nouveau compte</a>
-</div>
-
-<div class="carte" style="padding:0;overflow-x:auto">
-<table class="admin-tbl">
-<thead><tr><th>Nom</th><th>Email</th><th>Pôle</th><th>Rôle</th><th>Poste</th><th>Profil mesure</th><th>Actif</th><th>Actions</th></tr></thead>
+<div class="ad-panneau">
+<table class="ad-table">
+<thead><tr><th>Collaborateur</th><th>Pôle</th><th>Rôle</th><th>Poste</th><th>Profil</th><th>Statut</th><th></th></tr></thead>
 <tbody>
 @forelse($users as $u)
-<tr>
-    <td><strong>{{ $u->name }}</strong> {{ $u->prenom }}</td>
-    <td>{{ $u->email }}</td>
+<tr class="{{ $u->actif ? '' : 'inactif' }}">
+    <td><b style="font-weight:600">{{ $u->name }}</b> {{ $u->prenom }}<span class="sec">{{ $u->email }}</span></td>
     <td>{{ $u->pole?->libelle ?? '—' }}</td>
-    <td><span class="badge-role r-{{ $u->role }}">{{ \App\Models\User::libelleRole($u->role) }}</span></td>
-    <td style="font-size:11.5px;color:var(--gris)">{{ $u->titre_poste ?: '—' }}</td>
-    <td>{{ ucfirst($u->profil_mesure) }}</td>
-    <td class="{{ $u->actif ? 'actif-oui' : 'actif-non' }}">{{ $u->actif ? 'Oui' : 'Non' }}</td>
-    <td style="white-space:nowrap">
-        <a href="{{ route('admin.utilisateurs.edit', $u) }}" class="btn sm sec">Modifier</a>
-        <form method="POST" action="{{ route('admin.utilisateurs.toggle', $u) }}" style="display:inline">@csrf @method('PATCH')
-            <button class="btn sm {{ $u->actif ? 'danger' : '' }}" onclick="return confirm('{{ $u->actif ? 'Désactiver' : 'Réactiver' }} ce compte ?')">{{ $u->actif ? 'Désactiver' : 'Réactiver' }}</button>
+    <td>{{ \App\Models\User::libelleRole($u->role) }}@if($u->delegation_parc)<span class="sec">+ délégation parc</span>@endif</td>
+    <td>{{ $u->titre_poste ?: '—' }}</td>
+    <td>{{ $libProfils[$u->profil_mesure] ?? ucfirst((string) $u->profil_mesure) }}</td>
+    <td><span class="etat {{ $u->actif ? 'ok' : 'mut' }}">{{ $u->actif ? 'Actif' : 'Inactif' }}</span></td>
+    <td class="act">
+        <a href="{{ route('admin.utilisateurs.edit', $u) }}" class="ib" title="Modifier" aria-label="Modifier">{!! $ic['edit'] !!}</a>
+        <form method="POST" action="{{ route('admin.utilisateurs.reset-mdp', $u) }}" style="display:inline" onsubmit="return confirm('Réinitialiser le mot de passe de {{ addslashes($u->nomComplet()) }} ?')">@csrf
+            <button class="ib warn" data-sans-icone title="Réinitialiser le mot de passe" aria-label="Réinitialiser le mot de passe">{!! $ic['cle'] !!}</button>
         </form>
-        <form method="POST" action="{{ route('admin.utilisateurs.reset-mdp', $u) }}" style="display:inline">@csrf
-            <button class="btn sm" style="background:#f59e0b;color:#fff" onclick="return confirm('Réinitialiser le mot de passe de {{ $u->nomComplet() }} ?')">Reset MDP</button>
+        <form method="POST" action="{{ route('admin.utilisateurs.toggle', $u) }}" style="display:inline" onsubmit="return confirm('{{ $u->actif ? 'Désactiver' : 'Réactiver' }} le compte de {{ addslashes($u->nomComplet()) }} ?')">@csrf @method('PATCH')
+            <button class="ib {{ $u->actif ? 'ko' : 'ok' }}" data-sans-icone title="{{ $u->actif ? 'Désactiver le compte' : 'Réactiver le compte' }}" aria-label="{{ $u->actif ? 'Désactiver' : 'Réactiver' }}">{!! $u->actif ? $ic['off'] : $ic['on'] !!}</button>
         </form>
     </td>
 </tr>
 @empty
-<tr><td colspan="8" style="text-align:center;color:var(--gris);padding:24px">Aucun compte trouvé.</td></tr>
+<tr><td colspan="7" class="ad-vide">Aucun compte ne correspond.</td></tr>
 @endforelse
 </tbody>
 </table>

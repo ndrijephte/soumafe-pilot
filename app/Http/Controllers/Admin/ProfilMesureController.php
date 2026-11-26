@@ -7,14 +7,11 @@ use Illuminate\Http\Request;
 
 class ProfilMesureController extends Controller
 {
+    /** Écran remplacé par Administration > Comptes et accès > Rôles et profils. */
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        $profils = ProfilMesure::orderBy('libelle')->get()->map(function ($p) {
-            $p->users_count = User::where('profil_mesure', $p->code)->count();
-            return $p;
-        });
-        return view('admin.profils.index', compact('profils'));
+        return redirect()->route('admin.acces.index', ['liste' => 'profil_mesure']);
     }
 
     public function store(Request $r)

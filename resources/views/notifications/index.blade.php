@@ -13,7 +13,9 @@
 .notif-filtres a:hover{border-color:var(--accent)}
 .notif-card{background:#fff;border:1px solid var(--bord);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;transition:.15s}
 .notif-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.notif-card.non-lue{border-left:3px solid var(--accent);background:#f8fafc}
+.notif-card.non-lue{background:#f5f9fe;border-color:#d4e3f3}
+.notif-card.non-lue .notif-ico{position:relative}
+.notif-card.non-lue .notif-ico::after{content:"";position:absolute;top:1px;right:1px;width:9px;height:9px;border-radius:50%;background:var(--accent);border:2px solid #fff}
 .notif-ico{width:36px;height:36px;border-radius:50%;background:var(--fond);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .notif-ico svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .notif-body{flex:1;min-width:0}

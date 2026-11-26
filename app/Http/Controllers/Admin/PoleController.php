@@ -7,13 +7,11 @@ use Illuminate\Http\Request;
 
 class PoleController extends Controller
 {
+    /** Écran remplacé par Administration > Organisation > Structure. */
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        return view('admin.poles.index', [
-            'poles' => Pole::with('service')->withCount('users')->orderBy('libelle')->get(),
-            'services' => Service::orderBy('libelle')->get(),
-        ]);
+        return redirect()->route('admin.organisation.index');
     }
 
     public function store(Request $r)

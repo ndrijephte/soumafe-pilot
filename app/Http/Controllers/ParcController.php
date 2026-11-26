@@ -1140,7 +1140,7 @@ class ParcController extends Controller
         \App\Services\PiecesJointes::valider($r, 'maintenance');
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
-            'type_echeance' => 'required|string|max:50',
+            'type_echeance' => ['required', 'string', 'max:50', TypeParc::regle('maintenance')],
             'derniere_realisation' => 'nullable|date',
             'prochaine_echeance' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
@@ -1170,7 +1170,7 @@ class ParcController extends Controller
         \App\Services\PiecesJointes::valider($r, 'maintenance');
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
-            'type_echeance' => 'required|string|max:50',
+            'type_echeance' => ['required', 'string', 'max:50', TypeParc::regle('maintenance')],
             'derniere_realisation' => 'nullable|date',
             'prochaine_echeance' => 'nullable|date',
             'observations' => 'nullable|string|max:500',
@@ -1314,7 +1314,7 @@ class ParcController extends Controller
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
-            'type' => 'required|string|max:50',
+            'type' => ['required', 'string', 'max:50', TypeParc::regle('penalite')],
             'chauffeur' => ['required', \Illuminate\Validation\Rule::in(Chauffeur::nomsValides())],
             'lieu' => 'required|string|max:120',
             'description' => 'required|string|max:500',
@@ -1371,7 +1371,7 @@ class ParcController extends Controller
         $r->validate([
             'vehicule_id' => 'required|exists:vehicules,id',
             'date_infraction' => 'required|date',
-            'type' => 'required|string|max:50',
+            'type' => ['required', 'string', 'max:50', TypeParc::regle('penalite')],
             'chauffeur' => ['required', \Illuminate\Validation\Rule::in(Chauffeur::nomsValides())],
             'lieu' => 'required|string|max:120',
             'description' => 'required|string|max:500',
@@ -2097,6 +2097,24 @@ class ParcController extends Controller
         ]);
         AuditLog::log('annulation', 'recouvrement', "Recouvrement #{$recouvrement->id}", "Chauffeur: {$recouvrement->chauffeur}, Montant: {$recouvrement->montant_initial} F, Motif: {$r->motif_annulation}");
         return redirect()->route('parc.index', ['tab' => 'recouv'])->with('succes', 'Recouvrement annulé.');
+    }
+
+    /**
+     * Ajout à la volée d'une modalité absente d'une liste (type de pénalité, d'entretien, motif…), depuis un formulaire.
+     * Elle rejoint aussitôt le paramétrage du parc. Réponse JSON : {code, libelle, intervalle_jours}.
+     */
+    public function ajouterModalite(Request $r)
+    {
+        $this->autoriser($r);
+        abort_if($r->user()->aRole('direction'), 403, 'La direction consulte le parc sans le modifier.');
+        $v = $r->validate([
+            'categorie' => 'required|in:' . implode(',', array_keys(TypeParc::LISTES)),
+            'libelle' => 'required|string|min:2|max:80',
+            'intervalle_jours' => 'nullable|integer|min:1|max:3650',
+        ], [], ['libelle' => 'libellé', 'intervalle_jours' => 'intervalle']);
+        $t = TypeParc::ajouter($v['categorie'], $v['libelle'], $v['intervalle_jours'] ?? null);
+        AuditLog::log('creation', 'parametre_parc', TypeParc::LISTES[$t->categorie][0], $t->libelle . ' (ajouté depuis un formulaire)');
+        return response()->json($t->only(['code', 'libelle', 'intervalle_jours']));
     }
 
     /**

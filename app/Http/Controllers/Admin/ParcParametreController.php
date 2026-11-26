@@ -12,24 +12,18 @@ class ParcParametreController extends Controller
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        $parametres = collect();
-        if (Schema::hasTable('parametres_parc')) {
-            $parametres = ParametreParc::orderBy('groupe')->orderBy('cle')->get();
+        $parametres = Schema::hasTable('parametres_parc') ? ParametreParc::orderBy('groupe')->orderBy('cle')->get() : collect();
+        $listes = [];
+        if (Schema::hasTable('types_parc')) {
+            foreach (TypeParc::LISTES as $cat => $def) {
+                $listes[$cat] = [
+                    'titre' => $def[0], 'aide' => $def[3],
+                    'types' => TypeParc::where('categorie', $cat)->orderByDesc('actif')->orderBy('ordre')->get(),
+                    'usages' => TypeParc::usages($cat),
+                ];
+            }
         }
-        $typesPenalite = Schema::hasTable('types_parc')
-            ? TypeParc::where('categorie', 'penalite')->orderBy('ordre')->get()
-            : collect();
-        $typesMaintenance = Schema::hasTable('types_parc')
-            ? TypeParc::where('categorie', 'maintenance')->orderBy('ordre')->get()
-            : collect();
-        $motifsAbsence = Schema::hasTable('types_parc')
-            ? TypeParc::where('categorie', 'motif_absence')->orderBy('ordre')->get()
-            : collect();
-        $typesDepense = Schema::hasTable('types_parc')
-            ? TypeParc::where('categorie', 'depense')->orderBy('ordre')->get()
-            : collect();
-
-        return view('admin.parc-parametres', compact('parametres', 'typesPenalite', 'typesMaintenance', 'motifsAbsence', 'typesDepense'));
+        return view('admin.parc-parametres', compact('parametres', 'listes'));
     }
 
     public function update(Request $r)
@@ -61,32 +55,61 @@ class ParcParametreController extends Controller
         return back()->with('succes', "Exercice mis à jour : à partir de " . ExerciceParc::libelle($v['a_partir_de']) . '.');
     }
 
-    /* ===== TYPES PARC CRUD ===== */
+    /* ===== LISTES DE CHOIX (types, motifs) ===== */
     public function storeType(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
         $data = $r->validate([
-            'categorie' => 'required|in:penalite,maintenance,motif_absence,depense',
-            'code' => 'required|string|max:50',
-            'libelle' => 'required|string|max:80',
-        ]);
-        $maxOrdre = TypeParc::where('categorie', $data['categorie'])->max('ordre') ?? 0;
-        TypeParc::create(array_merge($data, ['actif' => true, 'ordre' => $maxOrdre + 1]));
-        return back()->with('succes', 'Type ajouté.');
+            'categorie' => 'required|in:' . implode(',', array_keys(TypeParc::LISTES)),
+            'libelle' => 'required|string|min:2|max:80',
+            'intervalle_jours' => 'nullable|integer|min:1|max:3650',
+        ], [], ['libelle' => 'libellé', 'intervalle_jours' => 'intervalle']);
+        $t = TypeParc::ajouter($data['categorie'], $data['libelle'], $data['intervalle_jours'] ?? null);
+        AuditLog::log('creation', 'parametre_parc', TypeParc::LISTES[$t->categorie][0], $t->libelle);
+        return redirect()->route('admin.parc-parametres.index', ['tab' => 'listes', 'liste' => $t->categorie])
+            ->with('succes', "« {$t->libelle} » ajouté.");
+    }
+
+    /** Modification en place : libellé, intervalle, activation (réponse JSON). */
+    public function updateType(Request $r, TypeParc $type)
+    {
+        abort_unless($r->user()->estAdmin(), 403);
+        $data = $r->validate([
+            'libelle' => 'sometimes|required|string|min:2|max:80',
+            'intervalle_jours' => 'sometimes|nullable|integer|min:1|max:3650',
+            'actif' => 'sometimes|boolean',
+        ], [], ['libelle' => 'libellé', 'intervalle_jours' => 'intervalle']);
+        if (isset($data['libelle'])) {
+            $data['libelle'] = trim(preg_replace('/\s+/u', ' ', $data['libelle']));
+            $doublon = TypeParc::where('categorie', $type->categorie)->where('id', '!=', $type->id)->get()
+                ->contains(fn($t) => mb_strtolower($t->libelle) === mb_strtolower($data['libelle']));
+            if ($doublon) return response()->json(['message' => 'Ce libellé existe déjà dans la liste.'], 422);
+        }
+        $avant = $type->only(array_keys($data));
+        $type->update($data);
+        $chg = collect($data)->filter(fn($v, $k) => ($avant[$k] ?? null) != $v)
+            ->map(fn($v, $k) => $k === 'actif' ? ($v ? 'activé' : 'désactivé') : "$k : " . ($avant[$k] ?? '—') . " → $v")->implode(', ');
+        if ($chg) AuditLog::log('modification', 'parametre_parc', TypeParc::LISTES[$type->categorie][0] ?? $type->categorie, "{$type->libelle} ({$chg})");
+        return response()->json(['ok' => true, 'type' => $type->only(['id', 'code', 'libelle', 'intervalle_jours', 'actif'])]);
     }
 
     public function toggleType(Request $r, TypeParc $type)
     {
         abort_unless($r->user()->estAdmin(), 403);
         $type->update(['actif' => !$type->actif]);
-        return back()->with('succes', 'Type ' . ($type->actif ? 'activé' : 'désactivé') . '.');
+        AuditLog::log('modification', 'parametre_parc', TypeParc::LISTES[$type->categorie][0] ?? $type->categorie, $type->libelle . ($type->actif ? ' activé' : ' désactivé'));
+        return back()->with('succes', "« {$type->libelle} » " . ($type->actif ? 'activé' : 'désactivé') . '.');
     }
 
+    /** Suppression : seulement si la modalité n'a jamais servi (sinon, la désactiver). */
     public function destroyType(Request $r, TypeParc $type)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        $r->validate(['motif_suppression' => 'required|string|min:5']);
+        $n = TypeParc::usages($type->categorie)[$type->code] ?? 0;
+        if ($n) return back()->withErrors(['type' => "« {$type->libelle} » est utilisé {$n} fois : désactivez-le plutôt que de le supprimer."]);
         $type->delete();
-        return back()->with('succes', 'Type supprimé.');
+        AuditLog::log('suppression', 'parametre_parc', TypeParc::LISTES[$type->categorie][0] ?? $type->categorie, $type->libelle . ($r->filled('motif_suppression') ? ', motif : ' . $r->motif_suppression : ''));
+        return redirect()->route('admin.parc-parametres.index', ['tab' => 'listes', 'liste' => $type->categorie])
+            ->with('succes', "« {$type->libelle} » supprimé.");
     }
 }

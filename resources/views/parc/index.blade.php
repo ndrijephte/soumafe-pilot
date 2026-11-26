@@ -373,9 +373,9 @@ dialog.dlg-sr{width:440px;padding:0;overflow:visible}
 .pn-etape-lib{display:block;font-size:11px;color:var(--accent);font-weight:600;margin-top:3px}
 .pn-etape-lib.clos{color:var(--ok)}
 .pn-emp{display:block;width:max-content;margin:3px 0 0 auto;font-size:9.5px}
-.maint-alerte{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 6px 6px 12px;border:1px solid var(--bord);border-left:4px solid var(--gris);border-radius:8px;font-size:12.5px;background:#fff}
+.maint-alerte{--pt:var(--gris);display:flex;align-items:center;gap:10px;justify-content:space-between;padding:6px 6px 6px 26px;border:1px solid var(--bord);border-radius:8px;font-size:12.5px;background:#fff radial-gradient(circle,var(--pt) 3.5px,transparent 4px) no-repeat 9px center}
 .maint-alerte em{color:var(--gris);font-style:normal}
-.maint-alerte.ko{border-left-color:var(--ko);background:#fffafa}.maint-alerte.warn{border-left-color:#f59e0b;background:#fffdf5}
+.maint-alerte.ko{--pt:var(--ko)}.maint-alerte.warn{--pt:#f59e0b}
 .filtre-resultat{margin-left:auto;font-size:12px;color:var(--mute);white-space:nowrap}
 .filtre-bar select,.filtre-bar input[type="month"],.filtre-bar input[type="text"],.filtre-bar input[type="search"]{padding:5px 10px;border:1px solid var(--bord);border-radius:8px;font-size:12px}
 #form-saisie-recette select,#form-saisie-recette input[type="number"],#form-saisie-recette input[type="date"],#form-saisie-recette textarea{width:100%;padding:8px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px;background:#fff;color:#1e293b;transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;appearance:none}
@@ -384,7 +384,7 @@ dialog.dlg-sr{width:440px;padding:0;overflow:visible}
 #form-saisie-recette select:hover,#form-saisie-recette input[type="number"]:hover{border-color:var(--accent)}
 .urgence-faible{color:#475569}.urgence-moyenne{color:var(--warn)}.urgence-haute{color:#ea580c;font-weight:700}.urgence-critique{color:var(--ko);font-weight:700}
 .detail-row td{padding:0!important;border-bottom:1px solid #f1f5f9}
-.detail-content{background:#f8fafc;padding:8px 16px;font-size:12px;color:#334155;line-height:1.6;border-left:3px solid var(--accent)}
+.detail-content{background:#f8fafc;padding:8px 16px;font-size:12px;color:#334155;line-height:1.6}
 .detail-content strong{color:var(--bleu);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
 .act-btn.info{color:var(--accent)}
 .act-btn.info:hover{background:rgba(46,116,181,.08)}
@@ -411,11 +411,11 @@ dialog.dlg-sr{width:440px;padding:0;overflow:visible}
 .gc-list{display:flex;flex-direction:column;gap:6px}
 .gc-item{background:var(--carte);border:1px solid var(--bord);border-radius:10px;overflow:hidden;transition:box-shadow .15s}
 .gc-item:hover{box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.gc-item.gc-repos{border-left:3px solid var(--ok);background:#f0fdf4}
-.gc-item.gc-inactif{opacity:.65;border-left:3px solid var(--gris)}
+.gc-item.gc-repos{border-color:#bbf7d0;background:#f7fdf9}
+.gc-item.gc-inactif{opacity:.65}
 .gc-av-off{background:var(--gris)!important;color:#fff!important}
-.gc-item.gc-fait{border-left:3px solid var(--accent)}
-.gc-item.gc-bloque{border-left:3px solid var(--ko);background:#fef2f2;opacity:.7}
+.gc-item.gc-fait{border-color:#bfd7ee}
+.gc-item.gc-bloque{border-color:#fecaca;background:#fffafa;opacity:.7}
 .gc-row{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;user-select:none}
 .gc-row:hover{background:rgba(46,116,181,.04)}
 .gc-avatar{width:36px;height:36px;border-radius:50%;background:var(--fond);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--bleu)}
@@ -580,6 +580,8 @@ $icUser = $ic('<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12
 $icDepense = $ic('<path d="M2 7h20M5 7v12a2 2 0 002 2h10a2 2 0 002-2V7M9 11v4M15 11v4M10 3h4l1 4H9l1-4z"/>');
 
 $estDG = auth()->user()->aRole('direction');
+// Ajout à la volée d'une valeur absente d'une liste (la direction consulte sans modifier)
+$modalite = fn(string $cat) => $estDG ? '' : 'data-modalite="' . $cat . '" data-modalite-url="' . route('parc.modalites.store') . '" data-modalite-nom="' . e(\App\Models\TypeParc::LISTES[$cat][4]) . '"';
 $estChargeOps = auth()->user()->estAdmin();
 
 $marques = $vehicules->pluck('marque')->filter()->unique()->sort()->values()->toArray();
@@ -974,7 +976,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <div class="sr-ligne">
                 <div><label for="sr-pointage">Pointage</label><input type="number" name="pointage" id="sr-pointage" min="0" value="0" required></div>
                 <div id="sr-mode-wrap"><label for="sr-mode">Mode de remise</label>
-                    <select name="mode_remise" id="sr-mode">
+                    <select data-pastilles name="mode_remise" id="sr-mode">
                         <option value="">Choisir…</option><option value="especes">Espèces</option><option value="mobile_money">Mobile Money</option><option value="cheque">Chèque</option><option value="virement">Virement</option><option value="autre">Autre</option>
                     </select></div>
             </div>
@@ -982,7 +984,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             {{-- Écart à justifier : n'apparaît qu'en cas de déficit ou de recette nulle --}}
             <div id="sr-motif-zone" class="sr-motif" style="display:none">
                 <label for="sr-motif" id="sr-motif-label">Motif</label>
-                <select name="motif_absence" id="sr-motif">
+                <select data-pastilles name="motif_absence" id="sr-motif" {!! $modalite('motif_absence') !!}>
                     <option value="">Choisir un motif…</option>
                     @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}">{{ $ma->libelle }}</option>@endforeach
                 </select>
@@ -1436,7 +1438,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 <div class="form-row" style="grid-template-columns:1fr 1fr">
                     <div>
                         <label>Payeur <span class="req">*</span></label>
-                        <select name="source_paiement" id="vs-source" required>
+                        <select data-pastilles name="source_paiement" id="vs-source" required>
                             <option value="">— Payeur —</option>
                             <option value="chauffeur">Chauffeur</option>
                             <option value="entreprise">Entreprise</option>
@@ -1444,7 +1446,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                     </div>
                     <div>
                         <label>Mode de paiement <span class="req">*</span></label>
-                        <select name="mode_paiement" required>
+                        <select data-pastilles name="mode_paiement" required>
                             <option value="">— Mode —</option>
                             <option value="especes">Espèces</option>
                             <option value="mobile_money">Mobile Money</option>
@@ -1604,7 +1606,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <div class="form-row" style="grid-template-columns:1fr 1fr">
                 <div>
                     <label>Source du paiement <span class="req">*</span></label>
-                    <select name="source_paiement" id="pp-source" required onchange="toggleFinancementPenal(this.value)">
+                    <select data-pastilles name="source_paiement" id="pp-source" required onchange="toggleFinancementPenal(this.value)">
                         <option value="">— Source —</option>
                         <option value="pointage">Pointage</option>
                         <option value="chauffeur">Chauffeur</option>
@@ -1613,7 +1615,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
                 </div>
                 <div>
                     <label>Mode de paiement <span class="req">*</span></label>
-                    <select name="mode_paiement" required>
+                    <select data-pastilles name="mode_paiement" required>
                         <option value="">— Mode —</option>
                         <option value="especes">Espèces</option>
                         <option value="mobile_money">Mobile Money</option>
@@ -1652,10 +1654,10 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="form-row3">
         <div><label>Immatriculation <span class="req">*</span></label><input name="immatriculation" id="v-immat" required></div>
         <div><label>Catégorie <span class="req">*</span></label>
-            <select name="categorie" id="v-cat"><option value="taxi">Taxi</option><option value="vtc">VTC</option></select>
+            <select data-pastilles name="categorie" id="v-cat"><option value="taxi">Taxi</option><option value="vtc">VTC</option></select>
         </div>
         <div><label>Statut <span class="req">*</span></label>
-            <select name="statut" id="v-statut"><option value="en_service">En service</option><option value="immobilise">Immobilisé</option><option value="reforme">Réformé</option></select>
+            <select data-pastilles name="statut" id="v-statut"><option value="en_service">En service</option><option value="immobilise">Immobilisé</option><option value="reforme">Réformé</option></select>
         </div>
     </div>
     <div class="form-row">
@@ -1763,7 +1765,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
         <div><label>Date déclaration</label><input type="date" name="date_declaration" id="p-date" value="{{ date('Y-m-d') }}"></div>
         <div><label>Urgence <span class="req">*</span></label>
-            <select name="urgence" id="p-urg" required>
+            <select data-pastilles name="urgence" id="p-urg" required>
                 <option value="faible">Faible</option><option value="moyenne" selected>Moyenne</option><option value="haute">Haute</option><option value="critique">Critique</option>
             </select>
         </div>
@@ -1795,13 +1797,13 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div><label>Diagnostic</label><textarea name="diagnostic" id="s-diag" rows="2" placeholder="Résultat du diagnostic"></textarea></div>
     <div class="form-row3">
         <div><label>Décision</label>
-            <select name="decision" id="s-deci">
+            <select data-pastilles name="decision" id="s-deci">
                 <option value="">— Choisir —</option><option value="Réparer">Réparer</option><option value="Remplacer pièce">Remplacer pièce</option><option value="Sous-traitance">Sous-traitance</option><option value="Réforme">Réforme</option><option value="Autre">Autre</option>
             </select>
         </div>
         <div><label>Coût réel (FCFA)</label><input type="number" name="cout_reel" id="s-cout" min="0" readonly style="background:#f0f0f0;cursor:not-allowed" title="Calculé automatiquement depuis les lignes d'intervention"></div>
         <div><label>Statut <span class="req">*</span></label>
-            <select name="statut" id="s-statut" required>
+            <select data-pastilles name="statut" id="s-statut" required>
                 <option value="declaree">Déclarée</option><option value="en_diagnostic">En diagnostic</option><option value="en_intervention">En intervention</option><option value="cloturee">Clôturée</option>
             </select>
         </div>
@@ -1891,8 +1893,8 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div><label>Recette (FCFA) <span class="req">*</span></label><input type="number" name="recette" id="r-montant" min="0" required placeholder="Montant versé"></div>
         <div><label>Pointage (FCFA) <span class="req">*</span></label><input type="number" name="pointage" id="r-pointage" min="0" value="0" required></div>
         <div id="r-mode-wrap"><label>Mode de remise <span class="req">*</span></label>
-            <select name="mode_remise" id="r-mode">
-                <option value="">--</option><option value="especes">Especes</option><option value="mobile_money">Mobile Money</option><option value="cheque">Cheque</option><option value="virement">Virement</option><option value="autre">Autre</option>
+            <select data-pastilles name="mode_remise" id="r-mode">
+                <option value="">--</option><option value="especes">Espèces</option><option value="mobile_money">Mobile Money</option><option value="cheque">Chèque</option><option value="virement">Virement</option><option value="autre">Autre</option>
             </select>
         </div>
     </div>
@@ -1908,7 +1910,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     <div id="motif-zone" style="display:none;margin-top:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:10px 12px">
         <label id="motif-label" style="color:#92400e;font-weight:700;font-size:11px">JUSTIFICATION OBLIGATOIRE</label>
-        <select name="motif_absence" id="r-motif" style="margin-top:4px">
+        <select data-pastilles name="motif_absence" id="r-motif" style="margin-top:4px" {!! $modalite('motif_absence') !!}>
             <option value="">-- Choisir un motif --</option>
             @foreach($motifsAbsence as $ma)<option value="{{ $ma->code }}">{{ $ma->libelle }}</option> @endforeach
         </select>
@@ -1949,7 +1951,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </select>
         </div>
         <div><label>Type <span class="req">*</span></label>
-            <select name="type_echeance" id="m-type" required onchange="calcProchaineEcheanceCreation()">
+            <select data-pastilles name="type_echeance" id="m-type" required onchange="calcProchaineEcheanceCreation()" {!! $modalite('maintenance') !!} data-modalite-intervalle>
                 @foreach($typesMaintenance as $tm)<option value="{{ $tm->code }}">{{ $tm->libelle }}{{ $tm->intervalle_jours ? ' ('.$tm->intervalle_jours.'j)' : '' }}</option>@endforeach
             </select>
         </div>
@@ -2050,7 +2052,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
         <div><label>Date <span class="req">*</span></label><input type="date" name="date_infraction" id="pe-date" value="{{ date('Y-m-d') }}" required></div>
         <div><label>Type <span class="req">*</span></label>
-            <select name="type" id="pe-type" required>
+            <select data-pastilles name="type" id="pe-type" required {!! $modalite('penalite') !!}>
                 @foreach($typesPenalite as $tp)<option value="{{ $tp->code }}">{{ $tp->libelle }}</option>@endforeach
             </select>
         </div>
@@ -2062,7 +2064,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             </select>
         </div>
         <div><label>Lieu <span class="req">*</span></label>
-            <select name="lieu" id="pe-lieu" required>
+            <select name="lieu" id="pe-lieu" required data-modalite="lieu" data-modalite-nom="un autre lieu">
                 <option value="">— Lieu —</option>
                 @foreach($lieuxSugg as $l)<option value="{{ $l }}">{{ $l }}</option>@endforeach
             </select>
@@ -2098,7 +2100,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="dlg-section" style="margin-top:0">Règlement</div>
     <div class="form-row3">
         <div><label>Statut <span class="req">*</span></label>
-            <select name="statut" id="sp-statut" required>
+            <select data-pastilles name="statut" id="sp-statut" required>
                 <option value="non_payee">Non payée</option><option value="en_cours">En cours</option><option value="payee">Payée</option><option value="contestee">Contestée</option>
             </select>
         </div>
@@ -2128,7 +2130,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     </div>
     <div class="form-row">
         <div><label>Statut</label>
-            <select name="statut" id="ch-statut"><option value="actif">Actif</option><option value="inactif">Inactif</option></select>
+            <select data-pastilles name="statut" id="ch-statut"><option value="actif">Actif</option><option value="inactif">Inactif</option></select>
         </div>
         <div></div>
     </div>
@@ -2519,7 +2521,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         </div>
         <div><label>Date remboursement <span class="req">*</span></label><input type="date" name="date_remboursement" id="re-date" value="{{ date('Y-m-d') }}" required></div>
         <div><label>Mode de paiement</label>
-            <select name="mode_paiement">
+            <select data-pastilles name="mode_paiement">
                 <option value="">—</option>
                 <option value="especes">Espèces</option>
                 <option value="mobile_money">Mobile Money</option>
@@ -2542,7 +2544,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
     <div class="form-row3">
         <div><label>Date <span class="req">*</span></label><input type="date" name="date_depense" id="de-date" value="{{ date('Y-m-d') }}" required></div>
         <div><label>Type <span class="req">*</span></label>
-            <select name="type_depense" id="de-type" required>
+            <select data-pastilles name="type_depense" id="de-type" required {!! $modalite('depense') !!}>
                 <option value="">— Choisir —</option>
                 @foreach($typesDepense ?? [] as $td)
                 <option value="{{ $td->code }}">{{ $td->libelle }}</option>
@@ -2610,7 +2612,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
             <div><label>Date <span class="req">*</span></label><input type="date" name="date_remboursement" value="{{ date('Y-m-d') }}" required></div>
         </div>
         <div><label>Mode paiement</label>
-            <select name="mode_paiement">
+            <select data-pastilles name="mode_paiement">
                 <option value="especes">Espèces</option>
                 <option value="mobile_money">Mobile Money</option>
                 <option value="cheque">Chèque</option>
@@ -2641,7 +2643,7 @@ if (\Illuminate\Support\Facades\Schema::hasTable('penalites')) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div><label>Date <span class="req">*</span></label><input type="date" name="date_ressource" id="rs-date" value="{{ date('Y-m-d') }}" required></div>
             <div><label>Type <span class="req">*</span></label>
-                <select name="type_ressource" id="rs-type" required>
+                <select data-pastilles name="type_ressource" id="rs-type" required {!! $modalite('autre_ressource') !!}>
                     <option value="">— Choisir —</option>
                     @foreach($typesRessource ?? [] as $tr)<option value="{{ $tr->code }}">{{ $tr->libelle }}</option>@endforeach
                 </select>
@@ -2943,6 +2945,7 @@ document.addEventListener('DOMContentLoaded',function(){
 var recettesData = @json($_rData);
 var maintData = @json($_mData);
 var maintIntervalles = @json($typesMaintenance->pluck('intervalle_jours', 'code'));
+document.addEventListener('modalite-ajoutee', function(e){ if (e.detail.categorie === 'maintenance') maintIntervalles[e.detail.code] = e.detail.intervalle_jours; });
 var penalData = @json($_peData);
 var chauffeurData = @json($_chData);
 var depensesData = @json($_depData);
@@ -3541,7 +3544,7 @@ function resetRecetteForm(){
     var motifCodes=@json($motifsAbsence->pluck('code')->toArray());
     for(var i=motifSel.options.length-1;i>=0;i--){
         var v=motifSel.options[i].value;
-        if(v!=='' && motifCodes.indexOf(v)===-1) motifSel.remove(i);
+        if(v!=='' && motifCodes.indexOf(v)===-1 && !motifSel.options[i].dataset.ajout && !motifSel.options[i].dataset.ajoutee) motifSel.remove(i);
     }
     document.getElementById('r-date').value='{{ $dateJour }}';
     document.getElementById('r-date').style.borderColor='';

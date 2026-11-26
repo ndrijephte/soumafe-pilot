@@ -7,13 +7,11 @@ use Illuminate\Http\Request;
 
 class ServiceController extends Controller
 {
+    /** Écran remplacé par Administration > Organisation > Structure. */
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        return view('admin.services.index', [
-            'services' => Service::with('domaine')->withCount('poles')->orderBy('libelle')->get(),
-            'domaines' => Domaine::orderBy('libelle')->get(),
-        ]);
+        return redirect()->route('admin.organisation.index');
     }
 
     public function store(Request $r)

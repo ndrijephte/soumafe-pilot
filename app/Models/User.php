@@ -45,6 +45,10 @@ class User extends Authenticatable
 
     public static function libelleRole(string $code): string
     {
+        // libellé paramétré (Administration > Rôles et profils), sinon libellé par défaut
+        static $parametres = null;
+        $parametres ??= \Illuminate\Support\Facades\Schema::hasTable('roles') ? \App\Models\Role::pluck('libelle', 'code')->all() : [];
+        if (!empty($parametres[$code])) return $parametres[$code];
         return match ($code) {
             'administrateur'     => 'Administrateur',
             'direction'          => 'Direction Générale',

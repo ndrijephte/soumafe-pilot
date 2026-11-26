@@ -22,10 +22,12 @@ class Evenement extends Model
         }
         return match ($this->type) {
             'interruption_service' => 'Interruption de service',
-            'absence' => 'Absence',
+            'absence' => 'Absence imprévue',
             'condoleance' => 'Condoléances',
             'reunion_exceptionnelle' => 'Réunion exceptionnelle',
-            default => 'Autre',
+            'autre' => 'Autre',
+            // type retiré du paramétrage : son code reste lisible plutôt que d'être confondu avec « Autre »
+            default => ucfirst(str_replace('_', ' ', (string) $this->type)),
         };
     }
 

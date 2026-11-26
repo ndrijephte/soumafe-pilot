@@ -1,184 +1,170 @@
 @extends('layouts.app')
 @section('sousTitre', 'Administration')
 @section('titre', 'Administration - Projets')
-@push('styles')
-<style>
-.admin-tbl{width:100%;border-collapse:collapse;font-size:13px}
-.admin-tbl th{text-align:left;color:var(--gris);font-weight:600;padding:8px 10px;border-bottom:2px solid var(--bord);font-size:11.5px;text-transform:uppercase}
-.admin-tbl td{padding:8px 10px;border-bottom:1px solid var(--bord)}
-.admin-tbl tr:hover{background:#f1f5f9}
-.btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none}
-.btn.sm{padding:4px 10px;font-size:11.5px;border-radius:6px}
-.btn.sec{background:#fff;color:var(--accent);border:1px solid var(--accent)}
-.btn.danger{background:var(--ko)}
-.alerte{display:flex;gap:10px;align-items:center;border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:12px}
-.alerte.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--ok)}
-.alerte.ko{background:#fef2f2;border:1px solid #fecaca;color:var(--ko)}
-.pill{padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600}
-.s-actif{background:#dcfce7;color:var(--ok)}.s-pause{background:#fef3c7;color:#b45309}
-.s-termine{background:#e2e8f0;color:var(--gris)}.s-annule{background:#fee2e2;color:var(--ko)}
-.form-card{background:var(--carte);border:1px solid var(--accent);border-radius:12px;padding:16px;margin-bottom:16px}
-.form-card h3{font-size:14px;color:var(--bleu);margin:0 0 10px}
-.form-card label{display:block;font-size:12px;font-weight:600;color:var(--gris);text-transform:uppercase;margin:10px 0 4px}
-.form-card label:first-of-type{margin-top:0}
-.form-card input,.form-card select{width:100%;max-width:400px;padding:7px 10px;border:1px solid var(--bord);border-radius:8px;font-size:13px}
-.form-card input:focus,.form-card select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,116,181,.12)}
-.form-actions{display:flex;gap:8px;margin-top:12px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.hint{font-size:10.5px;color:var(--gris);margin-top:2px}
-</style>
-@endpush
 @section('contenu')
-<h2>Gestion des projets</h2>
-<div class="crumb">Administration &rsaquo; R&eacute;f&eacute;rentiels &rsaquo; Projets</div>
+@include('admin._ui')
+@php
+    $statuts = ['actif' => ['Actif', 'ok', '#16a34a'], 'en_pause' => ['En pause', 'warn', '#d97706'], 'termine' => ['Terminé', 'mut', '#64748b'], 'annule' => ['Annulé', 'ko', '#dc2626']];
+    $icEdit = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+    $nb = $projets->countBy('statut');
+@endphp
+<h2>Administration</h2>
+<div class="crumb">Administration &rsaquo; Organisation &rsaquo; Projets</div>
 @include('admin._nav')
 
-@if(session('succes'))<div class="alerte ok">{{ session('succes') }}</div>@endif
-@if(session('erreur'))<div class="alerte ko">{{ session('erreur') }}</div>@endif
-@if($errors->any())
-<div class="alerte ko">
-    <ul style="margin:0;padding-left:16px">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+@if(session('succes'))<div class="ad-alerte ok">{{ session('succes') }}</div>@endif
+@if(session('erreur'))<div class="ad-alerte ko">{{ session('erreur') }}</div>@endif
+@if($errors->any())<div class="ad-alerte ko">{{ $errors->first() }}</div>@endif
+
+<div class="ad-barre">
+    <div class="ad-recherche">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="pj-cherche" placeholder="Projet, client, responsable…" oninput="pjFiltrer()" data-sans-controle>
+    </div>
+    <div class="ad-filtres">
+        <button type="button" data-sans-icone data-f="" class="actif" onclick="pjStatut(this)">Tous {{ $projets->count() }}</button>
+        @foreach($statuts as $s => [$lib])
+            @if($nb[$s] ?? 0)<button type="button" data-sans-icone data-f="{{ $s }}" onclick="pjStatut(this)">{{ $lib }} {{ $nb[$s] }}</button>@endif
+        @endforeach
+    </div>
+    <span class="espace"></span>
+    <button type="button" class="btn-p" data-sans-icone onclick="pjOuvrir()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nouveau projet</button>
 </div>
-@endif
 
-<div class="form-card" id="formSection">
-    <h3 id="formTitre">{{ old('_editing') ? 'Modifier le projet' : 'Nouveau projet' }}</h3>
-    <form method="POST" id="formProjet" action="{{ old('_editing') ? url('admin/projets/'.old('_editing')) : route('admin.projets.store') }}">
+<div class="ad-panneau">
+<table class="ad-table" id="pj-table">
+    <thead><tr><th>Projet</th><th>Client</th><th>Responsable</th><th>Période</th><th>Délégations</th><th>Statut</th><th class="n">Tâches</th><th></th></tr></thead>
+    <tbody>
+    @foreach($projets as $p)
+        @php
+            $st = $statuts[$p->statut] ?? [ucfirst(str_replace('_', ' ', $p->statut)), 'mut', '#64748b'];
+            $d = $p->date_debut ? \Carbon\Carbon::parse($p->date_debut) : null; $c = $p->date_cible ? \Carbon\Carbon::parse($p->date_cible) : null;
+            $donnees = ['id' => $p->id, 'code' => $p->code, 'libelle' => $p->libelle, 'client' => $p->client ?? '', 'resp' => (string) ($p->responsable_projet_id ?? ''),
+                'statut' => $p->statut, 'debut' => $d?->format('Y-m-d') ?? '', 'cible' => $c?->format('Y-m-d') ?? '', 'deleg' => (bool) $p->delegation_sprint, 'histo' => (bool) $p->delegation_historique];
+        @endphp
+        <tr data-statut="{{ $p->statut }}" data-texte="{{ mb_strtolower($p->code . ' ' . $p->libelle . ' ' . $p->client . ' ' . $p->responsable?->nomComplet()) }}">
+            <td><b style="font-weight:600">{{ $p->libelle }}</b><span class="sec">{{ $p->code }}</span></td>
+            <td>{{ $p->client ?: '—' }}</td>
+            <td>{{ $p->responsable?->nomComplet() ?? '—' }}</td>
+            <td style="white-space:nowrap">@if($d || $c){{ $d?->translatedFormat('d M Y') ?? '…' }} → {{ $c?->translatedFormat('d M Y') ?? '…' }}@if($c && $p->statut === 'actif' && $c->isPast())<span class="sec" style="color:var(--ko)">échéance dépassée</span>@endif @else<span class="sec">non planifié</span>@endif</td>
+            <td>@if($p->delegation_sprint)<span class="ad-marque" title="Le responsable gère les sprints">Sprints</span>@endif @if($p->delegation_historique)<span class="ad-marque" title="Le responsable peut rectifier les sprints clôturés">Rétrospective</span>@endif @if(!$p->delegation_sprint && !$p->delegation_historique)<span class="sec">—</span>@endif</td>
+            <td><span class="etat {{ $st[1] }}">{{ $st[0] }}</span></td>
+            <td class="n">{{ $p->taches_count }}</td>
+            <td class="act"><button type="button" class="ib" data-sans-icone title="Modifier" aria-label="Modifier" data-projet="{{ json_encode($donnees) }}" onclick="pjOuvrir(JSON.parse(this.dataset.projet))">{!! $icEdit !!}</button></td>
+        </tr>
+    @endforeach
+    </tbody>
+</table>
+<div class="ad-vide" id="pj-vide" hidden>Aucun projet ne correspond.</div>
+</div>
+
+<dialog id="dlg-projet" class="fm-dlg">
+    <div class="fm-tete">
+        <span class="fm-ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+        <div><h3 id="pj-titre">Nouveau projet</h3><p>Le responsable suit le projet ; les délégations lui ouvrent la gestion des sprints.</p></div>
+    </div>
+    <form method="POST" id="pj-form" action="{{ route('admin.projets.store') }}">
         @csrf
-        @if(old('_editing'))<input type="hidden" name="_method" value="PUT">@endif
-        <input type="hidden" name="_editing" id="fEditing" value="{{ old('_editing', '') }}">
-
-        <div class="form-row">
-            <div>
-                <label>Code</label>
-                <input name="code" id="fCode" required maxlength="20" value="{{ old('code') }}">
-            </div>
-            <div>
-                <label>Statut</label>
-                <select name="statut" id="fStatut">
-                    <option value="actif" {{ old('statut') === 'actif' ? 'selected' : '' }}>Actif</option>
-                    <option value="en_pause" {{ old('statut') === 'en_pause' ? 'selected' : '' }}>En pause</option>
-                    <option value="termine" {{ old('statut') === 'termine' ? 'selected' : '' }}>Termin&eacute;</option>
-                    <option value="annule" {{ old('statut') === 'annule' ? 'selected' : '' }}>Annul&eacute;</option>
-                </select>
-            </div>
+        <input type="hidden" name="_method" id="pj-methode" value="POST">
+        <div class="fm-ligne2" style="grid-template-columns:1fr 170px">
+            <div><label class="fm-lab" for="pj-lib">Intitulé du projet <span class="req">*</span></label>
+                <input name="libelle" id="pj-lib" class="fm-champ" required maxlength="150" placeholder="Ex. : Gestion logistique (STLE)" oninput="pjCodeAuto()"></div>
+            <div><label class="fm-lab" for="pj-code">Code <span class="req">*</span></label>
+                <input name="code" id="pj-code" class="fm-champ" required maxlength="20" style="text-transform:uppercase" placeholder="STLE" oninput="this.dataset.manuel = this.value ? '1' : ''"></div>
         </div>
-
-        <label>Libell&eacute;</label>
-        <input name="libelle" id="fLib" required maxlength="150" value="{{ old('libelle') }}">
-
-        <div class="form-row">
-            <div>
-                <label>Client</label>
-                <input name="client" id="fClient" maxlength="100" value="{{ old('client') }}">
-            </div>
-            <div>
-                <label>Responsable projet</label>
-                <select name="responsable_projet_id" id="fResp">
+        <label class="fm-lab" for="pj-statut">Statut <span class="req">*</span></label>
+        <select name="statut" id="pj-statut" required data-pastilles>
+            @foreach($statuts as $s => [$lib, , $coul])<option value="{{ $s }}" data-couleur="{{ $coul }}">{{ $lib }}</option>@endforeach
+        </select>
+        <div class="fm-ligne2">
+            <div><label class="fm-lab" for="pj-client">Client <span class="fac">facultatif</span></label>
+                <input name="client" id="pj-client" class="fm-champ" maxlength="100" placeholder="Ex. : Ministère, entreprise…"></div>
+            <div><label class="fm-lab" for="pj-resp">Responsable du projet</label>
+                <select name="responsable_projet_id" id="pj-resp" class="fm-champ" onchange="pjDeleg()">
                     <option value="">— Aucun —</option>
-                    @foreach($responsables as $c)
-                    <option value="{{ $c->id }}" {{ old('responsable_projet_id') == $c->id ? 'selected' : '' }}>{{ $c->nomComplet() }}</option>
-                    @endforeach
-                </select>
-            </div>
+                    @foreach($responsables as $c)<option value="{{ $c->id }}">{{ $c->nomComplet() }}</option>@endforeach
+                </select></div>
         </div>
+        <div class="fm-ligne2">
+            <div><label class="fm-lab" for="pj-debut">Début</label><input type="date" name="date_debut" id="pj-debut" class="fm-champ" oninput="pjPeriode()"></div>
+            <div><label class="fm-lab" for="pj-cible">Date cible</label><input type="date" name="date_cible" id="pj-cible" class="fm-champ" oninput="pjPeriode()"></div>
+        </div>
+        <p class="fm-resume" id="pj-resume"></p>
 
-        <div class="form-row">
-            <div>
-                <label>Date d&eacute;but</label>
-                <input type="date" name="date_debut" id="fDebut" value="{{ old('date_debut') }}">
-            </div>
-            <div>
-                <label>Date cible</label>
-                <input type="date" name="date_cible" id="fCible" value="{{ old('date_cible') }}">
-            </div>
+        <div class="fm-section"><h4>Délégations au responsable</h4>
+            <input type="hidden" name="delegation_sprint" value="0"><input type="hidden" name="delegation_historique" value="0">
+            <label class="fm-option" id="pj-opt-deleg"><span class="inter"><input type="checkbox" name="delegation_sprint" id="pj-deleg" value="1" onchange="pjDeleg()"><i></i></span>
+                <span><b>Gestion des sprints</b><span>Le responsable crée, planifie et importe les sprints du projet.</span></span></label>
+            <label class="fm-option" id="pj-opt-histo"><span class="inter"><input type="checkbox" name="delegation_historique" id="pj-histo" value="1" onchange="pjDeleg()"><i></i></span>
+                <span><b>Actions rétrospectives</b><span>Rouvrir un sprint clôturé en rectification (backlog, planning, tâches, Daily, rapports). Chaque rectification est motivée et tracée.</span></span></label>
         </div>
-
-        <div style="margin-top:10px">
-            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px">
-                <input type="hidden" name="delegation_sprint" value="0">
-                <input type="checkbox" name="delegation_sprint" id="fDeleg" value="1" style="width:auto;accent-color:var(--accent)" {{ old('delegation_sprint') ? 'checked' : '' }}>
-                D&eacute;l&eacute;guer la gestion des sprints au responsable projet
-            </label>
-            <div class="hint">Si activ&eacute;, le responsable projet pourra cr&eacute;er et importer des sprints.</div>
-        </div>
-        <div style="margin-top:8px">
-            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;font-size:13px">
-                <input type="hidden" name="delegation_historique" value="0">
-                <input type="checkbox" name="delegation_historique" id="fDelegHisto" value="1" style="width:auto;accent-color:var(--accent)" {{ old('delegation_historique') ? 'checked' : '' }}>
-                Autoriser le responsable projet &agrave; mener des actions r&eacute;trospectives
-            </label>
-            <div class="hint">Rouvrir un sprint cl&ocirc;tur&eacute; en rectification pour harmoniser l'historique du projet (Sprint Backlog, planning, t&acirc;ches, Daily, rapports). N&eacute;cessite la d&eacute;l&eacute;gation des sprints ; chaque rectification est motiv&eacute;e et trac&eacute;e.</div>
-        </div>
-
-        <div class="form-actions">
-            <button class="btn" id="btnSubmit">Enregistrer</button>
-            <button type="button" class="btn sec" onclick="resetForm()">Annuler / Nouveau</button>
+        <div class="fm-pied">
+            <button type="button" class="btn-s" onclick="this.closest('dialog').close()">Annuler</button>
+            <button class="btn-p" id="pj-valider">Créer le projet</button>
         </div>
     </form>
-</div>
-
-<div style="margin-bottom:10px;font-size:13px;color:var(--gris)">{{ $projets->count() }} projet(s)</div>
-
-<div class="carte" style="padding:0;overflow-x:auto">
-<table class="admin-tbl">
-<thead><tr><th>Code</th><th>Libell&eacute;</th><th>Client</th><th>Responsable</th><th>D&eacute;l&eacute;g.</th><th title="Actions r&eacute;trospectives d&eacute;l&eacute;gu&eacute;es au responsable">R&eacute;tro.</th><th>Statut</th><th>T&acirc;ches</th><th>Actions</th></tr></thead>
-<tbody>
-@foreach($projets as $p)
-<tr>
-    <td><strong>{{ $p->code }}</strong></td>
-    <td>{{ $p->libelle }}</td>
-    <td>{{ $p->client ?? '—' }}</td>
-    <td>{{ $p->responsable?->nomComplet() ?? '—' }}</td>
-    <td style="text-align:center">{!! $p->delegation_sprint ? '<span style="color:var(--ok);font-weight:700">&#10003;</span>' : '' !!}</td>
-    <td style="text-align:center">{!! $p->delegation_historique ? '<span style="color:var(--ok);font-weight:700">&#10003;</span>' : '' !!}</td>
-    <td><span class="pill s-{{ str_replace('en_', '', $p->statut) }}">{{ ucfirst(str_replace('_',' ',$p->statut)) }}</span></td>
-    <td>{{ $p->taches_count }}</td>
-    <td><button class="btn sm sec" onclick="editMode({{ $p->id }}, {{ json_encode($p->code) }}, {{ json_encode($p->libelle) }}, {{ json_encode($p->client ?? '') }}, '{{ $p->responsable_projet_id ?? '' }}', '{{ $p->statut }}', '{{ $p->date_debut ? \Carbon\Carbon::parse($p->date_debut)->format('Y-m-d') : '' }}', '{{ $p->date_cible ? \Carbon\Carbon::parse($p->date_cible)->format('Y-m-d') : '' }}', {{ $p->delegation_sprint ? 'true' : 'false' }}, {{ $p->delegation_historique ? 'true' : 'false' }})">Modifier</button></td>
-</tr>
-@endforeach
-</tbody>
-</table>
-</div>
+</dialog>
 @endsection
 
 @push('scripts')
 <script>
-function editMode(id, code, libelle, client, respId, statut, debut, cible, deleg, delegHisto) {
-    document.getElementById('formTitre').textContent = 'Modifier le projet';
-    document.getElementById('formProjet').action = '{{ url("admin/projets") }}/' + id;
-    document.getElementById('fEditing').value = id;
-    document.getElementById('fCode').value = code;
-    document.getElementById('fLib').value = libelle;
-    document.getElementById('fClient').value = client;
-    document.getElementById('fResp').value = respId;
-    document.getElementById('fStatut').value = statut;
-    document.getElementById('fDebut').value = debut;
-    document.getElementById('fCible').value = cible;
-    document.getElementById('fDeleg').checked = deleg;
-    document.getElementById('fDelegHisto').checked = !!delegHisto;
-    // Ajouter _method PUT
-    var mf = document.querySelector('#formProjet input[name="_method"]');
-    if (!mf) { mf = document.createElement('input'); mf.type='hidden'; mf.name='_method'; document.getElementById('formProjet').appendChild(mf); }
-    mf.value = 'PUT';
-    document.getElementById('formSection').scrollIntoView({behavior:'smooth'});
-    document.getElementById('fLib').focus();
+var PJ_URL = @js(url('admin/projets'));
+function pjOuvrir(p){
+    var f = document.getElementById('pj-form'), d = document.getElementById('dlg-projet');
+    f.reset(); document.getElementById('pj-code').dataset.manuel = p ? '1' : '';
+    document.getElementById('pj-titre').textContent = p ? 'Modifier le projet' : 'Nouveau projet';
+    document.getElementById('pj-valider').textContent = p ? 'Enregistrer' : 'Créer le projet';
+    f.action = p ? PJ_URL + '/' + p.id : @js(route('admin.projets.store'));
+    document.getElementById('pj-methode').value = p ? 'PUT' : 'POST';
+    if (p) {
+        f.libelle.value = p.libelle; f.code.value = p.code; f.client.value = p.client;
+        document.getElementById('pj-statut').value = p.statut; document.getElementById('pj-resp').value = p.resp;
+        f.date_debut.value = p.debut; f.date_cible.value = p.cible;
+        document.getElementById('pj-deleg').checked = p.deleg; document.getElementById('pj-histo').checked = p.histo;
+    } else { document.getElementById('pj-statut').value = 'actif'; }
+    pjPeriode(); pjDeleg(); d.showModal(); f.libelle.focus();
 }
-function resetForm() {
-    document.getElementById('formTitre').textContent = 'Nouveau projet';
-    document.getElementById('formProjet').action = '{{ route("admin.projets.store") }}';
-    document.getElementById('fEditing').value = '';
-    document.getElementById('fCode').value = '';
-    document.getElementById('fLib').value = '';
-    document.getElementById('fClient').value = '';
-    document.getElementById('fResp').value = '';
-    document.getElementById('fStatut').value = 'actif';
-    document.getElementById('fDebut').value = '';
-    document.getElementById('fCible').value = '';
-    document.getElementById('fDeleg').checked = false;
-    document.getElementById('fDelegHisto').checked = false;
-    var mf = document.querySelector('#formProjet input[name="_method"]');
-    if (mf) mf.remove();
+/* Code proposé à partir de l'intitulé (sigle ou mot principal), tant qu'il n'a pas été saisi à la main */
+function pjCodeAuto(){
+    var c = document.getElementById('pj-code'); if (c.dataset.manuel) return;
+    var lib = document.getElementById('pj-lib').value.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    var paren = lib.match(/\(([A-Za-z0-9]{2,12})\)/);
+    var mots = lib.replace(/\(.*?\)/g, '').split(/[^A-Za-z0-9]+/).filter(function(m){ return m.length > 2 || /^[A-Z0-9]+$/.test(m); });
+    c.value = (paren ? paren[1] : (mots.length > 1 ? mots.map(function(m){ return m[0]; }).join('') : (mots[0] || ''))).toUpperCase().slice(0, 20);
 }
+function pjPeriode(){
+    var a = document.getElementById('pj-debut').value, b = document.getElementById('pj-cible').value, r = document.getElementById('pj-resume'), t = [];
+    var f = function(x){ return new Date(x + 'T12:00').toLocaleDateString('fr-FR', {day: 'numeric', month: 'long', year: 'numeric'}); };
+    if (a && b) {
+        if (b < a) { r.innerHTML = '<span style="color:var(--ko)">La date cible précède le début.</span>'; return; }
+        var j = Math.round((new Date(b) - new Date(a)) / 864e5), mois = Math.round(j / 30.4);
+        t.push('<b>' + (j < 60 ? j + ' jours' : mois + ' mois') + '</b> de projet, du ' + f(a) + ' au ' + f(b));
+    }
+    if (b) { var reste = Math.round((new Date(b + 'T12:00') - new Date()) / 864e5); t.push(reste >= 0 ? 'échéance dans ' + reste + ' jour' + (reste > 1 ? 's' : '') : '<span style="color:var(--ko)">échéance dépassée de ' + (-reste) + ' jours</span>'); }
+    r.innerHTML = t.join(' · ');
+}
+/* Les délégations supposent un responsable ; la rétrospective suppose la gestion des sprints */
+function pjDeleg(){
+    var resp = !!document.getElementById('pj-resp').value, dg = document.getElementById('pj-deleg'), hi = document.getElementById('pj-histo');
+    if (!resp) dg.checked = false;
+    if (!dg.checked) hi.checked = false;
+    dg.disabled = !resp; hi.disabled = !dg.checked;
+    [['pj-opt-deleg', dg], ['pj-opt-histo', hi]].forEach(function(x){ var o = document.getElementById(x[0]); o.classList.toggle('on', x[1].checked); o.classList.toggle('off', x[1].disabled); });
+    document.querySelector('#pj-opt-deleg span span').textContent = resp ? 'Le responsable crée, planifie et importe les sprints du projet.' : 'Choisissez d\'abord un responsable du projet.';
+}
+var pjFiltreStatut = '';
+function pjStatut(b){ pjFiltreStatut = b.dataset.f; document.querySelectorAll('.ad-filtres button').forEach(function(x){ x.classList.toggle('actif', x === b); }); pjFiltrer(); }
+function pjFiltrer(){
+    var q = document.getElementById('pj-cherche').value.trim().toLowerCase(), n = 0;
+    document.querySelectorAll('#pj-table tbody tr').forEach(function(tr){
+        var v = (!pjFiltreStatut || tr.dataset.statut === pjFiltreStatut) && (!q || tr.dataset.texte.indexOf(q) >= 0);
+        tr.hidden = !v; if (v) n++;
+    });
+    document.getElementById('pj-vide').hidden = n > 0;
+}
+@if($errors->any() && old('libelle'))
+/* Après une erreur, la fenêtre se rouvre avec la saisie */
+pjOuvrir(); (function(f){ f.libelle.value = @js(old('libelle')); f.code.value = @js(old('code')); f.client.value = @js(old('client')); f.date_debut.value = @js(old('date_debut')); f.date_cible.value = @js(old('date_cible')); document.getElementById('pj-resp').value = @js((string) old('responsable_projet_id')); document.getElementById('pj-statut').value = @js(old('statut', 'actif')); pjPeriode(); pjDeleg(); })(document.getElementById('pj-form'));
+@endif
 </script>
 @endpush

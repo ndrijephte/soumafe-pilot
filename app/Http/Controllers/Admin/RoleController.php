@@ -7,14 +7,11 @@ use Illuminate\Http\Request;
 
 class RoleController extends Controller
 {
+    /** Écran remplacé par Administration > Comptes et accès > Rôles et profils. */
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        $roles = Role::orderBy('libelle')->get()->map(function ($role) {
-            $role->users_count = User::where('role', $role->code)->count();
-            return $role;
-        });
-        return view('admin.roles.index', compact('roles'));
+        return redirect()->route('admin.acces.index', ['liste' => 'role']);
     }
 
     public function store(Request $r)

@@ -223,6 +223,8 @@ Route::middleware(['auth'])->group(function () {
     // Recouvrements
     Route::post('/parc/recouvrements/{recouvrement}/versement', [ParcController::class, 'storeVersement'])->name('parc.recouvrements.versement');
     Route::patch('/parc/recouvrements/{recouvrement}/annuler', [ParcController::class, 'annulerRecouvrement'])->name('parc.recouvrements.annuler');
+    Route::post('/parc/modalites', [ParcController::class, 'ajouterModalite'])->name('parc.modalites.store');
+    Route::post('/parametres/modalites', [\App\Http\Controllers\ModaliteController::class, 'store'])->name('modalites.store');
     Route::patch('/parc/recouvrements/{recouvrement}/lever', [ParcController::class, 'leverRecouvrement'])->name('parc.recouvrements.lever');
     Route::delete('/parc/recouvrements/{recouvrement}', [ParcController::class, 'destroyRecouvrement'])->name('parc.recouvrements.destroy');
     Route::post('/parc/chauffeurs', [ParcController::class, 'storeChauffeur'])->name('parc.chauffeurs.store');
@@ -359,11 +361,25 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/titres-poste/{titre}', [TitrePosteController::class, 'update'])->name('titres-poste.update');
         Route::delete('/titres-poste/{titre}', [TitrePosteController::class, 'destroy'])->name('titres-poste.destroy');
 
+        // Structure de l'organisation (domaines → services → pôles) : un seul écran
+        Route::get('/organisation', [\App\Http\Controllers\Admin\OrganisationController::class, 'index'])->name('organisation.index');
+        Route::post('/organisation', [\App\Http\Controllers\Admin\OrganisationController::class, 'store'])->name('organisation.store');
+        Route::patch('/organisation/{niveau}/{id}', [\App\Http\Controllers\Admin\OrganisationController::class, 'update'])->name('organisation.update')->whereNumber('id');
+        Route::delete('/organisation/{niveau}/{id}', [\App\Http\Controllers\Admin\OrganisationController::class, 'destroy'])->name('organisation.destroy')->whereNumber('id');
+
+        // Listes de choix (types d'événement, de blocage, natures d'absence, titres de poste) : un seul écran
+        Route::get('/listes', [\App\Http\Controllers\Admin\ListeChoixController::class, 'index'])->name('listes.index');
+        Route::get('/acces', [\App\Http\Controllers\Admin\ListeChoixController::class, 'acces'])->name('acces.index');
+        Route::post('/listes', [\App\Http\Controllers\Admin\ListeChoixController::class, 'store'])->name('listes.store');
+        Route::patch('/listes/{liste}/{id}', [\App\Http\Controllers\Admin\ListeChoixController::class, 'update'])->name('listes.update')->whereNumber('id');
+        Route::delete('/listes/{liste}/{id}', [\App\Http\Controllers\Admin\ListeChoixController::class, 'destroy'])->name('listes.destroy')->whereNumber('id');
+
         Route::get('/parc-parametres', [ParcParametreController::class, 'index'])->name('parc-parametres.index');
         Route::post('/parc-parametres', [ParcParametreController::class, 'update'])->name('parc-parametres.update');
         Route::post('/parc-parametres/exercice', [ParcParametreController::class, 'updateExercice'])->name('parc-parametres.exercice');
         Route::post('/parc-parametres/types', [ParcParametreController::class, 'storeType'])->name('parc-parametres.types.store');
         Route::put('/parc-parametres/types/{type}', [ParcParametreController::class, 'toggleType'])->name('parc-parametres.types.toggle');
+        Route::patch('/parc-parametres/types/{type}', [ParcParametreController::class, 'updateType'])->name('parc-parametres.types.update');
         Route::delete('/parc-parametres/types/{type}', [ParcParametreController::class, 'destroyType'])->name('parc-parametres.types.destroy');
 
         Route::get('/audit', function (\Illuminate\Http\Request $r) {

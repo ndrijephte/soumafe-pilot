@@ -15,11 +15,11 @@ class BlocageController extends Controller
         abort_unless((int) $tache->user_id === (int) $r->user()->id || $r->user()->estPilote(), 403);
         $r->validate([
             'motif'             => 'required|string|max:500',
-            'type'              => 'nullable|string|max:50',
+            'type'              => ['nullable', 'string', 'max:50', \Illuminate\Validation\Rule::when(Schema::hasTable('types_blocage') && TypeBlocage::exists(), [\Illuminate\Validation\Rule::exists('types_blocage', 'code')])],
             'recommandation'    => 'nullable|string|max:1000',
             'intervenant_id'    => 'nullable|exists:users,id',
             'leveur_pressenti'  => 'nullable|string|max:100',
-        ]);
+        ], ['type.exists' => "Ce type de blocage n'est pas paramétré : utilisez « + Ajouter un type de blocage… » pour l'ajouter."]);
 
         $typeCode = $r->type ?? 'technique';
 

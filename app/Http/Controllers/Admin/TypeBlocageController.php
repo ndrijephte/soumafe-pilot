@@ -7,12 +7,11 @@ use Illuminate\Http\Request;
 
 class TypeBlocageController extends Controller
 {
+    /** Écran remplacé par Administration > Listes de choix. */
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        return view('admin.types_blocage.index', [
-            'types' => TypeBlocage::orderBy('libelle')->get(),
-        ]);
+        return redirect()->route('admin.listes.index', ['liste' => 'type_blocage']);
     }
 
     public function store(Request $r)
@@ -39,6 +38,8 @@ class TypeBlocageController extends Controller
         abort_unless($r->user()->estAdmin(), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         if ($type->systeme) return back()->with('erreur', 'Impossible : type système protégé.');
+        $n = \App\Models\Blocage::where('type', $type->code)->count();
+        if ($n) return back()->with('erreur', "Impossible : « {$type->libelle} » est utilisé par {$n} blocage(s). Renommez-le plutôt.");
         $type->delete();
         return back()->with('succes', 'Type de blocage supprimé.');
     }

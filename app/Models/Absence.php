@@ -21,12 +21,13 @@ class Absence extends Model
     /** Label du type. */
     public function labelType(): string
     {
-        return match ($this->type) {
+        return TypeAbsence::libelle($this->type) ?? match ($this->type) {
             'conge' => 'Congé',
             'mission' => 'Mission',
             'maladie' => 'Maladie',
             'formation' => 'Formation',
-            default => 'Autre',
+            'autre' => 'Autre',
+            default => ucfirst(str_replace('_', ' ', (string) $this->type)),
         };
     }
 

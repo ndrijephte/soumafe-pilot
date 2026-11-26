@@ -82,7 +82,7 @@
         .tache .meta{flex-direction:column;gap:2px}
     }
     .ajout-sprint{display:inline-flex;align-items:center;margin-left:4px;padding:1px 6px;border-radius:999px;background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;font-size:10px;font-weight:700;white-space:nowrap;vertical-align:middle}
-    .tache:has(.ajout-sprint){border-left:3px solid #8b5cf6}
+    .tache:has(.ajout-sprint){border-color:#c4b5fd;background:#fcfbff}
 </style>
 @endpush
 

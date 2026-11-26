@@ -38,7 +38,7 @@
 .sc-tbl td.nom small{display:block;font-weight:400;color:var(--gris);font-size:11px}
 .sc-tbl tr.module td{background:var(--fond);font-weight:600;color:var(--bleu);font-size:11px;text-transform:uppercase;letter-spacing:.3px}
 .sc-tbl tr.story td{font-weight:600;color:var(--bleu)}
-.sc-tbl tr.epic td{background:#f8fbff;color:#2e74b5;font-weight:700;font-size:11.5px;border-left:3px solid #93c5fd;padding-left:12px}
+.sc-tbl tr.epic td{background:#f8fbff;color:#2e74b5;font-weight:700;font-size:11.5px;padding-left:12px}
 .sc-tbl td>.rd,.sc-tbl td>.rd-lecture{margin:0}
 .sc-tbl .rd-compact .rd-zone{min-height:32px;padding:5px 8px;font-size:12px}
 .sc-tbl td{line-height:1.4}

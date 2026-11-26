@@ -7,12 +7,11 @@ use Illuminate\Http\Request;
 
 class TypeEvenementController extends Controller
 {
+    /** Écran remplacé par Administration > Listes de choix. */
     public function index(Request $r)
     {
         abort_unless($r->user()->estAdmin(), 403);
-        return view('admin.types_evenement.index', [
-            'types' => TypeEvenement::orderBy('libelle')->get(),
-        ]);
+        return redirect()->route('admin.listes.index', ['liste' => 'type_evenement']);
     }
 
     public function store(Request $r)
@@ -45,6 +44,8 @@ class TypeEvenementController extends Controller
         abort_unless($r->user()->estAdmin(), 403);
         $r->validate(['motif_suppression' => 'required|string|min:5']);
         if ($type->systeme) return back()->with('erreur', 'Impossible : type système protégé.');
+        $n = \App\Models\Evenement::where('type', $type->code)->count();
+        if ($n) return back()->with('erreur', "Impossible : « {$type->libelle} » est utilisé par {$n} événement(s). Renommez-le plutôt.");
         $type->delete();
         return back()->with('succes', 'Type d\'événement supprimé.');
     }

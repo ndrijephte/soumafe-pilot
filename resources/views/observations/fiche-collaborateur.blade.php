@@ -84,6 +84,31 @@
 .jr-quoi .det{display:block;color:var(--gris);font-size:11.5px;margin-top:2px;white-space:pre-line;max-height:3.2em;overflow:hidden}
 .jr-plus{display:block;margin:12px auto 0}
 @media(max-width:900px){.deux{grid-template-columns:1fr}.fc-id{grid-template-columns:auto 1fr}.fc-score{grid-column:1/-1}.jr-ligne{grid-template-columns:44px 1fr}.jr-ligne .jr-dom{display:none}}
+/* Synthèse : trois blocs d'indicateurs, barres bleues, la couleur réservée aux valeurs */
+.fc-ind{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+@media(max-width:1000px){.fc-ind{grid-template-columns:1fr}}
+.fc-bloc{background:var(--carte);border:1px solid var(--bord);border-radius:12px;padding:12px 16px}
+.fc-bloc h4{margin:0 0 10px;font-size:11px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.4px;display:flex;justify-content:space-between}
+.fc-bloc h4 span{text-transform:none;letter-spacing:0;font-weight:400}
+.fc-vals{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:12px}
+.fc-vals>div{display:flex;flex-direction:column;min-width:0}
+.fc-vals b{font-size:20px;font-weight:700;color:var(--bleu);line-height:1.15;white-space:nowrap}
+.fc-vals b small{font-size:12px;font-weight:400;color:var(--gris)}
+.fc-vals b a{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor}
+.fc-vals span{font-size:11.5px;color:#475569;margin-top:1px}
+.fc-vals em{font-style:normal;font-size:10.5px;color:var(--gris)}
+.fc-jauge{display:block;height:4px;border-radius:3px;background:#e2e8f0;margin:5px 0 2px;overflow:hidden}
+.fc-jauge i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.fc-vals .ok,.fc-comp b.ok{color:var(--ok)}.fc-vals .wa,.fc-comp b.wa{color:#b45309}.fc-vals .ko,.fc-comp b.ko{color:var(--ko)}
+.fc-comp{display:grid;grid-template-columns:150px minmax(0,1fr) 72px;gap:10px;align-items:center;font-size:12.5px;padding:5px 0}
+.fc-comp em{font-style:normal;font-size:11px;color:var(--gris);margin-left:2px}
+.fc-comp b{text-align:right;font-weight:600;color:#334155}
+.fc-comp.na{opacity:.5}
+.fc-comp.na b{font-weight:400;font-size:11.5px;color:var(--gris)}
+.fc-piste{display:block;height:7px;border-radius:4px;background:#eef2f7;overflow:hidden}
+.fc-piste i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.fc-deux .panneau{margin-bottom:0}
+.fc-deux{margin-bottom:14px}
 </style>
 @endpush
 @section('contenu')
@@ -194,40 +219,61 @@
 </nav>
 
 {{-- ============ Synthèse ============ --}}
+@php
+    $tauxC = fn($v) => $v === null ? '' : ($v >= 80 ? 'ok' : ($v >= 50 ? 'wa' : 'ko'));
+@endphp
 <section class="vue" data-vue="synthese">
-    <div class="kpis">
-        <div class="kpi"><div class="val">{{ $s['audit_actions'] }}</div><div class="lbl">Actions tracées</div><div class="aide">sur {{ $s['jours_actifs'] }} jour(s) d'activité</div></div>
-        <div class="kpi"><div class="val">{{ $s['taches_terminees'] }}/{{ $s['taches_total'] }}</div><div class="lbl">Tâches terminées</div><div class="aide">{{ $s['taux_completion'] }} % · {{ $s['productivite'] }}/jour ouvré</div></div>
-        <div class="kpi"><div class="val" style="color:{{ $s['taches_retard'] ? 'var(--ko)' : 'var(--bleu)' }}">{{ $s['taches_retard'] }}</div><div class="lbl">Tâches en retard</div></div>
-        <div class="kpi"><div class="val">{{ round($s['obj_score']) }} %</div><div class="lbl">Score OKR</div><div class="aide">{{ $s['kr_atteints'] }}/{{ $s['kr_total'] }} résultats clés atteints</div></div>
-        <div class="kpi"><div class="val">{{ $s['obs_resolus'] }}/{{ $s['obs_total'] }}</div><div class="lbl">Observations résolues</div></div>
-        <div class="kpi"><div class="val">{{ $s['jours_presents'] }}</div><div class="lbl">Jours de présence</div><div class="aide">{{ $s['retards'] }} retard(s) · {{ $s['jours_absents'] }} absence(s)</div></div>
-        @if($p)<div class="kpi"><div class="val" style="color:#0f766e">{{ $p['actions']->count() }}</div><div class="lbl">Actions parc auto</div><div class="aide">sur {{ $p['jours'] }} jour(s)</div></div>@endif
-        <div class="kpi"><div class="val">{{ $s['connexions'] }}</div><div class="lbl">Connexions</div></div>
+    {{-- Indicateurs regroupés : production, engagements, présence --}}
+    <div class="fc-ind">
+        <section class="fc-bloc">
+            <h4>Production</h4>
+            <div class="fc-vals">
+                <div><b>{{ $s['taches_terminees'] }}<small>/{{ $s['taches_total'] }}</small></b><span>tâches terminées</span><i class="fc-jauge"><i style="width:{{ $s['taux_completion'] }}%"></i></i></div>
+                <div><b class="{{ $s['taches_retard'] ? 'ko' : '' }}">@if($s['taches_retard'])<a href="#" onclick="fcOnglet('taches');return false" title="Voir les tâches">{{ $s['taches_retard'] }}</a>@else 0 @endif</b><span>en retard</span></div>
+                <div><b>{{ $s['productivite'] }}</b><span>tâche(s) / jour ouvré</span></div>
+            </div>
+        </section>
+        <section class="fc-bloc">
+            <h4>Engagements</h4>
+            <div class="fc-vals">
+                <div><b class="{{ $data['objectifs']->isEmpty() ? '' : $tauxC(round($s['obj_score'])) }}">{{ $data['objectifs']->isEmpty() ? '—' : round($s['obj_score']) . ' %' }}</b><span>score OKR</span>@if($s['kr_total'])<em>{{ $s['kr_atteints'] }}/{{ $s['kr_total'] }} résultats clés</em>@endif</div>
+                <div><b>{{ $s['obs_resolus'] }}<small>/{{ $s['obs_total'] }}</small></b><span>observations résolues</span></div>
+                <div><b>{{ $s['audit_actions'] }}</b><span>actions tracées</span><em>{{ $s['jours_actifs'] }} jour(s) d'activité</em></div>
+                @if($p)<div><b>{{ $p['actions']->count() }}</b><span>actions parc auto</span></div>@endif
+            </div>
+        </section>
+        <section class="fc-bloc">
+            <h4>Présence <span>{{ $s['jours_ouvres'] }} jour(s) ouvré(s)</span></h4>
+            <div class="fc-vals">
+                <div><b class="{{ $s['jours_ouvres'] ? $tauxC($s['assiduite']) : '' }}">{{ $s['jours_ouvres'] ? $s['assiduite'] . ' %' : '—' }}</b><span>assiduité</span><i class="fc-jauge"><i style="width:{{ $s['assiduite'] }}%"></i></i><em>{{ $s['jours_presents'] }}/{{ $s['jours_ouvres'] }} jours présent</em></div>
+                <div><b class="{{ $tauxC($s['ponctualite']) }}">{{ $s['ponctualite'] !== null ? $s['ponctualite'] . ' %' : '—' }}</b><span>ponctualité</span><em>{{ $s['retards'] }} retard(s)</em></div>
+                <div><b class="{{ $s['jours_absents'] ? 'ko' : '' }}">{{ $s['jours_absents'] }}</b><span>absence(s)</span>@if($s['non_pointes'])<em>dont {{ $s['non_pointes'] }} non pointé(s)</em>@endif</div>
+            </div>
+        </section>
     </div>
 
-    <div class="deux">
+    <div class="deux fc-deux">
+        <div class="panneau">
+            <h3>Composantes du score <span class="nb">score global {{ $scoreGlobal !== null ? $scoreGlobal . ' %' : '—' }}</span></h3>
+            @foreach($data['scoreComposantes'] as $comp)
+            <div class="fc-comp {{ $comp['na'] ? 'na' : '' }}" @if($comp['na']) title="Rien à évaluer sur la période : composante écartée du score" @endif>
+                <span>{{ $comp['label'] }} <em>{{ $comp['poids'] }} %</em></span>
+                <span class="fc-piste"><i style="width:{{ $comp['na'] ? 0 : $comp['score'] }}%"></i></span>
+                <b class="{{ $comp['na'] ? '' : $tauxC($comp['score']) }}">{{ $comp['na'] ? 'sans objet' : $comp['score'] . ' %' }}</b>
+            </div>
+            @endforeach
+        </div>
         <div class="panneau">
             <h3>Activité par domaine <span class="nb">{{ \Carbon\Carbon::parse($debut)->format('d/m/Y') }} → {{ \Carbon\Carbon::parse($fin)->format('d/m/Y') }}</span></h3>
-            @forelse(collect($DOM)->filter(fn($d, $k) => $parDomaine->has($k)) as $k => $d)
-            <div class="barre-ligne">
+            @forelse(collect($DOM)->filter(fn($d, $k) => $parDomaine->has($k))->sortByDesc(fn($d, $k) => $parDomaine[$k]) as $k => $d)
+            <div class="fc-comp">
                 <span>{{ $d['libelle'] }}</span>
-                <span class="piste"><i style="width:{{ round($parDomaine[$k] / $maxDom * 100) }}%;background:{{ $d['couleur'] }}"></i></span>
-                <span class="n">{{ $parDomaine[$k] }}</span>
+                <span class="fc-piste"><i style="width:{{ round($parDomaine[$k] / $maxDom * 100) }}%"></i></span>
+                <b>{{ $parDomaine[$k] }}</b>
             </div>
             @empty
             <p class="vide">Aucune action tracée sur cette période.</p>
             @endforelse
-        </div>
-        <div class="panneau">
-            <h3>Composantes du score <span class="nb">pondérées · sans objet = écartée</span></h3>
-            @foreach($data['scoreComposantes'] as $comp)
-            <div class="composante" @if($comp['na']) style="opacity:.55" title="Rien à évaluer sur la période : composante écartée du score" @endif>
-                <span>{{ $comp['label'] }} <span class="attenue">({{ $comp['poids'] }} %)</span></span>
-                <span class="barre-ligne" style="display:block;margin:0"><span class="piste" style="display:block"><i style="width:{{ $comp['na'] ? 0 : $comp['score'] }}%;background:{{ $couleur($comp['score']) }}"></i></span></span>
-                @if($comp['na'])<span class="n attenue" style="text-align:right">sans objet</span>@else<span class="n" style="text-align:right;font-weight:600;color:{{ $couleur($comp['score']) }}">{{ $comp['score'] }} %</span>@endif
-            </div>
-            @endforeach
         </div>
     </div>
 

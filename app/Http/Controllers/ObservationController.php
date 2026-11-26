@@ -322,8 +322,7 @@ class ObservationController extends Controller
                       ->orWhereBetween('echeance', [$debut, $fin])
                       ->orWhereBetween('date_fin_reelle', [$debut, $fin]);
                 })
-                ->with(['projet', 'sprint:id,numero'])
-                ->withTrashed()
+                ->with(['projet', 'sprint:id,numero,statut'])
                 ->orderByDesc('date_debut')
                 ->get();
 
@@ -437,10 +436,23 @@ class ObservationController extends Controller
             // 3. Observations (15%)
             $scoreObs = $obsTotal > 0 ? round($obsResolus / $obsTotal * 100) : 0;
             $scoreComposantes['obs'] = ['poids' => 15, 'score' => $scoreObs, 'label' => 'Observations'];
-            // 4. Assiduité (15%)
-            $joursAttendus = $pointages->count();
-            $joursPresents = $pointages->whereIn('statut', ['present', 'retard', 'sorti_tot'])->count();
-            $scoreAssiduite = $joursAttendus > 0 ? round($joursPresents / $joursAttendus * 100) : 0;
+            // 4. Assiduité (15%) : jours de présence / jours ouvrés de la période. Les jours ouvrés se comptent depuis la
+            // mise en service du pointage (premier pointage enregistré) et l'arrivée du collaborateur, jusqu'à aujourd'hui ;
+            // un jour ouvré sans pointage est une absence.
+            $premierPointage = Schema::hasTable('pointages') ? \App\Models\Pointage::min('date') : null;
+            $depuis = collect([\Carbon\Carbon::parse($debut), $premierPointage ? \Carbon\Carbon::parse($premierPointage) : null, $collab->created_at?->copy()->startOfDay()])->filter()->max();
+            $jusqua = \Carbon\Carbon::parse($fin)->min(today());
+            $joursOuvresListe = [];
+            for ($j = $depuis->copy(); $j->lte($jusqua); $j->addDay()) {
+                if (\App\Services\CalendrierTravail::estJourOuvre($j)) $joursOuvresListe[] = $j->toDateString();
+            }
+            $joursAttendus = count($joursOuvresListe);
+            $pointesOuvres = $pointages->filter(fn($p) => in_array(\Carbon\Carbon::parse($p->date)->toDateString(), $joursOuvresListe, true));
+            $joursPresents = $pointesOuvres->whereIn('statut', ['present', 'retard', 'sorti_tot'])->count();
+            $joursALHeure = $pointesOuvres->where('statut', 'present')->count();
+            $nonPointes = max(0, $joursAttendus - $pointesOuvres->count());
+            $scoreAssiduite = $joursAttendus > 0 ? (int) round($joursPresents / $joursAttendus * 100) : 0;
+            $ponctualite = $joursPresents > 0 ? (int) round($joursALHeure / $joursPresents * 100) : null;
             $scoreComposantes['assiduite'] = ['poids' => 15, 'score' => $scoreAssiduite, 'label' => 'Assiduité'];
             // 5. Réunions (5%)
             $scoreReunions = $reunions->count() > 0
@@ -450,7 +462,7 @@ class ObservationController extends Controller
             // Une composante sans objet sur la période (aucune tâche, aucun objectif…) ne pénalise pas le score :
             // elle est écartée et les poids des autres sont rapportés à 100 %.
             $applicable = ['taches' => $taches->isNotEmpty(), 'okr' => $objectifs->isNotEmpty(), 'obs' => $obsTotal > 0,
-                'assiduite' => $pointages->isNotEmpty(), 'reunions' => $reunions->isNotEmpty()];
+                'assiduite' => $joursAttendus > 0, 'reunions' => $reunions->isNotEmpty()];
             foreach ($scoreComposantes as $k => &$c) $c['na'] = !$applicable[$k];
             unset($c);
             $poidsUtiles = collect($scoreComposantes)->reject(fn($c) => $c['na'])->sum('poids');
@@ -486,7 +498,11 @@ class ObservationController extends Controller
                     'obs_suivies'      => $observationsSuivies->count(),
                     'obs_suivies_resolues' => $observationsSuivies->where('statut', 'resolu')->count(),
                     'jours_presents'   => $joursPresents,
-                    'jours_absents'    => $pointages->where('statut', 'absent')->count(),
+                    'jours_ouvres'     => $joursAttendus,
+                    'non_pointes'      => $nonPointes,
+                    'assiduite'        => $scoreAssiduite,
+                    'ponctualite'      => $ponctualite,
+                    'jours_absents'    => $pointages->where('statut', 'absent')->count() + $nonPointes,
                     'retards'          => $pointages->where('statut', 'retard')->count(),
                     'reunions_total'   => $reunions->count(),
                     'reunions_present' => $reunions->whereIn('statut', ['prevu', 'present'])->count(),

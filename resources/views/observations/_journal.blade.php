@@ -27,7 +27,7 @@
         @foreach($lj as $l)
         @php $d = $DOM[$l['domaine']]; @endphp
         <div class="jr-ligne" data-dom="{{ $l['domaine'] }}">
-            <span class="h">{{ $l['heure'] ? $l['quand']->format('H:i') : '—' }}</span>
+            <span class="h">{{ $l['heure'] ? $l['quand']->format('H:i') : '' }}</span>
             <span class="jr-dom" style="background:{{ $d['fond'] }};color:{{ $d['couleur'] }}">{{ $d['libelle'] }}</span>
             <span class="jr-quoi">
                 <strong>{{ $J::libelleModule($l['module']) }} · {{ $J::libelleAction($l['action']) }}</strong>@if($l['cible'])<span class="cible"> : {{ \Illuminate\Support\Str::limit($l['cible'], 140) }}</span>@endif
